@@ -100,6 +100,7 @@ local install). Copy `.env.example` → `.env` first.
 | `prisma:generate` | Generate the Prisma client. |
 | `prisma:migrate` | `prisma migrate dev` (create/apply a dev migration; needs a DB). |
 | `prisma:deploy` | `prisma migrate deploy` (apply committed migrations). |
+| `db:seed` | Seed the RBAC catalog (permissions + default roles) and a bootstrap Super Admin (`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`). Idempotent. |
 
 **Web (`apps/web`) — `pnpm --filter web <script>`:** `dev`, `build`, `preview`,
 `typecheck`, `lint`, `test` (Vitest), `test:e2e` (Playwright; set `PW_EXECUTABLE_PATH` to
