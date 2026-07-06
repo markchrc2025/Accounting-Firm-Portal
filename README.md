@@ -38,6 +38,51 @@ Everything Claude Code needs to start building the Accounting Firm Portal.
 4. Approve the plan, let it build **Phase 0**, review, then continue phase by phase using
    the follow-up prompts.
 
+## Getting started (Phase 0 scaffold)
+
+The repo is a **pnpm monorepo**: `apps/api` (NestJS), `apps/web` (React + Vite), and the
+pre-built `packages/shared` (`@portal/shared`).
+
+**Prerequisites:** Node 22 (see `.nvmrc`), pnpm 10, and PostgreSQL + Redis.
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Configure environment
+cp .env.example .env            # adjust DATABASE_URL / REDIS_URL if needed
+
+# 3. Bring up Postgres + Redis (or use your own)
+docker compose up -d
+
+# 4. Generate the Prisma client and apply the schema
+pnpm --filter api prisma:generate
+pnpm --filter api prisma:migrate      # first run creates the DB tables
+
+# 5. Run both apps (API on :3000, web on :5173)
+pnpm dev
+```
+
+Then open:
+- Web home page: <http://localhost:5173> — renders the VAT classes and integration scopes
+  imported live from `@portal/shared`, and pings the API.
+- API health: <http://localhost:3000/api/v1/health> (liveness) and
+  `/api/v1/health/readiness` (DB + Redis checks).
+- API docs (Swagger): <http://localhost:3000/api/v1/docs>.
+
+**Quality gates** (also enforced in CI — `.github/workflows/ci.yml`):
+
+```bash
+pnpm typecheck      # tsc across all packages
+pnpm lint           # ESLint (api + web)
+pnpm test           # unit tests (shared + api + web)
+pnpm --filter api test:e2e   # API e2e (hermetic — no DB required)
+pnpm build          # build shared + api + web
+```
+
+The CI workflow runs those in a **hermetic** job (no DB) plus a separate **database** job
+that spins up Postgres and applies the Prisma migrations.
+
 ## The one rule to remember
 
 The Portal **summarizes**; the BIR Form Generator **computes the filing**. The Portal

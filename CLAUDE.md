@@ -68,10 +68,47 @@ A pnpm monorepo. Fill in exact paths as the scaffold lands:
   enums and the full Portal ⇄ Generator contract schemas. Do NOT recreate it; wire the
   workspace around it and import from it. Re-declaring these enums/shapes anywhere else is
   a bug.
-- `prisma/` — schema & migrations
+- `apps/api/prisma/` — Prisma schema & migrations (co-located with the API app, which
+  owns the database; run Prisma scripts from `apps/api`)
 - `docs/` — the specs above
 
 ## Commands
 
-_To be filled in once the scaffold exists (e.g. `pnpm dev`, `pnpm test`, `pnpm lint`,
-`pnpm --filter api prisma migrate dev`)._
+Prereqs: Node 22 (`.nvmrc`), pnpm 10, and Postgres + Redis (`docker compose up -d`, or a
+local install). Copy `.env.example` → `.env` first.
+
+**Workspace-wide (run from repo root):**
+
+| Command | What it does |
+|---|---|
+| `pnpm install` | Install all workspace deps. |
+| `pnpm dev` | Run API + web dev servers in parallel. |
+| `pnpm build` | Build `@portal/shared`, then the API and web. |
+| `pnpm typecheck` | `tsc --noEmit` across all packages. |
+| `pnpm lint` | ESLint across api + web. |
+| `pnpm test` | Unit tests across all packages (shared + api + web). |
+| `pnpm format` / `pnpm format:check` | Prettier write / check (docs + `packages/shared` are ignored). |
+
+**API (`apps/api`) — `pnpm --filter api <script>`:**
+
+| Script | What it does |
+|---|---|
+| `dev` | `ts-node-dev` watch server on `:3000` (health at `/api/v1/health`, Swagger at `/api/v1/docs`). |
+| `start` | Run once via `ts-node`. |
+| `build` | Compile to `dist/` with `tsc`. |
+| `test` / `test:e2e` | Jest unit specs / Supertest e2e (both hermetic — no DB needed). |
+| `prisma:generate` | Generate the Prisma client. |
+| `prisma:migrate` | `prisma migrate dev` (create/apply a dev migration; needs a DB). |
+| `prisma:deploy` | `prisma migrate deploy` (apply committed migrations). |
+
+**Web (`apps/web`) — `pnpm --filter web <script>`:** `dev`, `build`, `preview`,
+`typecheck`, `lint`, `test` (Vitest), `test:e2e` (Playwright; set `PW_EXECUTABLE_PATH` to
+use a pre-installed Chromium).
+
+**Runtime notes (learned during Phase 0):**
+- `@portal/shared` is consumed as **source** (its `main` points at `src/index.ts`). The web
+  app lets Vite transpile it; the API resolves it via a tsconfig `paths` alias and runs on
+  **`ts-node`** — not `tsx`/esbuild, which strips the `emitDecoratorMetadata` NestJS needs
+  for DI. A `ts-node` `moduleTypes` override compiles the ESM-source shared package as CJS.
+- Prisma is generated into `node_modules`, so run `pnpm --filter api prisma:generate` after
+  a fresh install (CI does this before typecheck).

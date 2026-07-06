@@ -1,0 +1,15 @@
+node_modules
+dist
+build
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+**/generated
+
+# Source-of-truth docs and the pre-built shared package are managed externally.
+docs
+packages/shared
+CLAUDE.md
+PROMPT.md
+README.md
