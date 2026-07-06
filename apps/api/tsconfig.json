@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": false,
+    "declaration": false,
+    "baseUrl": ".",
+    "types": ["node", "jest"],
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "files": true,
+    "//": "Force the ESM-source @portal/shared to transpile as CommonJS so the CJS API can require() it.",
+    "moduleTypes": {
+      "../../packages/shared/src/**/*": "cjs"
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

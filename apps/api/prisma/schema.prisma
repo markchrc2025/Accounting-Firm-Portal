@@ -1,0 +1,275 @@
+// Accounting Firm Portal — Prisma schema.
+//
+// Phase 0 covers the CORE identity, access & tenancy entities from
+// docs/system-design.md §7.1 (View A). Financial, tax and BIR-integration
+// entities (View B) arrive in later phases.
+//
+// Design notes:
+//   * The domain model's abstract `User` (with `FirmUser` / `ClientUser`
+//     subclasses) is expressed as a single `User` table + a `userType`
+//     discriminator + one profile table per subtype. Prisma has no class
+//     inheritance, and a single table keeps auth/RBAC joins uniform.
+//   * Tax-classification enums are OWNED by @portal/shared and must never be
+//     re-declared here. Only DB-structural enums live in this file.
+//   * Every tenant-scoped row carries firmId / clientId for isolation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Structural enums (NOT tax-classification; those live in @portal/shared) ---
+
+enum UserType {
+  FIRM
+  CLIENT
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum ClientStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Scope of a role: firm-wide staff roles vs. client-portal roles.
+enum RoleScope {
+  FIRM
+  CLIENT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum IntegrationClientStatus {
+  ACTIVE
+  DISABLED
+}
+
+// --- Tenancy root ---
+
+/// The accounting firm operating the portal (top-level tenant owner).
+model Firm {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  settingsJson Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clients            Client[]
+  users              User[]
+  integrationClients IntegrationClient[]
+
+  @@map("firms")
+}
+
+/// A business served by the firm. Each client is an isolated data tenant.
+model Client {
+  id              String       @id @default(uuid()) @db.Uuid
+  firmId          String       @db.Uuid
+  businessName    String
+  tin             String?
+  address         String?
+  taxType         String? // "VAT" | "PERCENTAGE" — refined in later phases
+  fiscalYearStart DateTime?    @db.Date
+  currency        String       @default("PHP")
+  seatLimit       Int          @default(3) // FR-17: minimum 3 seats per client
+  status          ClientStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  firm            Firm             @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  clientUsers     ClientUserProfile[]
+  assignedStaff   FirmClientAssignment[]
+  invitations     Invitation[]
+  scopedUserRoles UserRole[]
+
+  @@index([firmId])
+  @@map("clients")
+}
+
+// --- Users (single table + discriminator + profile tables) ---
+
+/// Base account for every human user (firm staff and client-portal users).
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  firmId       String     @db.Uuid
+  userType     UserType
+  fullName     String
+  email        String     @unique
+  passwordHash String?
+  mfaEnabled   Boolean    @default(false)
+  status       UserStatus @default(INVITED)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  firm          Firm               @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  firmProfile   FirmUserProfile?
+  clientProfile ClientUserProfile?
+  userRoles     UserRole[]
+  auditLogs     AuditLog[]
+
+  @@index([firmId])
+  @@map("users")
+}
+
+/// Firm-staff specific attributes (User.userType = FIRM).
+model FirmUserProfile {
+  userId     String  @id @db.Uuid
+  title      String?
+  employeeId String?
+
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientAssignments FirmClientAssignment[]
+
+  @@map("firm_user_profiles")
+}
+
+/// Client-portal specific attributes (User.userType = CLIENT).
+model ClientUserProfile {
+  userId     String @id @db.Uuid
+  clientId   String @db.Uuid
+  clientRole String // "OWNER" | "MANAGER" | "VIEWER" — enforced in Phase 1
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_user_profiles")
+}
+
+/// Assignment of a firm user to a client (per-client visibility scoping).
+model FirmClientAssignment {
+  firmUserId String @db.Uuid
+  clientId   String @db.Uuid
+
+  firmUser FirmUserProfile @relation(fields: [firmUserId], references: [userId], onDelete: Cascade)
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([firmUserId, clientId])
+  @@index([clientId])
+  @@map("firm_client_assignments")
+}
+
+// --- RBAC (data-driven roles & permissions) ---
+
+model Role {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  scope     RoleScope
+  createdAt DateTime  @default(now())
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([name, scope])
+  @@map("roles")
+}
+
+/// A granular (resource, action) permission, e.g. Sales:Create.
+model Permission {
+  id       String @id @default(uuid()) @db.Uuid
+  resource String
+  action   String
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+/// Grant of a role to a user, optionally scoped to a single client
+/// (clientScopeId null = firm-wide / not client-scoped).
+model UserRole {
+  id            String  @id @default(uuid()) @db.Uuid
+  userId        String  @db.Uuid
+  roleId        String  @db.Uuid
+  clientScopeId String? @db.Uuid
+
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  clientScope Client? @relation(fields: [clientScopeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, clientScopeId])
+  @@index([userId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// --- Invitations, integration credentials, audit ---
+
+/// Client-user invitation with a single-use, expiring activation token (FR-04).
+model Invitation {
+  id        String           @id @default(uuid()) @db.Uuid
+  email     String
+  clientId  String           @db.Uuid
+  role      String
+  token     String           @unique
+  expiresAt DateTime
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("invitations")
+}
+
+/// OAuth2 client-credentials machine credential for the BIR Form Generator.
+/// Secret is stored HASHED; granted scopes are a JSON array of OAuthScope.
+model IntegrationClient {
+  id                String                  @id @default(uuid()) @db.Uuid
+  firmId            String                  @db.Uuid
+  clientKey         String                  @unique
+  clientSecretHash  String
+  grantedScopesJson Json                    @default("[]")
+  status            IntegrationClientStatus @default(ACTIVE)
+  lastUsedAt        DateTime?
+  createdAt         DateTime                @default(now())
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@index([firmId])
+  @@map("integration_clients")
+}
+
+/// Append-only audit trail (FR-32).
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?  @db.Uuid
+  ipAddress  String?
+  metadata   Json     @default("{}")
+  timestamp  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

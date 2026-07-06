@@ -1,0 +1,13 @@
+{
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testMatch": ["<rootDir>/test/**/*.e2e-spec.ts"],
+  "moduleFileExtensions": ["ts", "js", "json"],
+  "transform": {
+    "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.json" }]
+  },
+  "moduleNameMapper": {
+    "^@portal/shared$": "<rootDir>/../../packages/shared/src/index.ts"
+  },
+  "transformIgnorePatterns": ["/node_modules/(?!(.pnpm/)?(zod)/)"]
+}

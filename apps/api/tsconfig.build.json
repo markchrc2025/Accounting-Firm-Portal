@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "paths": {
+      "@portal/shared": ["../../packages/shared/dist/index"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "test", "src/**/*.spec.ts"]
+}
