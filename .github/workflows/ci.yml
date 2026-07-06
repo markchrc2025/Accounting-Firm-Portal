@@ -83,8 +83,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter api prisma:generate
+
       - name: Apply migrations
         run: pnpm --filter api prisma:deploy
 
       - name: Verify schema is in sync with migrations
         run: pnpm --filter api exec prisma migrate status
+
+      - name: Seed RBAC catalog + bootstrap admin (idempotent)
+        run: pnpm --filter api db:seed

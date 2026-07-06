@@ -59,16 +59,24 @@ docker compose up -d
 pnpm --filter api prisma:generate
 pnpm --filter api prisma:migrate      # first run creates the DB tables
 
-# 5. Run both apps (API on :3000, web on :5173)
+# 5. Seed the RBAC catalog + a bootstrap Super Admin (admin@firm.test / ChangeMe123!)
+pnpm --filter api db:seed
+
+# 6. Run both apps (API on :3000, web on :5173)
 pnpm dev
 ```
 
 Then open:
-- Web home page: <http://localhost:5173> — renders the VAT classes and integration scopes
-  imported live from `@portal/shared`, and pings the API.
+- Web app: <http://localhost:5173> — sign in with the seeded admin
+  (`admin@firm.test` / `ChangeMe123!`) to reach the dashboard. Client users onboard
+  via the invitation link at `/accept?token=…`.
 - API health: <http://localhost:3000/api/v1/health> (liveness) and
   `/api/v1/health/readiness` (DB + Redis checks).
 - API docs (Swagger): <http://localhost:3000/api/v1/docs>.
+
+**Auth & RBAC (Phase 1):** email + password (argon2) with optional TOTP MFA; JWT
+sessions; data-driven roles/permissions enforced by NestJS guards, with per-client
+scoping for firm users (assigned clients) and client users (own organization).
 
 **Quality gates** (also enforced in CI — `.github/workflows/ci.yml`):
 

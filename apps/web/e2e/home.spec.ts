@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-test("home page renders the portal title and shared contract", async ({ page }) => {
+test("unauthenticated visitor lands on the sign-in page", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Accounting Firm Portal/i, level: 1 }),
+    page.getByRole("heading", { name: /Accounting Firm Portal/i }),
   ).toBeVisible();
-  // A value sourced from @portal/shared should be on the page.
-  await expect(page.getByText("VATABLE_12")).toBeVisible();
-  await expect(page.getByText("clients:read")).toBeVisible();
+  await expect(page.getByText(/Sign in to continue/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sign in/i })).toBeVisible();
 });

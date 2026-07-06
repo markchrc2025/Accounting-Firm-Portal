@@ -111,6 +111,9 @@ model User {
   email        String     @unique
   passwordHash String?
   mfaEnabled   Boolean    @default(false)
+  /// Base32 TOTP secret. Set at enrollment; MFA is only enforced once mfaEnabled=true.
+  /// NOTE: encrypt at rest in production; stored plain here for the reference build.
+  mfaSecret    String?
   status       UserStatus @default(INVITED)
   lastLoginAt  DateTime?
   createdAt    DateTime   @default(now())
