@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { fetchClients, fetchUsers } from "../lib/api";
 
@@ -80,7 +81,12 @@ export default function DashboardPage() {
             <ul className="divide-y divide-gray-100">
               {clients.data?.map((c) => (
                 <li key={c.id} className="flex justify-between py-2 text-sm">
-                  <span>{c.businessName}</span>
+                  <Link
+                    to={`/clients/${c.id}`}
+                    className="font-medium text-gray-900 hover:underline"
+                  >
+                    {c.businessName}
+                  </Link>
                   <span className="text-gray-500">{c.taxType ?? "—"}</span>
                 </li>
               ))}

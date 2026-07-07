@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import ClientDetailPage from "./pages/ClientDetailPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 
@@ -22,6 +23,14 @@ export default function App() {
         element={
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/clients/:clientId"
+        element={
+          <RequireAuth>
+            <ClientDetailPage />
           </RequireAuth>
         }
       />
