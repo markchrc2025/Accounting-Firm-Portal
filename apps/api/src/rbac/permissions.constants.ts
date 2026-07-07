@@ -24,6 +24,7 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
   Users: ["Create", "Read", "Update", "Delete"],
   Roles: ["Read", "Assign", "Configure"],
   Clients: ["Create", "Read", "Update", "Delete", "ViewAll"],
+  Categories: ["Create", "Read", "Update", "Delete"],
   Sales: ["Create", "Read", "Update", "Delete", "Import", "Export"],
   Expenses: ["Create", "Read", "Update", "Delete", "Import", "Export"],
   TaxComputation: ["Read", "Run"],
@@ -40,6 +41,7 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
 
 const CLIENT_PERMISSIONS: Record<string, string[]> = {
   ClientUsers: ["Create", "Read", "Update", "Delete"],
+  Categories: ["Read"], // client users may select categories, never delete them
   Sales: ["Create", "Read", "Update", "Export"],
   Expenses: ["Create", "Read", "Update", "Export"],
   TaxComputation: ["Read"],
@@ -95,6 +97,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     permissions: [
       ...expand(FIRM_PERMISSIONS, [
         "Clients",
+        "Categories",
         "Sales",
         "Expenses",
         "TaxComputation",
@@ -111,6 +114,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     name: "Accountant",
     scope: "FIRM",
     permissions: expand(FIRM_PERMISSIONS, [
+      "Categories",
       "Sales",
       "Expenses",
       "TaxComputation",
@@ -129,6 +133,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     scope: "FIRM",
     permissions: [
       perm("Clients", "Read"),
+      perm("Categories", "Read"),
       perm("Sales", "Create"),
       perm("Sales", "Read"),
       perm("Sales", "Import"),
@@ -144,6 +149,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     scope: "FIRM",
     permissions: [
       perm("Clients", "Read"),
+      perm("Categories", "Read"),
       perm("Sales", "Read"),
       perm("Expenses", "Read"),
       perm("TaxComputation", "Read"),
@@ -161,6 +167,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     name: "Client Manager",
     scope: "CLIENT",
     permissions: [
+      perm("Categories", "Read"),
       perm("Sales", "Read"),
       perm("Sales", "Export"),
       perm("Expenses", "Read"),
@@ -175,6 +182,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
     name: "Client Viewer",
     scope: "CLIENT",
     permissions: [
+      perm("Categories", "Read"),
       perm("Sales", "Read"),
       perm("Expenses", "Read"),
       perm("TaxComputation", "Read"),

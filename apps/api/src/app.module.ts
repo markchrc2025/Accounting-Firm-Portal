@@ -3,12 +3,16 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
+import { CategoriesModule } from "./categories/categories.module";
 import { ClientsModule } from "./clients/clients.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
+import { FinancialModule } from "./financial/financial.module";
 import { HealthModule } from "./health/health.module";
+import { IncomeTransactionsModule } from "./income-transactions/income-transactions.module";
 import { InvitationsModule } from "./invitations/invitations.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RedisModule } from "./redis/redis.module";
 import { UsersModule } from "./users/users.module";
@@ -24,6 +28,10 @@ import { UsersModule } from "./users/users.module";
     ClientsModule,
     UsersModule,
     InvitationsModule,
+    FinancialModule,
+    CategoriesModule,
+    IncomeTransactionsModule,
+    PurchaseTransactionsModule,
     HealthModule,
   ],
   providers: [

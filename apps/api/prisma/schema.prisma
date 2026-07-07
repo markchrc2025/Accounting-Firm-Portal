@@ -58,6 +58,12 @@ enum IntegrationClientStatus {
   DISABLED
 }
 
+/// Whether a category applies to income/sales or expense/purchase records.
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
 // --- Tenancy root ---
 
 /// The accounting firm operating the portal (top-level tenant owner).
@@ -90,11 +96,14 @@ model Client {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  firm            Firm             @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  clientUsers     ClientUserProfile[]
-  assignedStaff   FirmClientAssignment[]
-  invitations     Invitation[]
-  scopedUserRoles UserRole[]
+  firm                 Firm                   @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  clientUsers          ClientUserProfile[]
+  assignedStaff        FirmClientAssignment[]
+  invitations          Invitation[]
+  scopedUserRoles      UserRole[]
+  categories           Category[]
+  incomeTransactions   IncomeTransaction[]
+  purchaseTransactions PurchaseTransaction[]
 
   @@index([firmId])
   @@map("clients")
@@ -135,7 +144,7 @@ model FirmUserProfile {
   title      String?
   employeeId String?
 
-  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   clientAssignments FirmClientAssignment[]
 
   @@map("firm_user_profiles")
@@ -275,4 +284,93 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Financial data & capture (system-design §7.2 View B).
+//
+// Tax-classification enums (VatClass, InputVATCategory, InputTaxAttribution) are
+// FROZEN and owned by @portal/shared; they are stored here as String columns and
+// validated against the shared Zod enums — never re-declared as Prisma enums
+// (guardrail #2). Money is stored NET OF VAT with VAT carried in its own columns
+// (guardrail #3); Decimal(18,2) avoids float drift.
+// ---------------------------------------------------------------------------
+
+/// A per-client reporting/deductibility bucket for income or expense records.
+model Category {
+  id           String       @id @default(uuid()) @db.Uuid
+  clientId     String       @db.Uuid
+  type         CategoryType
+  name         String
+  isDeductible Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  client               Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  incomeTransactions   IncomeTransaction[]
+  purchaseTransactions PurchaseTransaction[]
+
+  @@unique([clientId, type, name])
+  @@index([clientId])
+  @@map("categories")
+}
+
+/// SalesRecord + IncomeTransaction (§7.2): a sales/income row classified for VAT
+/// at capture. `netAmount` is net of VAT; `vatClass` is a @portal/shared VatClass.
+model IncomeTransaction {
+  id                        String   @id @default(uuid()) @db.Uuid
+  clientId                  String   @db.Uuid
+  categoryId                String   @db.Uuid
+  txnDate                   DateTime @db.Date
+  referenceNo               String?
+  customer                  String?
+  description               String
+  netAmount                 Decimal  @db.Decimal(18, 2)
+  vatClass                  String // VatClass (@portal/shared)
+  saleToGovernment          Boolean  @default(false)
+  outputVAT                 Decimal? @db.Decimal(18, 2) // advisory; Generator derives 12% × net
+  creditableVATWithheld5pct Decimal? @db.Decimal(18, 2)
+  atc                       String?
+  source                    String   @default("manual") // TransactionSource: manual | import
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([clientId, txnDate])
+  @@index([clientId, vatClass]) // sum-by-vatClass aggregation (Phase 6 vat-summary)
+  @@index([categoryId])
+  @@map("income_transactions")
+}
+
+/// ExpenseRecord + PurchaseTransaction (§7.2): an expense/purchase row classified
+/// for input-VAT treatment at capture. `netAmount` is net of VAT.
+model PurchaseTransaction {
+  id                         String   @id @default(uuid()) @db.Uuid
+  clientId                   String   @db.Uuid
+  categoryId                 String   @db.Uuid
+  txnDate                    DateTime @db.Date
+  referenceNo                String?
+  vendor                     String?
+  description                String
+  netAmount                  Decimal  @db.Decimal(18, 2)
+  inputVATCategory           String? // InputVATCategory (@portal/shared)
+  inputVAT                   Decimal? @db.Decimal(18, 2)
+  isCapitalGood              Boolean  @default(false)
+  capitalGoodAcquisitionCost Decimal? @db.Decimal(18, 2)
+  estimatedUsefulLifeMonths  Int?
+  inputTaxAttribution        String? // InputTaxAttribution (@portal/shared)
+  deductible                 Boolean  @default(true)
+  source                     String   @default("manual")
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([clientId, txnDate])
+  @@index([clientId, inputVATCategory]) // sum-by-category aggregation (Phase 6 vat-summary)
+  @@index([categoryId])
+  @@map("purchase_transactions")
 }
