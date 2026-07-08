@@ -1,0 +1,24 @@
+# Reinstalled / rebuilt inside the image
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+
+# VCS & CI
+.git
+.github
+
+# Local dev / test artifacts
+**/coverage
+apps/web/playwright-report
+apps/web/test-results
+apps/web/.vitest
+*.log
+
+# Env & editor
+.env
+.env.*
+!.env.example
+.vscode
+.idea

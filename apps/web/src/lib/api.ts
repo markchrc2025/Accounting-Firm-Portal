@@ -1,5 +1,10 @@
 /** Thin API client with bearer-token auth and JSON handling. */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api/v1";
+// Resolution order: runtime config (window.__PORTAL_ENV__, written by the web
+// container from API_BASE_URL) → build-time VITE_API_BASE_URL → local default.
+const API_BASE_URL =
+  (typeof window !== "undefined" && window.__PORTAL_ENV__?.API_BASE_URL) ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:3000/api/v1";
 
 const TOKEN_KEY = "portal_token";
 
