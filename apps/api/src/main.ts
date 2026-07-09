@@ -23,9 +23,11 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup(`${API_PREFIX}/docs`, app, document);
 
   const port = Number(process.env.API_PORT ?? 3000);
-  await app.listen(port);
+  // Bind to 0.0.0.0 so the container is reachable from outside (Sliplane/Docker
+  // route the exposed port to the container's external interface, not loopback).
+  await app.listen(port, "0.0.0.0");
   Logger.log(
-    `API listening on http://localhost:${port}/${API_PREFIX} (docs at /${API_PREFIX}/docs)`,
+    `API listening on http://0.0.0.0:${port}/${API_PREFIX} (docs at /${API_PREFIX}/docs)`,
     "Bootstrap",
   );
 }
