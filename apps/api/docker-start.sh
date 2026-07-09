@@ -1,7 +1,11 @@
 #!/bin/sh
-# API container entrypoint: apply committed migrations, seed the RBAC catalog +
-# bootstrap admin (idempotent), then start the server. Requires DATABASE_URL,
-# REDIS_URL, and JWT_SECRET in the environment (set these in Sliplane).
+# API container entrypoint. Order matters for a fast, health-check-passing boot:
+#   1. Apply migrations (BLOCKING — the schema must exist before the app boots).
+#   2. Start the HTTP server as the foreground process so it binds the port ASAP.
+#   3. Seed the RBAC catalog + bootstrap admin in the BACKGROUND — it is idempotent
+#      and best-effort, so it must not delay the server behind a second slow ts-node
+#      cold start (that delay is what made Sliplane health checks time out).
+# Requires DATABASE_URL, JWT_SECRET (and optionally REDIS_URL) in the environment.
 set -e
 
 # Surface WHICH database we're about to hit — host/port/db only, never the
@@ -22,9 +26,14 @@ if ! pnpm --filter api prisma:deploy; then
   exit 1
 fi
 
-echo "==> Seeding RBAC catalog + bootstrap admin (idempotent)"
-# Best-effort: a healthy API must not be blocked by a seed hiccup.
-pnpm --filter api db:seed || echo "WARN: seed step failed; continuing"
+# Seed in the background so the server can bind port ${API_PORT:-3000} and pass the
+# health check without waiting on the seed's ts-node cold start. Give the server a
+# short head start first (both run on ts-node and share CPU on small hosts).
+(
+  sleep 20
+  echo "==> Seeding RBAC catalog + bootstrap admin (idempotent, background)"
+  pnpm --filter api db:seed || echo "WARN: seed step failed; continuing"
+) &
 
 echo "==> Starting API on :${API_PORT:-3000}"
 exec pnpm --filter api start
