@@ -46,7 +46,15 @@ repoint it).
 ## 3. API service
 
 - **New Service → from GitHub repo**, this repository.
-- **Build context:** `/` (repo root)  ·  **Dockerfile:** `apps/api/Dockerfile`
+- **⚠️ Build settings (this is the step people miss):** in the service's
+  **Settings → Build**, set the **builder to Dockerfile** and:
+  - **Dockerfile path:** `apps/api/Dockerfile`
+  - **Docker build context:** `/` (repo root — required; the image copies
+    `pnpm-workspace.yaml`, the lockfile, and `packages/shared` from the root)
+
+  If you leave these unset, Sliplane auto-detects **Nixpacks** and runs
+  `pnpm run build` at the repo root instead of the Dockerfile — see
+  [Troubleshooting](#troubleshooting).
 - **Exposed port:** `3000`
 - **Health check path:** `/api/v1/health`
 - **Environment variables:**
@@ -72,7 +80,9 @@ repoint it).
 ## 4. Web service
 
 - **New Service → from GitHub repo**, same repository.
-- **Build context:** `/`  ·  **Dockerfile:** `apps/web/Dockerfile`
+- **⚠️ Build settings:** **Settings → Build → builder = Dockerfile**:
+  - **Dockerfile path:** `apps/web/Dockerfile`
+  - **Docker build context:** `/` (repo root)
 - **Exposed port:** `80`
 - **Environment variable:**
 
@@ -88,6 +98,25 @@ repoint it).
 Deploy `postgres` and `redis` first, then `api`, then `web`. On every push to the
 default branch, redeploy `api` and `web` (Sliplane can auto-deploy on push). Because
 the API self-migrates on startup, new migrations apply automatically.
+
+---
+
+## Troubleshooting
+
+**`Service deploy failed … process "pnpm run build" did not complete successfully: exit code 2`**
+
+This is the tell-tale sign that the service is building with **Nixpacks**, not the
+Dockerfile — `pnpm run build` is Sliplane's Nixpacks guess, not something our
+Dockerfiles run. Fix it in the service's **Settings → Build**:
+
+1. Set the **builder to Dockerfile**.
+2. **Dockerfile path** = `apps/api/Dockerfile` (API) or `apps/web/Dockerfile` (web).
+3. **Docker build context** = `/` (repo root).
+4. Redeploy.
+
+(The repo-root `pnpm run build` is also self-contained now — it runs
+`prisma generate` first — so even a Nixpacks build won't fail on that step. But the
+Dockerfiles are the intended path: they run migrations, seed, and start the server.)
 
 ---
 
