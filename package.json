@@ -11,7 +11,7 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
-    "build": "pnpm --filter @portal/shared build && pnpm --filter api build && pnpm --filter web build",
+    "build": "pnpm --filter api prisma:generate && pnpm --filter @portal/shared build && pnpm --filter api build && pnpm --filter web build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
