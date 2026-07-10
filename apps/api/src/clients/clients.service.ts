@@ -1,9 +1,16 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
 import type { CreateClientInput, UpdateClientInput } from "./dto/client.schemas";
+
+/** Writable client columns (excludes server-managed + caller-provided keys). */
+type ClientWritable = Omit<
+  Prisma.ClientUncheckedCreateInput,
+  "id" | "firmId" | "businessName" | "createdAt" | "updatedAt"
+>;
 
 @Injectable()
 export class ClientsService {
@@ -13,16 +20,32 @@ export class ClientsService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * Map the validated DTO onto Prisma columns: `taxTypes` → `taxTypesJson`,
+   * ISO date strings → Date, everything else passes through. `businessName` and
+   * `firmId` are handled by the callers. The return is the writable subset of the
+   * create input (all-optional), so it spreads cleanly into both create & update.
+   */
+  private toClientData(
+    input: Partial<CreateClientInput & UpdateClientInput>,
+  ): ClientWritable {
+    const { businessName: _bn, taxTypes, birthdate, incorpDate, ...rest } = input;
+    return {
+      ...(rest as ClientWritable),
+      ...(taxTypes !== undefined ? { taxTypesJson: taxTypes as Prisma.InputJsonValue } : {}),
+      ...(birthdate !== undefined ? { birthdate: birthdate ? new Date(birthdate) : null } : {}),
+      ...(incorpDate !== undefined
+        ? { incorpDate: incorpDate ? new Date(incorpDate) : null }
+        : {}),
+    };
+  }
+
   async create(user: AuthUser, input: CreateClientInput) {
     const client = await this.prisma.client.create({
       data: {
         firmId: user.firmId,
         businessName: input.businessName,
-        tin: input.tin,
-        address: input.address,
-        taxType: input.taxType,
-        currency: input.currency,
-        seatLimit: input.seatLimit,
+        ...this.toClientData(input),
       },
     });
     await this.audit.record({
@@ -62,14 +85,17 @@ export class ClientsService {
     await this.get(user, clientId); // 404 if not in firm
     const client = await this.prisma.client.update({
       where: { id: clientId },
-      data: input,
+      data: {
+        ...(input.businessName !== undefined ? { businessName: input.businessName } : {}),
+        ...this.toClientData(input),
+      },
     });
     await this.audit.record({
       userId: user.id,
       action: "client.update",
       entityType: "Client",
       entityId: clientId,
-      metadata: input,
+      metadata: { fields: Object.keys(input) },
     });
     return client;
   }
