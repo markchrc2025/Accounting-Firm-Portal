@@ -101,17 +101,27 @@ export default function ClientDetailPage() {
             {client.data?.tin ? ` · TIN ${client.data.tin}` : ""}
           </p>
         </div>
-        {canWrite && regime && (
-          <button
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-            className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white"
-          >
-            + Add {kind === "income" ? "income" : "expense"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {hasPermission("Clients:Update") && (
+            <Link
+              to={`/clients/${clientId}/edit`}
+              className="rounded border border-gray-300 px-4 py-2 text-sm"
+            >
+              Edit client
+            </Link>
+          )}
+          {canWrite && regime && (
+            <button
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+              className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+            >
+              + Add {kind === "income" ? "income" : "expense"}
+            </button>
+          )}
+        </div>
       </header>
 
       {!regime && (

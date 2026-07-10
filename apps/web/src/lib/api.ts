@@ -119,8 +119,110 @@ export interface ClientSummary {
   currency: string;
   status: string;
 }
+
+/** One row of the COR "Tax Types" table, as stored in `taxTypesJson`. Mirrors
+ *  the API's `TaxTypeRow` (apps/api/src/clients/dto/client.schemas.ts). */
+export interface ClientTaxTypeRow {
+  type: string;
+  form: string;
+  frequency: string;
+  startDate?: string;
+}
+
+/**
+ * The full client row the API returns from GET/POST/PATCH /clients — the entire
+ * Prisma `Client` record. A superset of `ClientSummary` (so `fetchClient`
+ * callers that only read summary fields still type-check) carrying the whole BIR
+ * filer profile used to prefill the edit form. Dates come back as ISO datetime
+ * strings; `professionalFee` is a Prisma Decimal serialized as a string;
+ * `taxTypesJson` is the parsed JSON array.
+ */
+export interface Client extends ClientSummary {
+  kind?: string | null;
+  regName?: string | null;
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  tradeName?: string | null;
+  branch?: string | null;
+  rdo?: string | null;
+  rdoName?: string | null;
+  city?: string | null;
+  zip?: string | null;
+  address?: string | null;
+  birthdate?: string | null;
+  incorpDate?: string | null;
+  fiscalYearStart?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  citizenship?: string | null;
+  civilStatus?: string | null;
+  taxpayerType?: string | null;
+  classification?: string | null;
+  taxTypesJson?: ClientTaxTypeRow[] | null;
+  professionalFee?: string | number | null;
+  billingMethod?: string | null;
+  seatLimit?: number | null;
+  /** S3 object key of the stored COR, or null when none has been uploaded. */
+  corPath?: string | null;
+}
+
 export function fetchClients(): Promise<ClientSummary[]> {
   return apiFetch<ClientSummary[]>("/clients");
+}
+
+export function createClient(body: unknown): Promise<Client> {
+  return apiFetch<Client>("/clients", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateClient(clientId: string, body: unknown): Promise<Client> {
+  return apiFetch<Client>(`/clients/${clientId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+// --- COR file storage (Phase C2) ---------------------------------------------
+// The COR is sent as RAW binary (the File itself) with the file's own
+// Content-Type — NOT JSON — so the backend stores the bytes verbatim.
+
+/** Fall back to an extension → MIME guess when the browser reports no type,
+ *  so the server's content-type allow-list accepts the upload. */
+function corContentType(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  const byExt: Record<string, string> = {
+    pdf: "application/pdf",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+  };
+  return (ext && byExt[ext]) || "application/octet-stream";
+}
+
+export function uploadCor(
+  clientId: string,
+  file: File,
+): Promise<{ corPath: string }> {
+  return apiFetch<{ corPath: string }>(`/clients/${clientId}/cor`, {
+    method: "PUT",
+    headers: { "Content-Type": corContentType(file) },
+    body: file,
+  });
+}
+
+export function getCorUrl(clientId: string): Promise<{ url: string | null }> {
+  return apiFetch<{ url: string | null }>(`/clients/${clientId}/cor-url`);
+}
+
+export function deleteCor(clientId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/clients/${clientId}/cor`, {
+    method: "DELETE",
+  });
 }
 
 export interface FirmUserSummary {
@@ -147,8 +249,8 @@ export function acceptInvitation(input: {
   });
 }
 
-export function fetchClient(clientId: string): Promise<ClientSummary> {
-  return apiFetch<ClientSummary>(`/clients/${clientId}`);
+export function fetchClient(clientId: string): Promise<Client> {
+  return apiFetch<Client>(`/clients/${clientId}`);
 }
 
 // --- Categories (Phase 2) ----------------------------------------------------

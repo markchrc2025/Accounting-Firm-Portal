@@ -129,6 +129,9 @@ model Client {
   /// Registration lines from the COR "Tax Types" table:
   /// [{ type, form, frequency, startDate }]. Owned by @portal/shared shape.
   taxTypesJson   Json    @default("[]")
+  /// S3 object key of the uploaded COR file (`<firmId>/<clientId>`), or null
+  /// when no COR has been stored. The file lives in S3-compatible object storage.
+  corPath        String?
 
   // --- Firm engagement (Portal-only; NOT sent to the BIR Generator) --------
   professionalFee Decimal?      @db.Decimal(18, 2) // fee the firm charges

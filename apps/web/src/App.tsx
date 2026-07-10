@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import ClientDetailPage from "./pages/ClientDetailPage";
+import ClientFormPage from "./pages/ClientFormPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 
@@ -23,6 +24,22 @@ export default function App() {
         element={
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/clients/new"
+        element={
+          <RequireAuth>
+            <ClientFormPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/clients/:clientId/edit"
+        element={
+          <RequireAuth>
+            <ClientFormPage />
           </RequireAuth>
         }
       />
