@@ -1,0 +1,102 @@
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+
+/** Hard cap on a COR upload — 10 MB (mirrors Sentire's server/src/storage.ts). */
+export const COR_MAX_BYTES = 10 * 1024 * 1024;
+
+/** Content types accepted for a COR file (BIR Form 2303 scan). */
+export const COR_ALLOWED_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+];
+
+/**
+ * COR file storage on S3-compatible object storage. Objects live at
+ * `<firmId>/<clientId>` — one COR per client (a re-upload overwrites).
+ *
+ * Storage is **optional**: if the S3 env vars are not all set the service boots
+ * disabled (no client) and the COR upload routes return a clear 503 rather than
+ * crashing the app — mirroring how RedisService keeps Redis optional at boot.
+ */
+@Injectable()
+export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
+  private readonly client: S3Client | null;
+  private readonly bucket: string;
+
+  constructor(config: ConfigService) {
+    const endpoint = config.get<string>("S3_ENDPOINT");
+    const bucket = config.get<string>("S3_BUCKET");
+    const accessKeyId = config.get<string>("S3_ACCESS_KEY_ID");
+    const secretAccessKey = config.get<string>("S3_SECRET_ACCESS_KEY");
+    const region = config.get<string>("S3_REGION", "auto");
+
+    this.bucket = bucket ?? "";
+    if (endpoint && bucket && accessKeyId && secretAccessKey) {
+      this.client = new S3Client({
+        endpoint,
+        region,
+        credentials: { accessKeyId, secretAccessKey },
+        // S3-compatible providers (R2, MinIO, Sliplane) generally need path-style.
+        forcePathStyle: true,
+      });
+      this.logger.log("COR object storage configured (S3-compatible).");
+    } else {
+      this.client = null;
+      this.logger.warn(
+        "COR object storage not configured — COR upload routes will return 503.",
+      );
+    }
+  }
+
+  /** True when the S3 env is fully configured. */
+  isEnabled(): boolean {
+    return this.client !== null;
+  }
+
+  /** Object key layout: `<firmId>/<clientId>`. */
+  corKey(firmId: string, clientId: string): string {
+    return `${firmId}/${clientId}`;
+  }
+
+  private require(): S3Client {
+    if (!this.client) {
+      throw new ServiceUnavailableException("COR storage not configured");
+    }
+    return this.client;
+  }
+
+  async putCor(key: string, body: Uint8Array, contentType: string): Promise<void> {
+    const s3 = this.require();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+  }
+
+  /** A short-lived (1 hour) presigned GET URL for the stored COR. */
+  async corSignedUrl(key: string): Promise<string> {
+    const s3 = this.require();
+    return getSignedUrl(s3, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
+      expiresIn: 3600,
+    });
+  }
+
+  async deleteCor(key: string): Promise<void> {
+    const s3 = this.require();
+    await s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+}

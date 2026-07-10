@@ -4,6 +4,7 @@ import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
+import { StorageService } from "../storage/storage.service";
 import type { CreateClientInput, UpdateClientInput } from "./dto/client.schemas";
 
 /** Writable client columns (excludes server-managed + caller-provided keys). */
@@ -18,6 +19,7 @@ export class ClientsService {
     private readonly prisma: PrismaService,
     private readonly rbac: RbacService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
   ) {}
 
   /**
@@ -132,5 +134,59 @@ export class ClientsService {
     });
     if (!client) throw new ForbiddenException("Client not in your firm");
     return client;
+  }
+
+  // --- COR file storage ------------------------------------------------------
+
+  /**
+   * Store an uploaded COR file in object storage under `<firmId>/<clientId>` and
+   * record the key on the client. Per-client firm scoping via assertInFirm.
+   */
+  async uploadCor(
+    user: AuthUser,
+    clientId: string,
+    bytes: Uint8Array,
+    contentType: string,
+  ) {
+    await this.assertInFirm(user.firmId, clientId);
+    const key = this.storage.corKey(user.firmId, clientId);
+    await this.storage.putCor(key, bytes, contentType);
+    await this.prisma.client.update({
+      where: { id: clientId },
+      data: { corPath: key },
+    });
+    await this.audit.record({
+      userId: user.id,
+      action: "client.cor.upload",
+      entityType: "Client",
+      entityId: clientId,
+    });
+    return { corPath: key };
+  }
+
+  /** A short-lived signed URL for the client's stored COR, or `null` if none. */
+  async corSignedUrl(user: AuthUser, clientId: string): Promise<{ url: string | null }> {
+    const client = await this.assertInFirm(user.firmId, clientId);
+    if (!client.corPath) return { url: null };
+    return { url: await this.storage.corSignedUrl(client.corPath) };
+  }
+
+  /** Remove the client's stored COR (best-effort delete + clear the column). */
+  async removeCor(user: AuthUser, clientId: string): Promise<{ ok: true }> {
+    const client = await this.assertInFirm(user.firmId, clientId);
+    if (client.corPath) {
+      await this.storage.deleteCor(client.corPath);
+      await this.prisma.client.update({
+        where: { id: clientId },
+        data: { corPath: null },
+      });
+      await this.audit.record({
+        userId: user.id,
+        action: "client.cor.delete",
+        entityType: "Client",
+        entityId: clientId,
+      });
+    }
+    return { ok: true };
   }
 }

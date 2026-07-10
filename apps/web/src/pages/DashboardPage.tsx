@@ -3,10 +3,21 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { fetchClients, fetchUsers } from "../lib/api";
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="rounded-lg border border-gray-200 p-5">
-      <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {action}
+      </div>
       {children}
     </section>
   );
@@ -15,6 +26,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default function DashboardPage() {
   const { user, permissions, signOut, hasPermission } = useAuth();
   const canReadClients = hasPermission("Clients:Read");
+  const canCreateClient = hasPermission("Clients:Create");
   const canReadUsers = hasPermission("Users:Read");
 
   const clients = useQuery({
@@ -70,7 +82,19 @@ export default function DashboardPage() {
         </Card>
 
         {canReadClients && (
-          <Card title="Clients">
+          <Card
+            title="Clients"
+            action={
+              canCreateClient && (
+                <Link
+                  to="/clients/new"
+                  className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white"
+                >
+                  + Add client
+                </Link>
+              )
+            }
+          >
             {clients.isPending && <p className="text-sm text-gray-500">Loading…</p>}
             {clients.isError && (
               <p className="text-sm text-amber-700">Could not load clients.</p>
