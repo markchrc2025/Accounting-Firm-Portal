@@ -40,8 +40,10 @@ const filerFields = {
   rdoName: z.string().optional(),
   city: z.string().optional(),
   zip: z.string().optional(),
-  birthdate: isoDate.optional(),
-  incorpDate: isoDate.optional(),
+  // Accept "" as well as a valid date so an edit can CLEAR the field (the service
+  // maps "" → null). Same pattern as `email` below.
+  birthdate: isoDate.optional().or(z.literal("")),
+  incorpDate: isoDate.optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   citizenship: z.string().optional(),

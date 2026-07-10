@@ -188,13 +188,29 @@ export function updateClient(clientId: string, body: unknown): Promise<Client> {
 // --- COR file storage (Phase C2) ---------------------------------------------
 // The COR is sent as RAW binary (the File itself) with the file's own
 // Content-Type — NOT JSON — so the backend stores the bytes verbatim.
+
+/** Fall back to an extension → MIME guess when the browser reports no type,
+ *  so the server's content-type allow-list accepts the upload. */
+function corContentType(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  const byExt: Record<string, string> = {
+    pdf: "application/pdf",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+  };
+  return (ext && byExt[ext]) || "application/octet-stream";
+}
+
 export function uploadCor(
   clientId: string,
   file: File,
 ): Promise<{ corPath: string }> {
   return apiFetch<{ corPath: string }>(`/clients/${clientId}/cor`, {
     method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
+    headers: { "Content-Type": corContentType(file) },
     body: file,
   });
 }

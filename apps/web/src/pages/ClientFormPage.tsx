@@ -136,6 +136,14 @@ function ClientForm({ existing }: { existing: Client | null }) {
 
   async function onPickCor(file: File | null) {
     if (!file) return;
+    // Reject oversize before OCR/upload — the server caps the COR at 10 MB.
+    if (file.size > 10 * 1024 * 1024) {
+      setCorFile(null);
+      setCorExtracted(null);
+      setCorHint("That file is larger than 10 MB — please upload a smaller COR.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setCorFile(file);
     setCorExtracted(null);
     setCorHint(null);
@@ -214,13 +222,28 @@ function ClientForm({ existing }: { existing: Client | null }) {
 
   function buildPayload(): Record<string, unknown> {
     const p: Record<string, unknown> = {};
+    // On CREATE we omit empty optionals (cleaner). On EDIT we send "" too, so
+    // clearing a previously-set field actually persists (the API maps "" → null
+    // for dates and to an empty string for text; UpdateClientSchema needs ≥1 key,
+    // which is always satisfied). Dates only clear via "" when editing.
+    const isEdit = Boolean(existing);
     const put = (k: string, v: string) => {
+      const t = v.trim();
+      if (t !== "" || isEdit) p[k] = t;
+    };
+    const putDate = (k: string, v: string) => {
+      if (v) p[k] = v; // <input type=date> emits yyyy-mm-dd
+      else if (isEdit) p[k] = ""; // clear on edit
+    };
+    // Constrained fields (enum / fixed length) must NEVER be sent as "" — that
+    // would fail Zod. Always omit when empty, even on edit.
+    const putStrict = (k: string, v: string) => {
       const t = v.trim();
       if (t !== "") p[k] = t;
     };
 
     p.businessName = businessName.trim();
-    put("currency", currency.trim().toUpperCase());
+    putStrict("currency", currency.trim().toUpperCase()); // z.string().length(3)
     if (seatLimit.trim() !== "") {
       const seat = Number(seatLimit);
       if (Number.isFinite(seat)) p.seatLimit = seat;
@@ -229,7 +252,7 @@ function ClientForm({ existing }: { existing: Client | null }) {
     p.kind = kind;
     put("tin", tin);
     put("branch", branch);
-    put("taxType", taxType);
+    putStrict("taxType", taxType); // ClientTaxType enum (VAT | PERCENTAGE)
     put("rdo", rdo);
     put("rdoName", rdoName);
     put("tradeName", tradeName);
@@ -239,13 +262,26 @@ function ClientForm({ existing }: { existing: Client | null }) {
     if (kind === "non-individual") {
       put("regName", regName);
       put("taxpayerType", taxpayerType);
-      if (incorpDate) p.incorpDate = incorpDate; // <input type=date> → yyyy-mm-dd
+      putDate("incorpDate", incorpDate);
+      // On edit, clear any stale individual-only fields left from a kind switch.
+      if (isEdit) {
+        p.lastName = "";
+        p.firstName = "";
+        p.middleName = "";
+        p.civilStatus = "";
+        p.birthdate = "";
+      }
     } else {
       put("lastName", lastName);
       put("firstName", firstName);
       put("middleName", middleName);
       put("civilStatus", civilStatus);
-      if (birthdate) p.birthdate = birthdate;
+      putDate("birthdate", birthdate);
+      if (isEdit) {
+        p.regName = "";
+        p.taxpayerType = "";
+        p.incorpDate = "";
+      }
     }
 
     put("address", address);
@@ -430,7 +466,7 @@ function ClientForm({ existing }: { existing: Client | null }) {
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/pdf,image/*"
+              accept="application/pdf,image/png,image/jpeg,image/webp"
               className="hidden"
               onChange={(e) => onPickCor(e.target.files?.[0] ?? null)}
             />

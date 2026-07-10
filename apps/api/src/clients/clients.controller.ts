@@ -40,10 +40,15 @@ function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let aborted = false;
     req.on("data", (chunk: Buffer) => {
+      if (aborted) return;
       size += chunk.length;
       if (size > maxBytes) {
-        req.destroy();
+        // Stop accumulating but DON'T destroy the socket — the response shares it,
+        // and tearing it down would prevent the clean 413 from reaching the client.
+        aborted = true;
+        req.pause();
         reject(
           new PayloadTooLargeException(
             "File is too large — the maximum COR size is 10 MB.",
@@ -53,7 +58,9 @@ function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
       }
       chunks.push(chunk);
     });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("end", () => {
+      if (!aborted) resolve(Buffer.concat(chunks));
+    });
     req.on("error", (err) => reject(err));
   });
 }
@@ -125,7 +132,19 @@ export class ClientsController {
     if (!this.storage.isEnabled()) {
       throw new ServiceUnavailableException("COR storage not configured");
     }
-    const contentType = (req.headers["content-type"] ?? "").split(";")[0]?.trim() ?? "";
+    // Fast reject on the declared size (browsers set Content-Length on a File PUT)
+    // so an oversize upload gets a clean 413 without streaming the whole body.
+    const declaredLength = Number(req.headers["content-length"] ?? "0");
+    if (Number.isFinite(declaredLength) && declaredLength > COR_MAX_BYTES) {
+      throw new PayloadTooLargeException(
+        "File is too large — the maximum COR size is 10 MB.",
+      );
+    }
+    // Media types are case-insensitive (RFC 7231); normalise before matching.
+    const contentType = (req.headers["content-type"] ?? "")
+      .split(";")[0]
+      ?.trim()
+      .toLowerCase() ?? "";
     if (!COR_ALLOWED_TYPES.includes(contentType)) {
       throw new BadRequestException(
         "Unsupported file type. Please upload a PDF, PNG, JPEG, or WebP.",

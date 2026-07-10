@@ -175,7 +175,13 @@ export class ClientsService {
   async removeCor(user: AuthUser, clientId: string): Promise<{ ok: true }> {
     const client = await this.assertInFirm(user.firmId, clientId);
     if (client.corPath) {
-      await this.storage.deleteCor(client.corPath);
+      // Best-effort: a transient object-storage failure must not block clearing
+      // the reference (else the UI is stuck pointing at an unremovable file).
+      try {
+        await this.storage.deleteCor(client.corPath);
+      } catch {
+        /* swallow — the column is cleared below regardless */
+      }
       await this.prisma.client.update({
         where: { id: clientId },
         data: { corPath: null },
