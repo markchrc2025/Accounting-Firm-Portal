@@ -64,6 +64,13 @@ enum CategoryType {
   EXPENSE
 }
 
+/// How the firm bills a client for its services (engagement billing cadence).
+enum BillingMethod {
+  QUARTERLY
+  MONTHLY
+  AS_FILING
+}
+
 // --- Tenancy root ---
 
 /// The accounting firm operating the portal (top-level tenant owner).
@@ -82,19 +89,53 @@ model Firm {
 }
 
 /// A business served by the firm. Each client is an isolated data tenant.
+///
+/// Mirrors the BIR "filer" profile captured in the Sentire tax app (so a client
+/// maps 1:1 onto a Sentire Taxpayer — the Portal is the system of record and
+/// Sentire refreshes from it), PLUS two firm-only engagement fields
+/// (professionalFee, billingMethod) that are never exported to the BIR forms.
 model Client {
   id              String       @id @default(uuid()) @db.Uuid
   firmId          String       @db.Uuid
-  businessName    String
+  businessName    String // canonical display name (regName for a company)
   tin             String?
   address         String?
-  taxType         String? // "VAT" | "PERCENTAGE" — refined in later phases
+  taxType         String? // "VAT" | "PERCENTAGE" — the aggregation regime
   fiscalYearStart DateTime?    @db.Date
   currency        String       @default("PHP")
   seatLimit       Int          @default(3) // FR-17: minimum 3 seats per client
   status          ClientStatus @default(ACTIVE)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+
+  // --- BIR filer profile (replicates Sentire's Add Filer) ------------------
+  kind           String  @default("non-individual") // "individual" | "non-individual"
+  regName        String? // BIR registered name (company)
+  lastName       String? // individual
+  firstName      String?
+  middleName     String?
+  tradeName      String?
+  branch         String  @default("00000")
+  rdo            String? // RDO code
+  rdoName        String?
+  city           String?
+  zip            String?
+  birthdate      DateTime? @db.Date // individual
+  incorpDate     DateTime? @db.Date // company
+  email          String?
+  phone          String?
+  citizenship    String?
+  civilStatus    String?
+  taxpayerType   String?
+  classification String?
+  /// Registration lines from the COR "Tax Types" table:
+  /// [{ type, form, frequency, startDate }]. Owned by @portal/shared shape.
+  taxTypesJson   Json    @default("[]")
+
+  // --- Firm engagement (Portal-only; NOT sent to the BIR Generator) --------
+  professionalFee Decimal?      @db.Decimal(18, 2) // fee the firm charges
+  billingMethod   BillingMethod @default(AS_FILING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   firm                 Firm                   @relation(fields: [firmId], references: [id], onDelete: Cascade)
   clientUsers          ClientUserProfile[]
