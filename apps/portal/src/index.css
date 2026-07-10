@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper font-sans text-content antialiased;
+    font-size: 14px;
+  }
+  /* Serif headings get the Newsreader look + tight tracking from the tokens. */
+  .font-serif {
+    letter-spacing: -0.01em;
+  }
+  /* Visible focus ring (WCAG 2.1 AA) — blue, matching the token. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(35, 96, 200, 0.14);
+    border-color: #2360c8;
+  }
+}
+
+@layer components {
+  /* Mono eyebrow / section label used across the app. */
+  .eyebrow {
+    @apply font-mono uppercase text-gold-deep;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+  }
+  /* Shimmer skeleton (gradient #ece4d2 → #f5efe2, 1.4s loop). */
+  .skeleton {
+    background: linear-gradient(90deg, #ece4d2 0px, #f5efe2 200px, #ece4d2 400px);
+    background-size: 800px 100%;
+    @apply animate-shimmer rounded;
+  }
+}
