@@ -7,9 +7,11 @@ import { CategoriesModule } from "./categories/categories.module";
 import { ClientsModule } from "./clients/clients.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
+import { ScopesGuard } from "./common/guards/scopes.guard";
 import { FinancialModule } from "./financial/financial.module";
 import { HealthModule } from "./health/health.module";
 import { IncomeTransactionsModule } from "./income-transactions/income-transactions.module";
+import { IntegrationModule } from "./integration/integration.module";
 import { InvitationsModule } from "./invitations/invitations.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
@@ -32,13 +34,16 @@ import { UsersModule } from "./users/users.module";
     CategoriesModule,
     IncomeTransactionsModule,
     PurchaseTransactionsModule,
+    IntegrationModule,
     HealthModule,
   ],
   providers: [
-    // Global auth first, then permission enforcement. Routes opt out of auth
-    // with @Public(); permission checks apply only where @RequirePermissions is set.
+    // Global auth first, then authorization. Routes opt out of auth with
+    // @Public(); PermissionsGuard enforces @RequirePermissions for USER callers,
+    // ScopesGuard enforces @RequireScopes for INTEGRATION (machine) callers.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_GUARD, useClass: ScopesGuard },
   ],
 })
 export class AppModule {}

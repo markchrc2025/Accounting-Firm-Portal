@@ -104,6 +104,8 @@ model Client {
   categories           Category[]
   incomeTransactions   IncomeTransaction[]
   purchaseTransactions PurchaseTransaction[]
+  birFilings           BIRFiling[]
+  inputTaxAssets       InputTaxAsset[]
 
   @@index([firmId])
   @@map("clients")
@@ -373,4 +375,63 @@ model PurchaseTransaction {
   @@index([clientId, inputVATCategory]) // sum-by-category aggregation (Phase 6 vat-summary)
   @@index([categoryId])
   @@map("purchase_transactions")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6/7 — BIR Form Generator integration (write-back targets).
+//
+// These rows are written by the INTEGRATION (the Generator's push-back), never
+// by portal users. Guardrail #1: the Portal does not compute authoritative BIR
+// tax — it only RECORDS the filed artifact and the carried-forward Input Tax
+// Asset the Generator hands back. Guardrail #4: push-back is idempotent, keyed
+// by client + form + period (upsert, never duplicate).
+//
+// Enums (FormCode, FilingStatus, PeriodType) are OWNED by @portal/shared and
+// stored here as String columns validated against the shared Zod enums.
+// ---------------------------------------------------------------------------
+
+/// A finished BIR filing pushed back by the Generator (status + eBIRForms XML + PDF).
+model BIRFiling {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId    String   @db.Uuid
+  form        String // FormCode (@portal/shared), e.g. "2550Q"
+  periodType  String // PeriodType (@portal/shared)
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+  status      String // FilingStatus (@portal/shared): draft | ready | filed
+  figuresJson Json     @default("{}") // per-form key figures (may be negative)
+  xmlFilename String
+  xmlBase64   String   @db.Text
+  pdfUrl      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Guardrail #4: idempotency key — a re-sync of the same period UPDATES in place.
+  @@unique([clientId, form, periodStart, periodEnd])
+  @@index([clientId])
+  @@map("bir_filings")
+}
+
+/// The carried-forward creditable input VAT the Generator books back as an asset.
+model InputTaxAsset {
+  id                           String   @id @default(uuid()) @db.Uuid
+  clientId                     String   @db.Uuid
+  sourceForm                   String // FormCode (@portal/shared)
+  asOfYear                     Int
+  asOfQuarter                  Int
+  excessInputTaxCarriedForward Decimal  @db.Decimal(18, 2)
+  deferredCapitalGoodsInputTax Decimal  @db.Decimal(18, 2)
+  totalInputTaxAsset           Decimal  @db.Decimal(18, 2)
+  computedAt                   DateTime
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // One booked asset per client + source form + period (re-send updates it).
+  @@unique([clientId, sourceForm, asOfYear, asOfQuarter])
+  @@index([clientId])
+  @@map("input_tax_assets")
 }

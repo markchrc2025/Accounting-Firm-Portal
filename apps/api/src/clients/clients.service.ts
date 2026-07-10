@@ -74,6 +74,31 @@ export class ClientsService {
     return client;
   }
 
+  /**
+   * List all clients in a firm — for the machine (integration) caller, which is
+   * firm-scoped. Optional case-insensitive substring match on business name.
+   */
+  async listForFirm(firmId: string, query?: string) {
+    return this.prisma.client.findMany({
+      where: {
+        firmId,
+        ...(query
+          ? { businessName: { contains: query, mode: "insensitive" as const } }
+          : {}),
+      },
+      orderBy: { businessName: "asc" },
+    });
+  }
+
+  /** Read one client scoped to a firm (integration caller); 404 if not in firm. */
+  async getForFirm(firmId: string, clientId: string) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, firmId },
+    });
+    if (!client) throw new NotFoundException("Client not found");
+    return client;
+  }
+
   /** Guard that a client belongs to the user's firm (used by other modules). */
   async assertInFirm(firmId: string, clientId: string) {
     const client = await this.prisma.client.findFirst({
