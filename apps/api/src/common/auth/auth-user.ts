@@ -17,7 +17,7 @@ export interface AuthUser {
 }
 
 /** Token kinds issued by the auth service. */
-export type TokenType = "access" | "mfa";
+export type TokenType = "access" | "mfa" | "integration";
 
 /** JWT payload shape (claims). */
 export interface JwtPayload {
@@ -31,4 +31,29 @@ export interface JwtPayload {
 
 export interface RequestWithUser extends Request {
   user?: AuthUser;
+}
+
+/**
+ * The machine principal attached to a request by IntegrationAuthGuard for
+ * server-to-server (OAuth2 client-credentials) calls from the BIR Form Generator.
+ * It is firm-scoped and carries the granted OAuth scopes; per-client visibility
+ * is still enforced at the data layer (the client must belong to `firmId`).
+ */
+export interface IntegrationPrincipal {
+  /** IntegrationClient id (the `sub` claim). */
+  id: string;
+  firmId: string;
+  scopes: string[];
+}
+
+/** JWT payload for an integration (client-credentials) token. */
+export interface IntegrationJwtPayload {
+  sub: string; // IntegrationClient id
+  firmId: string;
+  typ: "integration";
+  scopes: string[];
+}
+
+export interface RequestWithIntegration extends Request {
+  integration?: IntegrationPrincipal;
 }

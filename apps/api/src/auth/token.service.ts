@@ -1,7 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import type { AuthUser, JwtPayload, TokenType } from "../common/auth/auth-user";
+import type {
+  AuthUser,
+  IntegrationJwtPayload,
+  IntegrationPrincipal,
+  JwtPayload,
+  TokenType,
+} from "../common/auth/auth-user";
 
 interface UserForToken {
   id: string;
@@ -22,6 +28,7 @@ export class TokenService {
   private readonly secret: string;
   private readonly accessTtl: string;
   private readonly mfaTtl: string;
+  private readonly integrationTtl: string;
 
   constructor(
     private readonly jwt: JwtService,
@@ -30,6 +37,7 @@ export class TokenService {
     this.secret = config.get<string>("JWT_SECRET", "dev-insecure-secret-change-me");
     this.accessTtl = config.get<string>("JWT_ACCESS_TTL", "1h");
     this.mfaTtl = config.get<string>("JWT_MFA_TTL", "5m");
+    this.integrationTtl = config.get<string>("OAUTH_TOKEN_TTL", "1h");
   }
 
   signAccess(user: UserForToken): string {
@@ -52,6 +60,12 @@ export class TokenService {
     return this.jwt.sign(payload, { secret: this.secret, expiresIn });
   }
 
+  /** Peek at a token's `typ` claim WITHOUT verifying the signature (routing only). */
+  peekType(token: string): TokenType | undefined {
+    const decoded = this.jwt.decode(token) as { typ?: TokenType } | null;
+    return decoded?.typ;
+  }
+
   /** Verify a token and assert its `typ`. Throws if invalid/expired/wrong kind. */
   verify(token: string, expected: TokenType): JwtPayload {
     const payload = this.jwt.verify<JwtPayload>(token, { secret: this.secret });
@@ -59,6 +73,53 @@ export class TokenService {
       throw new Error(`Expected ${expected} token, got ${payload.typ}`);
     }
     return payload;
+  }
+
+  /**
+   * Sign an OAuth2 client-credentials access token for the BIR Form Generator.
+   * Firm-scoped; carries only the granted scopes (per-client visibility is still
+   * enforced at the data layer). Returns the token and its lifetime in seconds.
+   */
+  signIntegration(client: { id: string; firmId: string; scopes: string[] }): {
+    token: string;
+    expiresInSeconds: number;
+  } {
+    const payload: IntegrationJwtPayload = {
+      sub: client.id,
+      firmId: client.firmId,
+      typ: "integration",
+      scopes: client.scopes,
+    };
+    const token = this.jwt.sign(payload, {
+      secret: this.secret,
+      expiresIn: this.integrationTtl,
+    });
+    return { token, expiresInSeconds: this.ttlToSeconds(this.integrationTtl) };
+  }
+
+  /** Verify an integration token and return the machine principal. */
+  verifyIntegration(token: string): IntegrationPrincipal {
+    const payload = this.jwt.verify<IntegrationJwtPayload>(token, {
+      secret: this.secret,
+    });
+    if (payload.typ !== "integration") {
+      throw new Error(`Expected integration token, got ${payload.typ}`);
+    }
+    return {
+      id: payload.sub,
+      firmId: payload.firmId,
+      scopes: Array.isArray(payload.scopes) ? payload.scopes : [],
+    };
+  }
+
+  /** Convert a jsonwebtoken-style TTL ("1h", "30m", "3600") to seconds. */
+  private ttlToSeconds(ttl: string): number {
+    const match = /^(\d+)\s*([smhd])?$/.exec(ttl.trim());
+    if (!match) return 3600;
+    const value = Number(match[1]);
+    const unit = match[2] ?? "s";
+    const factor = { s: 1, m: 60, h: 3600, d: 86400 }[unit] ?? 1;
+    return value * factor;
   }
 
   static toAuthUser(payload: JwtPayload): AuthUser {
