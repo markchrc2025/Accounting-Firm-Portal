@@ -338,6 +338,8 @@ function ClientForm({ existing }: { existing: Client | null }) {
   // office and fills that branch row (branch code, trade name, address, ZIP, RDO).
   const branchCorRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const [branchCorBusy, setBranchCorBusy] = useState<number | null>(null);
+  const [branchCorStage, setBranchCorStage] = useState("");
+  const [branchCorPct, setBranchCorPct] = useState(0);
   const [branchCorHint, setBranchCorHint] = useState<{ idx: number; msg: string } | null>(null);
 
   async function onPickBranchCor(idx: number, file: File | null) {
@@ -345,9 +347,14 @@ function ClientForm({ existing }: { existing: Client | null }) {
     if (!file) return;
     setBranchCorBusy(idx);
     setBranchCorHint(null);
+    setBranchCorStage("Preparing document");
+    setBranchCorPct(0);
     try {
       const { extractCorFromFile } = await import("../lib/cor/extractCor");
-      const res = await extractCorFromFile(file);
+      const res = await extractCorFromFile(file, (stage, pct) => {
+        setBranchCorStage(stage);
+        setBranchCorPct(pct);
+      });
       const patch: Partial<BranchRow> = {};
       if (res.branch) patch.branchCode = res.branch;
       if (res.tradeName) patch.tradeName = res.tradeName;
@@ -1221,6 +1228,25 @@ function ClientForm({ existing }: { existing: Client | null }) {
                             </Button>
                           </div>
                         </div>
+
+                        {branchCorBusy === idx && (
+                          <div className="mb-3 rounded-input border border-info/30 bg-info-bg px-4 py-3">
+                            <div className="flex items-center justify-between gap-3 text-[13px]">
+                              <span className="font-semibold text-navy">
+                                Reading COR… {branchCorStage}
+                              </span>
+                              <span className="font-mono text-[12px] text-content-secondary">
+                                {Math.round(branchCorPct * 100)}%
+                              </span>
+                            </div>
+                            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-info/20">
+                              <div
+                                className="h-full rounded-full bg-info transition-all"
+                                style={{ width: `${Math.round(branchCorPct * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
 
                         {branchCorHint?.idx === idx && (
                           <p className="mb-3 rounded-input border border-danger/30 bg-danger-bg px-3 py-2 text-[12.5px] text-danger-ink">
