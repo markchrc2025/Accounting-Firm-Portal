@@ -21,6 +21,7 @@ import {
   Skeleton,
   cn,
 } from "../components/ui";
+import { CityCombobox } from "../components/CityCombobox";
 // Type-only import — erased at build, so pdf.js/tesseract stay OUT of the main
 // chunk (the extractor itself is loaded lazily in onPickCor). parseCor.ts is the
 // pure, dependency-free module, so this never pulls the heavy OCR deps.
@@ -30,6 +31,22 @@ import type { ExtractedCor } from "../lib/cor/parseCor";
 // The web app can't import that schema, so the option lists live here.
 const TAX_TYPES = ["VAT", "PERCENTAGE"] as const;
 const BILLING_METHODS = ["QUARTERLY", "MONTHLY", "AS_FILING"] as const;
+// Civil status (standard BIR Form 1901/1902 set) and taxpayer classification —
+// picked from a fixed list rather than free-typed, mirroring Sentire Tax.
+const CIVIL_STATUSES = ["Single", "Married", "Widow/Widower", "Legally Separated"] as const;
+const CLASSIFICATIONS = [
+  "Professional",
+  "Single Proprietorship",
+  "Domestic Corporation",
+  "Partnership",
+] as const;
+
+/** Format a raw TIN (digits) as ###-###-### for display (Sentire style). */
+function formatTin(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 9);
+  const parts = [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean);
+  return parts.join("-");
+}
 // Human-readable labels for the billing segmented control (presentation only —
 // the bound value is still the enum string above).
 const BILLING_LABELS: Record<(typeof BILLING_METHODS)[number], string> = {
@@ -114,10 +131,10 @@ function ClientForm({ existing }: { existing: Client | null }) {
   const [birthdate, setBirthdate] = useState(existing?.birthdate?.slice(0, 10) ?? "");
   const [civilStatus, setCivilStatus] = useState(existing?.civilStatus ?? "");
   const [tradeName, setTradeName] = useState(existing?.tradeName ?? "");
-  const [tin, setTin] = useState(existing?.tin ?? "");
+  // TIN is held as raw digits; the input renders it with dashes via formatTin.
+  const [tin, setTin] = useState((existing?.tin ?? "").replace(/\D/g, "").slice(0, 9));
   const [branch, setBranch] = useState(existing?.branch ?? "00000");
   const [rdo, setRdo] = useState(existing?.rdo ?? "");
-  const [rdoName, setRdoName] = useState(existing?.rdoName ?? "");
   const [classification, setClassification] = useState(existing?.classification ?? "");
   const [citizenship, setCitizenship] = useState(existing?.citizenship ?? "");
   const [taxType, setTaxType] = useState(existing?.taxType ?? "");
@@ -129,6 +146,8 @@ function ClientForm({ existing }: { existing: Client | null }) {
   // --- Contact --------------------------------------------------------------
   const [address, setAddress] = useState(existing?.address ?? "");
   const [city, setCity] = useState(existing?.city ?? "");
+  const [province, setProvince] = useState(existing?.province ?? "");
+  const [region, setRegion] = useState(existing?.region ?? "");
   const [zip, setZip] = useState(existing?.zip ?? "");
   const [email, setEmail] = useState(existing?.email ?? "");
   const [phone, setPhone] = useState(existing?.phone ?? "");
@@ -294,7 +313,6 @@ function ClientForm({ existing }: { existing: Client | null }) {
     put("branch", branch);
     putStrict("taxType", taxType); // ClientTaxType enum (VAT | PERCENTAGE)
     put("rdo", rdo);
-    put("rdoName", rdoName);
     put("tradeName", tradeName);
     put("classification", classification);
     put("citizenship", citizenship);
@@ -326,6 +344,8 @@ function ClientForm({ existing }: { existing: Client | null }) {
 
     put("address", address);
     put("city", city);
+    put("province", province);
+    put("region", region);
     put("zip", zip);
     put("phone", phone);
     // email: the DTO accepts a valid address OR "" — always send it.
@@ -760,11 +780,18 @@ function ClientForm({ existing }: { existing: Client | null }) {
                     />
                   </Field>
                   <Field label="Civil status" error={fieldErrors.civilStatus}>
-                    <input
+                    <select
                       value={civilStatus}
                       onChange={(e) => setCivilStatus(e.target.value)}
                       className="input"
-                    />
+                    >
+                      <option value="">Not set</option>
+                      {CIVIL_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
                 </>
               )}
@@ -777,17 +804,26 @@ function ClientForm({ existing }: { existing: Client | null }) {
                 />
               </Field>
               <Field label="Classification" error={fieldErrors.classification}>
-                <input
+                <select
                   value={classification}
                   onChange={(e) => setClassification(e.target.value)}
                   className="input"
-                />
+                >
+                  <option value="">Not set</option>
+                  {CLASSIFICATIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field label="TIN" error={fieldErrors.tin}>
                 <input
-                  value={tin}
-                  onChange={(e) => setTin(e.target.value)}
+                  value={formatTin(tin)}
+                  onChange={(e) => setTin(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                  inputMode="numeric"
+                  placeholder="000-000-000"
                   className="input font-mono"
                 />
               </Field>
@@ -819,13 +855,6 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   value={rdo}
                   onChange={(e) => setRdo(e.target.value)}
                   className="input font-mono"
-                />
-              </Field>
-              <Field label="RDO name" error={fieldErrors.rdoName}>
-                <input
-                  value={rdoName}
-                  onChange={(e) => setRdoName(e.target.value)}
-                  className="input"
                 />
               </Field>
 
@@ -872,18 +901,40 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   className="input"
                 />
               </Field>
-              <Field label="City" error={fieldErrors.city}>
-                <input
+              <Field label="City / Municipality" error={fieldErrors.city}>
+                <CityCombobox
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="input"
+                  error={Boolean(fieldErrors.city)}
+                  onChange={setCity}
+                  onSelect={(loc) => {
+                    // Selecting a suggestion auto-fills the whole address block.
+                    setCity(loc.city);
+                    setProvince(loc.province);
+                    setRegion(loc.region);
+                    if (loc.zip) setZip(loc.zip);
+                  }}
                 />
               </Field>
               <Field label="ZIP" error={fieldErrors.zip}>
                 <input
                   value={zip}
                   onChange={(e) => setZip(e.target.value)}
+                  inputMode="numeric"
                   className="input font-mono"
+                />
+              </Field>
+              <Field label="Province" error={fieldErrors.province}>
+                <input
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="Region" error={fieldErrors.region}>
+                <input
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  className="input"
                 />
               </Field>
               <Field label="Email" error={fieldErrors.email}>

@@ -119,6 +119,8 @@ model Client {
   rdo            String? // RDO code
   rdoName        String?
   city           String?
+  province       String?
+  region         String?
   zip            String?
   birthdate      DateTime? @db.Date // individual
   incorpDate     DateTime? @db.Date // company

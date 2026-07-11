@@ -39,6 +39,8 @@ const filerFields = {
   rdo: z.string().optional(),
   rdoName: z.string().optional(),
   city: z.string().optional(),
+  province: z.string().optional(),
+  region: z.string().optional(),
   zip: z.string().optional(),
   // Accept "" as well as a valid date so an edit can CLEAR the field (the service
   // maps "" → null). Same pattern as `email` below.
