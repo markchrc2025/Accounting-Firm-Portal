@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import TransactionEntryModal, { type Regime } from "../components/TransactionEntryModal";
 import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
+import { ImportModal } from "../components/ImportModal";
 import { useAuth } from "../auth/AuthContext";
 import {
   deletePurchase,
@@ -43,6 +44,7 @@ export default function ExpensesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseTxn | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -163,6 +165,11 @@ export default function ExpensesPage() {
         }
         actions={
           <div className="flex items-center gap-2">
+            {regime && canWrite ? (
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               onClick={onExport}
@@ -340,6 +347,19 @@ export default function ExpensesPage() {
           onSaved={() => {
             setModalOpen(false);
             refresh();
+          }}
+        />
+      ) : null}
+
+      {importOpen && regime ? (
+        <ImportModal
+          kind="expense"
+          clientId={clientId}
+          regime={regime}
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            refresh();
+            queryClient.invalidateQueries({ queryKey: ["categories", clientId] });
           }}
         />
       ) : null}

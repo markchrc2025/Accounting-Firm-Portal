@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { IncomeTransaction } from "@portal/shared";
+import { IncomeTransaction, SalesImportRow } from "@portal/shared";
 import type { AuthUser } from "../common/auth/auth-user";
 import { parseOrBadRequest } from "../common/validation/zod.util";
 import { AuditService } from "../audit/audit.service";
@@ -51,6 +51,57 @@ export class IncomeTransactionsService {
       metadata: { clientId, netAmount: input.netAmount, vatClass: input.vatClass },
     });
     return toIncomeDto(row);
+  }
+
+  /** Bulk import income rows (from the Sales/Income template). Each row is
+   *  validated + created independently so a bad row never blocks the rest; the
+   *  Category name is resolved (created if new) and cached across rows. */
+  async importRows(user: AuthUser, clientId: string, rows: unknown[]) {
+    const client = await this.clients.assertInFirm(user.firmId, clientId);
+    const regime = this.regime.requireRegime(client.taxType);
+    const errors: { row: number; message: string }[] = [];
+    const catCache = new Map<string, string>();
+    let created = 0;
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        const parsed = parseOrBadRequest(SalesImportRow, rows[i]);
+        const key = parsed.Category.trim().toLowerCase();
+        let categoryId = catCache.get(key);
+        if (!categoryId) {
+          const cat = await this.categories.resolveByName(clientId, parsed.Category, "INCOME");
+          categoryId = cat.id;
+          catCache.set(key, categoryId);
+        }
+        const input = parseOrBadRequest(IncomeTransaction, {
+          clientId,
+          categoryId,
+          txnDate: parsed.Date,
+          referenceNo: parsed.ReferenceNo,
+          customer: parsed.Customer,
+          description: parsed.Description,
+          netAmount: parsed.NetAmount,
+          vatClass: parsed.VatClass,
+          saleToGovernment: parsed.SaleToGovernment ?? false,
+          outputVAT: parsed.OutputVAT,
+          creditableVATWithheld5pct: parsed.CreditableVATWithheld5pct,
+          atc: parsed.ATC,
+          source: "import",
+        });
+        this.regime.validateIncome(regime, input);
+        await this.prisma.incomeTransaction.create({ data: this.toDb(clientId, input) });
+        created += 1;
+      } catch (e) {
+        errors.push({ row: i + 1, message: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    await this.audit.record({
+      userId: user.id,
+      action: "income.import",
+      entityType: "IncomeTransaction",
+      entityId: clientId,
+      metadata: { clientId, created, failed: errors.length },
+    });
+    return { created, failed: errors.length, errors };
   }
 
   async list(user: AuthUser, clientId: string, query: IncomeListQuery) {
