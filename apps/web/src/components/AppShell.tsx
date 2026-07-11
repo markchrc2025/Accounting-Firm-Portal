@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { fetchClients } from "../lib/api";
 import { ClientSwitcher } from "./ClientSwitcher";
 import { McrcMark } from "./McrcMark";
+import { UserMenu } from "./UserMenu";
 import { cn } from "./ui";
 
 const ACTIVE_CLIENT_KEY = "mcrc.activeClientId";
@@ -26,15 +27,6 @@ const OVERVIEW_NAV: NavItem[] = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/clients", label: "Clients", end: true },
 ];
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
   return (
@@ -71,8 +63,7 @@ function activeClientIdFromPath(pathname: string): string | null {
 }
 
 export function AppShell() {
-  const { user, loading, signOut, hasPermission } = useAuth();
-  const navigate = useNavigate();
+  const { user, loading, hasPermission } = useAuth();
   const location = useLocation();
   const routeClientId = activeClientIdFromPath(location.pathname);
   const isPortal = user?.userType === "CLIENT";
@@ -109,11 +100,6 @@ export function AppShell() {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-
-  function handleSignOut() {
-    signOut();
-    navigate("/login", { replace: true });
-  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-paper">
@@ -182,28 +168,6 @@ export function AppShell() {
             </>
           )}
         </div>
-
-        {/* Signed-in user card */}
-        <div className="border-t border-line-strong p-3">
-          <div className="flex items-center gap-2.5 rounded-btn px-2 py-2">
-            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy font-mono text-[11px] font-semibold text-gold-soft">
-              {initials(user.fullName)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-semibold text-navy">{user.fullName}</div>
-              <div className="truncate text-[11.5px] text-content-secondary">
-                {user.userType === "FIRM" ? "Firm staff" : "Client portal"}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="mt-1 w-full rounded-btn px-2 py-1.5 text-left text-[12.5px] font-semibold text-content-secondary transition-colors hover:bg-rowhover hover:text-navy"
-          >
-            Sign out
-          </button>
-        </div>
       </aside>
 
       {/* Main column */}
@@ -224,9 +188,7 @@ export function AppShell() {
               className="w-full max-w-[360px] rounded-input bg-paper px-3.5 py-2 text-[13px] text-content placeholder:text-content-placeholder focus-visible:bg-card focus-visible:outline-none"
             />
           </div>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy font-mono text-[11px] font-semibold text-gold-soft">
-            {initials(user.fullName)}
-          </span>
+          <UserMenu />
         </header>
 
         <main className="flex-1 animate-fade-rise overflow-auto bg-paper px-9 py-[30px]">

@@ -231,6 +231,8 @@ export interface FirmUserSummary {
   fullName: string;
   status: string;
   mfaEnabled: boolean;
+  /** Presigned URL of the user's profile photo, or null. */
+  avatarUrl?: string | null;
   userRoles: { role: { name: string }; clientScopeId: string | null }[];
 }
 export function fetchUsers(): Promise<FirmUserSummary[]> {
@@ -640,4 +642,31 @@ export interface DashboardData {
 }
 export function fetchDashboard(): Promise<DashboardData> {
   return apiFetch<DashboardData>("/dashboard");
+}
+
+// --- User profile + avatar (own account) --------------------------------------------
+export interface Profile {
+  id: string;
+  fullName: string;
+  email: string;
+  userType: "FIRM" | "CLIENT";
+  mfaEnabled: boolean;
+  /** Presigned URL of the uploaded profile photo, or null. */
+  avatarUrl: string | null;
+}
+export function fetchProfile(): Promise<Profile> {
+  return apiFetch<Profile>("/profile/me");
+}
+export function updateProfile(body: { fullName: string }): Promise<Profile> {
+  return apiFetch("/profile/me", { method: "PATCH", body: JSON.stringify(body) });
+}
+export function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+  return apiFetch("/profile/me/avatar", {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+}
+export function deleteAvatar(): Promise<{ ok: boolean }> {
+  return apiFetch("/profile/me/avatar", { method: "DELETE" });
 }

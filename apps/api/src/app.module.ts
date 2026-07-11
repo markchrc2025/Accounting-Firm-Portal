@@ -18,6 +18,7 @@ import { InvitationsModule } from "./invitations/invitations.module";
 import { InvoicesModule } from "./invoices/invoices.module";
 import { PortalModule } from "./portal/portal.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { ProfileModule } from "./profile/profile.module";
 import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RedisModule } from "./redis/redis.module";
@@ -38,6 +39,7 @@ import { UsersModule } from "./users/users.module";
     ClientsModule,
     DashboardModule,
     UsersModule,
+    ProfileModule,
     ServicesModule,
     InvitationsModule,
     InvoicesModule,

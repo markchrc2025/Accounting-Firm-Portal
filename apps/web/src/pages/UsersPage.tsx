@@ -143,8 +143,12 @@ export default function UsersPage() {
                         >
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-3">
-                              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy font-mono text-[11px] font-semibold text-gold-soft">
-                                {initials(u.fullName)}
+                              <span className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-navy font-mono text-[11px] font-semibold text-gold-soft">
+                                {u.avatarUrl ? (
+                                  <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  initials(u.fullName)
+                                )}
                               </span>
                               <span className="font-medium text-content">{u.fullName}</span>
                             </div>

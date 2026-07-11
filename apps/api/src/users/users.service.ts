@@ -8,6 +8,7 @@ import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PasswordService } from "../auth/password.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { StorageService } from "../storage/storage.service";
 import type {
   AssignClientsInput,
   CreateUserInput,
@@ -35,7 +36,20 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
   ) {}
+
+  /** Replace a row's raw `avatarPath` with a short-lived presigned `avatarUrl`. */
+  private async withAvatarUrl<T extends { avatarPath: string | null }>(
+    row: T,
+  ): Promise<Omit<T, "avatarPath"> & { avatarUrl: string | null }> {
+    const { avatarPath, ...rest } = row;
+    const avatarUrl =
+      avatarPath && this.storage.isEnabled()
+        ? await this.storage.signedGetUrl(avatarPath)
+        : null;
+    return { ...rest, avatarUrl };
+  }
 
   async create(actor: AuthUser, input: CreateUserInput) {
     const email = input.email.toLowerCase();
@@ -73,12 +87,13 @@ export class UsersService {
     return user;
   }
 
-  list(actor: AuthUser) {
-    return this.prisma.user.findMany({
+  async list(actor: AuthUser) {
+    const rows = await this.prisma.user.findMany({
       where: { firmId: actor.firmId, userType: "FIRM" },
-      select: publicUserSelect,
+      select: { ...publicUserSelect, avatarPath: true },
       orderBy: { createdAt: "asc" },
     });
+    return Promise.all(rows.map((row) => this.withAvatarUrl(row)));
   }
 
   async get(actor: AuthUser, id: string) {
