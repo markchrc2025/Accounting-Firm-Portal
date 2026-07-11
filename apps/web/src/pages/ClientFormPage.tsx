@@ -193,9 +193,15 @@ function ClientForm({ existing }: { existing: Client | null }) {
         setCorPct(pct);
       });
       setCorExtracted(res);
-    } catch {
+    } catch (err) {
+      // Keep the raw error in the console for support, and show the specific
+      // reason (asset/engine load vs. read failure) rather than a dead end.
+      console.error("COR extraction failed:", err);
+      const reason = err instanceof Error && err.message ? err.message : "";
       setCorHint(
-        "Couldn't read this COR automatically — please fill the form by hand.",
+        reason
+          ? `Couldn't read this COR automatically — ${reason} You can still fill the form by hand.`
+          : "Couldn't read this COR automatically — please fill the form by hand.",
       );
     } finally {
       setCorExtracting(false);
