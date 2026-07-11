@@ -29,7 +29,7 @@ describe("App routing", () => {
       expect(screen.getByText(/Sign in to continue/i)).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("heading", { name: /Accounting Firm Portal/i }),
+      screen.getByRole("heading", { name: /Sign in/i }),
     ).toBeInTheDocument();
   });
 

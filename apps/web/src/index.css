@@ -2,8 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper font-sans text-content antialiased;
+    font-size: 14px;
+  }
+  /* Serif headings get the Newsreader look + tight tracking from the tokens. */
+  .font-serif {
+    letter-spacing: -0.01em;
+  }
+  /* Visible focus ring (WCAG 2.1 AA) — blue, matching the token. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(35, 96, 200, 0.14);
+    border-color: #2360c8;
+  }
+}
+
 @layer components {
+  /* Mono eyebrow / section label used across the app. */
+  .eyebrow {
+    @apply font-mono uppercase text-gold-deep;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+  }
+  /* Text input — rounded, 1px line-input border, blue focus ring. */
   .input {
-    @apply w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500;
+    @apply w-full rounded-input border border-line-input bg-card px-[13px] py-[10px] text-sm text-content transition-colors;
+    @apply placeholder:text-content-placeholder;
+    @apply focus-visible:border-blue focus-visible:outline-none;
   }
 }
