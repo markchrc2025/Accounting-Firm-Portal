@@ -121,134 +121,33 @@ async function seedIntegrationClient(firmId: string): Promise<void> {
 }
 
 /**
- * Idempotent demo data: ONE clearly-labeled sample client with categories, a few
- * months of income/expense transactions, and a couple of recorded BIR filings, so
- * a fresh install shows a populated firm dashboard. Guarded by the sample client's
- * TIN — re-running never duplicates. The user can delete this client from the UI.
+ * One-time cleanup: earlier builds seeded a demo client so a fresh install looked
+ * populated. That was wrong — production should show only the firm's REAL data
+ * (empty until they add clients). This removes that sample client and all of its
+ * data, matched by its EXACT sample name so it can never touch a real client.
+ * Idempotent: once the sample is gone, this is a no-op on every future boot.
  */
-async function seedSampleClient(firmId: string): Promise<void> {
-  const SAMPLE_TIN = "010-582-334-000";
-
-  const existing = await prisma.client.findFirst({
-    where: { firmId, tin: SAMPLE_TIN },
+async function removeSampleClient(firmId: string): Promise<void> {
+  const SAMPLE_NAME = "Malaya Trading Corp. (Sample)";
+  const sample = await prisma.client.findFirst({
+    where: { firmId, businessName: SAMPLE_NAME },
   });
-  if (existing) {
-    console.log(`Sample client already present (TIN ${SAMPLE_TIN}); skipping demo data.`);
-    return;
-  }
+  if (!sample) return;
 
-  const client = await prisma.client.create({
-    data: {
-      firmId,
-      businessName: "Malaya Trading Corp. (Sample)",
-      tin: SAMPLE_TIN,
-      taxType: "VAT",
-      status: "ACTIVE",
-      currency: "PHP",
-      kind: "non-individual",
-      regName: "Malaya Trading Corporation",
-      tradeName: "Malaya Trading",
-      branch: "00000",
-      address: "1215 Ayala Ave, Makati City",
-      city: "Makati City",
-      zip: "1226",
-      rdo: "047",
-      rdoName: "RDO 047 - East Makati",
-      incorpDate: new Date("2015-03-01"),
-      email: "sample@malayatrading.example",
-      phone: "+63 2 8555 0100",
-      taxpayerType: "Corporation",
-      classification: "Non-Individual",
-      taxTypesJson: [
-        { type: "Value-Added Tax", form: "2550Q", frequency: "Quarterly", startDate: "2015-03-01" },
-        { type: "Income Tax", form: "1701Q", frequency: "Quarterly", startDate: "2015-03-01" },
-        { type: "Registration Fee", form: "0605", frequency: "Annual", startDate: "2015-03-01" },
-      ],
-    },
-  });
-
-  // Categories (2 income, 2 expense). Unique on [clientId, type, name].
-  const categoryNames = {
-    serviceRevenue: "Service Revenue",
-    productSales: "Product Sales",
-    officeSupplies: "Office Supplies",
-    utilities: "Utilities",
-  } as const;
-  const upsertCategory = (type: "INCOME" | "EXPENSE", name: string) =>
-    prisma.category.upsert({
-      where: { clientId_type_name: { clientId: client.id, type, name } },
-      update: {},
-      create: { clientId: client.id, type, name, isDeductible: type === "EXPENSE" },
-    });
-  const serviceRevenue = await upsertCategory("INCOME", categoryNames.serviceRevenue);
-  const productSales = await upsertCategory("INCOME", categoryNames.productSales);
-  const officeSupplies = await upsertCategory("EXPENSE", categoryNames.officeSupplies);
-  const utilities = await upsertCategory("EXPENSE", categoryNames.utilities);
-
-  // ~6 income transactions across the last ~3 months. Amounts NET of VAT.
-  await prisma.incomeTransaction.createMany({
-    data: [
-      { clientId: client.id, categoryId: serviceRevenue.id, txnDate: new Date("2026-05-08"), description: "Consulting engagement", customer: "Northwind Inc.", netAmount: 85000, vatClass: "VATABLE_12", outputVAT: 10200, source: "manual" },
-      { clientId: client.id, categoryId: productSales.id, txnDate: new Date("2026-05-22"), description: "Wholesale goods delivery", customer: "Sari-Sari Depot", netAmount: 120000, vatClass: "VATABLE_12", outputVAT: 14400, source: "manual" },
-      { clientId: client.id, categoryId: serviceRevenue.id, txnDate: new Date("2026-06-05"), description: "Export services", customer: "Pacific Freight Ltd.", netAmount: 95000, vatClass: "ZERO_RATED", source: "manual" },
-      { clientId: client.id, categoryId: productSales.id, txnDate: new Date("2026-06-18"), description: "Retail counter sales", customer: "Walk-in", netAmount: 64000, vatClass: "VATABLE_12", outputVAT: 7680, source: "manual" },
-      { clientId: client.id, categoryId: serviceRevenue.id, txnDate: new Date("2026-07-02"), description: "Educational materials", customer: "Bright Minds Co-op", netAmount: 40000, vatClass: "EXEMPT", source: "manual" },
-      { clientId: client.id, categoryId: productSales.id, txnDate: new Date("2026-07-09"), description: "Bulk order fulfillment", customer: "Metro Grocers", netAmount: 150000, vatClass: "VATABLE_12", outputVAT: 18000, source: "manual" },
-    ],
-  });
-
-  // ~5 purchase transactions across the last ~3 months. Amounts NET of VAT.
-  await prisma.purchaseTransaction.createMany({
-    data: [
-      { clientId: client.id, categoryId: officeSupplies.id, txnDate: new Date("2026-05-10"), description: "Printer & stationery", vendor: "OfficeWarehouse", netAmount: 32000, inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: 3840, deductible: true, source: "manual" },
-      { clientId: client.id, categoryId: utilities.id, txnDate: new Date("2026-05-27"), description: "Electricity (Meralco)", vendor: "Meralco", netAmount: 18000, inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: 2160, deductible: true, source: "manual" },
-      { clientId: client.id, categoryId: officeSupplies.id, txnDate: new Date("2026-06-12"), description: "Packaging materials", vendor: "PackRight", netAmount: 25000, inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: 3000, deductible: true, source: "manual" },
-      { clientId: client.id, categoryId: utilities.id, txnDate: new Date("2026-06-30"), description: "Internet & telecom", vendor: "PLDT", netAmount: 21000, inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: 2520, deductible: true, source: "manual" },
-      { clientId: client.id, categoryId: officeSupplies.id, txnDate: new Date("2026-07-07"), description: "Warehouse equipment", vendor: "IndustrialMart", netAmount: 47000, inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: 5640, deductible: true, source: "manual" },
-    ],
-  });
-
-  // 1-2 recorded BIR filings (as the Generator would push back). xmlBase64 is a
-  // placeholder — this is illustrative sample data, not a real eBIRForms artifact.
-  const sampleXml = Buffer.from("<sample-filing/>").toString("base64");
-  await prisma.bIRFiling.createMany({
-    data: [
-      {
-        clientId: client.id,
-        form: "2550Q",
-        periodType: "quarter",
-        periodStart: new Date("2026-01-01"),
-        periodEnd: new Date("2026-03-31"),
-        status: "filed",
-        xmlFilename: "0105823340000002550Q2026Q1.xml",
-        xmlBase64: sampleXml,
-        pdfUrl: null,
-      },
-      {
-        clientId: client.id,
-        form: "1701Q",
-        periodType: "quarter",
-        periodStart: new Date("2026-01-01"),
-        periodEnd: new Date("2026-03-31"),
-        status: "filed",
-        xmlFilename: "0105823340000001701Q2026Q1.xml",
-        xmlBase64: sampleXml,
-        pdfUrl: null,
-      },
-    ],
-  });
-
-  console.log(
-    `Seeded sample client "${client.businessName}" (${client.id}): 4 categories, ` +
-      `6 income + 5 purchase transactions, 2 BIR filings.`,
-  );
+  // Delete children first (income→category is ON DELETE RESTRICT), then the client.
+  await prisma.bIRFiling.deleteMany({ where: { clientId: sample.id } });
+  await prisma.incomeTransaction.deleteMany({ where: { clientId: sample.id } });
+  await prisma.purchaseTransaction.deleteMany({ where: { clientId: sample.id } });
+  await prisma.category.deleteMany({ where: { clientId: sample.id } });
+  await prisma.client.delete({ where: { id: sample.id } });
+  console.log(`Removed sample client "${SAMPLE_NAME}" (${sample.id}) and all its demo data.`);
 }
 
 async function main(): Promise<void> {
   await seedPermissionsAndRoles();
   const firmId = await seedBootstrapAdmin();
   await seedIntegrationClient(firmId);
-  await seedSampleClient(firmId);
+  await removeSampleClient(firmId);
 }
 
 main()
