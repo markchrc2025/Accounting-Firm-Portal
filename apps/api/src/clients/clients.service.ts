@@ -31,10 +31,11 @@ export class ClientsService {
   private toClientData(
     input: Partial<CreateClientInput & UpdateClientInput>,
   ): ClientWritable {
-    const { businessName: _bn, taxTypes, birthdate, incorpDate, ...rest } = input;
+    const { businessName: _bn, taxTypes, branches, birthdate, incorpDate, ...rest } = input;
     return {
       ...(rest as ClientWritable),
       ...(taxTypes !== undefined ? { taxTypesJson: taxTypes as Prisma.InputJsonValue } : {}),
+      ...(branches !== undefined ? { branchesJson: branches as Prisma.InputJsonValue } : {}),
       ...(birthdate !== undefined ? { birthdate: birthdate ? new Date(birthdate) : null } : {}),
       ...(incorpDate !== undefined
         ? { incorpDate: incorpDate ? new Date(incorpDate) : null }

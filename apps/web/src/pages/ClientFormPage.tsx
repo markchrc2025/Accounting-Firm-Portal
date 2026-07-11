@@ -57,6 +57,33 @@ const BILLING_LABELS: Record<(typeof BILLING_METHODS)[number], string> = {
 
 type Kind = "individual" | "non-individual";
 type TaxRow = { type: string; form: string; frequency: string; startDate: string };
+type BranchRow = {
+  branchCode: string;
+  tradeName: string;
+  address: string;
+  city: string;
+  province: string;
+  region: string;
+  zip: string;
+  rdo: string;
+};
+const EMPTY_BRANCH: BranchRow = {
+  branchCode: "",
+  tradeName: "",
+  address: "",
+  city: "",
+  province: "",
+  region: "",
+  zip: "",
+  rdo: "",
+};
+
+/** Branch rows from a saved client's `branchesJson` (best-effort, all optional). */
+function initialBranches(existing: Client | null): BranchRow[] {
+  const rows = existing?.branchesJson;
+  if (!Array.isArray(rows)) return [];
+  return rows.map((r) => ({ ...EMPTY_BRANCH, ...r }));
+}
 
 /** Route wrapper: fetches the client for edit-prefill, then renders the form. */
 export default function ClientFormPage() {
@@ -154,6 +181,12 @@ function ClientForm({ existing }: { existing: Client | null }) {
 
   // --- Tax Types ------------------------------------------------------------
   const [taxTypes, setTaxTypes] = useState<TaxRow[]>(() => initialTaxRows(existing));
+
+  // --- Branches -------------------------------------------------------------
+  const [branches, setBranches] = useState<BranchRow[]>(() => initialBranches(existing));
+  const [hasBranches, setHasBranches] = useState<boolean>(
+    () => Boolean(existing?.hasBranches) || initialBranches(existing).length > 0,
+  );
 
   // --- Engagement -----------------------------------------------------------
   const [professionalFee, setProfessionalFee] = useState(
@@ -279,6 +312,16 @@ function ClientForm({ existing }: { existing: Client | null }) {
     setTaxTypes((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
+  function addBranch() {
+    setBranches((prev) => [...prev, { ...EMPTY_BRANCH }]);
+  }
+  function removeBranch(idx: number) {
+    setBranches((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function updateBranch(idx: number, patch: Partial<BranchRow>) {
+    setBranches((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
   function buildPayload(): Record<string, unknown> {
     const p: Record<string, unknown> = {};
     // On CREATE we omit empty optionals (cleaner). On EDIT we send "" too, so
@@ -369,6 +412,26 @@ function ClientForm({ existing }: { existing: Client | null }) {
         if (r.startDate.trim()) row.startDate = r.startDate.trim();
         return row;
       });
+
+    // Branches: only when the toggle is on; drop entirely-empty rows. Sent as an
+    // array (empty when off) so turning branches off on an edit clears them.
+    p.hasBranches = hasBranches;
+    p.branches = hasBranches
+      ? branches
+          .filter((b) =>
+            [b.branchCode, b.tradeName, b.address, b.city].some((v) => v.trim()),
+          )
+          .map((b) => ({
+            branchCode: b.branchCode.trim(),
+            tradeName: b.tradeName.trim(),
+            address: b.address.trim(),
+            city: b.city.trim(),
+            province: b.province.trim(),
+            region: b.region.trim(),
+            zip: b.zip.trim(),
+            rdo: b.rdo.trim(),
+          }))
+      : [];
 
     return p;
   }
@@ -1023,6 +1086,140 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   </div>
                 ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* (d2) Branches -------------------------------------------------- */}
+        <Card>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="eyebrow">Branches</div>
+                <p className="mt-1 text-[12.5px] text-content-secondary">
+                  Branch offices share the client&apos;s TIN with a distinct branch code.
+                </p>
+              </div>
+              <div
+                role="group"
+                aria-label="With branches"
+                className="inline-flex rounded-btn border border-line-input bg-card p-1"
+              >
+                {[false, true].map((on) => (
+                  <button
+                    key={String(on)}
+                    type="button"
+                    aria-pressed={hasBranches === on}
+                    onClick={() => {
+                      setHasBranches(on);
+                      if (on && branches.length === 0) addBranch();
+                    }}
+                    className={cn(
+                      "rounded-[5px] px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+                      hasBranches === on
+                        ? "bg-navy text-white"
+                        : "text-content-secondary hover:bg-rowhover",
+                    )}
+                  >
+                    {on ? "With branches" : "No branches"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {hasBranches && (
+              <>
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={addBranch}>
+                    + Add branch
+                  </Button>
+                </div>
+                {branches.length === 0 ? (
+                  <p className="text-[13px] text-content-secondary">
+                    No branches yet. Click “Add branch” to enter one from its COR.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[900px] space-y-3">
+                      <div className="grid grid-cols-[0.7fr_1.3fr_1.7fr_1fr_1fr_0.7fr_0.7fr_auto] gap-2 px-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
+                        <span>Branch code</span>
+                        <span>Trade name</span>
+                        <span>Registered address</span>
+                        <span>City</span>
+                        <span>Province</span>
+                        <span>ZIP</span>
+                        <span>RDO</span>
+                        <span />
+                      </div>
+                      {branches.map((b, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-[0.7fr_1.3fr_1.7fr_1fr_1fr_0.7fr_0.7fr_auto] items-center gap-2"
+                        >
+                          <input
+                            aria-label="Branch code"
+                            placeholder="00001"
+                            value={b.branchCode}
+                            onChange={(e) =>
+                              updateBranch(idx, {
+                                branchCode: e.target.value.replace(/\D/g, "").slice(0, 5),
+                              })
+                            }
+                            className="input font-mono"
+                          />
+                          <input
+                            aria-label="Trade name"
+                            value={b.tradeName}
+                            onChange={(e) => updateBranch(idx, { tradeName: e.target.value })}
+                            className="input"
+                          />
+                          <input
+                            aria-label="Registered address"
+                            value={b.address}
+                            onChange={(e) => updateBranch(idx, { address: e.target.value })}
+                            className="input"
+                          />
+                          <input
+                            aria-label="City"
+                            value={b.city}
+                            onChange={(e) => updateBranch(idx, { city: e.target.value })}
+                            className="input"
+                          />
+                          <input
+                            aria-label="Province"
+                            value={b.province}
+                            onChange={(e) => updateBranch(idx, { province: e.target.value })}
+                            className="input"
+                          />
+                          <input
+                            aria-label="ZIP"
+                            value={b.zip}
+                            onChange={(e) =>
+                              updateBranch(idx, { zip: e.target.value.replace(/\D/g, "").slice(0, 4) })
+                            }
+                            className="input font-mono"
+                          />
+                          <input
+                            aria-label="RDO"
+                            value={b.rdo}
+                            onChange={(e) => updateBranch(idx, { rdo: e.target.value })}
+                            className="input font-mono"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Remove branch ${idx + 1}`}
+                            onClick={() => removeBranch(idx)}
+                            className="text-content-muted hover:text-danger"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

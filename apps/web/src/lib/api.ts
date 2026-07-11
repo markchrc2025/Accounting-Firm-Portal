@@ -138,6 +138,18 @@ export interface ClientTaxTypeRow {
   startDate?: string;
 }
 
+/** One branch office of a client (same TIN, distinct branch code). */
+export interface ClientBranch {
+  branchCode: string;
+  tradeName: string;
+  address: string;
+  city: string;
+  province: string;
+  region: string;
+  zip: string;
+  rdo: string;
+}
+
 /**
  * The full client row the API returns from GET/POST/PATCH /clients — the entire
  * Prisma `Client` record. A superset of `ClientSummary` (so `fetchClient`
@@ -171,6 +183,8 @@ export interface Client extends ClientSummary {
   taxpayerType?: string | null;
   classification?: string | null;
   taxTypesJson?: ClientTaxTypeRow[] | null;
+  hasBranches?: boolean | null;
+  branchesJson?: ClientBranch[] | null;
   professionalFee?: string | number | null;
   billingMethod?: string | null;
   seatLimit?: number | null;
