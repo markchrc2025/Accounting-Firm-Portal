@@ -560,3 +560,25 @@ export function rotateIntegrationSecret(id: string): Promise<IntegrationReveal> 
 export function revokeIntegration(id: string): Promise<Integration> {
   return apiFetch(`/integrations/${id}/revoke`, { method: "POST" });
 }
+
+// --- Audit log (append-only; firm-scoped read) --------------------------------------
+export interface AuditRow {
+  id: string;
+  timestamp: string;
+  /** Resolved actor name (user full name, or "Integration"/"System"). */
+  actor: string;
+  action: string; // "create" | "update" | "delete" | "login" | "export" | …
+  entityType: string;
+  entityId: string | null;
+  ipAddress: string | null;
+}
+export interface AuditFilters {
+  actor?: string;
+  action?: string;
+  entity?: string;
+  from?: string;
+  to?: string;
+}
+export function fetchAuditLogs(filters: AuditFilters = {}): Promise<AuditRow[]> {
+  return apiFetch<AuditRow[]>(`/audit-logs${qs(filters as Record<string, string | undefined>)}`);
+}
