@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useAuth } from "./auth/AuthContext";
 import { AppShell } from "./components/AppShell";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AuditPage from "./pages/AuditPage";
@@ -11,16 +12,30 @@ import ExpensesPage from "./pages/ExpensesPage";
 import FilingsPage from "./pages/FilingsPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import LoginPage from "./pages/LoginPage";
+import PortalExpensesPage from "./pages/PortalExpensesPage";
+import PortalFilingsPage from "./pages/PortalFilingsPage";
+import PortalHomePage from "./pages/PortalHomePage";
+import PortalSalesPage from "./pages/PortalSalesPage";
+import PortalTaxPage from "./pages/PortalTaxPage";
+import PortalUsersPage from "./pages/PortalUsersPage";
 import SalesPage from "./pages/SalesPage";
 import ServicesPage from "./pages/ServicesPage";
 import TaxPage from "./pages/TaxPage";
 import TaxRulesPage from "./pages/TaxRulesPage";
 import UsersPage from "./pages/UsersPage";
 
+/** Home route: firm users get the dashboard; client users go to their portal. */
+function HomeRoute() {
+  const { user } = useAuth();
+  if (user?.userType === "CLIENT") return <Navigate to="/portal" replace />;
+  return <DashboardPage />;
+}
+
 /**
  * Routes. Public auth pages render standalone; every authenticated page renders
  * inside `<AppShell>` (sidebar + top bar), which also enforces the auth guard and
- * redirects unauthenticated visitors to /login.
+ * redirects unauthenticated visitors to /login. Firm staff and client-portal users
+ * share the shell; the shell swaps its nav by `user.userType`.
  */
 export default function App() {
   return (
@@ -29,7 +44,8 @@ export default function App() {
       <Route path="/accept" element={<AcceptInvitePage />} />
 
       <Route element={<AppShell />}>
-        <Route path="/" element={<DashboardPage />} />
+        {/* Firm */}
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
@@ -44,6 +60,14 @@ export default function App() {
         <Route path="/clients/:clientId/tax-rules" element={<TaxRulesPage />} />
         <Route path="/clients/:clientId/billing" element={<BillingPage />} />
         <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
+
+        {/* Client portal (CLIENT users — scoped to their own org) */}
+        <Route path="/portal" element={<PortalHomePage />} />
+        <Route path="/portal/sales" element={<PortalSalesPage />} />
+        <Route path="/portal/expenses" element={<PortalExpensesPage />} />
+        <Route path="/portal/tax" element={<PortalTaxPage />} />
+        <Route path="/portal/filings" element={<PortalFilingsPage />} />
+        <Route path="/portal/users" element={<PortalUsersPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

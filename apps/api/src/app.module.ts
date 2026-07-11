@@ -15,6 +15,7 @@ import { IncomeTransactionsModule } from "./income-transactions/income-transacti
 import { IntegrationModule } from "./integration/integration.module";
 import { InvitationsModule } from "./invitations/invitations.module";
 import { InvoicesModule } from "./invoices/invoices.module";
+import { PortalModule } from "./portal/portal.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -38,6 +39,7 @@ import { UsersModule } from "./users/users.module";
     ServicesModule,
     InvitationsModule,
     InvoicesModule,
+    PortalModule,
     FinancialModule,
     CategoriesModule,
     IncomeTransactionsModule,

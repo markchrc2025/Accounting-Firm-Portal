@@ -70,6 +70,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const activeClientId = activeClientIdFromPath(location.pathname);
+  const isPortal = user?.userType === "CLIENT";
 
   if (loading) {
     return (
@@ -100,33 +101,56 @@ export function AppShell() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-2">
-          <NavGroup label="Overview" items={OVERVIEW_NAV} />
+          {isPortal ? (
+            <>
+              <NavGroup
+                label="Your Business"
+                items={[
+                  { to: "/portal", label: "Home", end: true },
+                  { to: "/portal/sales", label: "Sales & Income", end: true },
+                  { to: "/portal/expenses", label: "Expenses", end: true },
+                  { to: "/portal/tax", label: "Tax Estimate", end: true },
+                  { to: "/portal/filings", label: "Filed BIR Forms", end: true },
+                ]}
+              />
+              {hasPermission("ClientUsers:Read") && (
+                <NavGroup
+                  label="Settings"
+                  items={[{ to: "/portal/users", label: "Users & Seats", end: true }]}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <NavGroup label="Overview" items={OVERVIEW_NAV} />
 
-          {activeClientId && (
-            <NavGroup
-              label="Client Workspace"
-              items={[
-                { to: `/clients/${activeClientId}`, label: "Client Overview", end: true },
-                { to: `/clients/${activeClientId}/sales`, label: "Sales & Income" },
-                { to: `/clients/${activeClientId}/expenses`, label: "Expenses" },
-                { to: `/clients/${activeClientId}/tax`, label: "Tax Estimate" },
-                { to: `/clients/${activeClientId}/tax-rules`, label: "Tax Rules" },
-                { to: `/clients/${activeClientId}/billing`, label: "Billing & Invoices" },
-                { to: `/clients/${activeClientId}/filings`, label: "BIR Filings" },
-              ]}
-            />
-          )}
+              {activeClientId && (
+                <NavGroup
+                  label="Client Workspace"
+                  items={[
+                    { to: `/clients/${activeClientId}`, label: "Client Overview", end: true },
+                    { to: `/clients/${activeClientId}/sales`, label: "Sales & Income" },
+                    { to: `/clients/${activeClientId}/expenses`, label: "Expenses" },
+                    { to: `/clients/${activeClientId}/tax`, label: "Tax Estimate" },
+                    { to: `/clients/${activeClientId}/tax-rules`, label: "Tax Rules" },
+                    { to: `/clients/${activeClientId}/billing`, label: "Billing & Invoices" },
+                    { to: `/clients/${activeClientId}/filings`, label: "BIR Filings" },
+                  ]}
+                />
+              )}
 
-          {hasPermission("Users:Read") && (
-            <NavGroup
-              label="Firm Admin"
-              items={[
-                { to: "/users", label: "Users & Roles", end: true },
-                { to: "/services", label: "Services", end: true },
-                { to: "/integrations", label: "Integrations", end: true },
-                { to: "/audit", label: "Audit Log", end: true },
-              ]}
-            />
+              {hasPermission("Users:Read") && (
+                <NavGroup
+                  label="Firm Admin"
+                  items={[
+                    { to: "/users", label: "Users & Roles", end: true },
+                    { to: "/services", label: "Services", end: true },
+                    { to: "/integrations", label: "Integrations", end: true },
+                    { to: "/audit", label: "Audit Log", end: true },
+                  ]}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -156,7 +180,13 @@ export function AppShell() {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[60px] flex-none items-center gap-4 border-b border-line-strong bg-topbar px-9">
-          <ClientSwitcher activeClientId={activeClientId} />
+          {isPortal ? (
+            <span className="inline-flex items-center rounded-chip border border-gold px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[.18em] text-gold-deep">
+              Client Portal
+            </span>
+          ) : (
+            <ClientSwitcher activeClientId={activeClientId} />
+          )}
           <div className="flex-1">
             <input
               type="search"

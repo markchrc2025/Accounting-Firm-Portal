@@ -582,3 +582,25 @@ export interface AuditFilters {
 export function fetchAuditLogs(filters: AuditFilters = {}): Promise<AuditRow[]> {
   return apiFetch<AuditRow[]>(`/audit-logs${qs(filters as Record<string, string | undefined>)}`);
 }
+
+// --- Client portal (a CLIENT user's own organization) -------------------------------
+export interface PortalContext {
+  id: string;
+  businessName: string;
+  taxType: string | null;
+  status: string;
+  seatLimit: number | null;
+}
+export interface PortalUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  status: string;
+}
+export function fetchPortalContext(): Promise<PortalContext> {
+  return apiFetch<PortalContext>("/portal/context");
+}
+export function fetchPortalUsers(): Promise<PortalUser[]> {
+  return apiFetch<PortalUser[]>("/portal/users");
+}
