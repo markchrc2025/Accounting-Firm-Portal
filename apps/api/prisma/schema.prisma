@@ -305,6 +305,7 @@ model Invitation {
 model IntegrationClient {
   id                String                  @id @default(uuid()) @db.Uuid
   firmId            String                  @db.Uuid
+  name              String                  @default("")
   clientKey         String                  @unique
   clientSecretHash  String
   grantedScopesJson Json                    @default("[]")

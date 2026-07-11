@@ -7,6 +7,7 @@ import ClientFormPage from "./pages/ClientFormPage";
 import DashboardPage from "./pages/DashboardPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import FilingsPage from "./pages/FilingsPage";
+import IntegrationsPage from "./pages/IntegrationsPage";
 import LoginPage from "./pages/LoginPage";
 import SalesPage from "./pages/SalesPage";
 import ServicesPage from "./pages/ServicesPage";
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/services" element={<ServicesPage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/clients/new" element={<ClientFormPage />} />
         <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />
         <Route path="/clients/:clientId" element={<ClientDetailPage />} />
