@@ -199,6 +199,47 @@ export default function ClientDetailPage() {
         </div>
       )}
 
+      {client.data?.hasBranches && (client.data.branchesJson?.length ?? 0) > 0 && (
+        <div className="mb-6 rounded-card border border-line-strong bg-card">
+          <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+            <span className="font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
+              Branches
+            </span>
+            <span className="rounded-chip bg-navy px-2 py-0.5 font-mono text-[10px] font-semibold text-gold-soft">
+              {client.data.branchesJson?.length}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-line-divider font-mono text-[10px] uppercase tracking-[.12em] text-content-secondary">
+                  <th className="px-5 py-2 font-normal">Branch</th>
+                  <th className="px-5 py-2 font-normal">Trade name</th>
+                  <th className="px-5 py-2 font-normal">Location</th>
+                  <th className="px-5 py-2 font-normal">RDO</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-divider">
+                {client.data.branchesJson?.map((b, i) => (
+                  <tr key={i}>
+                    <td className="px-5 py-2.5 font-mono text-content-secondary">
+                      {b.branchCode || "—"}
+                    </td>
+                    <td className="px-5 py-2.5 text-content">{b.tradeName || "—"}</td>
+                    <td className="px-5 py-2.5 text-content-secondary">
+                      {[b.city, b.province].filter(Boolean).join(", ") || b.address || "—"}
+                    </td>
+                    <td className="px-5 py-2.5 font-mono text-content-secondary">
+                      {b.rdo || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Tab bar */}
       <div className="mb-6 flex gap-6 border-b border-line-strong">
         {(["income", "expense"] as Kind[]).map((k) => (

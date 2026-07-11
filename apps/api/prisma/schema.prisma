@@ -133,6 +133,11 @@ model Client {
   /// Registration lines from the COR "Tax Types" table:
   /// [{ type, form, frequency, startDate }]. Owned by @portal/shared shape.
   taxTypesJson   Json    @default("[]")
+  /// Whether this client is registered with branches (same TIN, branch codes).
+  hasBranches    Boolean @default(false)
+  /// Branch offices (each its own COR / branch code):
+  /// [{ branchCode, tradeName, address, city, province, region, zip, rdo }].
+  branchesJson   Json    @default("[]")
   /// S3 object key of the uploaded COR file (`<firmId>/<clientId>`), or null
   /// when no COR has been stored. The file lives in S3-compatible object storage.
   corPath        String?

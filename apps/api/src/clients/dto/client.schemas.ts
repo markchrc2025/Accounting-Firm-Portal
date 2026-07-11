@@ -16,6 +16,19 @@ export const TaxTypeRow = z.object({
 });
 export type TaxTypeRow = z.infer<typeof TaxTypeRow>;
 
+/** One branch office (same TIN as the head office, distinct branch code). */
+export const BranchRow = z.object({
+  branchCode: z.string().default(""),
+  tradeName: z.string().default(""),
+  address: z.string().default(""),
+  city: z.string().default(""),
+  province: z.string().default(""),
+  region: z.string().default(""),
+  zip: z.string().default(""),
+  rdo: z.string().default(""),
+});
+export type BranchRow = z.infer<typeof BranchRow>;
+
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 
 /**
@@ -53,6 +66,8 @@ const filerFields = {
   taxpayerType: z.string().optional(),
   classification: z.string().optional(),
   taxTypes: z.array(TaxTypeRow).optional(),
+  hasBranches: z.boolean().optional(),
+  branches: z.array(BranchRow).optional(),
 
   // Firm-only engagement fields (never exported to the BIR Generator).
   professionalFee: z.number().nonnegative().optional(),
