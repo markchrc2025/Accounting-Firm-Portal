@@ -114,7 +114,10 @@ export function AppShell() {
           {hasPermission("Users:Read") && (
             <NavGroup
               label="Firm Admin"
-              items={[{ to: "/users", label: "Users & Roles", end: true }]}
+              items={[
+                { to: "/users", label: "Users & Roles", end: true },
+                { to: "/services", label: "Services", end: true },
+              ]}
             />
           )}
         </div>

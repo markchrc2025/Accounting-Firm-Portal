@@ -24,6 +24,7 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
   Users: ["Create", "Read", "Update", "Delete"],
   Roles: ["Read", "Assign", "Configure"],
   Clients: ["Create", "Read", "Update", "Delete", "ViewAll"],
+  Services: ["Create", "Read", "Update", "Delete"],
   Categories: ["Create", "Read", "Update", "Delete"],
   Sales: ["Create", "Read", "Update", "Delete", "Import", "Export"],
   Expenses: ["Create", "Read", "Update", "Delete", "Import", "Export"],

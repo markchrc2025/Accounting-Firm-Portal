@@ -429,3 +429,32 @@ export interface Filing {
 export function fetchFilings(clientId: string): Promise<Filing[]> {
   return apiFetch(`/clients/${clientId}/filings`);
 }
+
+// --- Services catalog (firm-scoped; seeds engagement fees + invoice line items) -----
+export interface Service {
+  id: string;
+  name: string;
+  description: string;
+  /** Prisma Decimal serialized as a string; may also arrive as a number. */
+  defaultFee: string | number;
+  billingMethod: string; // "Quarterly" | "Monthly" | "As Filing"
+  linkedForm: string | null; // FormCode or null
+  status: string; // "Active" | "Retired"
+}
+export interface ServiceInput {
+  name: string;
+  description?: string;
+  defaultFee: number;
+  billingMethod: string;
+  linkedForm?: string | null;
+  status?: string;
+}
+export function fetchServices(): Promise<Service[]> {
+  return apiFetch<Service[]>("/services");
+}
+export function createService(body: ServiceInput): Promise<Service> {
+  return apiFetch("/services", { method: "POST", body: JSON.stringify(body) });
+}
+export function updateService(id: string, body: Partial<ServiceInput>): Promise<Service> {
+  return apiFetch(`/services/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}

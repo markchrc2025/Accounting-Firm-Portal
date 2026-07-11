@@ -8,6 +8,7 @@ import ExpensesPage from "./pages/ExpensesPage";
 import FilingsPage from "./pages/FilingsPage";
 import LoginPage from "./pages/LoginPage";
 import SalesPage from "./pages/SalesPage";
+import ServicesPage from "./pages/ServicesPage";
 import TaxPage from "./pages/TaxPage";
 import UsersPage from "./pages/UsersPage";
 
@@ -25,6 +26,7 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/services" element={<ServicesPage />} />
         <Route path="/clients/new" element={<ClientFormPage />} />
         <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />
         <Route path="/clients/:clientId" element={<ClientDetailPage />} />
