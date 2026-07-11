@@ -19,6 +19,12 @@ export const COR_ALLOWED_TYPES = [
   "image/webp",
 ];
 
+/** Hard cap on an avatar upload — 5 MB. */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Content types accepted for a user avatar. */
+export const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
 /**
  * COR file storage on S3-compatible object storage. Objects live at
  * `<firmId>/<clientId>` — one COR per client (a re-upload overwrites).
@@ -68,6 +74,11 @@ export class StorageService {
     return `${firmId}/${clientId}`;
   }
 
+  /** Object key layout for a user avatar: `avatars/<userId>`. */
+  avatarKey(userId: string): string {
+    return `avatars/${userId}`;
+  }
+
   private require(): S3Client {
     if (!this.client) {
       throw new ServiceUnavailableException("COR storage not configured");
@@ -87,15 +98,40 @@ export class StorageService {
     );
   }
 
-  /** A short-lived (1 hour) presigned GET URL for the stored COR. */
-  async corSignedUrl(key: string): Promise<string> {
+  /** A short-lived (1 hour) presigned GET URL for an arbitrary stored object. */
+  async signedGetUrl(key: string): Promise<string> {
     const s3 = this.require();
     return getSignedUrl(s3, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
       expiresIn: 3600,
     });
   }
 
+  /** A short-lived (1 hour) presigned GET URL for the stored COR. */
+  async corSignedUrl(key: string): Promise<string> {
+    return this.signedGetUrl(key);
+  }
+
   async deleteCor(key: string): Promise<void> {
+    const s3 = this.require();
+    await s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  // --- Avatar objects --------------------------------------------------------
+
+  async putAvatar(key: string, body: Uint8Array, contentType: string): Promise<void> {
+    const s3 = this.require();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+  }
+
+  /** Best-effort avatar delete — a transient failure must not block clearing the key. */
+  async deleteAvatar(key: string): Promise<void> {
     const s3 = this.require();
     await s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }

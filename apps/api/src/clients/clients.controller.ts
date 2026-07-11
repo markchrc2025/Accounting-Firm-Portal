@@ -36,7 +36,7 @@ import {
  * JSON and not multipart — so Nest's JSON body parser leaves the stream intact
  * (it only consumes application/json), and we drain it here ourselves.
  */
-function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
+export function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;

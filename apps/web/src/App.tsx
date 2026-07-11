@@ -18,6 +18,7 @@ import PortalHomePage from "./pages/PortalHomePage";
 import PortalSalesPage from "./pages/PortalSalesPage";
 import PortalTaxPage from "./pages/PortalTaxPage";
 import PortalUsersPage from "./pages/PortalUsersPage";
+import ProfilePage from "./pages/ProfilePage";
 import SalesPage from "./pages/SalesPage";
 import ServicesPage from "./pages/ServicesPage";
 import TaxPage from "./pages/TaxPage";
@@ -46,6 +47,7 @@ export default function App() {
       <Route element={<AppShell />}>
         {/* Firm */}
         <Route path="/" element={<HomeRoute />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
