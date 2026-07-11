@@ -120,6 +120,7 @@ export function AppShell() {
                 { to: "/users", label: "Users & Roles", end: true },
                 { to: "/services", label: "Services", end: true },
                 { to: "/integrations", label: "Integrations", end: true },
+                { to: "/audit", label: "Audit Log", end: true },
               ]}
             />
           )}
