@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
+import { BirModule } from "./bir/bir.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { ClientsModule } from "./clients/clients.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
@@ -51,6 +52,7 @@ import { UsersModule } from "./users/users.module";
     IntegrationModule,
     FilingsModule,
     TaxRulesModule,
+    BirModule,
     HealthModule,
   ],
   providers: [
