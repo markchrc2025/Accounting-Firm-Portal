@@ -338,6 +338,14 @@ describe("parseCorText — adversarial cases", () => {
     expect(glued.tradeName).toBe("NICHIE STORE");
   });
 
+  it("strips leading table-border junk from the trade name ('_| HEBREWS…')", () => {
+    // Binarising a faint cell border prepends stray marks to the value.
+    const r = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 _| HEBREWS 13-8 MILKTEA SHOP May 16, 2022\n56104-REFRESHMENT",
+    );
+    expect(r.tradeName).toBe("HEBREWS 13-8 MILKTEA SHOP");
+  });
+
   it("treats an individual whose middle name is CO as an individual", () => {
     const r = parseCorText("NAME OF TAXPAYER\n123-456-789-00000 SANTOS, MARIA CO May 5, 2010");
     expect(r.kind).toBe("individual");
