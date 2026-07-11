@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { ClientSwitcher } from "./ClientSwitcher";
 import { McrcMark } from "./McrcMark";
 import { cn } from "./ui";
 
@@ -16,7 +17,10 @@ interface NavItem {
   end?: boolean;
 }
 
-const OVERVIEW_NAV: NavItem[] = [{ to: "/", label: "Dashboard", end: true }];
+const OVERVIEW_NAV: NavItem[] = [
+  { to: "/", label: "Dashboard", end: true },
+  { to: "/clients", label: "Clients", end: true },
+];
 
 function initials(name: string): string {
   return name
@@ -152,12 +156,13 @@ export function AppShell() {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[60px] flex-none items-center gap-4 border-b border-line-strong bg-topbar px-9">
+          <ClientSwitcher activeClientId={activeClientId} />
           <div className="flex-1">
             <input
               type="search"
               aria-label="Search"
               placeholder="Search clients, transactions, filings…"
-              className="w-full max-w-[420px] rounded-input bg-paper px-3.5 py-2 text-[13px] text-content placeholder:text-content-placeholder focus-visible:bg-card focus-visible:outline-none"
+              className="w-full max-w-[360px] rounded-input bg-paper px-3.5 py-2 text-[13px] text-content placeholder:text-content-placeholder focus-visible:bg-card focus-visible:outline-none"
             />
           </div>
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy font-mono text-[11px] font-semibold text-gold-soft">
