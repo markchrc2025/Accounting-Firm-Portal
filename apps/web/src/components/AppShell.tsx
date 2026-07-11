@@ -1,8 +1,13 @@
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { fetchClients } from "../lib/api";
 import { ClientSwitcher } from "./ClientSwitcher";
 import { McrcMark } from "./McrcMark";
 import { cn } from "./ui";
+
+const ACTIVE_CLIENT_KEY = "mcrc.activeClientId";
 
 /**
  * Authenticated app shell (design handoff — sidebar variant A light + top bar).
@@ -69,8 +74,32 @@ export function AppShell() {
   const { user, loading, signOut, hasPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const activeClientId = activeClientIdFromPath(location.pathname);
+  const routeClientId = activeClientIdFromPath(location.pathname);
   const isPortal = user?.userType === "CLIENT";
+
+  // Persistent "active client": whichever client you last opened (remembered across
+  // pages) so the Client Workspace nav stays visible everywhere, defaulting to your
+  // first client. Firm users only.
+  const { data: clients } = useQuery({
+    queryKey: ["clients"],
+    queryFn: fetchClients,
+    enabled: !isPortal && !!user,
+  });
+  const [storedClientId, setStoredClientId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : window.localStorage.getItem(ACTIVE_CLIENT_KEY),
+  );
+  useEffect(() => {
+    if (routeClientId) {
+      setStoredClientId(routeClientId);
+      window.localStorage.setItem(ACTIVE_CLIENT_KEY, routeClientId);
+    }
+  }, [routeClientId]);
+
+  // The client the workspace nav points at: current route → last opened → first client.
+  const knownIds = new Set((clients ?? []).map((c) => c.id));
+  const persisted = storedClientId && knownIds.has(storedClientId) ? storedClientId : null;
+  const workspaceClientId = routeClientId ?? persisted ?? clients?.[0]?.id ?? null;
+  const activeClientId = routeClientId; // for the top-bar switcher's "selected" highlight
 
   if (loading) {
     return (
@@ -124,17 +153,17 @@ export function AppShell() {
             <>
               <NavGroup label="Overview" items={OVERVIEW_NAV} />
 
-              {activeClientId && (
+              {workspaceClientId && (
                 <NavGroup
                   label="Client Workspace"
                   items={[
-                    { to: `/clients/${activeClientId}`, label: "Client Overview", end: true },
-                    { to: `/clients/${activeClientId}/sales`, label: "Sales & Income" },
-                    { to: `/clients/${activeClientId}/expenses`, label: "Expenses" },
-                    { to: `/clients/${activeClientId}/tax`, label: "Tax Estimate" },
-                    { to: `/clients/${activeClientId}/tax-rules`, label: "Tax Rules" },
-                    { to: `/clients/${activeClientId}/billing`, label: "Billing & Invoices" },
-                    { to: `/clients/${activeClientId}/filings`, label: "BIR Filings" },
+                    { to: `/clients/${workspaceClientId}`, label: "Client Overview", end: true },
+                    { to: `/clients/${workspaceClientId}/sales`, label: "Sales & Income" },
+                    { to: `/clients/${workspaceClientId}/expenses`, label: "Expenses" },
+                    { to: `/clients/${workspaceClientId}/tax`, label: "Tax Estimate" },
+                    { to: `/clients/${workspaceClientId}/tax-rules`, label: "Tax Rules" },
+                    { to: `/clients/${workspaceClientId}/billing`, label: "Billing & Invoices" },
+                    { to: `/clients/${workspaceClientId}/filings`, label: "BIR Filings" },
                   ]}
                 />
               )}
