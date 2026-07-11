@@ -139,7 +139,7 @@ export function AppShell() {
             <>
               <NavGroup label="Overview" items={OVERVIEW_NAV} />
 
-              {workspaceClientId && (
+              {workspaceClientId ? (
                 <NavGroup
                   label="Client Workspace"
                   items={[
@@ -152,6 +152,23 @@ export function AppShell() {
                     { to: `/clients/${workspaceClientId}/filings`, label: "BIR Filings" },
                   ]}
                 />
+              ) : (
+                // No clients yet: keep the group visible (so it never reads as a
+                // vanished menu) but explain it unlocks once a client exists.
+                <div className="mb-5">
+                  <div className="eyebrow mb-2 px-2.5">Client Workspace</div>
+                  <div className="rounded-btn border border-dashed border-line-strong bg-warn-bg-2/40 px-2.5 py-2.5">
+                    <p className="text-[12px] leading-snug text-content-secondary">
+                      Sales, expenses, tax &amp; filings open here once you add a client.
+                    </p>
+                    <NavLink
+                      to="/clients/new"
+                      className="mt-1.5 inline-flex font-mono text-[11px] font-semibold uppercase tracking-[.12em] text-gold-deep hover:text-navy"
+                    >
+                      + Add your first client
+                    </NavLink>
+                  </div>
+                </div>
               )}
 
               {hasPermission("Users:Read") && (
