@@ -26,6 +26,8 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<{ mfaToken?: string }>;
   completeMfa: (mfaToken: string, code: string) => Promise<void>;
   signOut: () => void;
+  /** Re-fetch the signed-in user (e.g. after a profile name/photo change). */
+  refreshUser: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
 }
 
@@ -74,6 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      setMe(await fetchMe());
+    } catch {
+      // Keep the current session on a transient refresh failure.
+    }
+  }, []);
+
   const hasPermission = useCallback(
     (permission: string) =>
       (me?.permissions.global.includes(permission) ?? false) ||
@@ -89,9 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       completeMfa,
       signOut,
+      refreshUser,
       hasPermission,
     }),
-    [me, loading, signIn, completeMfa, signOut, hasPermission],
+    [me, loading, signIn, completeMfa, signOut, refreshUser, hasPermission],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -660,11 +660,44 @@ export function fetchProfile(): Promise<Profile> {
 export function updateProfile(body: { fullName: string }): Promise<Profile> {
   return apiFetch("/profile/me", { method: "PATCH", body: JSON.stringify(body) });
 }
-export function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
-  return apiFetch("/profile/me/avatar", {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
+/**
+ * Upload a profile photo. Uses XMLHttpRequest (not fetch) so the caller can
+ * observe real upload progress: `onProgress` receives an integer 0–100, and
+ * -1 once the bytes are fully sent but the server is still responding
+ * (indeterminate tail — e.g. object-storage write + presign).
+ */
+export function uploadAvatar(
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<{ avatarUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", `${API_BASE_URL}/profile/me/avatar`);
+    xhr.responseType = "text";
+    xhr.setRequestHeader("Content-Type", file.type);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (e) => {
+      if (!onProgress) return;
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    // Bytes fully sent; server now processing — switch the ring to indeterminate.
+    xhr.upload.onload = () => onProgress?.(-1);
+
+    xhr.onload = () => {
+      const text = xhr.responseText;
+      const body = text ? JSON.parse(text) : undefined;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body as { avatarUrl: string });
+      } else {
+        const message =
+          (body && (body.message as string)) || `Request failed (${xhr.status})`;
+        reject(new ApiError(xhr.status, message, body));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Network error during upload."));
+    xhr.send(file);
   });
 }
 export function deleteAvatar(): Promise<{ ok: boolean }> {
