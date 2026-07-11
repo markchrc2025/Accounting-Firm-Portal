@@ -19,8 +19,38 @@ import {
   type Paginated,
   type PurchaseTxn,
 } from "../lib/api";
+import {
+  Button,
+  Card,
+  Chip,
+  ChipVariant,
+  cn,
+  EmptyState,
+  ErrorState,
+  peso,
+  RegimeChip,
+  Skeleton,
+  StatusChip,
+} from "../components/ui";
 
 const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
+
+/** Map a client status string to a chip tone. */
+function statusTone(status?: string | null): ChipVariant {
+  const s = (status ?? "").toUpperCase();
+  if (s.includes("ACTIVE")) return "success";
+  if (s.includes("ONBOARD") || s.includes("PENDING")) return "warn";
+  if (s.includes("INACTIVE")) return "neutral";
+  return "neutral";
+}
+
+/** Two-letter initials from a business/person name. */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return (parts[0] ?? "").slice(0, 2).toUpperCase();
+  return `${(parts[0] ?? "").charAt(0)}${(parts[parts.length - 1] ?? "").charAt(0)}`.toUpperCase();
+}
 
 export default function ClientDetailPage() {
   const { clientId = "" } = useParams();
@@ -85,53 +115,78 @@ export default function ClientDetailPage() {
   }
 
   if (client.isError) {
-    return <p className="p-8 text-red-700">Could not load this client.</p>;
+    return (
+      <div className="animate-fade-rise">
+        <Card>
+          <ErrorState
+            message="Could not load this client."
+            onRetry={() => void client.refetch()}
+          />
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
-      <Link to="/" className="text-sm text-gray-500 hover:underline">
-        ← Dashboard
-      </Link>
-      <header className="mb-6 mt-2 flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{client.data?.businessName ?? "…"}</h1>
-          <p className="text-sm text-gray-600">
-            {regime ? `${regime} client` : "Tax type not set"}
-            {client.data?.tin ? ` · TIN ${client.data.tin}` : ""}
-          </p>
+    <div className="animate-fade-rise">
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="mb-4 text-[12px] text-content-secondary">
+        <Link to="/" className="text-blue hover:underline">
+          Clients
+        </Link>
+        <span className="px-1.5 text-content-muted">/</span>
+        <span className="text-content">{client.data?.businessName ?? "…"}</span>
+      </nav>
+
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-card bg-navy font-mono text-[16px] font-bold text-gold-soft">
+            {client.data ? initials(client.data.businessName) : "—"}
+          </span>
+          <div className="min-w-0">
+            {client.isPending ? (
+              <Skeleton className="h-8 w-64" />
+            ) : (
+              <h1 className="font-serif text-[30px] font-medium text-navy">
+                {client.data?.businessName ?? "—"}
+              </h1>
+            )}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {client.data?.tin ? (
+                <span className="font-mono text-[12px] text-content-secondary">
+                  TIN {client.data.tin}
+                </span>
+              ) : null}
+              <RegimeChip regime={client.data?.taxType} />
+              {client.data?.status ? (
+                <StatusChip
+                  label={client.data.status}
+                  variant={statusTone(client.data.status)}
+                />
+              ) : null}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {hasPermission("Clients:Update") && (
-            <Link
-              to={`/clients/${clientId}/edit`}
-              className="rounded border border-gray-300 px-4 py-2 text-sm"
-            >
-              Edit client
-            </Link>
-          )}
-          {canWrite && regime && (
-            <button
-              onClick={() => {
-                setEditing(null);
-                setModalOpen(true);
-              }}
-              className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white"
-            >
-              + Add {kind === "income" ? "income" : "expense"}
-            </button>
-          )}
-        </div>
-      </header>
+        {hasPermission("Clients:Update") && (
+          <Link
+            to={`/clients/${clientId}/edit`}
+            className="inline-flex flex-none items-center rounded-btn border border-line-input bg-card px-4 py-[7px] text-[13px] font-semibold text-navy transition-colors hover:border-navy"
+          >
+            Edit client
+          </Link>
+        )}
+      </div>
 
       {!regime && (
-        <div className="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="mb-4 rounded-card border border-warn/30 bg-warn-bg px-4 py-3 text-[13px] text-gold-deep">
           Set this client&apos;s tax type (VAT or PERCENTAGE) before recording
           transactions.
         </div>
       )}
 
-      <div className="mb-4 flex gap-2 border-b border-gray-200">
+      {/* Tab bar */}
+      <div className="mb-6 flex gap-6 border-b border-line-strong">
         {(["income", "expense"] as Kind[]).map((k) => (
           <button
             key={k}
@@ -139,11 +194,12 @@ export default function ClientDetailPage() {
               setKind(k);
               setFilters({});
             }}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            className={cn(
+              "-mb-px px-1 pb-3 pt-1 text-[13px] transition-colors",
               kind === k
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-500"
-            }`}
+                ? "border-b-[2.5px] border-gold font-bold text-navy"
+                : "text-content-secondary hover:text-navy",
+            )}
           >
             {k === "income" ? "Sales / Income" : "Expenses / Purchases"}
           </button>
@@ -151,168 +207,218 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="mb-3 flex flex-wrap items-end gap-2">
-        <FilterInput
-          label="From"
-          type="date"
-          onChange={(v) => setFilters((f) => ({ ...f, dateFrom: v }))}
-        />
-        <FilterInput
-          label="To"
-          type="date"
-          onChange={(v) => setFilters((f) => ({ ...f, dateTo: v }))}
-        />
-        <div className="text-sm">
-          <div className="font-medium text-gray-700">Category</div>
-          <select
-            className="input mt-1"
-            onChange={(e) => setFilters((f) => ({ ...f, categoryId: e.target.value }))}
-          >
-            <option value="">All</option>
-            {(categories.data ?? [])
-              .filter((c) => c.type === (kind === "income" ? "INCOME" : "EXPENSE"))
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
-        </div>
-        {isVat && (
-          <div className="text-sm">
-            <div className="font-medium text-gray-700">
-              {kind === "income" ? "VAT class" : "Input VAT cat."}
-            </div>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <FilterInput
+            label="From"
+            type="date"
+            onChange={(v) => setFilters((f) => ({ ...f, dateFrom: v }))}
+          />
+          <FilterInput
+            label="To"
+            type="date"
+            onChange={(v) => setFilters((f) => ({ ...f, dateTo: v }))}
+          />
+          <label className="block">
+            <div className="mb-1 text-[13px] font-semibold text-content">Category</div>
             <select
-              className="input mt-1"
-              onChange={(e) =>
-                setFilters((f) => ({
-                  ...f,
-                  ...(kind === "income"
-                    ? { vatClass: e.target.value }
-                    : { inputVATCategory: e.target.value }),
-                }))
-              }
+              className="input"
+              onChange={(e) => setFilters((f) => ({ ...f, categoryId: e.target.value }))}
             >
               <option value="">All</option>
-              {(kind === "income" ? VAT_INCOME_CLASSES : InputVATCategory.options).map(
-                (o) => (
-                  <option key={o} value={o}>
-                    {o}
+              {(categories.data ?? [])
+                .filter((c) => c.type === (kind === "income" ? "INCOME" : "EXPENSE"))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
-                ),
-              )}
+                ))}
             </select>
-          </div>
+          </label>
+          {isVat && (
+            <label className="block">
+              <div className="mb-1 text-[13px] font-semibold text-content">
+                {kind === "income" ? "VAT class" : "Input VAT cat."}
+              </div>
+              <select
+                className="input"
+                onChange={(e) =>
+                  setFilters((f) => ({
+                    ...f,
+                    ...(kind === "income"
+                      ? { vatClass: e.target.value }
+                      : { inputVATCategory: e.target.value }),
+                  }))
+                }
+              >
+                <option value="">All</option>
+                {(kind === "income" ? VAT_INCOME_CLASSES : InputVATCategory.options).map(
+                  (o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          )}
+          <FilterInput
+            label="Search"
+            type="text"
+            onChange={(v) => setFilters((f) => ({ ...f, search: v }))}
+          />
+        </div>
+        {canWrite && regime && (
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
+            + Add {kind === "income" ? "income" : "expense"}
+          </Button>
         )}
-        <FilterInput
-          label="Search"
-          type="text"
-          onChange={(v) => setFilters((f) => ({ ...f, search: v }))}
-        />
       </div>
 
       {/* Inline category add */}
       {canManageCategories && (
-        <div className="mb-3 flex items-center gap-2 text-sm">
+        <div className="mb-4 flex items-center gap-2">
           <input
             placeholder={`New ${kind === "income" ? "income" : "expense"} category`}
             value={newCategory}
             onChange={(e) => setNewCategory(e.target.value)}
             className="input max-w-xs"
           />
-          <button
-            onClick={addCategory}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          >
+          <Button variant="outline" size="sm" onClick={addCategory}>
             Add category
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded border border-gray-200">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-            <tr>
-              <Th>Date</Th>
-              <Th>Ref</Th>
-              <Th>{kind === "income" ? "Customer" : "Vendor"}</Th>
-              <Th>Description</Th>
-              <Th>Category</Th>
-              <Th className="text-right">
-                {isVat ? "Net" : kind === "income" ? "Gross" : "Net"}
-              </Th>
-              {isVat && kind === "income" && <Th>VAT class</Th>}
-              {isVat && kind === "expense" && <Th>Input cat.</Th>}
-              {kind === "expense" && <Th>Deduct.</Th>}
-              <Th></Th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.isPending && (
-              <tr>
-                <td colSpan={9} className="p-4 text-gray-500">
-                  Loading…
-                </td>
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-line-divider bg-sidebar font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
+                <Th>Date</Th>
+                <Th>Ref</Th>
+                <Th>{kind === "income" ? "Customer" : "Vendor"}</Th>
+                <Th>Description</Th>
+                <Th>Category</Th>
+                <Th className="text-right">
+                  {isVat ? "Net" : kind === "income" ? "Gross" : "Net"}
+                </Th>
+                {isVat && kind === "income" && <Th>VAT class</Th>}
+                {isVat && kind === "expense" && <Th>Input cat.</Th>}
+                {kind === "expense" && <Th>Deduct.</Th>}
+                <Th className="text-right">&nbsp;</Th>
               </tr>
-            )}
-            {list.data && list.data.data.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-4 text-gray-500">
-                  No records.
-                </td>
-              </tr>
-            )}
-            {list.data?.data.map((t) => {
-              const income = t as IncomeTxn;
-              const purchase = t as PurchaseTxn;
-              return (
-                <tr key={t.id} className="border-t border-gray-100">
-                  <Td>{t.txnDate}</Td>
-                  <Td>{t.referenceNo ?? "—"}</Td>
-                  <Td>
-                    {kind === "income"
-                      ? (income.customer ?? "—")
-                      : (purchase.vendor ?? "—")}
-                  </Td>
-                  <Td>{t.description}</Td>
-                  <Td>{categoryName(t.categoryId)}</Td>
-                  <Td className="text-right tabular-nums">
-                    {t.netAmount.toLocaleString()}
-                  </Td>
-                  {isVat && kind === "income" && <Td>{income.vatClass}</Td>}
-                  {isVat && kind === "expense" && (
-                    <Td>{purchase.inputVATCategory ?? "—"}</Td>
-                  )}
-                  {kind === "expense" && <Td>{purchase.deductible ? "Yes" : "No"}</Td>}
-                  <Td className="text-right">
-                    <button
-                      onClick={() => {
-                        setEditing(t);
-                        setModalOpen(true);
-                      }}
-                      className="text-gray-600 hover:underline"
-                    >
-                      Edit
-                    </button>
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        className="ml-3 text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </Td>
+            </thead>
+            <tbody className="divide-y divide-line-divider">
+              {list.isPending && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-5">
+                    <div className="space-y-3">
+                      <Skeleton />
+                      <Skeleton className="w-3/4" />
+                      <Skeleton className="w-2/3" />
+                    </div>
+                  </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              )}
+              {list.isError && (
+                <tr>
+                  <td colSpan={9}>
+                    <ErrorState
+                      message="Could not load records."
+                      onRetry={() => void list.refetch()}
+                    />
+                  </td>
+                </tr>
+              )}
+              {list.data && list.data.data.length === 0 && (
+                <tr>
+                  <td colSpan={9}>
+                    <EmptyState
+                      title="No records"
+                      description="Nothing matches the current filters yet."
+                    />
+                  </td>
+                </tr>
+              )}
+              {list.data?.data.map((t) => {
+                const income = t as IncomeTxn;
+                const purchase = t as PurchaseTxn;
+                return (
+                  <tr key={t.id} className="text-[13px] transition-colors hover:bg-rowhover">
+                    <Td className="font-mono text-[12px] text-content-secondary">
+                      {t.txnDate}
+                    </Td>
+                    <Td className="font-mono text-[12px] text-content-secondary">
+                      {t.referenceNo ?? "—"}
+                    </Td>
+                    <Td className="text-content">
+                      {kind === "income"
+                        ? (income.customer ?? "—")
+                        : (purchase.vendor ?? "—")}
+                    </Td>
+                    <Td className="text-content">{t.description}</Td>
+                    <Td className="text-content-secondary">{categoryName(t.categoryId)}</Td>
+                    <Td className="text-right font-mono tabular-nums text-content">
+                      {peso(t.netAmount)}
+                    </Td>
+                    {isVat && kind === "income" && (
+                      <Td>
+                        <Chip variant="vat">{income.vatClass}</Chip>
+                      </Td>
+                    )}
+                    {isVat && kind === "expense" && (
+                      <Td>
+                        {purchase.inputVATCategory ? (
+                          <Chip variant="neutral">{purchase.inputVATCategory}</Chip>
+                        ) : (
+                          <span className="text-content-muted">—</span>
+                        )}
+                      </Td>
+                    )}
+                    {kind === "expense" && (
+                      <Td>
+                        <Chip variant={purchase.deductible ? "success" : "neutral"}>
+                          {purchase.deductible ? "Yes" : "No"}
+                        </Chip>
+                      </Td>
+                    )}
+                    <Td className="text-right">
+                      <button
+                        onClick={() => {
+                          setEditing(t);
+                          setModalOpen(true);
+                        }}
+                        className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
+                      >
+                        Edit
+                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(t.id)}
+                          className="ml-3 font-semibold text-danger underline-offset-2 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
       {list.data && (
-        <p className="mt-2 text-xs text-gray-500">{list.data.total} record(s)</p>
+        <p className="mt-3 font-mono text-[11px] uppercase tracking-[.14em] text-content-secondary">
+          {list.data.total} record(s)
+        </p>
       )}
 
       {modalOpen && regime && (
@@ -329,7 +435,7 @@ export default function ClientDetailPage() {
           }}
         />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -343,13 +449,9 @@ function FilterInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="text-sm">
-      <div className="font-medium text-gray-700">{label}</div>
-      <input
-        type={type}
-        onChange={(e) => onChange(e.target.value)}
-        className="input mt-1"
-      />
+    <label className="block">
+      <div className="mb-1 text-[13px] font-semibold text-content">{label}</div>
+      <input type={type} onChange={(e) => onChange(e.target.value)} className="input" />
     </label>
   );
 }
@@ -361,7 +463,7 @@ function Th({
   children?: React.ReactNode;
   className?: string;
 }) {
-  return <th className={`px-3 py-2 font-medium ${className}`}>{children}</th>;
+  return <th className={cn("px-4 py-2.5 font-semibold", className)}>{children}</th>;
 }
 function Td({
   children,
@@ -370,5 +472,5 @@ function Td({
   children?: React.ReactNode;
   className?: string;
 }) {
-  return <td className={`px-3 py-2 ${className}`}>{children}</td>;
+  return <td className={cn("px-4 py-3", className)}>{children}</td>;
 }

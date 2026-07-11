@@ -11,6 +11,16 @@ import {
   uploadCor,
   type Client,
 } from "../lib/api";
+import {
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  ErrorState,
+  PageHeader,
+  Skeleton,
+  cn,
+} from "../components/ui";
 // Type-only import — erased at build, so pdf.js/tesseract stay OUT of the main
 // chunk (the extractor itself is loaded lazily in onPickCor). parseCor.ts is the
 // pure, dependency-free module, so this never pulls the heavy OCR deps.
@@ -20,6 +30,13 @@ import type { ExtractedCor } from "../lib/cor/parseCor";
 // The web app can't import that schema, so the option lists live here.
 const TAX_TYPES = ["VAT", "PERCENTAGE"] as const;
 const BILLING_METHODS = ["QUARTERLY", "MONTHLY", "AS_FILING"] as const;
+// Human-readable labels for the billing segmented control (presentation only —
+// the bound value is still the enum string above).
+const BILLING_LABELS: Record<(typeof BILLING_METHODS)[number], string> = {
+  QUARTERLY: "Quarterly",
+  MONTHLY: "Monthly",
+  AS_FILING: "As filing",
+};
 
 type Kind = "individual" | "non-individual";
 type TaxRow = { type: string; form: string; frequency: string; startDate: string };
@@ -37,13 +54,30 @@ export default function ClientFormPage() {
 
   if (isEdit) {
     if (client.isPending) {
-      return <main className="mx-auto max-w-3xl px-6 py-10 text-gray-500">Loading…</main>;
+      return (
+        <div className="max-w-[940px] animate-fade-rise">
+          <PageHeader eyebrow="Client / Filer" title="Edit client" />
+          <div className="space-y-4">
+            <Skeleton className="h-32 w-full rounded-card" />
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-11 w-full rounded-input" />
+              ))}
+            </div>
+            <Skeleton className="h-40 w-full rounded-card" />
+          </div>
+        </div>
+      );
     }
     if (client.isError || !client.data) {
       return (
-        <main className="mx-auto max-w-3xl px-6 py-10 text-red-700">
-          Could not load this client.
-        </main>
+        <div className="max-w-[940px] animate-fade-rise">
+          <PageHeader eyebrow="Client / Filer" title="Edit client" />
+          <ErrorState
+            message="Could not load this client."
+            onRetry={() => client.refetch()}
+          />
+        </div>
       );
     }
     return <ClientForm existing={client.data} />;
@@ -416,536 +450,607 @@ function ClientForm({ existing }: { existing: Client | null }) {
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-8">
+    <div className="max-w-[940px] animate-fade-rise">
       <Link
         to={existing ? `/clients/${existing.id}` : "/"}
-        className="text-sm text-gray-500 hover:underline"
+        className="mb-3 inline-flex items-center gap-1 text-[13px] font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
       >
         ← {existing ? "Back to client" : "Dashboard"}
       </Link>
-      <h1 className="mb-1 mt-2 text-2xl font-bold">
-        {existing ? "Edit client" : "Add client"}
-      </h1>
-      <p className="mb-6 text-sm text-gray-600">
-        BIR filer profile and firm engagement details.
-      </p>
+
+      <PageHeader
+        eyebrow="Client / Filer"
+        title={existing ? "Edit client" : "Add client"}
+        description="BIR filer profile and firm engagement details."
+      />
 
       {error && (
-        <div className="mb-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="mb-5 rounded-input border border-danger/40 bg-danger-bg px-4 py-3 text-[13px] text-danger-ink">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* (a) COR upload + OCR auto-fill --------------------------------- */}
-        <section className="rounded-lg border border-gray-200 p-5">
-          <h2 className="mb-1 text-lg font-semibold">Certificate of Registration</h2>
-          <p className="mb-3 text-xs text-gray-500">
-            Upload a BIR Form 2303 (PDF or photo) to read the filer details. The file
-            stays in your browser — nothing is uploaded. You review the result before
-            it fills the form.
-          </p>
+        <Card>
+          <CardContent className="space-y-4">
+            <div className="eyebrow">Certificate of Registration</div>
 
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
                 e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              onPickCor(e.dataTransfer.files?.[0] ?? null);
-            }}
-            className="cursor-pointer rounded-lg border-2 border-dashed border-gray-300 p-6 text-center text-sm text-gray-600 hover:border-gray-400"
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => onPickCor(e.target.files?.[0] ?? null)}
-            />
-            <span className="font-medium text-gray-700">Drop a COR here</span> or click to
-            browse (PDF or image)
-          </div>
-
-          {existing && currentCorPath && (
-            <div className="mt-3 flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-              <span className="text-gray-700">A COR file is stored for this client.</span>
-              <button
-                type="button"
-                onClick={viewCurrentCor}
-                disabled={corBusy}
-                className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
+                onPickCor(e.dataTransfer.files?.[0] ?? null);
+              }}
+              className="flex cursor-pointer flex-col items-center gap-3 rounded-card border-2 border-dashed border-line-input bg-sidebar/60 px-6 py-9 text-center transition-colors hover:border-gold"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => onPickCor(e.target.files?.[0] ?? null)}
+              />
+              <span
+                aria-hidden
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-warn-bg-2 text-gold"
               >
-                View current COR
-              </button>
-              <button
-                type="button"
-                onClick={removeCurrentCor}
-                disabled={corBusy}
-                className="rounded border border-gray-300 px-3 py-1 text-sm text-red-600 disabled:opacity-50"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-
-          {corFile && (
-            <p className="mt-3 text-xs text-gray-600">
-              Selected file: <span className="font-medium">{corFile.name}</span> — it will be
-              uploaded when you save.
-            </p>
-          )}
-
-          {corWarning && (
-            <div className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {corWarning}
-            </div>
-          )}
-
-          {corExtracting && (
-            <div className="mt-3">
-              <p className="text-xs text-gray-600">
-                Reading COR… {corStage} ({Math.round(corPct * 100)}%)
-              </p>
-              <div className="mt-1 h-2 w-full overflow-hidden rounded bg-gray-100">
-                <div
-                  className="h-full bg-gray-900 transition-all"
-                  style={{ width: `${Math.round(corPct * 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {corHint && (
-            <div className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {corHint}
-            </div>
-          )}
-
-          {corExtracted && (
-            <div className="mt-3 rounded border border-gray-300 bg-gray-50 p-3 text-sm">
-              <p className="mb-2 font-medium text-gray-800">Review extracted details</p>
-              <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-                <SummaryRow label="Name" value={extractedName(corExtracted)} />
-                <SummaryRow label="Trade name" value={corExtracted.tradeName} />
-                <SummaryRow
-                  label="TIN"
-                  value={
-                    corExtracted.tin
-                      ? corExtracted.branch
-                        ? `${corExtracted.tin} · ${corExtracted.branch}`
-                        : corExtracted.tin
-                      : ""
-                  }
-                />
-                <SummaryRow label="RDO" value={corExtracted.rdo} />
-                <SummaryRow
-                  label="Address"
-                  value={
-                    corExtracted.address
-                      ? corExtracted.zip
-                        ? `${corExtracted.address} · ${corExtracted.zip}`
-                        : corExtracted.address
-                      : ""
-                  }
-                />
-                <SummaryRow
-                  label="Tax Types"
-                  value={`${corExtracted.taxTypes.length}`}
-                />
-              </dl>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  disabled={!hasExtracted}
-                  onClick={() => applyExtracted(corExtracted)}
-                  className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  Apply to form
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCorExtracted(null)}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-                >
-                  Dismiss
-                </button>
+                  <path d="M12 15V3m0 0L8 7m4-4 4 4" />
+                  <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+                </svg>
+              </span>
+              <div>
+                <div className="text-[14px] font-semibold text-navy">
+                  Drop a COR here, or browse
+                </div>
+                <p className="mx-auto mt-1 max-w-md text-[12.5px] text-content-secondary">
+                  BIR Form 2303 (PDF or photo). The file stays in your browser — you
+                  review the result before it fills the form.
+                </p>
               </div>
+              <span className="pointer-events-none inline-flex items-center justify-center rounded-btn bg-navy px-4 py-[7px] text-[13px] font-semibold text-white">
+                Browse files
+              </span>
             </div>
-          )}
-        </section>
+
+            {existing && currentCorPath && (
+              <div className="flex flex-wrap items-center gap-3 rounded-input border border-success/30 bg-success-bg px-4 py-3 text-[13px]">
+                <span aria-hidden className="font-semibold text-success">
+                  ✓
+                </span>
+                <span className="font-medium text-content">
+                  A COR file is stored for this client.
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={viewCurrentCor}
+                    disabled={corBusy}
+                  >
+                    View current COR
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={removeCurrentCor}
+                    disabled={corBusy}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {corFile && (
+              <div className="flex items-center gap-2 rounded-input border border-success/30 bg-success-bg px-4 py-3 text-[13px] text-content">
+                <span aria-hidden className="font-semibold text-success">
+                  ✓
+                </span>
+                <span>
+                  Selected file:{" "}
+                  <span className="font-mono font-medium text-content">{corFile.name}</span>{" "}
+                  — it will be uploaded when you save.
+                </span>
+              </div>
+            )}
+
+            {corWarning && (
+              <div className="rounded-input border border-warn/40 bg-warn-bg px-4 py-3 text-[13px] text-warn">
+                {corWarning}
+              </div>
+            )}
+
+            {corExtracting && (
+              <div className="rounded-input border border-info/30 bg-info-bg px-4 py-3">
+                <div className="flex items-center justify-between gap-3 text-[13px]">
+                  <span className="font-semibold text-navy">Reading COR… {corStage}</span>
+                  <span className="font-mono text-[12px] text-content-secondary">
+                    {Math.round(corPct * 100)}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-info/20">
+                  <div
+                    className="h-full rounded-full bg-info transition-all"
+                    style={{ width: `${Math.round(corPct * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {corHint && (
+              <div className="rounded-input border border-danger/30 bg-danger-bg px-4 py-3 text-[13px] text-danger-ink">
+                {corHint}
+              </div>
+            )}
+
+            {corExtracted && (
+              <div className="rounded-card border border-line bg-sidebar/60 p-4">
+                <div className="eyebrow mb-3">Review extracted details</div>
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-[13px] sm:grid-cols-2">
+                  <SummaryRow label="Name" value={extractedName(corExtracted)} />
+                  <SummaryRow label="Trade name" value={corExtracted.tradeName} />
+                  <SummaryRow
+                    label="TIN"
+                    value={
+                      corExtracted.tin
+                        ? corExtracted.branch
+                          ? `${corExtracted.tin} · ${corExtracted.branch}`
+                          : corExtracted.tin
+                        : ""
+                    }
+                  />
+                  <SummaryRow label="RDO" value={corExtracted.rdo} />
+                  <SummaryRow
+                    label="Address"
+                    value={
+                      corExtracted.address
+                        ? corExtracted.zip
+                          ? `${corExtracted.address} · ${corExtracted.zip}`
+                          : corExtracted.address
+                        : ""
+                    }
+                  />
+                  <SummaryRow label="Tax Types" value={`${corExtracted.taxTypes.length}`} />
+                </dl>
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!hasExtracted}
+                    onClick={() => applyExtracted(corExtracted)}
+                  >
+                    Apply to form
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setCorExtracted(null)}>
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* (b) Identity --------------------------------------------------- */}
-        <section className="rounded-lg border border-gray-200 p-5">
-          <h2 className="mb-3 text-lg font-semibold">Identity</h2>
-
-          <Field label="Business / display name" error={fieldErrors.businessName}>
-            <input
-              required
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              className="input"
-            />
-          </Field>
-
-          <div className="mt-3">
-            <span className="text-sm font-medium text-gray-700">Taxpayer kind</span>
-            <div className="mt-1 inline-flex overflow-hidden rounded border border-gray-300">
-              {(["individual", "non-individual"] as Kind[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setKind(k)}
-                  className={`px-4 py-2 text-sm ${
-                    kind === k ? "bg-gray-900 text-white" : "bg-white text-gray-700"
-                  }`}
-                >
-                  {k === "individual" ? "Individual" : "Non-individual"}
-                </button>
-              ))}
+        <Card>
+          <CardContent className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="eyebrow">Filer identity</div>
+              <div
+                role="group"
+                aria-label="Taxpayer kind"
+                className="inline-flex rounded-btn border border-line-input bg-card p-1"
+              >
+                {(["individual", "non-individual"] as Kind[]).map((k) => {
+                  const active = kind === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setKind(k)}
+                      className={cn(
+                        "rounded-[5px] px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+                        active ? "bg-navy text-white" : "text-content-secondary hover:bg-rowhover",
+                      )}
+                    >
+                      {k === "individual" ? "Individual" : "Non-individual"}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {kind === "non-individual" ? (
-            <div className="mt-3 space-y-3">
-              <Field label="Registered name" error={fieldErrors.regName}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                className="md:col-span-2"
+                label="Business / display name"
+                error={fieldErrors.businessName}
+              >
                 <input
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
+                  required
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
                   className="input"
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Date of incorporation" error={fieldErrors.incorpDate}>
-                  <input
-                    type="date"
-                    value={incorpDate}
-                    onChange={(e) => setIncorpDate(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-                <Field label="Taxpayer type" error={fieldErrors.taxpayerType}>
-                  <input
-                    value={taxpayerType}
-                    onChange={(e) => setTaxpayerType(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-              </div>
+
+              {kind === "non-individual" ? (
+                <>
+                  <Field
+                    className="md:col-span-2"
+                    label="Registered name"
+                    error={fieldErrors.regName}
+                  >
+                    <input
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Date of incorporation" error={fieldErrors.incorpDate}>
+                    <input
+                      type="date"
+                      value={incorpDate}
+                      onChange={(e) => setIncorpDate(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Taxpayer type" error={fieldErrors.taxpayerType}>
+                    <input
+                      value={taxpayerType}
+                      onChange={(e) => setTaxpayerType(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <Field label="Last name" error={fieldErrors.lastName}>
+                    <input
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="First name" error={fieldErrors.firstName}>
+                    <input
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Middle name" error={fieldErrors.middleName}>
+                    <input
+                      value={middleName}
+                      onChange={(e) => setMiddleName(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Date of birth" error={fieldErrors.birthdate}>
+                    <input
+                      type="date"
+                      value={birthdate}
+                      onChange={(e) => setBirthdate(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Civil status" error={fieldErrors.civilStatus}>
+                    <input
+                      value={civilStatus}
+                      onChange={(e) => setCivilStatus(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                </>
+              )}
+
+              <Field label="Trade name" error={fieldErrors.tradeName}>
+                <input
+                  value={tradeName}
+                  onChange={(e) => setTradeName(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="Classification" error={fieldErrors.classification}>
+                <input
+                  value={classification}
+                  onChange={(e) => setClassification(e.target.value)}
+                  className="input"
+                />
+              </Field>
+
+              <Field label="TIN" error={fieldErrors.tin}>
+                <input
+                  value={tin}
+                  onChange={(e) => setTin(e.target.value)}
+                  className="input font-mono"
+                />
+              </Field>
+              <Field label="Branch code" error={fieldErrors.branch}>
+                <input
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  className="input font-mono"
+                />
+              </Field>
+              <Field label="Citizenship" error={fieldErrors.citizenship}>
+                <input
+                  value={citizenship}
+                  onChange={(e) => setCitizenship(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="Currency" error={fieldErrors.currency}>
+                <input
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  maxLength={3}
+                  className="input font-mono"
+                />
+              </Field>
+
+              <Field label="RDO code" error={fieldErrors.rdo}>
+                <input
+                  value={rdo}
+                  onChange={(e) => setRdo(e.target.value)}
+                  className="input font-mono"
+                />
+              </Field>
+              <Field label="RDO name" error={fieldErrors.rdoName}>
+                <input
+                  value={rdoName}
+                  onChange={(e) => setRdoName(e.target.value)}
+                  className="input"
+                />
+              </Field>
+
+              <Field label="Tax regime" error={fieldErrors.taxType}>
+                <select
+                  value={taxType}
+                  onChange={(e) => setTaxType(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Not set</option>
+                  {TAX_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Seat limit" error={fieldErrors.seatLimit}>
+                <input
+                  type="number"
+                  min="3"
+                  value={seatLimit}
+                  onChange={(e) => setSeatLimit(e.target.value)}
+                  className="input"
+                />
+              </Field>
             </div>
-          ) : (
-            <div className="mt-3 space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Last name" error={fieldErrors.lastName}>
-                  <input
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-                <Field label="First name" error={fieldErrors.firstName}>
-                  <input
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-                <Field label="Middle name" error={fieldErrors.middleName}>
-                  <input
-                    value={middleName}
-                    onChange={(e) => setMiddleName(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Date of birth" error={fieldErrors.birthdate}>
-                  <input
-                    type="date"
-                    value={birthdate}
-                    onChange={(e) => setBirthdate(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-                <Field label="Civil status" error={fieldErrors.civilStatus}>
-                  <input
-                    value={civilStatus}
-                    onChange={(e) => setCivilStatus(e.target.value)}
-                    className="input"
-                  />
-                </Field>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Field label="Trade name" error={fieldErrors.tradeName}>
-              <input
-                value={tradeName}
-                onChange={(e) => setTradeName(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Classification" error={fieldErrors.classification}>
-              <input
-                value={classification}
-                onChange={(e) => setClassification(e.target.value)}
-                className="input"
-              />
-            </Field>
-          </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <Field label="TIN" error={fieldErrors.tin}>
-              <input
-                value={tin}
-                onChange={(e) => setTin(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Branch code" error={fieldErrors.branch}>
-              <input
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Citizenship" error={fieldErrors.citizenship}>
-              <input
-                value={citizenship}
-                onChange={(e) => setCitizenship(e.target.value)}
-                className="input"
-              />
-            </Field>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Field label="RDO code" error={fieldErrors.rdo}>
-              <input
-                value={rdo}
-                onChange={(e) => setRdo(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="RDO name" error={fieldErrors.rdoName}>
-              <input
-                value={rdoName}
-                onChange={(e) => setRdoName(e.target.value)}
-                className="input"
-              />
-            </Field>
-          </div>
-
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <Field label="Tax regime" error={fieldErrors.taxType}>
-              <select
-                value={taxType}
-                onChange={(e) => setTaxType(e.target.value)}
-                className="input"
-              >
-                <option value="">Not set</option>
-                {TAX_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Currency" error={fieldErrors.currency}>
-              <input
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                maxLength={3}
-                className="input"
-              />
-            </Field>
-            <Field label="Seat limit" error={fieldErrors.seatLimit}>
-              <input
-                type="number"
-                min="3"
-                value={seatLimit}
-                onChange={(e) => setSeatLimit(e.target.value)}
-                className="input"
-              />
-            </Field>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
         {/* (c) Contact ---------------------------------------------------- */}
-        <section className="rounded-lg border border-gray-200 p-5">
-          <h2 className="mb-3 text-lg font-semibold">Contact</h2>
-          <Field label="Registered address" error={fieldErrors.address}>
-            <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="input"
-            />
-          </Field>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Field label="City" error={fieldErrors.city}>
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="ZIP" error={fieldErrors.zip}>
-              <input
-                value={zip}
-                onChange={(e) => setZip(e.target.value)}
-                className="input"
-              />
-            </Field>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Field label="Email" error={fieldErrors.email}>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Phone" error={fieldErrors.phone}>
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="input"
-              />
-            </Field>
-          </div>
-        </section>
+        <Card>
+          <CardContent className="space-y-5">
+            <div className="eyebrow">Contact</div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                className="md:col-span-2"
+                label="Registered address"
+                error={fieldErrors.address}
+              >
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="City" error={fieldErrors.city}>
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="ZIP" error={fieldErrors.zip}>
+                <input
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value)}
+                  className="input font-mono"
+                />
+              </Field>
+              <Field label="Email" error={fieldErrors.email}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="Phone" error={fieldErrors.phone}>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="input font-mono"
+                />
+              </Field>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* (d) Tax Types -------------------------------------------------- */}
-        <section className="rounded-lg border border-gray-200 p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Tax types</h2>
-            <button
-              type="button"
-              onClick={addTaxRow}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-            >
-              + Add row
-            </button>
-          </div>
-          {taxTypes.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              No registered tax types. Upload a COR above or add rows manually.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <div className="hidden grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 text-xs font-medium uppercase text-gray-500 sm:grid">
-                <span>Type</span>
-                <span>Form</span>
-                <span>Frequency</span>
-                <span>Start date</span>
-                <span></span>
-              </div>
-              {taxTypes.map((row, idx) => (
-                <div
-                  key={idx}
-                  className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]"
-                >
-                  <input
-                    aria-label="Tax type"
-                    placeholder="Type"
-                    value={row.type}
-                    onChange={(e) => updateTaxRow(idx, { type: e.target.value })}
-                    className="input"
-                  />
-                  <input
-                    aria-label="Form"
-                    placeholder="Form"
-                    value={row.form}
-                    onChange={(e) => updateTaxRow(idx, { form: e.target.value })}
-                    className="input"
-                  />
-                  <input
-                    aria-label="Frequency"
-                    placeholder="Frequency"
-                    value={row.frequency}
-                    onChange={(e) => updateTaxRow(idx, { frequency: e.target.value })}
-                    className="input"
-                  />
-                  <input
-                    aria-label="Start date"
-                    type="date"
-                    value={row.startDate}
-                    onChange={(e) => updateTaxRow(idx, { startDate: e.target.value })}
-                    className="input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeTaxRow(idx)}
-                    className="rounded border border-gray-300 px-3 py-2 text-sm text-red-600"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+        <Card>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="eyebrow">Registered tax types</div>
+              <Button variant="outline" size="sm" onClick={addTaxRow}>
+                + Add row
+              </Button>
             </div>
-          )}
-        </section>
+            {taxTypes.length === 0 ? (
+              <p className="text-[13px] text-content-secondary">
+                No registered tax types. Upload a COR above or add rows manually.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="hidden gap-3 px-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary md:grid md:grid-cols-[1.4fr_0.8fr_1fr_1fr_auto]">
+                  <span>Type</span>
+                  <span>Form</span>
+                  <span>Frequency</span>
+                  <span>Start date</span>
+                  <span />
+                </div>
+                {taxTypes.map((row, idx) => (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-1 gap-3 md:grid-cols-[1.4fr_0.8fr_1fr_1fr_auto] md:items-center"
+                  >
+                    <input
+                      aria-label="Tax type"
+                      placeholder="Value-Added Tax"
+                      value={row.type}
+                      onChange={(e) => updateTaxRow(idx, { type: e.target.value })}
+                      className="input"
+                    />
+                    <input
+                      aria-label="Form"
+                      placeholder="2550Q"
+                      value={row.form}
+                      onChange={(e) => updateTaxRow(idx, { form: e.target.value })}
+                      className="input font-mono"
+                    />
+                    <input
+                      aria-label="Frequency"
+                      placeholder="Quarterly"
+                      value={row.frequency}
+                      onChange={(e) => updateTaxRow(idx, { frequency: e.target.value })}
+                      className="input"
+                    />
+                    <input
+                      aria-label="Start date"
+                      type="date"
+                      value={row.startDate}
+                      onChange={(e) => updateTaxRow(idx, { startDate: e.target.value })}
+                      className="input"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove tax type ${idx + 1}`}
+                      onClick={() => removeTaxRow(idx)}
+                      className="text-content-muted hover:text-danger"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* (e) Engagement (firm-only) ------------------------------------- */}
-        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
-          <h2 className="mb-1 text-lg font-semibold text-indigo-900">Engagement</h2>
-          <p className="mb-3 text-xs text-indigo-700">
-            Firm-only billing details. Never exported to the BIR Generator.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Professional fee (₱)" error={fieldErrors.professionalFee}>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={professionalFee}
-                onChange={(e) => setProfessionalFee(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Billing method" error={fieldErrors.billingMethod}>
-              <select
-                value={billingMethod}
-                onChange={(e) => setBillingMethod(e.target.value)}
-                className="input"
-              >
-                {BILLING_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-        </section>
+        <Card className="border border-warn/40 bg-warn-bg-2">
+          <CardContent className="space-y-5">
+            <div className="flex items-center gap-2">
+              <Chip variant="gold">FIRM-INTERNAL</Chip>
+              <span className="font-serif text-[15px] font-medium text-navy">Engagement</span>
+            </div>
+            <p className="text-[12.5px] text-content-secondary">
+              Firm-only billing details — never exported to the BIR Generator.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Professional fee" error={fieldErrors.professionalFee}>
+                <div className="relative">
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-content-secondary"
+                  >
+                    ₱
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={professionalFee}
+                    onChange={(e) => setProfessionalFee(e.target.value)}
+                    placeholder="0.00"
+                    className="input pl-7 font-mono"
+                  />
+                </div>
+              </Field>
+              <div>
+                <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                  Billing method
+                </span>
+                <div
+                  role="group"
+                  aria-label="Billing method"
+                  className="inline-flex flex-wrap rounded-btn border border-line-input bg-card p-1"
+                >
+                  {BILLING_METHODS.map((m) => {
+                    const active = billingMethod === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setBillingMethod(m)}
+                        className={cn(
+                          "rounded-[5px] px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+                          active ? "bg-navy text-white" : "text-content-secondary hover:bg-rowhover",
+                        )}
+                      >
+                        {BILLING_LABELS[m]}
+                      </button>
+                    );
+                  })}
+                </div>
+                {fieldErrors.billingMethod && (
+                  <span className="mt-1 block text-xs text-danger">
+                    {fieldErrors.billingMethod}
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Footer --------------------------------------------------------- */}
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
+        <div className="flex items-center justify-end gap-3 border-t border-line pt-5">
+          <Button
+            variant="ghost"
             onClick={() => navigate(existing ? `/clients/${existing.id}` : "/")}
-            className="rounded border border-gray-300 px-4 py-2 text-sm"
           >
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
+          </Button>
+          <Button type="submit" disabled={busy}>
             {busy ? "Saving…" : existing ? "Save changes" : "Create client"}
-          </button>
+          </Button>
         </div>
       </form>
-    </main>
+    </div>
   );
 }
 
@@ -960,8 +1065,8 @@ function extractedName(x: ExtractedCor): string {
 function SummaryRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex gap-2">
-      <dt className="text-gray-500">{label}:</dt>
-      <dd className="text-gray-900">{value && value.trim() ? value : "—"}</dd>
+      <dt className="text-content-secondary">{label}:</dt>
+      <dd className="text-content">{value && value.trim() ? value : "—"}</dd>
     </div>
   );
 }
@@ -969,17 +1074,19 @@ function SummaryRow({ label, value }: { label: string; value?: string }) {
 function Field({
   label,
   error,
+  className,
   children,
 }: {
   label: string;
   error?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="block text-sm">
-      <span className="font-medium text-gray-700">{label}</span>
-      <div className="mt-1">{children}</div>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+    <label className={cn("block", className)}>
+      <span className="text-[13px] font-semibold text-content">{label}</span>
+      <div className="mt-1.5">{children}</div>
+      {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
     </label>
   );
 }
