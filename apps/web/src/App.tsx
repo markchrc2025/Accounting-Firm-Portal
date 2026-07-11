@@ -10,6 +10,7 @@ import LoginPage from "./pages/LoginPage";
 import SalesPage from "./pages/SalesPage";
 import ServicesPage from "./pages/ServicesPage";
 import TaxPage from "./pages/TaxPage";
+import TaxRulesPage from "./pages/TaxRulesPage";
 import UsersPage from "./pages/UsersPage";
 
 /**
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/clients/:clientId/sales" element={<SalesPage />} />
         <Route path="/clients/:clientId/expenses" element={<ExpensesPage />} />
         <Route path="/clients/:clientId/tax" element={<TaxPage />} />
+        <Route path="/clients/:clientId/tax-rules" element={<TaxRulesPage />} />
         <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
       </Route>
 

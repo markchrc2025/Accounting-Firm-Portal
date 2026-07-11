@@ -20,6 +20,7 @@ import { RbacModule } from "./rbac/rbac.module";
 import { RedisModule } from "./redis/redis.module";
 import { ServicesModule } from "./services/services.module";
 import { StorageModule } from "./storage/storage.module";
+import { TaxRulesModule } from "./tax-rules/tax-rules.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -41,6 +42,7 @@ import { UsersModule } from "./users/users.module";
     PurchaseTransactionsModule,
     IntegrationModule,
     FilingsModule,
+    TaxRulesModule,
     HealthModule,
   ],
   providers: [

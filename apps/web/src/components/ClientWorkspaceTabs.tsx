@@ -12,6 +12,7 @@ export function ClientWorkspaceTabs({ clientId }: { clientId: string }) {
     { to: `/clients/${clientId}/sales`, label: "Sales & Income" },
     { to: `/clients/${clientId}/expenses`, label: "Expenses" },
     { to: `/clients/${clientId}/tax`, label: "Tax Estimate" },
+    { to: `/clients/${clientId}/tax-rules`, label: "Tax Rules" },
     { to: `/clients/${clientId}/filings`, label: "BIR Filings" },
   ];
   return (

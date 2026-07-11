@@ -151,6 +151,7 @@ model Client {
   purchaseTransactions PurchaseTransaction[]
   birFilings           BIRFiling[]
   inputTaxAssets       InputTaxAsset[]
+  taxRule              TaxRule?
 
   @@index([firmId])
   @@map("clients")
@@ -500,4 +501,25 @@ model Service {
 
   @@index([firmId])
   @@map("services")
+}
+
+/// Per-client income-tax computation configuration (Portal MANAGEMENT ESTIMATE
+/// only — NOT authoritative BIR tax; guardrail #1). Exactly one row per client.
+/// `method` selects the regime ("graduated" | "flat" | "percentage" |
+/// "simplified8"); `bracketsJson` holds the graduated schedule as an array of
+/// { over, notOver, baseTax, rate }; `flatRate` is the single rate % used by the
+/// non-graduated methods. When no row exists the API serves the TRAIN graduated
+/// default without persisting it.
+model TaxRule {
+  id           String   @id @default(uuid()) @db.Uuid
+  clientId     String   @unique @db.Uuid
+  method       String // "graduated" | "flat" | "percentage" | "simplified8"
+  flatRate     Decimal? @db.Decimal(6, 3) // single rate % for non-graduated methods
+  bracketsJson Json     @default("[]") // [{ over, notOver, baseTax, rate }]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("tax_rules")
 }
