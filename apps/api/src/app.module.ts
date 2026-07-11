@@ -14,6 +14,7 @@ import { HealthModule } from "./health/health.module";
 import { IncomeTransactionsModule } from "./income-transactions/income-transactions.module";
 import { IntegrationModule } from "./integration/integration.module";
 import { InvitationsModule } from "./invitations/invitations.module";
+import { InvoicesModule } from "./invoices/invoices.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -36,6 +37,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     ServicesModule,
     InvitationsModule,
+    InvoicesModule,
     FinancialModule,
     CategoriesModule,
     IncomeTransactionsModule,
