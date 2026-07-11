@@ -49,8 +49,8 @@ describe("AuditService.list", () => {
       entityId: "s1",
       ipAddress: "10.0.0.1",
     });
-    expect(res[1].actor).toBe("BIR Generator");
-    expect(res[2].actor).toBe("System");
+    expect(res[1]!.actor).toBe("BIR Generator");
+    expect(res[2]!.actor).toBe("System");
     // Raw metadata is never surfaced.
     expect(res[0]).not.toHaveProperty("metadata");
   });
