@@ -4,6 +4,7 @@ import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AuditPage from "./pages/AuditPage";
 import BillingPage from "./pages/BillingPage";
 import ClientDetailPage from "./pages/ClientDetailPage";
+import ClientsPage from "./pages/ClientsPage";
 import ClientFormPage from "./pages/ClientFormPage";
 import DashboardPage from "./pages/DashboardPage";
 import ExpensesPage from "./pages/ExpensesPage";
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/audit" element={<AuditPage />} />
+        <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/new" element={<ClientFormPage />} />
         <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />
         <Route path="/clients/:clientId" element={<ClientDetailPage />} />
