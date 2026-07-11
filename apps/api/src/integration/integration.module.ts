@@ -16,6 +16,6 @@ import { OAuthController } from "./oauth.controller";
   imports: [AuthModule],
   controllers: [OAuthController, IntegrationController],
   providers: [IntegrationClientService, AggregationService, BirFilingsService],
-  exports: [IntegrationClientService],
+  exports: [IntegrationClientService, BirFilingsService],
 })
 export class IntegrationModule {}

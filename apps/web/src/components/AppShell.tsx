@@ -1,4 +1,4 @@
-import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { McrcMark } from "./McrcMark";
 import { cn } from "./ui";
@@ -54,9 +54,18 @@ function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
   );
 }
 
+/** Extract an active client id from a `/clients/:id[/...]` path (excludes "new"). */
+function activeClientIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/clients\/([^/]+)/);
+  if (!m || m[1] === "new") return null;
+  return m[1] ?? null;
+}
+
 export function AppShell() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const activeClientId = activeClientIdFromPath(location.pathname);
 
   if (loading) {
     return (
@@ -88,6 +97,26 @@ export function AppShell() {
 
         <div className="flex-1 overflow-y-auto px-3 py-2">
           <NavGroup label="Overview" items={OVERVIEW_NAV} />
+
+          {activeClientId && (
+            <NavGroup
+              label="Client Workspace"
+              items={[
+                { to: `/clients/${activeClientId}`, label: "Client Overview", end: true },
+                { to: `/clients/${activeClientId}/sales`, label: "Sales & Income" },
+                { to: `/clients/${activeClientId}/expenses`, label: "Expenses" },
+                { to: `/clients/${activeClientId}/tax`, label: "Tax Estimate" },
+                { to: `/clients/${activeClientId}/filings`, label: "BIR Filings" },
+              ]}
+            />
+          )}
+
+          {hasPermission("Users:Read") && (
+            <NavGroup
+              label="Firm Admin"
+              items={[{ to: "/users", label: "Users & Roles", end: true }]}
+            />
+          )}
         </div>
 
         {/* Signed-in user card */}

@@ -4,7 +4,12 @@ import AcceptInvitePage from "./pages/AcceptInvitePage";
 import ClientDetailPage from "./pages/ClientDetailPage";
 import ClientFormPage from "./pages/ClientFormPage";
 import DashboardPage from "./pages/DashboardPage";
+import ExpensesPage from "./pages/ExpensesPage";
+import FilingsPage from "./pages/FilingsPage";
 import LoginPage from "./pages/LoginPage";
+import SalesPage from "./pages/SalesPage";
+import TaxPage from "./pages/TaxPage";
+import UsersPage from "./pages/UsersPage";
 
 /**
  * Routes. Public auth pages render standalone; every authenticated page renders
@@ -19,9 +24,14 @@ export default function App() {
 
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/clients/new" element={<ClientFormPage />} />
         <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />
         <Route path="/clients/:clientId" element={<ClientDetailPage />} />
+        <Route path="/clients/:clientId/sales" element={<SalesPage />} />
+        <Route path="/clients/:clientId/expenses" element={<ExpensesPage />} />
+        <Route path="/clients/:clientId/tax" element={<TaxPage />} />
+        <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
