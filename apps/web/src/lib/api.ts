@@ -482,3 +482,52 @@ export function saveTaxRules(clientId: string, body: TaxRule): Promise<TaxRule> 
     body: JSON.stringify(body),
   });
 }
+
+// --- Billing / Invoices (firm-scoped; billed against a client) ----------------------
+export interface InvoiceLineItem {
+  id?: string;
+  description: string;
+  qty: number | string;
+  rate: number | string;
+  amount: number | string;
+}
+export interface Invoice {
+  id: string;
+  number: string;
+  clientId: string;
+  /** Joined convenience field — the client's business name. */
+  clientName?: string;
+  description: string;
+  issuedDate: string;
+  dueDate: string;
+  status: string; // "Draft" | "Sent" | "Paid" | "Overdue"
+  subtotal: number | string;
+  vat: number | string;
+  total: number | string;
+  lineItems: InvoiceLineItem[];
+}
+export interface InvoiceLineItemInput {
+  description: string;
+  qty: number;
+  rate: number;
+}
+export interface InvoiceInput {
+  clientId: string;
+  description?: string;
+  issuedDate: string;
+  dueDate: string;
+  lineItems: InvoiceLineItemInput[];
+  status?: string;
+}
+export function fetchInvoices(clientId?: string): Promise<Invoice[]> {
+  return apiFetch<Invoice[]>(`/invoices${clientId ? `?clientId=${clientId}` : ""}`);
+}
+export function createInvoice(body: InvoiceInput): Promise<Invoice> {
+  return apiFetch("/invoices", { method: "POST", body: JSON.stringify(body) });
+}
+export function updateInvoice(id: string, body: Partial<InvoiceInput>): Promise<Invoice> {
+  return apiFetch(`/invoices/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function sendInvoice(id: string): Promise<Invoice> {
+  return apiFetch(`/invoices/${id}/send`, { method: "POST" });
+}

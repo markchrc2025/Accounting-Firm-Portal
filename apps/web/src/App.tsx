@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import BillingPage from "./pages/BillingPage";
 import ClientDetailPage from "./pages/ClientDetailPage";
 import ClientFormPage from "./pages/ClientFormPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/clients/:clientId/expenses" element={<ExpensesPage />} />
         <Route path="/clients/:clientId/tax" element={<TaxPage />} />
         <Route path="/clients/:clientId/tax-rules" element={<TaxRulesPage />} />
+        <Route path="/clients/:clientId/billing" element={<BillingPage />} />
         <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
       </Route>
 
