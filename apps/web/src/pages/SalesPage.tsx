@@ -9,12 +9,14 @@ import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
 import { useAuth } from "../auth/AuthContext";
 import {
   deleteIncome,
+  fetchAllIncome,
   fetchCategories,
   fetchClient,
   fetchIncome,
   fetchIncomeSummary,
   type IncomeTxn,
 } from "../lib/api";
+import { downloadSheet, SALES_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
   Card,
@@ -39,6 +41,7 @@ export default function SalesPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<IncomeTxn | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -105,6 +108,30 @@ export default function SalesPage() {
     await deleteIncome(clientId, id);
     invalidate();
   }
+  async function onExport() {
+    setExporting(true);
+    try {
+      const all = await fetchAllIncome(clientId, filters);
+      const rows = all.map((t) => ({
+        Date: t.txnDate,
+        ReferenceNo: t.referenceNo ?? "",
+        Customer: t.customer ?? "",
+        Description: t.description,
+        Category: categoryName(t.categoryId),
+        NetAmount: t.netAmount,
+        VatClass: t.vatClass,
+        OutputVAT: t.outputVAT ?? "",
+        SaleToGovernment: t.saleToGovernment ? "Yes" : "No",
+        CreditableVATWithheld5pct: t.creditableVATWithheld5pct ?? "",
+        ATC: t.atc ?? "",
+        Currency: client.data?.currency ?? "PHP",
+      }));
+      const base = (client.data?.businessName ?? "client").replace(/[^\w.-]+/g, "_");
+      await downloadSheet(`${base}-sales.xlsx`, "SALES", rows, SALES_HEADERS);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (!clientId) {
     return (
@@ -130,7 +157,16 @@ export default function SalesPage() {
           client.isPending ? "…" : (client.data?.businessName ?? "—")
         }
         actions={
-          canCreate ? <Button onClick={openAdd}>+ Add record</Button> : undefined
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={onExport}
+              disabled={exporting || (income.data?.total ?? 0) === 0}
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </Button>
+            {canCreate ? <Button onClick={openAdd}>+ Add record</Button> : null}
+          </div>
         }
       />
 

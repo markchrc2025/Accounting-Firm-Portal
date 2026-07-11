@@ -399,6 +399,19 @@ export function fetchIncome(
 ): Promise<Paginated<IncomeTxn>> {
   return apiFetch(`/clients/${clientId}/income-transactions${qs(filters)}`);
 }
+/** Fetch every income row matching the filters (pages through for export). */
+export async function fetchAllIncome(
+  clientId: string,
+  filters: Record<string, string | undefined> = {},
+): Promise<IncomeTxn[]> {
+  const out: IncomeTxn[] = [];
+  for (let page = 1; page <= 200; page++) {
+    const res = await fetchIncome(clientId, { ...filters, page: String(page), pageSize: "200" });
+    out.push(...res.data);
+    if (out.length >= res.total || res.data.length === 0) break;
+  }
+  return out;
+}
 export function createIncome(clientId: string, body: unknown): Promise<IncomeTxn> {
   return apiFetch(`/clients/${clientId}/income-transactions`, {
     method: "POST",
@@ -426,6 +439,19 @@ export function fetchPurchases(
   filters: Record<string, string | undefined> = {},
 ): Promise<Paginated<PurchaseTxn>> {
   return apiFetch(`/clients/${clientId}/purchase-transactions${qs(filters)}`);
+}
+/** Fetch every purchase row matching the filters (pages through for export). */
+export async function fetchAllPurchases(
+  clientId: string,
+  filters: Record<string, string | undefined> = {},
+): Promise<PurchaseTxn[]> {
+  const out: PurchaseTxn[] = [];
+  for (let page = 1; page <= 200; page++) {
+    const res = await fetchPurchases(clientId, { ...filters, page: String(page), pageSize: "200" });
+    out.push(...res.data);
+    if (out.length >= res.total || res.data.length === 0) break;
+  }
+  return out;
 }
 export function createPurchase(clientId: string, body: unknown): Promise<PurchaseTxn> {
   return apiFetch(`/clients/${clientId}/purchase-transactions`, {

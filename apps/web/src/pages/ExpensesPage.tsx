@@ -7,6 +7,7 @@ import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
 import { useAuth } from "../auth/AuthContext";
 import {
   deletePurchase,
+  fetchAllPurchases,
   fetchCategories,
   fetchClient,
   fetchPurchases,
@@ -14,6 +15,7 @@ import {
   type Paginated,
   type PurchaseTxn,
 } from "../lib/api";
+import { downloadSheet, EXPENSE_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
   Card,
@@ -40,6 +42,7 @@ export default function ExpensesPage() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseTxn | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -89,6 +92,32 @@ export default function ExpensesPage() {
     await deletePurchase(clientId, id);
     refresh();
   }
+  async function onExport() {
+    setExporting(true);
+    try {
+      const all = await fetchAllPurchases(clientId, filters);
+      const out = all.map((t) => ({
+        Date: t.txnDate,
+        ReferenceNo: t.referenceNo ?? "",
+        Vendor: t.vendor ?? "",
+        Description: t.description,
+        Category: categoryName(t.categoryId),
+        NetAmount: t.netAmount,
+        InputVATCategory: t.inputVATCategory ?? "",
+        InputVAT: t.inputVAT ?? "",
+        IsCapitalGood: t.isCapitalGood ? "Yes" : "No",
+        CapitalGoodAcquisitionCost: t.capitalGoodAcquisitionCost ?? "",
+        EstimatedUsefulLifeMonths: t.estimatedUsefulLifeMonths ?? "",
+        InputTaxAttribution: t.inputTaxAttribution ?? "",
+        Deductible: t.deductible ? "Yes" : "No",
+        Currency: client.data?.currency ?? "PHP",
+      }));
+      const base = (client.data?.businessName ?? "client").replace(/[^\w.-]+/g, "_");
+      await downloadSheet(`${base}-expenses.xlsx`, "EXPENSES", out, EXPENSE_HEADERS);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (!clientId) {
     return (
@@ -133,9 +162,16 @@ export default function ExpensesPage() {
           )
         }
         actions={
-          regime && canWrite ? (
-            <Button onClick={openAdd}>+ Add record</Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={onExport}
+              disabled={exporting || (list.data?.total ?? 0) === 0}
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </Button>
+            {regime && canWrite ? <Button onClick={openAdd}>+ Add record</Button> : null}
+          </div>
         }
       />
 
