@@ -378,3 +378,54 @@ export function deletePurchase(clientId: string, txnId: string): Promise<unknown
     method: "DELETE",
   });
 }
+
+// --- Management-estimate summaries (user-facing; NOT the integration aggregates) ----
+export interface IncomeSummary {
+  basis: "management-estimate";
+  totalNet: number;
+  totalOutputVAT: number;
+  count: number;
+  byVatClass: { vatClass: string; net: number; outputVAT: number; count: number }[];
+}
+export interface PurchaseSummary {
+  basis: "management-estimate";
+  totalNet: number;
+  totalInputVAT: number;
+  count: number;
+  deductibleNet: number;
+  nonDeductibleNet: number;
+  byInputVATCategory: {
+    inputVATCategory: string | null;
+    net: number;
+    inputVAT: number;
+    count: number;
+  }[];
+}
+export function fetchIncomeSummary(
+  clientId: string,
+  filters: Record<string, string | undefined> = {},
+): Promise<IncomeSummary> {
+  return apiFetch(`/clients/${clientId}/income-transactions/summary${qs(filters)}`);
+}
+export function fetchPurchaseSummary(
+  clientId: string,
+  filters: Record<string, string | undefined> = {},
+): Promise<PurchaseSummary> {
+  return apiFetch(`/clients/${clientId}/purchase-transactions/summary${qs(filters)}`);
+}
+
+// --- BIR filings (firm-facing read; the integration owns the authoritative push) ----
+export interface Filing {
+  id: string;
+  form: string;
+  periodType: string;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  xmlFilename: string;
+  pdfUrl: string | null;
+  updatedAt: string;
+}
+export function fetchFilings(clientId: string): Promise<Filing[]> {
+  return apiFetch(`/clients/${clientId}/filings`);
+}
