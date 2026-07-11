@@ -36,20 +36,43 @@ export default function ClientsPage() {
   const { hasPermission } = useAuth();
   const canCreate = hasPermission("Clients:Create");
   const [search, setSearch] = useState("");
+  const [region, setRegion] = useState("");
+  const [province, setProvince] = useState("");
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["clients"],
     queryFn: fetchClients,
   });
 
+  // Distinct regions across the roster, and provinces within the chosen region
+  // (so the province filter narrows as you slice by region).
+  const regions = useMemo(
+    () => Array.from(new Set((data ?? []).map((c) => c.region).filter(Boolean) as string[])).sort(),
+    [data],
+  );
+  const provinces = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (data ?? [])
+            .filter((c) => !region || c.region === region)
+            .map((c) => c.province)
+            .filter(Boolean) as string[],
+        ),
+      ).sort(),
+    [data, region],
+  );
+
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = data ?? [];
-    if (!q) return list;
-    return list.filter(
-      (c) => c.businessName.toLowerCase().includes(q) || (c.tin ?? "").toLowerCase().includes(q),
-    );
-  }, [data, search]);
+    return (data ?? []).filter((c) => {
+      if (q && !(c.businessName.toLowerCase().includes(q) || (c.tin ?? "").toLowerCase().includes(q)))
+        return false;
+      if (region && c.region !== region) return false;
+      if (province && c.province !== province) return false;
+      return true;
+    });
+  }, [data, search, region, province]);
 
   const addAction = canCreate ? (
     <Link
@@ -70,13 +93,55 @@ export default function ClientsPage() {
       />
 
       {!isPending && !isError && (data?.length ?? 0) > 0 && (
-        <div className="mb-4">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by business name or TIN…"
-            className="input max-w-[360px]"
+            className="input max-w-[320px] flex-1"
           />
+          <select
+            value={region}
+            onChange={(e) => {
+              setRegion(e.target.value);
+              setProvince(""); // reset province when the region changes
+            }}
+            className="input max-w-[240px]"
+            aria-label="Filter by region"
+          >
+            <option value="">All regions</option>
+            {regions.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <select
+            value={province}
+            onChange={(e) => setProvince(e.target.value)}
+            className="input max-w-[220px]"
+            aria-label="Filter by province"
+          >
+            <option value="">All provinces</option>
+            {provinces.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          {(region || province || search) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setRegion("");
+                setProvince("");
+              }}
+              className="text-[12.5px] font-semibold text-content-secondary hover:text-navy hover:underline"
+            >
+              Clear
+            </button>
+          )}
         </div>
       )}
 
@@ -103,7 +168,7 @@ export default function ClientsPage() {
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-line bg-sidebar">
-                  {["Business", "TIN", "Regime", "Status", "Actions"].map((h) => (
+                  {["Business", "TIN", "Location", "Regime", "Status", "Actions"].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-2.5 font-mono text-[10px] font-normal uppercase tracking-[.14em] text-content-secondary"
@@ -131,6 +196,18 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-5 py-[13px] font-mono text-[13px] text-content-secondary">
                       {c.tin ?? "—"}
+                    </td>
+                    <td className="px-5 py-[13px] text-[13px]">
+                      {c.city || c.province ? (
+                        <span>
+                          <span className="text-content">{c.city || "—"}</span>
+                          {c.province ? (
+                            <span className="text-content-secondary">, {c.province}</span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="text-content-muted">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-[13px]">
                       <RegimeChip regime={c.taxType} />

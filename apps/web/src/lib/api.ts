@@ -118,6 +118,11 @@ export interface ClientSummary {
   taxType?: string | null;
   currency: string;
   status: string;
+  // Location — surfaced on the roster for filtering/slicing (the list endpoint
+  // returns full client rows, so these are always present).
+  city?: string | null;
+  province?: string | null;
+  region?: string | null;
 }
 
 /** One row of the COR "Tax Types" table, as stored in `taxTypesJson`. Mirrors

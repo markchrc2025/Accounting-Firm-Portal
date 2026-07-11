@@ -166,6 +166,20 @@ export default function ClientDetailPage() {
                 />
               ) : null}
             </div>
+            {(client.data?.city || client.data?.province || client.data?.region) && (
+              <div className="mt-1.5 text-[12.5px] text-content-secondary">
+                {[
+                  client.data?.city,
+                  client.data?.province,
+                  client.data?.region,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {client.data?.zip ? (
+                  <span className="ml-1.5 font-mono text-content-muted">{client.data.zip}</span>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
         {hasPermission("Clients:Update") && (
