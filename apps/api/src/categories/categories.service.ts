@@ -122,6 +122,20 @@ export class CategoriesService {
    * given type. Used by the transaction services to close the cross-tenant
    * categoryId hole — a category from another client is rejected.
    */
+  /** Find a category by (case-insensitive) name for the client + type, creating
+   *  it when absent. Used by bulk import to map the template's Category column to
+   *  a categoryId without pre-seeding categories. */
+  async resolveByName(clientId: string, name: string, type: CategoryType) {
+    const trimmed = name.trim();
+    const existing = await this.prisma.category.findFirst({
+      where: { clientId, type, name: { equals: trimmed, mode: "insensitive" } },
+    });
+    if (existing) return existing;
+    return this.prisma.category.create({
+      data: { clientId, type, name: trimmed, isDeductible: true },
+    });
+  }
+
   async resolveForTransaction(
     clientId: string,
     categoryId: string,

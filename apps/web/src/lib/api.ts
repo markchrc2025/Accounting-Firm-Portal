@@ -412,6 +412,29 @@ export async function fetchAllIncome(
   }
   return out;
 }
+export interface ImportResult {
+  created: number;
+  failed: number;
+  errors: { row: number; message: string }[];
+}
+export function importIncome(
+  clientId: string,
+  rows: Record<string, unknown>[],
+): Promise<ImportResult> {
+  return apiFetch(`/clients/${clientId}/income-transactions/import`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
+export function importPurchases(
+  clientId: string,
+  rows: Record<string, unknown>[],
+): Promise<ImportResult> {
+  return apiFetch(`/clients/${clientId}/purchase-transactions/import`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
 export function createIncome(clientId: string, body: unknown): Promise<IncomeTxn> {
   return apiFetch(`/clients/${clientId}/income-transactions`, {
     method: "POST",

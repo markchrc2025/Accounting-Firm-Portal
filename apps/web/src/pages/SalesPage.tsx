@@ -6,6 +6,7 @@ import TransactionEntryModal, {
   type Regime,
 } from "../components/TransactionEntryModal";
 import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
+import { ImportModal } from "../components/ImportModal";
 import { useAuth } from "../auth/AuthContext";
 import {
   deleteIncome,
@@ -42,6 +43,7 @@ export default function SalesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<IncomeTxn | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -158,6 +160,11 @@ export default function SalesPage() {
         }
         actions={
           <div className="flex items-center gap-2">
+            {canCreate ? (
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               onClick={onExport}
@@ -326,6 +333,19 @@ export default function SalesPage() {
           onSaved={() => {
             setModalOpen(false);
             invalidate();
+          }}
+        />
+      )}
+
+      {importOpen && (
+        <ImportModal
+          kind="income"
+          clientId={clientId}
+          regime={regime}
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            invalidate();
+            queryClient.invalidateQueries({ queryKey: ["categories", clientId] });
           }}
         />
       )}

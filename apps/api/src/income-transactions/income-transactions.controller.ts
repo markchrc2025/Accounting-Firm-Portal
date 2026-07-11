@@ -27,6 +27,16 @@ export class IncomeTransactionsController {
     return this.income.create(user, clientId, body);
   }
 
+  @Post("import")
+  @RequirePermissions("Sales:Create")
+  import(
+    @CurrentUser() user: AuthUser,
+    @Param("clientId") clientId: string,
+    @Body() body: { rows?: unknown[] },
+  ) {
+    return this.income.importRows(user, clientId, Array.isArray(body?.rows) ? body.rows : []);
+  }
+
   @Get()
   @RequirePermissions("Sales:Read")
   list(

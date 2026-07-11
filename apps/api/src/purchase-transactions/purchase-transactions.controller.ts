@@ -27,6 +27,16 @@ export class PurchaseTransactionsController {
     return this.purchases.create(user, clientId, body);
   }
 
+  @Post("import")
+  @RequirePermissions("Expenses:Create")
+  import(
+    @CurrentUser() user: AuthUser,
+    @Param("clientId") clientId: string,
+    @Body() body: { rows?: unknown[] },
+  ) {
+    return this.purchases.importRows(user, clientId, Array.isArray(body?.rows) ? body.rows : []);
+  }
+
   @Get()
   @RequirePermissions("Expenses:Read")
   list(

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { PurchaseTransaction } from "@portal/shared";
+import { ExpenseImportRow, PurchaseTransaction } from "@portal/shared";
 import type { AuthUser } from "../common/auth/auth-user";
 import { parseOrBadRequest } from "../common/validation/zod.util";
 import { AuditService } from "../audit/audit.service";
@@ -67,6 +67,59 @@ export class PurchaseTransactionsService {
       },
     });
     return toPurchaseDto(row);
+  }
+
+  /** Bulk import expense rows (from the Expenses/Purchases template). Per-row
+   *  isolation: a bad row is reported, not fatal. Category name resolved/created
+   *  and cached. NetAmount is stored net of VAT (Guardrail #3). */
+  async importRows(user: AuthUser, clientId: string, rows: unknown[]) {
+    const client = await this.clients.assertInFirm(user.firmId, clientId);
+    const regime = this.regime.requireRegime(client.taxType);
+    const errors: { row: number; message: string }[] = [];
+    const catCache = new Map<string, string>();
+    let created = 0;
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        const parsed = parseOrBadRequest(ExpenseImportRow, rows[i]);
+        const key = parsed.Category.trim().toLowerCase();
+        let categoryId = catCache.get(key);
+        if (!categoryId) {
+          const cat = await this.categories.resolveByName(clientId, parsed.Category, "EXPENSE");
+          categoryId = cat.id;
+          catCache.set(key, categoryId);
+        }
+        const input = parseOrBadRequest(PurchaseTransaction, {
+          clientId,
+          categoryId,
+          txnDate: parsed.Date,
+          referenceNo: parsed.ReferenceNo,
+          vendor: parsed.Vendor,
+          description: parsed.Description,
+          netAmount: parsed.NetAmount,
+          inputVATCategory: parsed.InputVATCategory,
+          inputVAT: parsed.InputVAT,
+          isCapitalGood: parsed.IsCapitalGood ?? false,
+          capitalGoodAcquisitionCost: parsed.CapitalGoodAcquisitionCost,
+          estimatedUsefulLifeMonths: parsed.EstimatedUsefulLifeMonths,
+          inputTaxAttribution: parsed.InputTaxAttribution,
+          deductible: parsed.Deductible ?? true,
+          source: "import",
+        });
+        this.regime.validatePurchase(regime, input);
+        await this.prisma.purchaseTransaction.create({ data: this.toDb(clientId, input) });
+        created += 1;
+      } catch (e) {
+        errors.push({ row: i + 1, message: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    await this.audit.record({
+      userId: user.id,
+      action: "purchase.import",
+      entityType: "PurchaseTransaction",
+      entityId: clientId,
+      metadata: { clientId, created, failed: errors.length },
+    });
+    return { created, failed: errors.length, errors };
   }
 
   async list(user: AuthUser, clientId: string, query: PurchaseListQuery) {
