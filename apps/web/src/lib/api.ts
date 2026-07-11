@@ -109,6 +109,10 @@ export interface MeResponse {
 export function fetchMe(): Promise<MeResponse> {
   return apiFetch<MeResponse>("/auth/me");
 }
+/** Re-issue a fresh access token for the current session (sliding refresh). */
+export function refreshSession(): Promise<{ accessToken: string }> {
+  return apiFetch<{ accessToken: string }>("/auth/refresh", { method: "POST" });
+}
 
 // --- Clients / Users (read for the dashboard) --------------------------------
 export interface ClientSummary {

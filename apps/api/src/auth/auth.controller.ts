@@ -39,6 +39,11 @@ export class AuthController {
     return this.auth.me(user);
   }
 
+  @Post("refresh")
+  refresh(@CurrentUser() user: AuthUser) {
+    return this.auth.refresh(user);
+  }
+
   @Post("mfa/enroll")
   enrollMfa(@CurrentUser() user: AuthUser) {
     return this.auth.enrollMfa(user);

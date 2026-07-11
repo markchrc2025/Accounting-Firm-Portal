@@ -35,7 +35,10 @@ export class TokenService {
     config: ConfigService,
   ) {
     this.secret = config.get<string>("JWT_SECRET", "dev-insecure-secret-change-me");
-    this.accessTtl = config.get<string>("JWT_ACCESS_TTL", "1h");
+    // 4h matches the client's idle-logout window: the token is re-issued on
+    // activity (POST /auth/refresh), so it expires ~4h after the LAST activity —
+    // a server-side backstop for the inactivity timeout.
+    this.accessTtl = config.get<string>("JWT_ACCESS_TTL", "4h");
     this.mfaTtl = config.get<string>("JWT_MFA_TTL", "5m");
     this.integrationTtl = config.get<string>("OAUTH_TOKEN_TTL", "1h");
   }

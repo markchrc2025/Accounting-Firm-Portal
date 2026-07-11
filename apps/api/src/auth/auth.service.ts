@@ -157,6 +157,23 @@ export class AuthService {
     return { mfaEnabled: true };
   }
 
+  /**
+   * Re-issue a fresh access token for the already-authenticated caller (sliding
+   * session). The client calls this on activity so an active session's token
+   * never expires; after ~4h of no activity the token simply lapses.
+   */
+  refresh(user: AuthUser): { accessToken: string } {
+    return {
+      accessToken: this.tokens.signAccess({
+        id: user.id,
+        firmId: user.firmId,
+        userType: user.userType,
+        email: user.email,
+        clientId: user.clientId ?? null,
+      }),
+    };
+  }
+
   async me(user: AuthUser): Promise<{
     user: PublicUser;
     permissions: Awaited<ReturnType<RbacService["describe"]>>;
