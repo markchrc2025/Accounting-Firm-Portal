@@ -78,20 +78,83 @@ export default function ProfilePage() {
   );
 }
 
+/* ---------------------------------------------------------------- Upload ring */
+
+/**
+ * A circular progress overlay drawn on the border of the avatar. `progress` is
+ * 0–100 while bytes upload, or -1 once they're sent and the server is finishing
+ * (rendered as a slow indeterminate spin). Sits on top of the 96px avatar.
+ */
+function UploadRing({ progress }: { progress: number }) {
+  const size = 96;
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const indeterminate = progress < 0;
+  const pct = indeterminate ? 25 : Math.max(0, Math.min(100, progress));
+  const dash = (pct / 100) * circumference;
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      {/* Dim the photo so the ring + label read clearly. */}
+      <div className="absolute inset-0 rounded-full bg-navy/45" />
+      <svg
+        className={indeterminate ? "absolute inset-0 animate-spin" : "absolute inset-0 -rotate-90"}
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#c0902f"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${circumference}`}
+        />
+      </svg>
+      {!indeterminate && (
+        <span className="relative font-mono text-[15px] font-semibold text-white">
+          {pct}%
+        </span>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- Avatar card */
 
 function AvatarCard({ profile }: { profile: Profile }) {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // Upload progress: null = idle, 0–100 = sending bytes, -1 = server processing.
+  const [progress, setProgress] = useState<number | null>(null);
 
   const upload = useMutation({
-    mutationFn: (file: File) => uploadAvatar(file),
+    mutationFn: (file: File) => {
+      setProgress(0);
+      return uploadAvatar(file, setProgress);
+    },
     onSuccess: () => {
       setError(null);
+      setProgress(null);
       void qc.invalidateQueries({ queryKey: ["profile"] });
     },
-    onError: (err) => setError(errMessage(err, "Could not upload that photo.")),
+    onError: (err) => {
+      setProgress(null);
+      setError(errMessage(err, "Could not upload that photo."));
+    },
   });
 
   const remove = useMutation({
@@ -127,20 +190,23 @@ function AvatarCard({ profile }: { profile: Profile }) {
         <div className="eyebrow">Profile photo</div>
 
         <div className="flex flex-wrap items-center gap-5">
-          {profile.avatarUrl ? (
-            <img
-              src={profile.avatarUrl}
-              alt="Your profile photo"
-              className="h-24 w-24 flex-none rounded-full border border-line-strong object-cover"
-            />
-          ) : (
-            <span
-              aria-hidden
-              className="flex h-24 w-24 flex-none items-center justify-center rounded-full bg-navy font-mono text-2xl font-semibold text-gold-soft"
-            >
-              {initials(profile.fullName)}
-            </span>
-          )}
+          <div className="relative h-24 w-24 flex-none">
+            {profile.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt="Your profile photo"
+                className="h-24 w-24 rounded-full border border-line-strong object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="flex h-24 w-24 items-center justify-center rounded-full bg-navy font-mono text-2xl font-semibold text-gold-soft"
+              >
+                {initials(profile.fullName)}
+              </span>
+            )}
+            {progress !== null && <UploadRing progress={progress} />}
+          </div>
 
           <div className="min-w-0 space-y-2.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -170,7 +236,11 @@ function AvatarCard({ profile }: { profile: Profile }) {
                 </Button>
               )}
               {upload.isPending && (
-                <span className="text-[12.5px] text-content-secondary">Uploading…</span>
+                <span className="text-[12.5px] text-content-secondary">
+                  {progress !== null && progress >= 0
+                    ? `Uploading… ${progress}%`
+                    : "Finishing up…"}
+                </span>
               )}
               {remove.isPending && (
                 <span className="text-[12.5px] text-content-secondary">Removing…</span>
@@ -196,6 +266,7 @@ function AvatarCard({ profile }: { profile: Profile }) {
 
 function DetailsCard({ profile }: { profile: Profile }) {
   const qc = useQueryClient();
+  const { refreshUser } = useAuth();
   const [fullName, setFullName] = useState(profile.fullName);
   const [saved, setSaved] = useState(false);
 
@@ -209,6 +280,9 @@ function DetailsCard({ profile }: { profile: Profile }) {
     onSuccess: () => {
       setSaved(true);
       void qc.invalidateQueries({ queryKey: ["profile"] });
+      // Refresh the auth session so the name updates everywhere it's shown
+      // (dashboard greeting, top-bar menu) without a re-login.
+      void refreshUser();
     },
   });
 

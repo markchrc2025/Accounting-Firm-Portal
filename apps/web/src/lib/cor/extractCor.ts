@@ -4,20 +4,22 @@
 // drop the green security background, Tesseract.js reads the text, and the pure
 // layout parser in parseCor.ts pulls the fields we store on a Client.
 //
-// Tesseract's language data loads from its CDN on first use. OCR on a scanned,
-// watermarked COR is inherently imperfect — callers MUST let the user
-// review/correct the result before applying it.
+// OCR on a scanned, watermarked COR is inherently imperfect — callers MUST let
+// the user review/correct the result before applying it.
 //
-// CSP / CDN note: `Tesseract.recognize` below passes no workerPath/corePath/
-// langPath, so on first OCR it fetches the worker script, the WASM core and the
-// `eng.traineddata.gz` from https://cdn.jsdelivr.net (and runs a Blob-URL
-// worker + WASM). The Portal ships NO Content-Security-Policy today (checked:
-// apps/web/index.html and apps/web/nginx.conf have none), so the default CDN
-// path works out of the box. If a strict CSP is ever added it must allow
-// `cdn.jsdelivr.net` in script-src/connect-src plus `blob:` workers and
-// `'wasm-unsafe-eval'` — OTHERWISE self-host the three tesseract assets from
-// node_modules under public/tesseract/ and pass workerPath/corePath/langPath
-// (+ workerBlobURL:false) here so nothing leaves the origin.
+// SELF-HOSTED ASSETS (no CDN): Tesseract.js otherwise fetches its worker, WASM
+// core and `eng.traineddata.gz` from cdn.jsdelivr.net at runtime — a hard
+// dependency on a third-party host that silently throws the whole pipeline when
+// a user's network can't reach it (which is exactly how "Couldn't read this
+// COR" happened in production). We instead ship the three assets from our own
+// origin under `public/tesseract/` and point Tesseract at them below. The set
+// matches Tesseract v7's DEFAULT engine (OEM.DEFAULT → LSTM-only core + the
+// `4.0.0_best_int` language data), so behaviour is unchanged — only the source
+// host is. `workerBlobURL: false` loads the worker directly from our origin
+// URL. To refresh after a tesseract.js/-core bump, re-copy:
+//   node_modules/.../tesseract.js/dist/worker.min.js
+//   node_modules/.../tesseract.js-core/tesseract-core-simd-lstm.wasm{,.js}
+//   @tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz  (from npm)
 
 import * as pdfjsLib from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -25,6 +27,15 @@ import Tesseract from "tesseract.js";
 import { parseCorText, type ExtractedCor } from "./parseCor";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+
+// Origin-served Tesseract assets. BASE_URL honours a non-root deploy base.
+const TESS_BASE = `${import.meta.env.BASE_URL}tesseract`;
+const TESS_PATHS = {
+  workerPath: `${TESS_BASE}/worker.min.js`,
+  corePath: `${TESS_BASE}/tesseract-core-simd-lstm.wasm.js`,
+  langPath: TESS_BASE,
+  workerBlobURL: false,
+} as const;
 
 export type { ExtractedCor } from "./parseCor";
 export { parseCorText } from "./parseCor";
@@ -100,6 +111,7 @@ async function ocr(canvases: HTMLCanvasElement[], onProgress?: ExtractProgress):
     const canvas = canvases[i]!;
     binarize(canvas);
     const { data } = await Tesseract.recognize(canvas, "eng", {
+      ...TESS_PATHS,
       logger: (m: { status?: string; progress?: number }) => {
         if (m.status === "recognizing text" && onProgress) {
           onProgress(`Reading page ${i + 1}`, (i + (m.progress ?? 0)) / canvases.length);
