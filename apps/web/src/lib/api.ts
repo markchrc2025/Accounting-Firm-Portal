@@ -458,3 +458,27 @@ export function createService(body: ServiceInput): Promise<Service> {
 export function updateService(id: string, body: Partial<ServiceInput>): Promise<Service> {
   return apiFetch(`/services/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 }
+
+// --- Tax rules (per-client management-estimate config; NOT the authoritative BIR calc) --
+export type TaxMethod = "graduated" | "flat" | "percentage" | "simplified8";
+export interface TaxBracket {
+  over: number;
+  notOver: number | null;
+  baseTax: number;
+  rate: number;
+}
+export interface TaxRule {
+  method: TaxMethod;
+  /** Single rate (%) for flat / percentage / simplified8; null for graduated. */
+  flatRate: number | null;
+  brackets: TaxBracket[];
+}
+export function fetchTaxRules(clientId: string): Promise<TaxRule> {
+  return apiFetch<TaxRule>(`/clients/${clientId}/tax-rules`);
+}
+export function saveTaxRules(clientId: string, body: TaxRule): Promise<TaxRule> {
+  return apiFetch(`/clients/${clientId}/tax-rules`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}

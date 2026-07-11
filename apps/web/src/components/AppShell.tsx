@@ -106,6 +106,7 @@ export function AppShell() {
                 { to: `/clients/${activeClientId}/sales`, label: "Sales & Income" },
                 { to: `/clients/${activeClientId}/expenses`, label: "Expenses" },
                 { to: `/clients/${activeClientId}/tax`, label: "Tax Estimate" },
+                { to: `/clients/${activeClientId}/tax-rules`, label: "Tax Rules" },
                 { to: `/clients/${activeClientId}/filings`, label: "BIR Filings" },
               ]}
             />
