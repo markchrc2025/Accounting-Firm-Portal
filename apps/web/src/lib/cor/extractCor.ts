@@ -125,13 +125,64 @@ async function ocr(canvases: HTMLCanvasElement[], onProgress?: ExtractProgress):
 
 // ---------------------------------------------------------------- orchestrate
 
+/** A failure with a user-facing explanation of which stage broke. */
+export class CorExtractError extends Error {
+  readonly stage: "assets" | "render" | "ocr";
+  constructor(message: string, stage: "assets" | "render" | "ocr", cause?: unknown) {
+    super(message, cause !== undefined ? { cause } : undefined);
+    this.name = "CorExtractError";
+    this.stage = stage;
+  }
+}
+
+/** Confirm the self-hosted OCR engine files are actually served from our origin
+ *  before we try to use them — a missing/404 asset (e.g. the web app wasn't
+ *  redeployed after this feature shipped) is the difference between a clear
+ *  "engine didn't load" message and an opaque worker crash. */
+async function preflightAssets(): Promise<void> {
+  const urls = [TESS_PATHS.workerPath, TESS_PATHS.corePath, `${TESS_BASE}/eng.traineddata.gz`];
+  try {
+    const results = await Promise.all(urls.map((u) => fetch(u, { method: "HEAD" })));
+    const bad = results.find((r) => !r.ok);
+    if (bad) {
+      throw new CorExtractError(
+        `The OCR engine files aren't being served yet (${new URL(bad.url).pathname} → ${bad.status}). ` +
+          `If the app was just updated, redeploy the web service and hard-refresh.`,
+        "assets",
+      );
+    }
+  } catch (err) {
+    if (err instanceof CorExtractError) throw err;
+    throw new CorExtractError(
+      "The OCR engine couldn't be downloaded from this site. Check your connection and hard-refresh.",
+      "assets",
+      err,
+    );
+  }
+}
+
 /** Render → binarise → OCR → parse a COR file (PDF or image). */
 export async function extractCorFromFile(file: File, onProgress?: ExtractProgress): Promise<ExtractedCor> {
   onProgress?.("Preparing document", 0);
-  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-  const canvases = isPdf ? await renderPdf(await file.arrayBuffer()) : await rasterImage(file);
-  if (canvases.length === 0) throw new Error("Could not read the document.");
-  const text = await ocr(canvases, onProgress);
+  await preflightAssets();
+
+  let canvases: HTMLCanvasElement[];
+  try {
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    canvases = isPdf ? await renderPdf(await file.arrayBuffer()) : await rasterImage(file);
+  } catch (err) {
+    throw new CorExtractError("This file couldn't be opened as a PDF or image.", "render", err);
+  }
+  if (canvases.length === 0) {
+    throw new CorExtractError("This file couldn't be opened as a PDF or image.", "render");
+  }
+
+  let text: string;
+  try {
+    text = await ocr(canvases, onProgress);
+  } catch (err) {
+    throw new CorExtractError("The OCR engine failed while reading the document.", "ocr", err);
+  }
   onProgress?.("Extracting fields", 1);
   return parseCorText(text);
 }
