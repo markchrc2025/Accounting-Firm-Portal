@@ -148,6 +148,8 @@ export interface Client extends ClientSummary {
   rdo?: string | null;
   rdoName?: string | null;
   city?: string | null;
+  province?: string | null;
+  region?: string | null;
   zip?: string | null;
   address?: string | null;
   birthdate?: string | null;
