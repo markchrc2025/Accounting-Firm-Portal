@@ -7,12 +7,90 @@
  * Bootstrap admin credentials come from env (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD),
  * defaulting to admin@firm.test / ChangeMe123! for local development.
  */
+import * as fs from "fs";
+import * as path from "path";
 import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 import { OAUTH_SCOPES } from "@portal/shared";
 import { allPermissions, DEFAULT_ROLES } from "../src/rbac/permissions.constants";
 
 const prisma = new PrismaClient();
+
+/** Global BIR tax-code reference data (24 tax types + 228 ATC codes). Loaded
+ *  from prisma/data/bir_tax_codes.json and upserted so re-runs stay idempotent
+ *  and a refreshed dataset (new revenue issuances) updates in place. */
+interface BirTaxTypeRow {
+  code: string;
+  name: string;
+  forms?: string[];
+  status?: string;
+  notes?: string;
+}
+interface BirAtcRow {
+  atc: string;
+  classification: string;
+  tax_type_code: string;
+  payee_type: string;
+  description: string;
+  condition?: string;
+  rate?: number | null;
+  rate_basis?: string | null;
+  threshold_amount?: number | null;
+  bracket?: string | null;
+  forms?: string[];
+  certificate?: string | null;
+  status?: string;
+  notes?: string;
+}
+async function seedBirTaxCodes(): Promise<void> {
+  const file = path.join(__dirname, "data", "bir_tax_codes.json");
+  if (!fs.existsSync(file)) {
+    console.warn("[seed] bir_tax_codes.json not found — skipping tax-code seed.");
+    return;
+  }
+  const data = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    tax_types: BirTaxTypeRow[];
+    atc_codes: BirAtcRow[];
+  };
+  for (const t of data.tax_types) {
+    const row = {
+      name: t.name,
+      forms: t.forms ?? [],
+      status: t.status ?? "active",
+      notes: t.notes && t.notes.trim() ? t.notes : null,
+    };
+    await prisma.birTaxType.upsert({
+      where: { code: t.code },
+      create: { code: t.code, ...row },
+      update: row,
+    });
+  }
+  for (const a of data.atc_codes) {
+    const row = {
+      classification: a.classification,
+      taxTypeCode: a.tax_type_code,
+      payeeType: a.payee_type,
+      description: a.description,
+      condition: a.condition && a.condition.trim() ? a.condition : null,
+      rate: a.rate ?? null,
+      rateBasis: a.rate_basis && a.rate_basis.trim() ? a.rate_basis : null,
+      thresholdAmount: a.threshold_amount ?? null,
+      bracket: a.bracket && String(a.bracket).trim() ? a.bracket : null,
+      forms: a.forms ?? [],
+      certificate: a.certificate && a.certificate.trim() ? a.certificate : null,
+      status: a.status ?? "active",
+      notes: a.notes && a.notes.trim() ? a.notes : null,
+    };
+    await prisma.birAtcCode.upsert({
+      where: { atc: a.atc },
+      create: { atc: a.atc, ...row },
+      update: row,
+    });
+  }
+  console.log(
+    `[seed] BIR tax codes: ${data.tax_types.length} tax types, ${data.atc_codes.length} ATC codes.`,
+  );
+}
 
 async function seedPermissionsAndRoles(): Promise<void> {
   // Permissions
@@ -145,6 +223,7 @@ async function removeSampleClient(firmId: string): Promise<void> {
 
 async function main(): Promise<void> {
   await seedPermissionsAndRoles();
+  await seedBirTaxCodes();
   const firmId = await seedBootstrapAdmin();
   await seedIntegrationClient(firmId);
   await removeSampleClient(firmId);

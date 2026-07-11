@@ -1,0 +1,4658 @@
+{
+  "meta": {
+    "title": "BIR (Philippines) Tax Types and Alphanumeric Tax Codes (ATC)",
+    "compiled_date": "2026-07-11",
+    "jurisdiction": "PH",
+    "rate_encoding": "decimal fraction (0.05 = 5%)",
+    "classifications": {
+      "vat": "Output VAT industry codes - Form 2550Q (2550M optional since 2023)",
+      "ewt": "Expanded/creditable withholding tax - Forms 0619-E, 1601-EQ, 1604-E; certificate 2307",
+      "fwt": "Final withholding tax incl. fringe benefits - Forms 0619-F, 1601-FQ, 1604-F, 1603Q; certificate 2306",
+      "wvat": "Withholding VAT - Form 1600-VT; certificate 2307",
+      "percentage_wt": "Percentage taxes withheld/remitted at source - Forms 1600-PT, 2552; certificate 2307"
+    },
+    "sources": [
+      "RMO 42-2003 Annex C (tax type codes)",
+      "BIR Forms 2550M/2550Q (VAT ATCs)",
+      "RR 2-98 as amended by RR 11-2018 (EWT/FWT rates)",
+      "BIR Form 1603Q Jan 2018 ENCS (fringe benefit ATCs)",
+      "RR 4-2021 (withholding VAT final-to-creditable)"
+    ],
+    "disclaimer": "Reference compilation, not tax advice. Verify against current eBIRForms/eFPS dropdowns and the taxpayer's BIR Form 2303 before production use."
+  },
+  "tax_types": [
+    {
+      "code": "IT",
+      "name": "Income Tax",
+      "forms": [
+        "1700",
+        "1701",
+        "1701A",
+        "1701Q",
+        "1702-RT",
+        "1702-EX",
+        "1702-MX",
+        "1702Q"
+      ],
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "code": "VT",
+      "name": "Value-Added Tax",
+      "forms": [
+        "2550M",
+        "2550Q"
+      ],
+      "status": "active",
+      "notes": "12% standard rate; see 'VAT ATCs' sheet"
+    },
+    {
+      "code": "XV",
+      "name": "Excise Tax - Ad Valorem",
+      "forms": [
+        "2200 series"
+      ],
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "code": "XS",
+      "name": "Excise Tax - Specific",
+      "forms": [
+        "2200 series"
+      ],
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "code": "WC",
+      "name": "Withholding Tax - Compensation",
+      "forms": [
+        "1601-C",
+        "1604-C",
+        "2316"
+      ],
+      "status": "active",
+      "notes": "Graduated withholding table (0%-35%); no per-transaction ATC"
+    },
+    {
+      "code": "WE",
+      "name": "Withholding Tax - Expanded (Creditable)",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E",
+        "2307"
+      ],
+      "status": "active",
+      "notes": "See 'EWT ATCs (Creditable)' sheet"
+    },
+    {
+      "code": "WF",
+      "name": "Withholding Tax - Final",
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F",
+        "2306"
+      ],
+      "status": "active",
+      "notes": "See 'Final WT ATCs' sheet"
+    },
+    {
+      "code": "WB",
+      "name": "Withholding Tax - Banks and Other Financial Institutions",
+      "forms": [],
+      "status": "active",
+      "notes": "Final taxes withheld by banks/FIs on interest, etc."
+    },
+    {
+      "code": "WR",
+      "name": "Withholding Tax - Fringe Benefits",
+      "forms": [
+        "1603Q"
+      ],
+      "status": "active",
+      "notes": "ATCs WF360 (35%) and WF330 (25%) - see 'Final WT ATCs' sheet"
+    },
+    {
+      "code": "WW",
+      "name": "Withholding Tax - Percentage Tax on Winnings and Prizes",
+      "forms": [
+        "1600-WP"
+      ],
+      "status": "active",
+      "notes": "Operators of horse race tracks, etc."
+    },
+    {
+      "code": "WO",
+      "name": "Withholding Tax - Others (one-time transactions not subject to CGT; sale/transfer of real property other than capital assets)",
+      "forms": [
+        "1606"
+      ],
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "code": "WG",
+      "name": "Withholding Tax - VAT and Other Percentage Taxes",
+      "forms": [
+        "1600-VT",
+        "1600-PT"
+      ],
+      "status": "active",
+      "notes": "See 'WVAT & Percentage WT' sheet"
+    },
+    {
+      "code": "CG",
+      "name": "Capital Gains Tax - Real Property (capital asset)",
+      "forms": [
+        "1706"
+      ],
+      "status": "active",
+      "notes": "6% of selling price or zonal/FMV, whichever is higher"
+    },
+    {
+      "code": "CS",
+      "name": "Capital Gains Tax - Stocks (shares not traded on the stock exchange)",
+      "forms": [
+        "1707",
+        "1707-A"
+      ],
+      "status": "active",
+      "notes": "15% of net capital gain (TRAIN/CREATE)"
+    },
+    {
+      "code": "IE",
+      "name": "Improperly Accumulated Earnings Tax",
+      "forms": [
+        "1704"
+      ],
+      "status": "repealed",
+      "notes": "REPEALED by CREATE (RA 11534), eff. Apr 2021 - historical only"
+    },
+    {
+      "code": "PT",
+      "name": "Percentage Tax - Quarterly",
+      "forms": [
+        "2551Q"
+      ],
+      "status": "active",
+      "notes": "Sec. 116 rate: 3% (was temporarily 1% Jul 2020 - Jun 2023 under CREATE)"
+    },
+    {
+      "code": "PM",
+      "name": "Percentage Tax - Monthly",
+      "forms": [
+        "2551M"
+      ],
+      "status": "active",
+      "notes": "Monthly filing phased out under TRAIN; percentage tax is now quarterly (2551Q)"
+    },
+    {
+      "code": "SO",
+      "name": "Percentage Tax - Stock (IPO)",
+      "forms": [
+        "2552"
+      ],
+      "status": "repealed",
+      "notes": "IPO tax (Sec. 127(B)) repealed by Bayanihan 2 (RA 11494, Sep 2020)"
+    },
+    {
+      "code": "ST",
+      "name": "Percentage Tax - Stocks (Stock Transaction Tax)",
+      "forms": [
+        "2552"
+      ],
+      "status": "active",
+      "notes": "Now 0.1% under CMEPA (RA 12214, eff. 1 Jul 2025); was 0.6% under TRAIN"
+    },
+    {
+      "code": "ES",
+      "name": "Estate Tax",
+      "forms": [
+        "1801"
+      ],
+      "status": "active",
+      "notes": "6% flat rate under TRAIN"
+    },
+    {
+      "code": "DN",
+      "name": "Donor's Tax",
+      "forms": [
+        "1800"
+      ],
+      "status": "active",
+      "notes": "6% flat on total gifts above P250,000 per year under TRAIN"
+    },
+    {
+      "code": "DS",
+      "name": "Documentary Stamp Tax",
+      "forms": [
+        "2000",
+        "2000-OT"
+      ],
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "code": "SL",
+      "name": "Tax under Special Laws",
+      "forms": [],
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "code": "AP",
+      "name": "Accrued Penalties",
+      "forms": [
+        "0605"
+      ],
+      "status": "active",
+      "notes": ""
+    }
+  ],
+  "atc_codes": [
+    {
+      "atc": "VQ010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Mining and Quarrying - VAT on mining and quarrying",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM040",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Tobacco",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM110",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Alcohol",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM120",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Petroleum",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM130",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Automobiles",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM140",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Non-essentials (excisable goods)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM030",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Cement",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM020",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Food products and beverages",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM150",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Pharmaceuticals",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM050",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Flour",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM160",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Sugar",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM100",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Pesticides",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VM010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Manufacturing - Others (general)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": "Default manufacturing code"
+    },
+    {
+      "atc": "VB113",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Non-Life Insurance - VAT on non-life insurance companies",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB102",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Lending Investors / Dealers in Securities / Pawnshops / Pre-need Cos. - VAT on dealers in securities / lending investors",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VC010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Construction - VAT on construction",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VT010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Wholesale and Retail Trade - VAT on wholesale and retail",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": "Most common code for trading businesses"
+    },
+    {
+      "atc": "VB100",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Hotels and Restaurants - Hotels, motels",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB101",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Hotels and Restaurants - Restaurants, caterers",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB105",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Transport, Storage and Communications - Land transport - cargo (road freight)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB106",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Transport, Storage and Communications - Water transport - cargo (domestic ocean-going vessels)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB107",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Transport, Storage and Communications - Water transport - cargo (inter-island shipping vessels)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB108",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Transport, Storage and Communications - Air transport - cargo",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB109",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Transport, Storage and Communications - Telephone and telegraph (franchise)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB111",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Transport, Storage and Communications - Radio / TV broadcasting (franchise)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB112",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Other Franchise - VAT on other franchise holders",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VP100",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Real Estate, Renting and Business Activity - Sale of real property",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VP101",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Real Estate, Renting and Business Activity - Lease of real property",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VP102",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Real Estate, Renting and Business Activity - Sale / lease of intangible property",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VD010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Compulsory Social Security, Public Administration and Defense",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VH010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Other Community, Social and Personal Service Activities - VAT on community, personal and household services",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VS010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - Storage and warehousing",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VB010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - Business services (in general)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": "Common default for service businesses"
+    },
+    {
+      "atc": "VI010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - Importation of goods",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VS062",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - Services rendered by professionals / general professional partnerships",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VS210",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - Services by stock, real estate, commercial, customs, insurance and immigration brokers",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VS111",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - Services rendered by banks, non-banks, etc.",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "VE010",
+      "classification": "vat",
+      "tax_type_code": "VT",
+      "payee_type": "any",
+      "description": "Others - VAT - exporter / trader",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_sales_or_receipts",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2550Q"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": "Zero-rated export sales are reported at 0%"
+    },
+    {
+      "atc": "WI010",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional fees (lawyers, CPAs, engineers, etc.)",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI011",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional fees (lawyers, CPAs, engineers, etc.)",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC010",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional fees (lawyers, CPAs, engineers, etc.)",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC011",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional fees (lawyers, CPAs, engineers, etc.)",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI020",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional entertainers (actors/actresses, singers, lyricists, composers, emcees)",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI021",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional entertainers (actors/actresses, singers, lyricists, composers, emcees)",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC020",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional entertainers (actors/actresses, singers, lyricists, composers, emcees)",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC021",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional entertainers (actors/actresses, singers, lyricists, composers, emcees)",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI030",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional athletes (incl. basketball players, pelotaris, jockeys)",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI031",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional athletes (incl. basketball players, pelotaris, jockeys)",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC030",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional athletes (incl. basketball players, pelotaris, jockeys)",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC031",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional athletes (incl. basketball players, pelotaris, jockeys)",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI040",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Directors and producers (movies, stage, radio, TV, musical productions)",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI041",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Directors and producers (movies, stage, radio, TV, musical productions)",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC040",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Directors and producers (movies, stage, radio, TV, musical productions)",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC041",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Directors and producers (movies, stage, radio, TV, musical productions)",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI050",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Management and technical consultants",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI051",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Management and technical consultants",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC050",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Management and technical consultants",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC051",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Management and technical consultants",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI060",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Business and bookkeeping agents and agencies",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI061",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Business and bookkeeping agents and agencies",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC060",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Business and bookkeeping agents and agencies",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC061",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Business and bookkeeping agents and agencies",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI070",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Insurance agents and insurance adjusters",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI071",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Insurance agents and insurance adjusters",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC070",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Insurance agents and insurance adjusters",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC071",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Insurance agents and insurance adjusters",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI080",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Other recipients of talent fees",
+      "condition": "Gross income for the year <= P3,000,000 (with sworn declaration)",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI081",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Other recipients of talent fees",
+      "condition": "Gross income > P3,000,000, VAT-registered, or no sworn declaration",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC080",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Other recipients of talent fees",
+      "condition": "Gross income for the year <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC081",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Other recipients of talent fees",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI090",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Fees of directors who are not employees of the company",
+      "condition": "Gross income <= P3,000,000",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI091",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Fees of directors who are not employees of the company",
+      "condition": "Gross income > P3,000,000 or VAT-registered",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI100",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Rentals - real/personal property, poles, satellites, transmission facilities, billboards",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC100",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Rentals - real/personal property, poles, satellites, transmission facilities, billboards",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI110",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Cinematographic film rentals",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC110",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Cinematographic film rentals",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI120",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Income payments to certain contractors (general engineering, building, specialty; incl. security, janitorial, advertising, transport contractors, etc.)",
+      "condition": "",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC120",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Income payments to certain contractors (general engineering, building, specialty; incl. security, janitorial, advertising, transport contractors, etc.)",
+      "condition": "",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI130",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Income distribution to beneficiaries of estates and trusts",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI139",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Commissions/service fees of customs, insurance, stock, immigration and commercial brokers; agents of professional entertainers; real estate service practitioners (RESPs)",
+      "condition": "Gross income <= P3,000,000",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI140",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Commissions/service fees of customs, insurance, stock, immigration and commercial brokers; agents of professional entertainers; RESPs",
+      "condition": "Gross income > P3,000,000 or VAT-registered",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC139",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Commissions/service fees of customs, insurance, stock, immigration and commercial brokers; agents of professional entertainers; RESPs",
+      "condition": "Gross income <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC140",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Commissions/service fees of customs, insurance, stock, immigration and commercial brokers; agents of professional entertainers; RESPs",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI151",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional fees of medical practitioners (doctors, veterinarians, dentists) paid by hospitals, clinics or HMOs",
+      "condition": "Gross income <= P3,000,000",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI150",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Professional fees of medical practitioners paid by hospitals, clinics or HMOs",
+      "condition": "Gross income > P3,000,000 or VAT-registered",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC151",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional fees of medical practitioners (juridical)",
+      "condition": "Gross income <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC150",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Professional fees of medical practitioners (juridical)",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI152",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by General Professional Partnerships (GPPs) to their partners",
+      "condition": "Gross income <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI153",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by General Professional Partnerships (GPPs) to their partners",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI156",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Income payments by credit card companies to merchants",
+      "condition": "1% of one-half of gross amounts",
+      "rate": 0.005,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Statutory basis is 1% of one-half of gross; 0.005 is the effective rate on full gross"
+    },
+    {
+      "atc": "WC156",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Income payments by credit card companies to merchants",
+      "condition": "1% of one-half of gross amounts",
+      "rate": 0.005,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Statutory basis is 1% of one-half of gross; 0.005 is the effective rate on full gross"
+    },
+    {
+      "atc": "WI640",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by government / GOCCs to local/resident suppliers of GOODS",
+      "condition": "Not covered by other WT rates",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC640",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Payments by government / GOCCs to local/resident suppliers of GOODS",
+      "condition": "Not covered by other WT rates",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI157",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by government / GOCCs to local/resident suppliers of SERVICES",
+      "condition": "Not covered by other WT rates",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC157",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Payments by government / GOCCs to local/resident suppliers of SERVICES",
+      "condition": "Not covered by other WT rates",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI159",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Additional income payments to government personnel from importers, shipping and airline companies for overtime services",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI158",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by Top Withholding Agents (TWAs) to local/resident suppliers of GOODS",
+      "condition": "Regular suppliers; not covered by other WT rates",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Applies if YOU are a BIR-designated TWA"
+    },
+    {
+      "atc": "WC158",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Payments by Top Withholding Agents (TWAs) to local/resident suppliers of GOODS",
+      "condition": "Regular suppliers; not covered by other WT rates",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Applies if YOU are a BIR-designated TWA"
+    },
+    {
+      "atc": "WI160",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by Top Withholding Agents (TWAs) to local/resident suppliers of SERVICES",
+      "condition": "Regular suppliers; not covered by other WT rates",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Applies if YOU are a BIR-designated TWA"
+    },
+    {
+      "atc": "WC160",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Payments by Top Withholding Agents (TWAs) to local/resident suppliers of SERVICES",
+      "condition": "Regular suppliers; not covered by other WT rates",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Applies if YOU are a BIR-designated TWA"
+    },
+    {
+      "atc": "WI515",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Commissions, rebates, discounts to independent/exclusive sales representatives and marketing agents (incl. MLM companies)",
+      "condition": "Gross income <= P3,000,000",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI516",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Commissions, rebates, discounts to independent/exclusive sales representatives and marketing agents (incl. MLM)",
+      "condition": "Gross income > P3,000,000 or VAT-registered",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 3000000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC515",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Commissions, rebates, discounts to independent/exclusive sales representatives and marketing agents (incl. MLM)",
+      "condition": "Gross income <= P720,000",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "at_or_below",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC516",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Commissions, rebates, discounts to independent/exclusive sales representatives and marketing agents (incl. MLM)",
+      "condition": "Gross income > P720,000",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": 720000,
+      "bracket": "above",
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI530",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Gross payments to embalmers by funeral parlors",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI535",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Payments by pre-need companies to funeral parlors",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC535",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Payments by pre-need companies to funeral parlors",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI540",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Tolling fees paid to refineries",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC540",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Tolling fees paid to refineries",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI555",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Seller habitually engaged in real estate; price <= P500,000",
+      "rate": 0.015,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC555",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Seller habitually engaged; price <= P500,000",
+      "rate": 0.015,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI556",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Habitually engaged; price > P500,000 up to P2,000,000",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC556",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Habitually engaged; price > P500,000 up to P2,000,000",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI557",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Habitually engaged; price > P2,000,000",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC557",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Habitually engaged; price > P2,000,000",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI558",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Seller NOT habitually engaged in real estate business",
+      "rate": 0.06,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC558",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Sale of real property classified as ordinary asset",
+      "condition": "Seller NOT habitually engaged in real estate business",
+      "rate": 0.06,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI610",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Income payments to suppliers of agricultural products",
+      "condition": "In excess of cumulative P300,000 within the taxable year",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC610",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Income payments to suppliers of agricultural products",
+      "condition": "In excess of cumulative P300,000 within the taxable year",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI630",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Purchases of minerals, mineral products and quarry resources (silver, gold, marble, granite, gravel, sand, etc.)",
+      "condition": "Except purchases by BSP",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC630",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Purchases of minerals, mineral products and quarry resources",
+      "condition": "Except purchases by BSP",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI632",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Purchases of minerals/gold by Bangko Sentral ng Pilipinas from gold miners/suppliers",
+      "condition": "PD 1899 as amended by RA 7076",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC632",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Purchases of minerals/gold by Bangko Sentral ng Pilipinas from gold miners/suppliers",
+      "condition": "PD 1899 as amended by RA 7076",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI650",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Meralco refunds - customers with active contracts",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "legacy",
+      "notes": "Utility-specific legacy code"
+    },
+    {
+      "atc": "WC650",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Meralco refunds - customers with active contracts",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "legacy",
+      "notes": "Utility-specific legacy code"
+    },
+    {
+      "atc": "WI651",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Meralco refunds - customers with terminated contracts",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "legacy",
+      "notes": "Utility-specific legacy code"
+    },
+    {
+      "atc": "WC651",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Meralco refunds - customers with terminated contracts",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "legacy",
+      "notes": "Utility-specific legacy code"
+    },
+    {
+      "atc": "WI660",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Interest on refund of meter deposits - residential customers (Meralco)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WC660",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Interest on refund of meter deposits - residential customers (Meralco)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WI661",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Interest on refund of meter deposits - non-residential customers (Meralco)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WC661",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Interest on refund of meter deposits - non-residential customers (Meralco)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WI662",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Interest on refund of meter deposits - residential customers (other distribution utilities)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WC662",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Interest on refund of meter deposits - residential customers (other distribution utilities)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WI663",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Interest on refund of meter deposits - non-residential customers (other distribution utilities)",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WC663",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Interest on refund of meter deposits - non-residential customers (other distribution utilities)",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Utility-specific; verify current rate before use"
+    },
+    {
+      "atc": "WI680",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Income payments by political parties and candidates of local/national elections; campaign expenditures",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC680",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Income payments by political parties and candidates of local/national elections; campaign expenditures",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC690",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Income payments subject to WT received by Real Estate Investment Trusts (REITs)",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI710",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Interest income from any other debt instruments not within the coverage of deposit substitutes",
+      "condition": "RR 14-2012",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Creditable; rate reduced to 15% under RR 11-2018"
+    },
+    {
+      "atc": "WC710",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Interest income from any other debt instruments not within the coverage of deposit substitutes",
+      "condition": "RR 14-2012",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Creditable; rate reduced to 15% under RR 11-2018"
+    },
+    {
+      "atc": "WI720",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "individual",
+      "description": "Income payments on locally produced raw sugar",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC720",
+      "classification": "ewt",
+      "tax_type_code": "WE",
+      "payee_type": "corporation",
+      "description": "Income payments on locally produced raw sugar",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-E",
+        "1601-EQ",
+        "1604-E"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI161",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Interest on peso bank savings/time deposits and yield from deposit substitutes - savings deposits",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC161",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest on peso bank savings/time deposits - savings deposits",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI162",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Interest/yield from government securities",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC162",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest/yield from government securities",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI163",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Interest/yield from deposit substitutes / others",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC163",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest/yield from deposit substitutes / others",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI170",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Interest on foreign currency deposits (FCDU) - residents",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "20% under CMEPA (RA 12214) eff. 1 Jul 2025; 15% under TRAIN 2018-Jun 2025; 7.5% before"
+    },
+    {
+      "atc": "WC170",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest on foreign currency deposits (FCDU) - residents",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "20% under CMEPA eff. 1 Jul 2025; 15% under CREATE before"
+    },
+    {
+      "atc": "WI440",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Pre-terminated long-term deposits/investments - holding period < 3 years",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "legacy",
+      "notes": "CMEPA removed LTD exemption prospectively; legacy instruments keep graduated rates"
+    },
+    {
+      "atc": "WC440",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Pre-terminated long-term deposits/investments - holding period < 3 years",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI441",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Pre-terminated long-term deposits/investments - 3 to < 4 years",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "legacy",
+      "notes": "Legacy instruments only after CMEPA"
+    },
+    {
+      "atc": "WI442",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Pre-terminated long-term deposits/investments - 4 to < 5 years",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "legacy",
+      "notes": "Legacy instruments only after CMEPA"
+    },
+    {
+      "atc": "WC180",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest on foreign loans payable to non-resident foreign corporations (NRFCs)",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC190",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest/income on foreign currency transactions or loans payable to Offshore Banking Units (OBUs)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "OBU regime abolished by CREATE - OBUs now taxed as regular resident foreign corps"
+    },
+    {
+      "atc": "WC191",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Interest/income on foreign currency loans payable to Foreign Currency Deposit Units (FCDUs)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI202",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Cash dividends paid by a domestic corporation to citizens and resident aliens",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI203",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Property dividends paid by a domestic corporation to citizens and resident aliens",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI224",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Cash dividends paid by a domestic corporation to NRAETB",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "NRAETB = non-resident alien engaged in trade or business"
+    },
+    {
+      "atc": "WI225",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Property dividends paid by a domestic corporation to NRAETB",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI226",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Share of an NRAETB in the after-tax net income of a partnership (other than GPP), joint account, joint venture or association",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI240",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Distributive share of individual partners in a taxable partnership, association, joint account, joint venture or consortium",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI250",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Other royalty payments to citizens, resident aliens and NRAETB",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC250",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Other royalty payments to domestic and resident foreign corporations",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI380",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Royalties on books, other literary works and musical compositions",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI341",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Royalties paid to NRAETB on cinematographic films and similar works",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI260",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Prizes exceeding P10,000 and other winnings paid to individuals",
+      "condition": "",
+      "rate": 0.2,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "Incl. PCSO/lotto winnings > P10,000 under TRAIN"
+    },
+    {
+      "atc": "WC212",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Cash dividends paid by a domestic corporation to NRFCs (general)",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "25% under CREATE eff. 2021 (was 30%)"
+    },
+    {
+      "atc": "WC213",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Property dividends paid by a domestic corporation to NRFCs (general)",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "25% under CREATE eff. 2021 (was 30%)"
+    },
+    {
+      "atc": "WC222",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Cash dividends to NRFCs whose country allows tax-deemed-paid credit (tax sparing)",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC223",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Property dividends to NRFCs with tax sparing",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC230",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "All other income payments to NRFCs",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "25% under CREATE eff. 2021 (was 30%)"
+    },
+    {
+      "atc": "WC280",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Branch profit remittances by all corporations except PEZA/SBMA/CDA-registered",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC290",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Gross rentals, lease and charter fees to non-resident owners/lessors of foreign vessels",
+      "condition": "",
+      "rate": 0.045,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC300",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Gross rentals/lease fees to non-resident lessors of aircraft, machinery and other equipment",
+      "condition": "",
+      "rate": 0.075,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI310",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Payments to oil exploration service contractors/sub-contractors",
+      "condition": "",
+      "rate": 0.08,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC310",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Payments to oil exploration service contractors/sub-contractors",
+      "condition": "",
+      "rate": 0.08,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI320",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Filipinos/aliens employed by foreign petroleum service contractors, OBUs and RHQs/ROHQs (managerial/technical positions)",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "Preferential 15% no longer available to entities registering after 1 Jan 2018 (TRAIN veto)"
+    },
+    {
+      "atc": "WI330",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Payments to non-resident aliens NOT engaged in trade or business (NRANETB), except sale of shares/real property",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI340",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Payments to non-resident individual cinematographic film owners, lessors or distributors",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC340",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Payments to non-resident foreign corporate cinematographic film owners, lessors or distributors",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WI350",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Final tax on interest on tax-free covenant bonds, mortgages, deeds of trust (Sec. 57(C), NIRC)",
+      "condition": "",
+      "rate": 0.3,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC390",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Payments to taxpayers enjoying preferential tax rates / tax treaty rates",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "Actual rate follows the applicable treaty/incentive"
+    },
+    {
+      "atc": "WI410",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "individual",
+      "description": "Informer's cash reward",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WC410",
+      "classification": "fwt",
+      "tax_type_code": "WF",
+      "payee_type": "corporation",
+      "description": "Informer's cash reward to juridical persons",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "0619-F",
+        "1601-FQ",
+        "1604-F"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WF360",
+      "classification": "fwt",
+      "tax_type_code": "WR",
+      "payee_type": "employee",
+      "description": "Fringe benefits to employees other than rank-and-file - citizens, resident aliens and NRAETB",
+      "condition": "",
+      "rate": 0.35,
+      "rate_basis": "grossed_up_monetary_value",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1603Q"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "Form 1603Q; grossed-up monetary value = monetary value / 65%"
+    },
+    {
+      "atc": "WF330",
+      "classification": "fwt",
+      "tax_type_code": "WR",
+      "payee_type": "employee",
+      "description": "Fringe benefits to employees other than rank-and-file - NRANETB",
+      "condition": "",
+      "rate": 0.25,
+      "rate_basis": "grossed_up_monetary_value",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1603Q"
+      ],
+      "certificate": "2306",
+      "status": "active",
+      "notes": "Form 1603Q; grossed-up monetary value = monetary value / 75%"
+    },
+    {
+      "atc": "WV010",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on purchases of GOODS - government withholding agent",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Creditable since 2021 (RR 4-2021, TRAIN); certificate: BIR Form 2307"
+    },
+    {
+      "atc": "WV020",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on purchases of SERVICES - government withholding agent",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Creditable since 2021; certificate: BIR Form 2307"
+    },
+    {
+      "atc": "WV030",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on government public works contracts",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WV040",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on payments to non-residents - government withholding agent",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WV050",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on payments to non-residents - private withholding agent",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Reverse charge on services from non-residents; see also RA 12023 (VAT on digital services) for non-resident DSPs"
+    },
+    {
+      "atc": "WV012",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on purchase of goods (payee waived privilege to claim input tax credit)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "legacy",
+      "notes": "Legacy code"
+    },
+    {
+      "atc": "WV022",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on purchase of services (with waiver of input tax credit)",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "legacy",
+      "notes": "Legacy code"
+    },
+    {
+      "atc": "WV014",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on purchase of goods (with waiver of input tax credit)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WV024",
+      "classification": "wvat",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "VAT withheld on purchase of services (with waiver of input tax credit)",
+      "condition": "",
+      "rate": 0.12,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-VT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB030",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on carriers and keepers of garages (common carrier's tax)",
+      "condition": "",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB040",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Franchise tax - gas and water utilities",
+      "condition": "",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB050",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Franchise tax - radio/TV broadcasting with annual gross receipts <= P10M, non-VAT registered",
+      "condition": "",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB070",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on life insurance premiums",
+      "condition": "",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "2% under RA 10001 (2010); older tables still show 5%"
+    },
+    {
+      "atc": "WB080",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Persons exempt from VAT under Sec. 109 / Sec. 116 - government withholding agent",
+      "condition": "",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Was temporarily 1% Jul 2020 - Jun 2023 under CREATE"
+    },
+    {
+      "atc": "WB082",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Persons exempt from VAT under Sec. 109 / Sec. 116 - private withholding agent",
+      "condition": "",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "Was temporarily 1% Jul 2020 - Jun 2023 under CREATE"
+    },
+    {
+      "atc": "WB084",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Persons exempt from VAT under Sec. 109(v)",
+      "condition": "",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB090",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Overseas dispatch, message or conversation originating from the Philippines",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB103",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Banks and non-bank FIs performing quasi-banking - royalties, rentals, profits from exchange and other gross income",
+      "condition": "",
+      "rate": 0.07,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB104",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Net trading gains on foreign currency, debt securities, derivatives and other financial instruments",
+      "condition": "",
+      "rate": 0.07,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB301",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Banks/quasi-banks - interest, commissions and discounts from lending / financial leasing; remaining maturity <= 5 years",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB303",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Banks/quasi-banks - lending income; remaining maturity > 5 years",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB108",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Other non-bank FIs (no quasi-banking) - lending income; maturity <= 5 years",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB109",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Other non-bank FIs - lending income; maturity > 5 years",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB110",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Other non-bank FIs - all other items of gross income",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB120",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Agents of foreign insurance companies - insurance agents",
+      "condition": "",
+      "rate": 0.04,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "4% under RA 10001 (twice the 2% life premium tax); older tables show 10%"
+    },
+    {
+      "atc": "WB121",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Agents of foreign insurance companies - owners of property insuring directly abroad",
+      "condition": "",
+      "rate": 0.05,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB130",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on international carriers",
+      "condition": "",
+      "rate": 0.03,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB140",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Amusement tax - cockpits",
+      "condition": "",
+      "rate": 0.18,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB150",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Amusement tax - cabarets, night and day clubs",
+      "condition": "",
+      "rate": 0.18,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB160",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Amusement tax - boxing exhibitions",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB170",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Amusement tax - professional basketball games",
+      "condition": "",
+      "rate": 0.15,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB180",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Amusement tax - jai-alai and race tracks",
+      "condition": "",
+      "rate": 0.3,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB191",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on winnings and prizes (Sec. 126) - government withholding agent",
+      "condition": "",
+      "rate": 0.04,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": "4% applies to double/forecast/quinella/trifecta bets; regular winnings 10%"
+    },
+    {
+      "atc": "WB192",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on winnings - horse races / owners of winning horses - government withholding agent",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB193",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on winnings and prizes (Sec. 126) - private withholding agent",
+      "condition": "",
+      "rate": 0.04,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB194",
+      "classification": "percentage_wt",
+      "tax_type_code": "WG",
+      "payee_type": "any",
+      "description": "Tax on winnings - horse races / owners of winning horses - private withholding agent",
+      "condition": "",
+      "rate": 0.1,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "1600-PT"
+      ],
+      "certificate": "2307",
+      "status": "active",
+      "notes": ""
+    },
+    {
+      "atc": "WB200",
+      "classification": "percentage_wt",
+      "tax_type_code": "ST",
+      "payee_type": "any",
+      "description": "Stock transaction tax - sale/barter/exchange of shares listed and traded through the local stock exchange",
+      "condition": "",
+      "rate": 0.001,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2552"
+      ],
+      "certificate": null,
+      "status": "active",
+      "notes": "0.1% under CMEPA (RA 12214) eff. 1 Jul 2025; 0.6% under TRAIN before; remitted by the stockbroker"
+    },
+    {
+      "atc": "WB201",
+      "classification": "percentage_wt",
+      "tax_type_code": "SO",
+      "payee_type": "any",
+      "description": "IPO tax - shares sold through initial/secondary public offering, up to 25% of outstanding shares",
+      "condition": "",
+      "rate": 0.04,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2552"
+      ],
+      "certificate": null,
+      "status": "repealed",
+      "notes": "REPEALED by Bayanihan 2 (RA 11494, Sep 2020) - historical"
+    },
+    {
+      "atc": "WB202",
+      "classification": "percentage_wt",
+      "tax_type_code": "SO",
+      "payee_type": "any",
+      "description": "IPO tax - over 25% but not more than 33 1/3%",
+      "condition": "",
+      "rate": 0.02,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2552"
+      ],
+      "certificate": null,
+      "status": "repealed",
+      "notes": "REPEALED by Bayanihan 2 - historical"
+    },
+    {
+      "atc": "WB203",
+      "classification": "percentage_wt",
+      "tax_type_code": "SO",
+      "payee_type": "any",
+      "description": "IPO tax - over 33 1/3%",
+      "condition": "",
+      "rate": 0.01,
+      "rate_basis": "gross_payment",
+      "threshold_amount": null,
+      "bracket": null,
+      "forms": [
+        "2552"
+      ],
+      "certificate": null,
+      "status": "repealed",
+      "notes": "REPEALED by Bayanihan 2 - historical"
+    }
+  ]
+}

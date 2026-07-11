@@ -436,6 +436,47 @@ model PurchaseTransaction {
 }
 
 // ---------------------------------------------------------------------------
+// BIR tax-code reference data (global; national codes, not per-firm). Seeded
+// idempotently from prisma/data/bir_tax_codes.json (RMO 42-2003, RR 2-98 as
+// amended by RR 11-2018, RR 4-2021, BIR Forms 2550/1603Q). Reference data —
+// updatable as revenue issuances change; see docs HANDOFF.
+// ---------------------------------------------------------------------------
+
+/// A BIR registration tax type (the 2-letter code on Form 2303), e.g. VT, IT.
+model BirTaxType {
+  code   String   @id
+  name   String
+  forms  String[] // returns this tax type must file (e.g. ["2550M","2550Q"])
+  status String   @default("active") // active | repealed
+  notes  String?
+
+  @@map("bir_tax_types")
+}
+
+/// A BIR Alphanumeric Tax Code (ATC) — a transaction-level withholding/VAT code.
+model BirAtcCode {
+  atc             String   @id
+  classification  String // vat | ewt | fwt | wvat | percentage_wt
+  taxTypeCode     String // FK-by-value → BirTaxType.code
+  payeeType       String // individual | corporation | employee | any
+  description     String
+  condition       String?
+  rate            Decimal? @db.Decimal(12, 6) // decimal fraction (0.05 = 5%)
+  rateBasis       String?
+  thresholdAmount Decimal? @db.Decimal(18, 2)
+  bracket         String? // at_or_below | above
+  forms           String[]
+  certificate     String? // 2307 (creditable) | 2306 (final)
+  status          String   @default("active") // active | legacy | repealed
+  notes           String?
+
+  @@index([classification])
+  @@index([taxTypeCode])
+  @@index([status])
+  @@map("bir_atc_codes")
+}
+
+// ---------------------------------------------------------------------------
 // Phase 6/7 — BIR Form Generator integration (write-back targets).
 //
 // These rows are written by the INTEGRATION (the Generator's push-back), never

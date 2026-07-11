@@ -51,6 +51,49 @@ export async function apiFetch<T>(
   return body as T;
 }
 
+// --- BIR tax-code reference data ---------------------------------------------
+export interface BirTaxType {
+  code: string;
+  name: string;
+  forms: string[];
+  status: string;
+  notes?: string | null;
+}
+export interface BirAtcCode {
+  atc: string;
+  classification: string;
+  taxTypeCode: string;
+  payeeType: string;
+  description: string;
+  condition?: string | null;
+  rate?: string | number | null;
+  rateBasis?: string | null;
+  thresholdAmount?: string | number | null;
+  bracket?: string | null;
+  forms: string[];
+  certificate?: string | null;
+  status: string;
+  notes?: string | null;
+}
+export function fetchBirTaxTypes(status?: string): Promise<BirTaxType[]> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiFetch<BirTaxType[]>(`/bir/tax-types${q}`);
+}
+export function fetchBirAtcCodes(filters?: {
+  classification?: string;
+  taxTypeCode?: string;
+  status?: string;
+  search?: string;
+}): Promise<BirAtcCode[]> {
+  const p = new URLSearchParams();
+  if (filters?.classification) p.set("classification", filters.classification);
+  if (filters?.taxTypeCode) p.set("taxTypeCode", filters.taxTypeCode);
+  if (filters?.status) p.set("status", filters.status);
+  if (filters?.search) p.set("search", filters.search);
+  const q = p.toString();
+  return apiFetch<BirAtcCode[]>(`/bir/atc-codes${q ? `?${q}` : ""}`);
+}
+
 // --- Health (Phase 0) --------------------------------------------------------
 export interface HealthResponse {
   status: string;
