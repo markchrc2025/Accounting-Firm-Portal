@@ -18,6 +18,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RedisModule } from "./redis/redis.module";
+import { ServicesModule } from "./services/services.module";
 import { StorageModule } from "./storage/storage.module";
 import { UsersModule } from "./users/users.module";
 
@@ -32,6 +33,7 @@ import { UsersModule } from "./users/users.module";
     AuthModule,
     ClientsModule,
     UsersModule,
+    ServicesModule,
     InvitationsModule,
     FinancialModule,
     CategoriesModule,
