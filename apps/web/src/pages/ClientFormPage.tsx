@@ -22,6 +22,7 @@ import {
   cn,
 } from "../components/ui";
 import { CityCombobox } from "../components/CityCombobox";
+import type { PhLocation } from "../lib/phLocations";
 // Type-only import — erased at build, so pdf.js/tesseract stay OUT of the main
 // chunk (the extractor itself is loaded lazily in onPickCor). parseCor.ts is the
 // pure, dependency-free module, so this never pulls the heavy OCR deps.
@@ -320,6 +321,48 @@ function ClientForm({ existing }: { existing: Client | null }) {
   }
   function updateBranch(idx: number, patch: Partial<BranchRow>) {
     setBranches((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+  /** Picking a city for a branch fills its province/region, and ZIP only when
+   *  empty (so a ZIP already read from the branch COR isn't overwritten). */
+  function selectBranchCity(idx: number, loc: PhLocation) {
+    setBranches((prev) =>
+      prev.map((r, i) =>
+        i === idx
+          ? { ...r, city: loc.city, province: loc.province, region: loc.region, zip: r.zip || loc.zip }
+          : r,
+      ),
+    );
+  }
+
+  // Per-branch COR upload — reuses the same client-side extractor as the head
+  // office and fills that branch row (branch code, trade name, address, ZIP, RDO).
+  const branchCorRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [branchCorBusy, setBranchCorBusy] = useState<number | null>(null);
+  const [branchCorHint, setBranchCorHint] = useState<{ idx: number; msg: string } | null>(null);
+
+  async function onPickBranchCor(idx: number, file: File | null) {
+    if (branchCorRefs.current[idx]) branchCorRefs.current[idx]!.value = "";
+    if (!file) return;
+    setBranchCorBusy(idx);
+    setBranchCorHint(null);
+    try {
+      const { extractCorFromFile } = await import("../lib/cor/extractCor");
+      const res = await extractCorFromFile(file);
+      const patch: Partial<BranchRow> = {};
+      if (res.branch) patch.branchCode = res.branch;
+      if (res.tradeName) patch.tradeName = res.tradeName;
+      if (res.address) patch.address = res.address;
+      if (res.zip) patch.zip = res.zip;
+      if (res.rdo) patch.rdo = res.rdo;
+      updateBranch(idx, patch);
+    } catch (err) {
+      setBranchCorHint({
+        idx,
+        msg: err instanceof Error && err.message ? err.message : "Couldn't read that COR.",
+      });
+    } finally {
+      setBranchCorBusy(null);
+    }
   }
 
   function buildPayload(): Record<string, unknown> {
@@ -1136,87 +1179,125 @@ function ClientForm({ existing }: { existing: Client | null }) {
                 </div>
                 {branches.length === 0 ? (
                   <p className="text-[13px] text-content-secondary">
-                    No branches yet. Click “Add branch” to enter one from its COR.
+                    No branches yet. Click “Add branch” to enter one, or upload its COR.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[900px] space-y-3">
-                      <div className="grid grid-cols-[0.7fr_1.3fr_1.7fr_1fr_1fr_0.7fr_0.7fr_auto] gap-2 px-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
-                        <span>Branch code</span>
-                        <span>Trade name</span>
-                        <span>Registered address</span>
-                        <span>City</span>
-                        <span>Province</span>
-                        <span>ZIP</span>
-                        <span>RDO</span>
-                        <span />
-                      </div>
-                      {branches.map((b, idx) => (
-                        <div
-                          key={idx}
-                          className="grid grid-cols-[0.7fr_1.3fr_1.7fr_1fr_1fr_0.7fr_0.7fr_auto] items-center gap-2"
-                        >
-                          <input
-                            aria-label="Branch code"
-                            placeholder="00001"
-                            value={b.branchCode}
-                            onChange={(e) =>
-                              updateBranch(idx, {
-                                branchCode: e.target.value.replace(/\D/g, "").slice(0, 5),
-                              })
-                            }
-                            className="input font-mono"
-                          />
-                          <input
-                            aria-label="Trade name"
-                            value={b.tradeName}
-                            onChange={(e) => updateBranch(idx, { tradeName: e.target.value })}
-                            className="input"
-                          />
-                          <input
-                            aria-label="Registered address"
-                            value={b.address}
-                            onChange={(e) => updateBranch(idx, { address: e.target.value })}
-                            className="input"
-                          />
-                          <input
-                            aria-label="City"
-                            value={b.city}
-                            onChange={(e) => updateBranch(idx, { city: e.target.value })}
-                            className="input"
-                          />
-                          <input
-                            aria-label="Province"
-                            value={b.province}
-                            onChange={(e) => updateBranch(idx, { province: e.target.value })}
-                            className="input"
-                          />
-                          <input
-                            aria-label="ZIP"
-                            value={b.zip}
-                            onChange={(e) =>
-                              updateBranch(idx, { zip: e.target.value.replace(/\D/g, "").slice(0, 4) })
-                            }
-                            className="input font-mono"
-                          />
-                          <input
-                            aria-label="RDO"
-                            value={b.rdo}
-                            onChange={(e) => updateBranch(idx, { rdo: e.target.value })}
-                            className="input font-mono"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`Remove branch ${idx + 1}`}
-                            onClick={() => removeBranch(idx)}
-                            className="text-content-muted hover:text-danger"
-                          >
-                            Remove
-                          </Button>
+                  <div className="space-y-4">
+                    {branches.map((b, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-card border border-line-strong bg-paper/40 p-4"
+                      >
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-mono text-[11px] uppercase tracking-[.14em] text-content-secondary">
+                            Branch {idx + 1}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              ref={(el) => {
+                                branchCorRefs.current[idx] = el;
+                              }}
+                              type="file"
+                              accept="application/pdf,image/png,image/jpeg,image/webp"
+                              className="hidden"
+                              onChange={(e) => onPickBranchCor(idx, e.target.files?.[0] ?? null)}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={branchCorBusy !== null}
+                              onClick={() => branchCorRefs.current[idx]?.click()}
+                            >
+                              {branchCorBusy === idx ? "Reading COR…" : "Upload branch COR"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Remove branch ${idx + 1}`}
+                              onClick={() => removeBranch(idx)}
+                              className="text-content-muted hover:text-danger"
+                            >
+                              Remove
+                            </Button>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+
+                        {branchCorHint?.idx === idx && (
+                          <p className="mb-3 rounded-input border border-danger/30 bg-danger-bg px-3 py-2 text-[12.5px] text-danger-ink">
+                            {branchCorHint.msg}
+                          </p>
+                        )}
+
+                        <div className="grid gap-3 md:grid-cols-6">
+                          <Field label="Branch code" className="md:col-span-2">
+                            <input
+                              placeholder="00001"
+                              value={b.branchCode}
+                              onChange={(e) =>
+                                updateBranch(idx, {
+                                  branchCode: e.target.value.replace(/\D/g, "").slice(0, 5),
+                                })
+                              }
+                              className="input font-mono"
+                            />
+                          </Field>
+                          <Field label="RDO code" className="md:col-span-2">
+                            <input
+                              value={b.rdo}
+                              onChange={(e) => updateBranch(idx, { rdo: e.target.value })}
+                              className="input font-mono"
+                            />
+                          </Field>
+                          <Field label="ZIP" className="md:col-span-2">
+                            <input
+                              value={b.zip}
+                              inputMode="numeric"
+                              onChange={(e) =>
+                                updateBranch(idx, {
+                                  zip: e.target.value.replace(/\D/g, "").slice(0, 4),
+                                })
+                              }
+                              className="input font-mono"
+                            />
+                          </Field>
+                          <Field label="Trade name" className="md:col-span-3">
+                            <input
+                              value={b.tradeName}
+                              onChange={(e) => updateBranch(idx, { tradeName: e.target.value })}
+                              className="input"
+                            />
+                          </Field>
+                          <Field label="City / Municipality" className="md:col-span-3">
+                            <CityCombobox
+                              value={b.city}
+                              onChange={(city) => updateBranch(idx, { city })}
+                              onSelect={(loc) => selectBranchCity(idx, loc)}
+                            />
+                          </Field>
+                          <Field label="Registered address" className="md:col-span-6">
+                            <input
+                              value={b.address}
+                              onChange={(e) => updateBranch(idx, { address: e.target.value })}
+                              className="input"
+                            />
+                          </Field>
+                          <Field label="Province" className="md:col-span-3">
+                            <input
+                              value={b.province}
+                              onChange={(e) => updateBranch(idx, { province: e.target.value })}
+                              className="input"
+                            />
+                          </Field>
+                          <Field label="Region" className="md:col-span-3">
+                            <input
+                              value={b.region}
+                              onChange={(e) => updateBranch(idx, { region: e.target.value })}
+                              className="input"
+                            />
+                          </Field>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
