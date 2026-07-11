@@ -133,15 +133,17 @@ function cleanName(s: string): string {
 }
 
 /** Clean a trade-name candidate: drop glued registration dates, PSIC tags,
- *  the glued CATEGORY column value and trailing separator junk. The CATEGORY
- *  strip is END-anchored only — "PRIMARY CARE PHARMACY" is a real trade name
- *  and must not lose its first word. */
+ *  the glued CATEGORY column value and separator junk. Table-cell borders
+ *  binarise into leading marks ("_| HEBREWS…"), so the leading strip class
+ *  mirrors the trailing one (includes `_ ~ © ®`). Both are edge-anchored, so an
+ *  internal hyphen ("13-8") is untouched and the CATEGORY strip is END-anchored
+ *  only — "PRIMARY CARE PHARMACY" is a real trade name and keeps its first word. */
 function cleanTradeName(s: string): string {
   return s
     .replace(new RegExp(DATE_SRC, "g"), " ")
     .replace(/[({[]\s*PSIC\s*[)}\]]?/g, " ")
     .replace(/(?:\s*\b(?:PRIMARY|SECONDARY)\b)+[\s:.\-|_~©®]*$/, " ")
-    .replace(/^[\s:.\-|]+|[\s:.\-|_~©®]+$/g, "")
+    .replace(/^[\s:.\-|_~©®]+|[\s:.\-|_~©®]+$/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
