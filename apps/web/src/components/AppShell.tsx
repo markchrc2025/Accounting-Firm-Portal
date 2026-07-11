@@ -119,6 +119,7 @@ export function AppShell() {
               items={[
                 { to: "/users", label: "Users & Roles", end: true },
                 { to: "/services", label: "Services", end: true },
+                { to: "/integrations", label: "Integrations", end: true },
               ]}
             />
           )}

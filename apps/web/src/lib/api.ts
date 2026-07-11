@@ -531,3 +531,32 @@ export function updateInvoice(id: string, body: Partial<InvoiceInput>): Promise<
 export function sendInvoice(id: string): Promise<Invoice> {
   return apiFetch(`/invoices/${id}/send`, { method: "POST" });
 }
+
+// --- Integration clients (OAuth2 machine-to-machine credentials) --------------------
+export interface Integration {
+  id: string;
+  name: string;
+  clientKey: string;
+  scopes: string[];
+  status: string; // "ACTIVE" | "DISABLED"
+  lastUsedAt: string | null;
+}
+/** Returned ONLY at creation/rotation — the plaintext secret is shown once. */
+export interface IntegrationReveal extends Integration {
+  clientSecret: string;
+}
+export function fetchIntegrations(): Promise<Integration[]> {
+  return apiFetch<Integration[]>("/integrations");
+}
+export function createIntegration(body: {
+  name: string;
+  scopes: string[];
+}): Promise<IntegrationReveal> {
+  return apiFetch("/integrations", { method: "POST", body: JSON.stringify(body) });
+}
+export function rotateIntegrationSecret(id: string): Promise<IntegrationReveal> {
+  return apiFetch(`/integrations/${id}/rotate`, { method: "POST" });
+}
+export function revokeIntegration(id: string): Promise<Integration> {
+  return apiFetch(`/integrations/${id}/revoke`, { method: "POST" });
+}

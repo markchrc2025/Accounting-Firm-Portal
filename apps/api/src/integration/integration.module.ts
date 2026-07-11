@@ -4,6 +4,7 @@ import { AggregationService } from "./aggregation.service";
 import { BirFilingsService } from "./bir-filings.service";
 import { IntegrationClientService } from "./integration-client.service";
 import { IntegrationController } from "./integration.controller";
+import { IntegrationsController } from "./integrations.controller";
 import { OAuthController } from "./oauth.controller";
 
 /**
@@ -14,7 +15,7 @@ import { OAuthController } from "./oauth.controller";
  */
 @Module({
   imports: [AuthModule],
-  controllers: [OAuthController, IntegrationController],
+  controllers: [OAuthController, IntegrationController, IntegrationsController],
   providers: [IntegrationClientService, AggregationService, BirFilingsService],
   exports: [IntegrationClientService, BirFilingsService],
 })
