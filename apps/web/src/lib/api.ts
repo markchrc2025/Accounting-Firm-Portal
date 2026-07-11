@@ -604,3 +604,40 @@ export function fetchPortalContext(): Promise<PortalContext> {
 export function fetchPortalUsers(): Promise<PortalUser[]> {
   return apiFetch<PortalUser[]>("/portal/users");
 }
+
+// --- Firm dashboard aggregates ------------------------------------------------------
+export interface DashboardKpi {
+  label: string;
+  value: number;
+  isCurrency: boolean;
+  delta: string;
+}
+export interface DashboardMonthPoint {
+  month: string;
+  income: number;
+  expenses: number;
+}
+export interface DashboardActivity {
+  id: string;
+  initials: string;
+  text: string;
+  time: string;
+}
+export interface DashboardUpcomingFiling {
+  id: string;
+  form: string;
+  client: string;
+  period: string;
+  due: string;
+  urgency: "urgent" | "normal";
+}
+export interface DashboardData {
+  kpis: DashboardKpi[];
+  incomeVsExpenses: DashboardMonthPoint[];
+  recentActivity: DashboardActivity[];
+  upcomingFilings: DashboardUpcomingFiling[];
+  regimeMix: { vat: number; percentage: number };
+}
+export function fetchDashboard(): Promise<DashboardData> {
+  return apiFetch<DashboardData>("/dashboard");
+}
