@@ -52,30 +52,46 @@ const enumCellOptional = <T extends z.ZodTypeAny>(e: T) =>
     return b === undefined ? undefined : String(b).trim().toUpperCase();
   }, e.optional());
 
-/** A single row of the Sales / Income import template (one line item). */
-export const SalesImportRow = z.object({
-  Date: zDateCell,
-  ReferenceNo: zTextOptional,
-  Customer: zTextOptional,
-  CustomerTIN: zTextOptional,
-  Description: zText,
-  Category: zText,
-  NetAmount: zMoneyCell,
-  VatClass: enumCell(VatClass),
-  OutputVAT: zMoneyCellOptional,
-  SaleToGovernment: zYesNoOptional,
-  CreditableVATWithheld5pct: zMoneyCellOptional,
-  ATC: zTextOptional,
-  Currency: zTextOptional,
-  // Line-item metadata (all optional).
-  DueDate: z.preprocess(blankToUndef, zIsoDate.optional()),
-  Terms: zTextOptional,
-  Account: zTextOptional,
-  Unit: zTextOptional,
-  Quantity: zMoneyCellOptional,
-  UnitPrice: zMoneyCellOptional,
-  Discount: zMoneyCellOptional,
-});
+/** A single row of the Sales / Income import template (one line item).
+ *  `Amount` is the invoice amount AS-IS (tax-inclusive); the service derives the
+ *  net and tax from `TaxCode`/`TaxType`. `NetAmount` is still accepted (an
+ *  already-net figure) for the canonical export round-trip. */
+export const SalesImportRow = z
+  .object({
+    Date: zDateCell,
+    ReferenceNo: zTextOptional,
+    Customer: zTextOptional,
+    CustomerTIN: zTextOptional,
+    Description: zText,
+    Category: zText,
+    Amount: zMoneyCellOptional, // tax-inclusive (gross)
+    NetAmount: zMoneyCellOptional, // already-net (round-trip)
+    TaxCode: zTextOptional, // ATC
+    TaxType: zTextOptional, // BIR tax type (e.g. VT, PT)
+    VatClass: enumCellOptional(VatClass),
+    OutputVAT: zMoneyCellOptional,
+    SaleToGovernment: zYesNoOptional,
+    CreditableVATWithheld5pct: zMoneyCellOptional,
+    ATC: zTextOptional,
+    Currency: zTextOptional,
+    // Line-item metadata (all optional).
+    DueDate: z.preprocess(blankToUndef, zIsoDate.optional()),
+    Terms: zTextOptional,
+    Account: zTextOptional,
+    Unit: zTextOptional,
+    Quantity: zMoneyCellOptional,
+    UnitPrice: zMoneyCellOptional,
+    Discount: zMoneyCellOptional,
+  })
+  .superRefine((v, ctx) => {
+    if (v.Amount === undefined && v.NetAmount === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["Amount"],
+        message: "Amount is required.",
+      });
+    }
+  });
 export type SalesImportRow = z.infer<typeof SalesImportRow>;
 
 /** A single row of the Expenses / Purchases import template. */
@@ -87,7 +103,10 @@ export const ExpenseImportRow = z
     VendorTIN: zTextOptional,
     Description: zText,
     Category: zText,
-    NetAmount: zMoneyCell,
+    Amount: zMoneyCellOptional, // tax-inclusive (gross)
+    NetAmount: zMoneyCellOptional, // already-net (round-trip)
+    TaxCode: zTextOptional, // ATC
+    TaxType: zTextOptional, // BIR tax type
     InputVATCategory: enumCellOptional(InputVATCategory),
     InputVAT: zMoneyCellOptional,
     IsCapitalGood: zYesNoOptional,
@@ -107,6 +126,13 @@ export const ExpenseImportRow = z
     Discount: zMoneyCellOptional,
   })
   .superRefine((v, ctx) => {
+    if (v.Amount === undefined && v.NetAmount === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["Amount"],
+        message: "Amount is required.",
+      });
+    }
     if (v.InputVATCategory === "CAPITAL_GOODS_GT_1M") {
       if (v.CapitalGoodAcquisitionCost === undefined) {
         ctx.addIssue({

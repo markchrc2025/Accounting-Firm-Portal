@@ -74,10 +74,9 @@ export function ImportModal({
   const schema = isIncome ? SalesImportRow : ExpenseImportRow;
   const aliases = isIncome ? SALES_ALIASES : EXPENSE_ALIASES;
   const headers = isIncome ? SALES_HEADERS : EXPENSE_HEADERS;
-  // Income requires a VatClass; default it from the client's regime.
-  const defaults = isIncome
-    ? { VatClass: regime === "VAT" ? "VATABLE_12" : "NON_VAT" }
-    : {};
+  // Amounts are tax-inclusive; the server derives net + VAT from the Tax Code /
+  // Tax Type, so no VAT-class default is forced here.
+  const defaults = {};
 
   async function onPick(file: File | null) {
     if (fileRef.current) fileRef.current.value = "";
@@ -228,7 +227,7 @@ export function ImportModal({
                   </thead>
                   <tbody className="divide-y divide-line-divider">
                     {entries.slice(0, 200).map((e) => {
-                      const amt = Number(e.data.NetAmount);
+                      const amt = Number(e.data.Amount ?? e.data.NetAmount);
                       return (
                         <tr key={e.index} className={cn(!e.ok && "bg-danger-bg/40")}>
                           <td className="px-3 py-1.5 font-mono text-content-muted">{e.index}</td>
@@ -269,22 +268,12 @@ export function ImportModal({
             /* Pick view */
             <div className="space-y-4">
               <p className="text-[13.5px] text-content-secondary">
-                Upload a <strong>.xlsx</strong> or <strong>.csv</strong> file. Columns from the
-                standard template are recognised automatically. Amounts are stored{" "}
-                <strong>net of VAT</strong>
-                {isIncome ? (
-                  <>
-                    {" "}
-                    and each row is classified as{" "}
-                    <span className="font-mono">
-                      {regime === "VAT" ? "VATABLE_12" : "NON_VAT"}
-                    </span>{" "}
-                    (this client&apos;s regime) unless the file sets a VAT class.
-                  </>
-                ) : (
-                  "."
-                )}{" "}
-                New categories are created automatically.
+                Upload the standard <strong>.xlsx</strong>/<strong>.csv</strong> template — its
+                columns are recognised automatically, and the party is matched by TIN. The{" "}
+                <strong>Amount is taken as-is (tax-inclusive)</strong>; the net and VAT are derived
+                from the <strong>Tax Code / Tax Type</strong>
+                {regime === "VAT" ? "" : " (no VAT for this percentage-tax client)"}. New categories
+                are created automatically.
               </p>
               <input
                 ref={fileRef}

@@ -3,38 +3,46 @@
 // out of the main bundle. Export produces the canonical import headers below, so
 // an exported file re-imports cleanly (round-trip).
 
-/** Canonical Sales/Income template headers (match @portal/shared SalesImportRow). */
+// The firm's standard upload template columns (exact headers, incl. the "*"
+// required markers). These are what the blank template and export produce, and
+// what import recognises. `Amount` is the invoice amount AS-IS (tax-inclusive).
 export const SALES_HEADERS = [
-  "Date",
-  "ReferenceNo",
-  "Customer",
-  "Description",
+  "Date*",
+  "Vendor TIN*",
+  "Vendor Name*",
+  "Vendor Lastname",
+  "Vendor Firstname",
+  "Vendor Middlename",
+  "Address",
+  "City",
+  "Postal Code*",
+  "Invoice Number*",
+  "Reference Number*",
+  "Tax Code*",
+  "Tax Type*",
   "Category",
-  "NetAmount",
-  "VatClass",
-  "OutputVAT",
-  "SaleToGovernment",
-  "CreditableVATWithheld5pct",
-  "ATC",
-  "Currency",
+  "Description",
+  "Amount*",
+  "COA Code*",
 ] as const;
 
-/** Canonical Expenses/Purchases template headers (match ExpenseImportRow). */
 export const EXPENSE_HEADERS = [
-  "Date",
-  "ReferenceNo",
-  "Vendor",
-  "Description",
+  "Date*",
+  "Vendor TIN*",
+  "Vendor Name*",
+  "Vendor Lastname",
+  "Vendor Firstname",
+  "Vendor Middlename",
+  "Address",
+  "City",
+  "Postal Code*",
+  "Reference Number*",
+  "Tax Code*",
+  "Tax Type*",
   "Category",
-  "NetAmount",
-  "InputVATCategory",
-  "InputVAT",
-  "IsCapitalGood",
-  "CapitalGoodAcquisitionCost",
-  "EstimatedUsefulLifeMonths",
-  "InputTaxAttribution",
-  "Deductible",
-  "Currency",
+  "Description",
+  "Amount*",
+  "COA Code*",
 ] as const;
 
 /** Build and trigger download of an .xlsx from plain-object rows. */
@@ -90,8 +98,9 @@ export const SALES_ALIASES: Record<string, string> = {
   coacode: "Account",
   account: "Account",
   netamount: "NetAmount",
-  amount: "NetAmount",
-  grossreceipts: "NetAmount",
+  amount: "Amount", // invoice amount AS-IS (tax-inclusive)
+  grossreceipts: "Amount",
+  taxtype: "TaxType",
   vatclass: "VatClass",
   outputvat: "OutputVAT",
   saletogovernment: "SaleToGovernment",
@@ -123,7 +132,8 @@ export const EXPENSE_ALIASES: Record<string, string> = {
   coacode: "Account",
   account: "Account",
   netamount: "NetAmount",
-  amount: "NetAmount",
+  amount: "Amount", // invoice amount AS-IS (tax-inclusive)
+  taxtype: "TaxType",
   inputvatcategory: "InputVATCategory",
   inputvat: "InputVAT",
   iscapitalgood: "IsCapitalGood",
@@ -194,7 +204,7 @@ export function mapImportRows(
 
 /** True when a mapped row has no real data (skip fully-blank template rows). */
 export function isBlankRow(row: Record<string, unknown>): boolean {
-  return !["Date", "Description", "NetAmount", "Category"].some((k) => {
+  return !["Date", "Description", "Amount", "NetAmount", "Category"].some((k) => {
     const v = row[k];
     return v !== "" && v !== null && v !== undefined;
   });

@@ -115,18 +115,24 @@ export default function SalesPage() {
     try {
       const all = await fetchAllIncome(clientId, filters);
       const rows = all.map((t) => ({
-        Date: t.txnDate,
-        ReferenceNo: t.referenceNo ?? "",
-        Customer: t.customer ?? "",
-        Description: t.description,
+        "Date*": t.txnDate,
+        "Vendor TIN*": t.customerTin ?? "",
+        "Vendor Name*": t.customer ?? "",
+        "Vendor Lastname": "",
+        "Vendor Firstname": "",
+        "Vendor Middlename": "",
+        Address: "",
+        City: "",
+        "Postal Code*": "",
+        "Invoice Number*": t.referenceNo ?? "",
+        "Reference Number*": t.referenceNo ?? "",
+        "Tax Code*": t.atc ?? "",
+        "Tax Type*": t.vatClass ?? "",
         Category: categoryName(t.categoryId),
-        NetAmount: t.netAmount,
-        VatClass: t.vatClass,
-        OutputVAT: t.outputVAT ?? "",
-        SaleToGovernment: t.saleToGovernment ? "Yes" : "No",
-        CreditableVATWithheld5pct: t.creditableVATWithheld5pct ?? "",
-        ATC: t.atc ?? "",
-        Currency: client.data?.currency ?? "PHP",
+        Description: t.description,
+        // Amount is tax-inclusive (net + output VAT).
+        "Amount*": Math.round((t.netAmount + (t.outputVAT ?? 0)) * 100) / 100,
+        "COA Code*": t.account ?? "",
       }));
       const base = (client.data?.businessName ?? "client").replace(/[^\w.-]+/g, "_");
       await downloadSheet(`${base}-sales.xlsx`, "SALES", rows, SALES_HEADERS);
