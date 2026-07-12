@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -70,6 +70,8 @@ export default function ChartOfAccountsPage() {
   const [search, setSearch] = useState("");
   const [cls, setCls] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [pageSize, setPageSize] = useState<number | "all">(20);
+  const [page, setPage] = useState(1);
   const [accountModal, setAccountModal] = useState<{ existing: ChartAccount | null } | null>(
     null,
   );
@@ -105,6 +107,19 @@ export default function ChartOfAccountsPage() {
       return true;
     });
   }, [accounts.data, search, cls, showArchived]);
+
+  const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = useMemo(() => {
+    if (pageSize === "all") return rows;
+    const start = (currentPage - 1) * pageSize;
+    return rows.slice(start, start + pageSize);
+  }, [rows, pageSize, currentPage]);
+
+  // Any change to filters or page size sends us back to the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [search, cls, showArchived, pageSize]);
 
   const accountByCode = useMemo(
     () => new Map((accounts.data ?? []).map((a) => [a.code, a])),
@@ -278,7 +293,7 @@ export default function ChartOfAccountsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-divider">
-                    {rows.map((a) => (
+                    {pagedRows.map((a) => (
                       <tr
                         key={a.code}
                         className={cn(
@@ -361,10 +376,62 @@ export default function ChartOfAccountsPage() {
             )}
           </Card>
           {!accounts.isPending && !accounts.isError && (
-            <p className="mt-3 font-mono text-[11.5px] text-content-muted">
-              {rows.length} of {accounts.data?.length ?? 0} account
-              {(accounts.data?.length ?? 0) === 1 ? "" : "s"}
-            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-mono text-[11.5px] text-content-muted">
+                <span>Rows:</span>
+                {([10, 20, 30, 40, "all"] as const).map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setPageSize(size)}
+                    className={cn(
+                      "rounded px-1.5 py-0.5 uppercase tracking-wide transition-colors",
+                      pageSize === size
+                        ? "bg-navy text-white"
+                        : "text-content-secondary hover:bg-rowhover",
+                    )}
+                  >
+                    {size === "all" ? "All" : size}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 font-mono text-[11.5px] text-content-muted">
+                <span>
+                  {rows.length === 0
+                    ? "0"
+                    : pageSize === "all"
+                      ? `1–${rows.length}`
+                      : `${(currentPage - 1) * pageSize + 1}–${Math.min(
+                          currentPage * pageSize,
+                          rows.length,
+                        )}`}{" "}
+                  of {rows.length}
+                </span>
+                {pageSize !== "all" && totalPages > 1 && (
+                  <span className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={currentPage <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="rounded px-2 py-0.5 transition-colors hover:bg-rowhover disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-content-secondary">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="rounded px-2 py-0.5 transition-colors hover:bg-rowhover disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      Next
+                    </button>
+                  </span>
+                )}
+              </div>
+            </div>
           )}
         </>
       )}
