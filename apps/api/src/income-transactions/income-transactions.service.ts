@@ -86,6 +86,14 @@ export class IncomeTransactionsService {
           creditableVATWithheld5pct: parsed.CreditableVATWithheld5pct,
           atc: parsed.ATC,
           source: "import",
+          customerTin: parsed.CustomerTIN,
+          dueDate: parsed.DueDate,
+          terms: parsed.Terms,
+          account: parsed.Account,
+          unit: parsed.Unit,
+          quantity: parsed.Quantity,
+          unitPrice: parsed.UnitPrice,
+          discount: parsed.Discount,
         });
         this.regime.validateIncome(regime, input);
         await this.prisma.incomeTransaction.create({ data: this.toDb(clientId, input) });

@@ -82,8 +82,13 @@ export const SALES_ALIASES: Record<string, string> = {
   customer: "Customer",
   customername: "Customer",
   vendorname: "Customer", // the template labels the counterparty "Vendor Name"
+  customertin: "CustomerTIN",
+  vendortin: "CustomerTIN", // party recognised by TIN (template column 2)
+  tin: "CustomerTIN",
   description: "Description",
   category: "Category",
+  coacode: "Account",
+  account: "Account",
   netamount: "NetAmount",
   amount: "NetAmount",
   grossreceipts: "NetAmount",
@@ -93,6 +98,14 @@ export const SALES_ALIASES: Record<string, string> = {
   creditablevatwithheld5pct: "CreditableVATWithheld5pct",
   atc: "ATC",
   taxcode: "ATC",
+  duedate: "DueDate",
+  terms: "Terms",
+  unit: "Unit",
+  qty: "Quantity",
+  quantity: "Quantity",
+  unitprice: "UnitPrice",
+  price: "UnitPrice",
+  discount: "Discount",
   currency: "Currency",
 };
 
@@ -103,8 +116,12 @@ export const EXPENSE_ALIASES: Record<string, string> = {
   referencenumber: "ReferenceNo",
   vendor: "Vendor",
   vendorname: "Vendor",
+  vendortin: "VendorTIN", // party recognised by TIN (template column 2)
+  tin: "VendorTIN",
   description: "Description",
   category: "Category",
+  coacode: "Account",
+  account: "Account",
   netamount: "NetAmount",
   amount: "NetAmount",
   inputvatcategory: "InputVATCategory",
@@ -114,6 +131,16 @@ export const EXPENSE_ALIASES: Record<string, string> = {
   estimatedusefullifemonths: "EstimatedUsefulLifeMonths",
   inputtaxattribution: "InputTaxAttribution",
   deductible: "Deductible",
+  atc: "ATC",
+  taxcode: "ATC",
+  taxamount: "TaxAmount",
+  duedate: "DueDate",
+  unit: "Unit",
+  qty: "Quantity",
+  quantity: "Quantity",
+  unitprice: "UnitPrice",
+  price: "UnitPrice",
+  discount: "Discount",
   currency: "Currency",
 };
 
