@@ -225,17 +225,17 @@ async function removeSampleClient(firmId: string): Promise<void> {
 async function main(): Promise<void> {
   await seedPermissionsAndRoles();
   await seedBirTaxCodes();
-  {
-    // PH SME Chart of Accounts + BIR income-tax mapping (xlsx = source of truth).
-    const coa = await seedChartOfAccounts(prisma, path.join(__dirname, "data"));
-    console.log(
-      `[seed] Chart of Accounts: ${coa.accounts} accounts; ` +
-        `${coa.mappings} BIR mapping rows (${coa.mapped} mapped).`,
-    );
-  }
   const firmId = await seedBootstrapAdmin();
   await seedIntegrationClient(firmId);
   await removeSampleClient(firmId);
+  // LAST on purpose: the Chart of Accounts validates its xlsx and fails loudly.
+  // Running it after RBAC/admin seeding means a bad data file can never leave a
+  // fresh environment without a Super Admin to log in with.
+  const coa = await seedChartOfAccounts(prisma, path.join(__dirname, "data"));
+  console.log(
+    `[seed] Chart of Accounts: ${coa.accounts} accounts; ` +
+      `${coa.mappings} BIR mapping rows (${coa.mapped} mapped).`,
+  );
 }
 
 main()

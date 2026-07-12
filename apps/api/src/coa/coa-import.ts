@@ -268,6 +268,15 @@ export function validateChartOfAccounts(accounts: CoaAccount[]): string[] {
       errors.push(`${where}: currency must be PHP (found "${a.currency}").`);
     }
 
+    // A malformed Lock Date would otherwise become an Invalid Date and crash
+    // the seeder mid-upsert; validating here keeps the failure loud and atomic.
+    if (
+      a.lockDate !== null &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(a.lockDate) || Number.isNaN(Date.parse(a.lockDate)))
+    ) {
+      errors.push(`${where}: lock date "${a.lockDate}" is not a valid yyyy-mm-dd date.`);
+    }
+
     const expectedParent = derivedParentCode(a.code);
     if (a.parentCode !== expectedParent) {
       errors.push(

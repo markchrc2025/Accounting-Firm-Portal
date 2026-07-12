@@ -175,6 +175,12 @@ describe("validateChartOfAccounts — one failing fixture per rule", () => {
     expect(errors.join("\n")).toMatch(/5002001.*currency must be PHP.*USD/);
   });
 
+  it("rejects a malformed lock date before it can crash the seeder mid-upsert", () => {
+    const errors = validateChartOfAccounts([acct({ lockDate: "12/31/2026" })]);
+    expect(errors.join("\n")).toMatch(/5002001.*lock date "12\/31\/2026" is not a valid/);
+    expect(validateChartOfAccounts([acct({ lockDate: "2026-12-31" })])).toEqual([]);
+  });
+
   it("rejects a parentCode that breaks the 7-digit prefix rule", () => {
     const errors = validateChartOfAccounts([acct({ code: "5002001", parentCode: "9999" })]);
     expect(errors.join("\n")).toMatch(/5002001.*parentCode "9999" should be "5002"/);

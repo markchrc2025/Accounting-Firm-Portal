@@ -56,10 +56,10 @@ done
 echo "==> Seeding RBAC catalog + bootstrap admin (idempotent)"
 if ! pnpm --filter api db:seed; then
   echo "!!! =========================================================="
-  echo "!!! SEED FAILED — reference data (RBAC / BIR codes / Chart of"
-  echo "!!! Accounts) was NOT updated. The convention violations are"
-  echo "!!! printed above; fix the data file and redeploy. The API"
-  echo "!!! keeps serving with the previously seeded data."
+  echo "!!! SEED FAILED — see the error above (convention violations"
+  echo "!!! name the offending account codes). Steps seeded BEFORE the"
+  echo "!!! failure remain in place; later steps were skipped. Fix the"
+  echo "!!! data file and redeploy. The API keeps serving meanwhile."
   echo "!!! =========================================================="
 fi
 
