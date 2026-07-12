@@ -4,7 +4,6 @@ import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
-  derivedParentCode,
   expectedNormalBalance,
   validateChartOfAccounts,
   validateTaxMappings,
@@ -30,26 +29,36 @@ export class CoaService {
 
   // ------------------------------------------------------------------ reads
 
+  /** The postable accounts (the flat import). Each row carries its resolved
+   *  parent name so the UI can show "code · name". Group headers are backing
+   *  records only — they never appear in this list. */
   async listAccounts(filters: { class?: string; search?: string }) {
-    const { class: cls, search } = filters;
+    const all = await this.prisma.chartAccount.findMany({ orderBy: { code: "asc" } });
+    const nameByCode = new Map(all.map((a) => [a.code, a.name]));
+    const q = filters.search?.trim().toLowerCase();
+    return all
+      .filter((a) => a.postable)
+      .filter((a) => (filters.class ? a.class === filters.class : true))
+      .filter((a) =>
+        q ? a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q) : true,
+      )
+      .map((a) => ({
+        ...a,
+        lockDate: a.lockDate ? a.lockDate.toISOString().slice(0, 10) : null,
+        parentName: a.parentCode ? (nameByCode.get(a.parentCode) ?? null) : null,
+      }));
+  }
+
+  /** Candidate parents for the "Add account" form: the group headers plus the
+   *  top-level (4-digit) postable accounts, all non-archived. */
+  async listParents() {
     const rows = await this.prisma.chartAccount.findMany({
-      where: {
-        ...(cls ? { class: cls } : {}),
-        ...(search
-          ? {
-              OR: [
-                { code: { contains: search, mode: "insensitive" as const } },
-                { name: { contains: search, mode: "insensitive" as const } },
-              ],
-            }
-          : {}),
-      },
+      where: { archived: false },
       orderBy: { code: "asc" },
     });
-    return rows.map((a) => ({
-      ...a,
-      lockDate: a.lockDate ? a.lockDate.toISOString().slice(0, 10) : null,
-    }));
+    return rows
+      .filter((a) => !a.postable || /^\d{4}$/.test(a.code))
+      .map((a) => ({ code: a.code, name: a.name, class: a.class, postable: a.postable }));
   }
 
   listMappings() {
@@ -70,6 +79,7 @@ export class CoaService {
       lockDate: row.lockDate ? row.lockDate.toISOString().slice(0, 10) : null,
       monthlyMovement: row.monthlyMovement,
       description: row.description,
+      postable: row.postable,
       archived: row.archived,
     };
   }
@@ -107,6 +117,16 @@ export class CoaService {
     return row;
   }
 
+  /** Group headers are seed-managed structure, not user-editable posting
+   *  accounts — block CRUD that targets them. */
+  private requirePostable(row: ChartAccountRow): void {
+    if (!row.postable) {
+      throw new BadRequestException(
+        `Account ${row.code} (${row.name}) is a group header and is managed by the chart seed.`,
+      );
+    }
+  }
+
   // ----------------------------------------------------------------- writes
 
   async createAccount(user: AuthUser, input: CreateAccountInput) {
@@ -116,12 +136,13 @@ export class CoaService {
       name: input.name,
       class: input.class,
       accountType: input.accountType,
-      parentCode: derivedParentCode(input.code),
+      parentCode: input.parentCode ?? null,
       normalBalance: expectedNormalBalance(input.class, input.code),
       currency: "PHP",
       lockDate: null,
       monthlyMovement: input.monthlyMovement ?? false,
       description: input.description?.trim() || null,
+      postable: true,
       archived: false,
     };
     const nextMappings = input.taxReturnLine
@@ -150,6 +171,7 @@ export class CoaService {
         lockDate: null,
         monthlyMovement: candidate.monthlyMovement,
         description: candidate.description,
+        postable: true,
         source: "custom",
         editedAt: now,
       },
@@ -178,6 +200,7 @@ export class CoaService {
 
   async updateAccount(user: AuthUser, code: string, input: UpdateAccountInput) {
     const existing = await this.requireAccount(code);
+    this.requirePostable(existing);
     const { accounts, mappings } = await this.loadAll();
     const merged: CoaAccount = {
       ...this.toCoaAccount(existing),
@@ -223,7 +246,7 @@ export class CoaService {
   /** Soft delete / restore. Archived accounts are exempt from P&L coverage and
    *  stamped edited, so the seeder never resurrects them. */
   async setArchived(user: AuthUser, code: string, archived: boolean) {
-    await this.requireAccount(code);
+    this.requirePostable(await this.requireAccount(code));
     const { accounts, mappings } = await this.loadAll();
     this.check(
       accounts.map((a) => (a.code === code ? { ...a, archived } : a)),
@@ -245,6 +268,7 @@ export class CoaService {
   /** Create or replace the account's BIR income-tax return line ("Regular"). */
   async setMapping(user: AuthUser, accountCode: string, taxReturnLine: string) {
     const account = await this.requireAccount(accountCode);
+    this.requirePostable(account);
     const { accounts, mappings } = await this.loadAll();
     const line = taxReturnLine.trim();
     const next: CoaTaxMapping = {

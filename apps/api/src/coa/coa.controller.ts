@@ -29,6 +29,11 @@ export class CoaController {
     return this.coa.listAccounts({ class: cls, search });
   }
 
+  @Get("parents")
+  parents() {
+    return this.coa.listParents();
+  }
+
   @Get("mappings")
   mappings() {
     return this.coa.listMappings();

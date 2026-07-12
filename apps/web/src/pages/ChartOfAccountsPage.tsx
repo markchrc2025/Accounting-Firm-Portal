@@ -8,6 +8,7 @@ import {
   deleteAccountTaxMapping,
   fetchAccountTaxMappings,
   fetchChartAccounts,
+  fetchCoaParents,
   restoreChartAccount,
   setAccountTaxMapping,
   updateChartAccount,
@@ -321,11 +322,7 @@ export default function ChartOfAccountsPage() {
                           {a.parentCode ? (
                             <>
                               <span className="font-mono text-content">{a.parentCode}</span>
-                              {accountByCode.get(a.parentCode) && (
-                                <span className="ml-1.5">
-                                  {accountByCode.get(a.parentCode)?.name}
-                                </span>
-                              )}
+                              {a.parentName && <span className="ml-1.5">· {a.parentName}</span>}
                             </>
                           ) : (
                             "—"
@@ -591,6 +588,7 @@ function AccountModal({
   const [name, setName] = useState(existing?.name ?? "");
   const [cls, setCls] = useState(existing?.class ?? "Expense");
   const [accountType, setAccountType] = useState(existing?.accountType ?? "Operating Expense");
+  const [parentCode, setParentCode] = useState("");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [taxReturnLine, setTaxReturnLine] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -600,6 +598,14 @@ function AccountModal({
   const isPl = PL_CLASSES.includes(cls);
   const needsLine = !editing && isPl && !ALLOWED_UNMAPPED.includes(code.trim());
   const typeOptions = TYPES_BY_CLASS[cls] ?? [];
+
+  // Parent options (group headers + top-level accounts) — only needed when adding.
+  const parents = useQuery({
+    queryKey: ["coa-parents"],
+    queryFn: fetchCoaParents,
+    enabled: !editing,
+    staleTime: 5 * 60 * 1000,
+  });
 
   function onClassChange(next: string) {
     setCls(next);
@@ -625,6 +631,7 @@ function AccountModal({
           name,
           class: cls,
           accountType,
+          ...(parentCode ? { parentCode } : {}),
           description: description || undefined,
           ...(needsLine && taxReturnLine.trim()
             ? { taxReturnLine: taxReturnLine.trim() }
@@ -717,6 +724,22 @@ function AccountModal({
                 ))}
               </select>
             </Field>
+            {!editing && (
+              <Field label="Parent group (optional)">
+                <select
+                  value={parentCode}
+                  onChange={(e) => setParentCode(e.target.value)}
+                  className="input"
+                >
+                  <option value="">— Top-level (no parent) —</option>
+                  {(parents.data ?? []).map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.code} · {p.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label="Description (optional)">
               <input
                 value={description}
@@ -736,9 +759,8 @@ function AccountModal({
               </Field>
             )}
             <p className="text-[12px] text-content-muted">
-              The normal balance and parent group derive from the code and class; currency is
-              always PHP. Edits are kept on future redeploys — the xlsx only updates untouched
-              rows.
+              The normal balance derives from the code and class; currency is always PHP. Edits
+              are kept on future redeploys — the xlsx only updates untouched rows.
             </p>
           </div>
           <div className="flex justify-end gap-2 border-t border-line px-6 py-4">

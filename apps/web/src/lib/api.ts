@@ -101,14 +101,23 @@ export interface ChartAccount {
   class: string;
   accountType: string;
   parentCode?: string | null;
+  /** Resolved name of the parent group/account (server-side join). */
+  parentName?: string | null;
   normalBalance: string;
   currency: string;
   lockDate?: string | null;
   monthlyMovement: boolean;
   description?: string | null;
+  postable?: boolean;
   source?: string; // "seed" | "custom"
   editedAt?: string | null;
   archived?: boolean;
+}
+export interface CoaParent {
+  code: string;
+  name: string;
+  class: string;
+  postable: boolean;
 }
 export interface AccountTaxMapping {
   accountCode: string;
@@ -131,11 +140,15 @@ export function fetchChartAccounts(filters?: {
 export function fetchAccountTaxMappings(): Promise<AccountTaxMapping[]> {
   return apiFetch<AccountTaxMapping[]>("/coa/mappings");
 }
+export function fetchCoaParents(): Promise<CoaParent[]> {
+  return apiFetch<CoaParent[]>("/coa/parents");
+}
 export interface ChartAccountInput {
   code: string;
   name: string;
   class: string;
   accountType: string;
+  parentCode?: string;
   description?: string;
   monthlyMovement?: boolean;
   taxReturnLine?: string;

@@ -15,8 +15,10 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   assertValid,
+  parseAccountParentMap,
   parseBirTaxMapping,
   parseChartOfAccounts,
+  parseParentGroups,
   validateChartOfAccounts,
   validateTaxMappings,
   type CoaAccount,
@@ -25,6 +27,7 @@ import {
 
 export const COA_FILE = "Chart_of_Accounts_Import.xlsx";
 export const BIR_MAPPING_FILE = "BIR_Income_Tax_Mapping.xlsx";
+export const HIERARCHY_FILE = "CoA_Hierarchy.xlsx";
 
 /** DB row shape for chart_accounts (create payload; update omits the key). */
 export interface ChartAccountRecord {
@@ -38,6 +41,7 @@ export interface ChartAccountRecord {
   lockDate: Date | null;
   monthlyMovement: boolean;
   description: string | null;
+  postable: boolean;
   source: string;
 }
 
@@ -73,12 +77,21 @@ export interface CoaPrismaLike {
   };
 }
 
-/** Parse + derive + validate both files. Exposed for tests and the seeder. */
+/** Parse + compose + validate every file. The postable accounts come from the
+ *  flat import; the non-postable group headers and every account's parentCode
+ *  come from the authoritative hierarchy (applied verbatim, nothing derived).
+ *  Returns the full chart (headers + postable) plus the mappings. */
 export function loadChartOfAccountsData(dataDir: string): {
   accounts: CoaAccount[];
   mappings: CoaTaxMapping[];
 } {
-  const accounts = parseChartOfAccounts(path.join(dataDir, COA_FILE));
+  const postable = parseChartOfAccounts(path.join(dataDir, COA_FILE));
+  const headers = parseParentGroups(path.join(dataDir, HIERARCHY_FILE));
+  const parentMap = parseAccountParentMap(path.join(dataDir, HIERARCHY_FILE));
+  for (const a of postable) {
+    if (parentMap.has(a.code)) a.parentCode = parentMap.get(a.code) ?? null;
+  }
+  const accounts = [...headers, ...postable];
   const mappings = parseBirTaxMapping(path.join(dataDir, BIR_MAPPING_FILE));
   assertValid(
     [...validateChartOfAccounts(accounts), ...validateTaxMappings(accounts, mappings)],
@@ -99,12 +112,16 @@ function toDbAccount(a: CoaAccount): ChartAccountRecord {
     lockDate: a.lockDate ? new Date(`${a.lockDate}T00:00:00.000Z`) : null,
     monthlyMovement: a.monthlyMovement,
     description: a.description,
+    postable: a.postable,
     source: "seed",
   };
 }
 
 export interface CoaSeedResult {
+  /** Postable accounts (the flat import). */
   accounts: number;
+  /** Non-postable group headers. */
+  headers: number;
   mappings: number;
   mapped: number;
   /** Rows left untouched because they were edited in-app (user edits win). */
@@ -118,6 +135,9 @@ export async function seedChartOfAccounts(
 ): Promise<CoaSeedResult> {
   if (!fs.existsSync(path.join(dataDir, COA_FILE))) {
     throw new Error(`Chart of Accounts seed: ${path.join(dataDir, COA_FILE)} not found.`);
+  }
+  if (!fs.existsSync(path.join(dataDir, HIERARCHY_FILE))) {
+    throw new Error(`Chart of Accounts seed: ${path.join(dataDir, HIERARCHY_FILE)} not found.`);
   }
   const { accounts, mappings } = loadChartOfAccountsData(dataDir);
   let preserved = 0;
@@ -155,7 +175,8 @@ export async function seedChartOfAccounts(
   }
 
   return {
-    accounts: accounts.length,
+    accounts: accounts.filter((a) => a.postable).length,
+    headers: accounts.filter((a) => !a.postable).length,
     mappings: mappings.length,
     mapped: mappings.filter((m) => m.taxReturnLine !== null).length,
     preserved,

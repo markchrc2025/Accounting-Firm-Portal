@@ -64,10 +64,15 @@ describe("seedChartOfAccounts — idempotency against the real xlsx files", () =
     const db = fakePrisma();
 
     const first = await seedChartOfAccounts(db.prisma, DATA_DIR);
-    expect(first).toEqual({ accounts: 116, mappings: 62, mapped: 59, preserved: 0 });
-    expect(db.accounts.size).toBe(116);
+    expect(first).toEqual({ accounts: 116, headers: 15, mappings: 62, mapped: 59, preserved: 0 });
+    // The group header 1002 is seeded as a non-postable record; the postable
+    // account it parents carries 1002 as its authoritative parent.
+    expect(db.accounts.get("1002")?.postable).toBe(false);
+    expect(db.accounts.get("1002")?.name).toBe("Advances to Employees and Officers");
+    expect(db.accounts.get("1002002")?.parentCode).toBe("1002");
+    expect(db.accounts.size).toBe(131); // 116 postable + 15 group headers
     expect(db.mappings.size).toBe(62);
-    expect(db.counters.accountCreates).toBe(116);
+    expect(db.counters.accountCreates).toBe(131);
     expect(db.counters.mappingCreates).toBe(62);
     const snapshot = {
       accounts: JSON.parse(JSON.stringify([...db.accounts.entries()])),
@@ -78,9 +83,9 @@ describe("seedChartOfAccounts — idempotency against the real xlsx files", () =
     expect(second).toEqual(first);
     // No new rows, no duplicates — every second-run write hit the update
     // branch and left the state byte-identical.
-    expect(db.counters.accountCreates).toBe(116);
+    expect(db.counters.accountCreates).toBe(131);
     expect(db.counters.mappingCreates).toBe(62);
-    expect(db.accounts.size).toBe(116);
+    expect(db.accounts.size).toBe(131);
     expect(db.mappings.size).toBe(62);
     expect({
       accounts: JSON.parse(JSON.stringify([...db.accounts.entries()])),
@@ -144,19 +149,36 @@ const COA_HEADERS = [
   "Code", "Name", "Class", "Account Type", "Lock Date", "Monthly Movement", "Currency", "Description",
 ];
 const MAP_HEADERS = ["Name", "Code", "Tax Category", "Tax Return Line"];
+const GROUP_HEADERS = ["Code", "Name", "Class", "Account Type", "Postable", "Description"];
+const PARENT_MAP_HEADERS = ["Account Code", "Account Name", "Parent Code", "Parent Name"];
 
-/** Write a COA + mapping workbook pair into a fresh temp dir. */
+interface Hierarchy {
+  groups?: (string | number)[][];
+  /** [code, name, parentCode, parentName] rows. Defaults to every account top-level. */
+  map?: (string | number)[][];
+}
+
+/** Write the COA + mapping + hierarchy workbook trio into a fresh temp dir. */
 function writeDataDir(
   accountRows: (string | number)[][],
   mappingRows: (string | number)[][],
+  hierarchy: Hierarchy = {},
 ): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "coa-seed-spec-"));
   const coa = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(coa, XLSX.utils.aoa_to_sheet([COA_HEADERS, ...accountRows]), "Accounts");
   XLSX.writeFile(coa, path.join(dir, "Chart_of_Accounts_Import.xlsx"));
+
   const map = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(map, XLSX.utils.aoa_to_sheet([MAP_HEADERS, ...mappingRows]), "BIR Income Tax");
   XLSX.writeFile(map, path.join(dir, "BIR_Income_Tax_Mapping.xlsx"));
+
+  const hier = XLSX.utils.book_new();
+  const groups = hierarchy.groups ?? [];
+  XLSX.utils.book_append_sheet(hier, XLSX.utils.aoa_to_sheet([GROUP_HEADERS, ...groups]), "Parent Groups");
+  const parentMap = hierarchy.map ?? accountRows.map((r) => [r[0] ?? "", r[1] ?? "", "", ""]);
+  XLSX.utils.book_append_sheet(hier, XLSX.utils.aoa_to_sheet([PARENT_MAP_HEADERS, ...parentMap]), "Account to Parent Map");
+  XLSX.writeFile(hier, path.join(dir, "CoA_Hierarchy.xlsx"));
   return dir;
 }
 
@@ -189,23 +211,48 @@ describe("seedChartOfAccounts — validation is enforced on the seed path itself
     );
   });
 
-  it("accepts a valid mini-workbook end-to-end (parse → validate → write)", async () => {
+  it("accepts a valid mini-workbook end-to-end (header + parent map, parse → validate → write)", async () => {
     const dir = writeDataDir(
       [
         ["1001", "Cash in Bank", "Asset", "Bank Accounts", "", 0, "PHP", ""],
         ["5002001", "Office Supplies", "Expense", "Operating Expense", "", 0, "PHP", ""],
       ],
       [["Office Supplies", "5002001", "Regular", "Office Supplies"]],
+      {
+        groups: [["5002", "General and Administrative Expenses", "Expense", "Operating Expense", "No", ""]],
+        map: [
+          ["1001", "Cash in Bank", "", ""],
+          ["5002001", "Office Supplies", "5002", "General and Administrative Expenses"],
+        ],
+      },
     );
     const db = fakePrisma();
     await expect(seedChartOfAccounts(db.prisma, dir)).resolves.toEqual({
       accounts: 2,
+      headers: 1,
       mappings: 1,
       mapped: 1,
       preserved: 0,
     });
+    // Parent comes from the map (not a prefix), and the header is non-postable.
     expect(db.accounts.get("5002001")?.parentCode).toBe("5002");
+    expect(db.accounts.get("5002")?.postable).toBe(false);
+    expect(db.accounts.get("5002001")?.postable).toBe(true);
+    expect(db.accounts.get("1001")?.parentCode).toBeNull();
     expect(db.accounts.get("1001")?.normalBalance).toBe("debit");
     expect(db.accounts.get("1001")?.source).toBe("seed");
+  });
+
+  it("rejects a parent-map entry that resolves to no account or header", async () => {
+    const dir = writeDataDir(
+      [["1001", "Cash in Bank", "Asset", "Bank Accounts", "", 0, "PHP", ""]],
+      [],
+      { map: [["1001", "Cash in Bank", "1099", "Ghost Group"]] },
+    );
+    const db = fakePrisma();
+    await expect(seedChartOfAccounts(db.prisma, dir)).rejects.toThrow(
+      /1001.*parent "1099" is not a defined account or group header/,
+    );
+    expect(db.accounts.size).toBe(0);
   });
 });
