@@ -106,12 +106,17 @@ export interface ChartAccount {
   lockDate?: string | null;
   monthlyMovement: boolean;
   description?: string | null;
+  source?: string; // "seed" | "custom"
+  editedAt?: string | null;
+  archived?: boolean;
 }
 export interface AccountTaxMapping {
   accountCode: string;
   taxCategory: string;
   accountName: string;
   taxReturnLine?: string | null;
+  source?: string;
+  editedAt?: string | null;
 }
 export function fetchChartAccounts(filters?: {
   class?: string;
@@ -125,6 +130,42 @@ export function fetchChartAccounts(filters?: {
 }
 export function fetchAccountTaxMappings(): Promise<AccountTaxMapping[]> {
   return apiFetch<AccountTaxMapping[]>("/coa/mappings");
+}
+export interface ChartAccountInput {
+  code: string;
+  name: string;
+  class: string;
+  accountType: string;
+  description?: string;
+  monthlyMovement?: boolean;
+  taxReturnLine?: string;
+}
+export function createChartAccount(body: ChartAccountInput): Promise<ChartAccount> {
+  return apiFetch("/coa/accounts", { method: "POST", body: JSON.stringify(body) });
+}
+export function updateChartAccount(
+  code: string,
+  body: Partial<Omit<ChartAccountInput, "code" | "taxReturnLine">>,
+): Promise<ChartAccount> {
+  return apiFetch(`/coa/accounts/${code}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function archiveChartAccount(code: string): Promise<ChartAccount> {
+  return apiFetch(`/coa/accounts/${code}/archive`, { method: "POST" });
+}
+export function restoreChartAccount(code: string): Promise<ChartAccount> {
+  return apiFetch(`/coa/accounts/${code}/restore`, { method: "POST" });
+}
+export function setAccountTaxMapping(
+  accountCode: string,
+  taxReturnLine: string,
+): Promise<AccountTaxMapping> {
+  return apiFetch(`/coa/mappings/${accountCode}`, {
+    method: "PUT",
+    body: JSON.stringify({ taxReturnLine }),
+  });
+}
+export function deleteAccountTaxMapping(accountCode: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/coa/mappings/${accountCode}`, { method: "DELETE" });
 }
 
 // --- Health (Phase 0) --------------------------------------------------------

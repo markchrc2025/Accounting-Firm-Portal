@@ -60,6 +60,10 @@ const CAPABILITY_MATRIX: CapabilityRow[] = [
     roles: ["Super Admin", "Manager", "Accountant", "Staff"],
   },
   { label: "Configure tax rules", roles: ["Super Admin", "Accountant"] },
+  {
+    label: "Manage chart of accounts",
+    roles: ["Super Admin", "Accountant"],
+  },
   { label: "Send invoices", roles: ["Super Admin", "Manager", "Accountant"] },
   {
     label: "View reports",

@@ -34,6 +34,8 @@ export interface CoaAccount {
   lockDate: string | null; // ISO yyyy-mm-dd
   monthlyMovement: boolean;
   description: string | null;
+  /** Soft-deleted accounts keep their row but are exempt from P&L coverage. */
+  archived?: boolean;
 }
 
 export interface CoaTaxMapping {
@@ -356,6 +358,7 @@ export function validateTaxMappings(
   );
   for (const a of accounts) {
     if (!(PL_CLASSES as readonly string[]).includes(a.class)) continue;
+    if (a.archived) continue; // archived accounts don't require a mapping
     if (mappedWithLine.has(a.code) || allowedUnmapped.has(a.code)) continue;
     errors.push(
       `Account ${a.code} (${a.name}): P&L account has no BIR tax-return line and is ` +
