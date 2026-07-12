@@ -6,6 +6,7 @@ import { AuthModule } from "./auth/auth.module";
 import { BirModule } from "./bir/bir.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { ClientsModule } from "./clients/clients.module";
+import { CoaModule } from "./coa/coa.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
@@ -53,6 +54,7 @@ import { UsersModule } from "./users/users.module";
     FilingsModule,
     TaxRulesModule,
     BirModule,
+    CoaModule,
     HealthModule,
   ],
   providers: [
