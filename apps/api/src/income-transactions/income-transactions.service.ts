@@ -59,8 +59,10 @@ export class IncomeTransactionsService {
   async importRows(user: AuthUser, clientId: string, rows: unknown[]) {
     const client = await this.clients.assertInFirm(user.firmId, clientId);
     const regime = this.regime.requireRegime(client.taxType);
+    const isVat = client.taxType === "VAT";
     const errors: { row: number; message: string }[] = [];
     const catCache = new Map<string, string>();
+    const rateCache = new Map<string, number>();
     let created = 0;
     for (let i = 0; i < rows.length; i++) {
       try {
@@ -72,6 +74,21 @@ export class IncomeTransactionsService {
           categoryId = cat.id;
           catCache.set(key, categoryId);
         }
+        const atc = parsed.ATC ?? parsed.TaxCode;
+        // Amount is tax-inclusive (AS-IS from the receipt). Back out the VAT
+        // using the Tax Code / Tax Type (only for VAT-registered clients).
+        const rate = isVat ? await this.vatRate(atc, parsed.TaxType, rateCache) : 0;
+        let netAmount: number;
+        let outputVAT: number | undefined;
+        if (parsed.Amount !== undefined) {
+          netAmount = Math.round((parsed.Amount / (1 + rate)) * 100) / 100;
+          outputVAT = rate > 0 ? Math.round((parsed.Amount - netAmount) * 100) / 100 : parsed.OutputVAT;
+        } else {
+          netAmount = parsed.NetAmount ?? 0;
+          outputVAT = parsed.OutputVAT;
+        }
+        const vatClass =
+          parsed.VatClass ?? (rate > 0 ? "VATABLE_12" : isVat ? "EXEMPT" : "NON_VAT");
         const input = parseOrBadRequest(IncomeTransaction, {
           clientId,
           categoryId,
@@ -79,12 +96,12 @@ export class IncomeTransactionsService {
           referenceNo: parsed.ReferenceNo,
           customer: parsed.Customer,
           description: parsed.Description,
-          netAmount: parsed.NetAmount,
-          vatClass: parsed.VatClass,
+          netAmount,
+          vatClass,
           saleToGovernment: parsed.SaleToGovernment ?? false,
-          outputVAT: parsed.OutputVAT,
+          outputVAT,
           creditableVATWithheld5pct: parsed.CreditableVATWithheld5pct,
-          atc: parsed.ATC,
+          atc,
           source: "import",
           customerTin: parsed.CustomerTIN,
           dueDate: parsed.DueDate,
@@ -249,6 +266,31 @@ export class IncomeTransactionsService {
           }
         : {}),
     };
+  }
+
+  /** VAT rate (0, or the ATC / tax-type rate) used to back VAT out of a
+   *  tax-inclusive Amount. Looks up the ATC's classification+rate in the seeded
+   *  BIR data, else falls back to the Tax Type string. Cached per import run. */
+  private async vatRate(
+    taxCode: string | undefined,
+    taxType: string | undefined,
+    cache: Map<string, number>,
+  ): Promise<number> {
+    const key = `${taxCode ?? ""}|${taxType ?? ""}`;
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit;
+    let rate = 0;
+    const code = taxCode?.trim().toUpperCase();
+    if (code) {
+      const a = await this.prisma.birAtcCode.findUnique({ where: { atc: code } });
+      if (a && a.classification === "vat" && a.rate != null) rate = Number(a.rate);
+    }
+    if (rate === 0) {
+      const t = (taxType ?? "").trim().toUpperCase();
+      if (t === "VT" || t.includes("VAT")) rate = 0.12;
+    }
+    cache.set(key, rate);
+    return rate;
   }
 
   private toDb(

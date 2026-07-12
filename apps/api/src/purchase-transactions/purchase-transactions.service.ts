@@ -75,8 +75,10 @@ export class PurchaseTransactionsService {
   async importRows(user: AuthUser, clientId: string, rows: unknown[]) {
     const client = await this.clients.assertInFirm(user.firmId, clientId);
     const regime = this.regime.requireRegime(client.taxType);
+    const isVat = client.taxType === "VAT";
     const errors: { row: number; message: string }[] = [];
     const catCache = new Map<string, string>();
+    const rateCache = new Map<string, number>();
     let created = 0;
     for (let i = 0; i < rows.length; i++) {
       try {
@@ -88,6 +90,22 @@ export class PurchaseTransactionsService {
           categoryId = cat.id;
           catCache.set(key, categoryId);
         }
+        const atc = parsed.ATC ?? parsed.TaxCode;
+        // Amount is tax-inclusive; back out input VAT via the Tax Code / Tax Type
+        // (VAT-registered clients only). taxAmount records the tax on the line.
+        const rate = isVat ? await this.vatRate(atc, parsed.TaxType, rateCache) : 0;
+        let netAmount: number;
+        let inputVAT: number | undefined;
+        let taxAmount: number | undefined = parsed.TaxAmount;
+        if (parsed.Amount !== undefined) {
+          netAmount = Math.round((parsed.Amount / (1 + rate)) * 100) / 100;
+          const tax = rate > 0 ? Math.round((parsed.Amount - netAmount) * 100) / 100 : 0;
+          inputVAT = rate > 0 ? tax : parsed.InputVAT;
+          if (taxAmount === undefined && tax > 0) taxAmount = tax;
+        } else {
+          netAmount = parsed.NetAmount ?? 0;
+          inputVAT = parsed.InputVAT;
+        }
         const input = parseOrBadRequest(PurchaseTransaction, {
           clientId,
           categoryId,
@@ -95,9 +113,10 @@ export class PurchaseTransactionsService {
           referenceNo: parsed.ReferenceNo,
           vendor: parsed.Vendor,
           description: parsed.Description,
-          netAmount: parsed.NetAmount,
-          inputVATCategory: parsed.InputVATCategory,
-          inputVAT: parsed.InputVAT,
+          netAmount,
+          inputVATCategory:
+            parsed.InputVATCategory ?? (isVat && rate > 0 ? "DOMESTIC_PURCHASES" : undefined),
+          inputVAT,
           isCapitalGood: parsed.IsCapitalGood ?? false,
           capitalGoodAcquisitionCost: parsed.CapitalGoodAcquisitionCost,
           estimatedUsefulLifeMonths: parsed.EstimatedUsefulLifeMonths,
@@ -107,8 +126,8 @@ export class PurchaseTransactionsService {
           vendorTin: parsed.VendorTIN,
           dueDate: parsed.DueDate,
           account: parsed.Account,
-          atc: parsed.ATC,
-          taxAmount: parsed.TaxAmount,
+          atc,
+          taxAmount,
           unit: parsed.Unit,
           quantity: parsed.Quantity,
           unitPrice: parsed.UnitPrice,
@@ -282,6 +301,30 @@ export class PurchaseTransactionsService {
           }
         : {}),
     };
+  }
+
+  /** VAT rate (0, or the ATC / tax-type rate) used to back input VAT out of a
+   *  tax-inclusive Amount. Uses the seeded BIR data, else the Tax Type string. */
+  private async vatRate(
+    taxCode: string | undefined,
+    taxType: string | undefined,
+    cache: Map<string, number>,
+  ): Promise<number> {
+    const key = `${taxCode ?? ""}|${taxType ?? ""}`;
+    const hit = cache.get(key);
+    if (hit !== undefined) return hit;
+    let rate = 0;
+    const code = taxCode?.trim().toUpperCase();
+    if (code) {
+      const a = await this.prisma.birAtcCode.findUnique({ where: { atc: code } });
+      if (a && a.classification === "vat" && a.rate != null) rate = Number(a.rate);
+    }
+    if (rate === 0) {
+      const t = (taxType ?? "").trim().toUpperCase();
+      if (t === "VT" || t.includes("VAT")) rate = 0.12;
+    }
+    cache.set(key, rate);
+    return rate;
   }
 
   private toDb(

@@ -98,21 +98,25 @@ export default function ExpensesPage() {
     setExporting(true);
     try {
       const all = await fetchAllPurchases(clientId, filters);
+      const tax = (t: (typeof all)[number]) => t.taxAmount ?? t.inputVAT ?? 0;
       const out = all.map((t) => ({
-        Date: t.txnDate,
-        ReferenceNo: t.referenceNo ?? "",
-        Vendor: t.vendor ?? "",
-        Description: t.description,
+        "Date*": t.txnDate,
+        "Vendor TIN*": t.vendorTin ?? "",
+        "Vendor Name*": t.vendor ?? "",
+        "Vendor Lastname": "",
+        "Vendor Firstname": "",
+        "Vendor Middlename": "",
+        Address: "",
+        City: "",
+        "Postal Code*": "",
+        "Reference Number*": t.referenceNo ?? "",
+        "Tax Code*": t.atc ?? "",
+        "Tax Type*": t.inputVATCategory ? "VAT" : "",
         Category: categoryName(t.categoryId),
-        NetAmount: t.netAmount,
-        InputVATCategory: t.inputVATCategory ?? "",
-        InputVAT: t.inputVAT ?? "",
-        IsCapitalGood: t.isCapitalGood ? "Yes" : "No",
-        CapitalGoodAcquisitionCost: t.capitalGoodAcquisitionCost ?? "",
-        EstimatedUsefulLifeMonths: t.estimatedUsefulLifeMonths ?? "",
-        InputTaxAttribution: t.inputTaxAttribution ?? "",
-        Deductible: t.deductible ? "Yes" : "No",
-        Currency: client.data?.currency ?? "PHP",
+        Description: t.description,
+        // Amount is tax-inclusive (net + input VAT / tax).
+        "Amount*": Math.round((t.netAmount + tax(t)) * 100) / 100,
+        "COA Code*": t.account ?? "",
       }));
       const base = (client.data?.businessName ?? "client").replace(/[^\w.-]+/g, "_");
       await downloadSheet(`${base}-expenses.xlsx`, "EXPENSES", out, EXPENSE_HEADERS);
