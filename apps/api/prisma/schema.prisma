@@ -509,8 +509,9 @@ model ChartAccount {
   name            String
   class           String // Asset | Liability | Equity | Revenue | Expense
   accountType     String // Bank Accounts | Current Asset | ... | Other Expense
-  /// Derived grouping key for 7-digit codes (their first 4 digits). The parent
-  /// codes are group headers, not posting accounts, so this is NOT a foreign key.
+  /// Authoritative parent code from CoA_Hierarchy.xlsx (null = top-level). It may
+  /// point at a group header or a postable account; NOT derived from the prefix
+  /// and NOT a foreign key (headers and accounts share this table).
   parentCode      String?
   /// Derived: debit | credit. Asset/Expense = debit, Liability/Equity/Revenue =
   /// credit — except the contra accounts (1901001, 1902001 credit; 3901001 debit).
@@ -519,6 +520,9 @@ model ChartAccount {
   lockDate        DateTime? @db.Date
   monthlyMovement Boolean   @default(false)
   description     String?
+  /// Group headers (postable = false) organise the chart but take no journal
+  /// lines and are excluded from the postable account list + P&L coverage.
+  postable        Boolean   @default(true)
   /// "seed" rows come from the xlsx; "custom" rows were created in-app.
   source          String    @default("custom")
   /// Set on any in-app edit — the seeder skips edited rows so user changes

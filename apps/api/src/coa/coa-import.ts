@@ -6,17 +6,29 @@
 // satisfy. Changing the files and re-seeding updates the app without code
 // changes; violating a convention fails loudly, naming the offending code.
 //
+// The chart's HIERARCHY is authoritative, not inferred. CoA_Hierarchy.xlsx
+// carries two sheets:
+//   - "Parent Groups": the group headers omitted from the flat import. They are
+//     non-postable (postable = false) — no journal line may be booked to them.
+//   - "Account to Parent Map": the parent code for every account (blank = a
+//     top-level standalone). This is applied verbatim; no parent is derived
+//     from a code prefix. Contra accounts cross prefixes (1901001 → 1003,
+//     1902001 → 1007), and 13 prefixes (1901, 1902, 2600, 2700, 2800, 2901,
+//     3001, 3002, 3901, 8001, 8002, 9001, 9002) are NOT groups — those accounts
+//     are standalone.
+//
 // Conventions enforced (see validateChartOfAccounts / validateTaxMappings):
-//   - Codes are 4-digit (top-level) or 7-digit (sub-account; first 4 digits are
-//     the parent GROUP code — a grouping key, not a posting account).
+//   - Codes are 4-digit or 7-digit.
 //   - Code prefix ↔ class: 1xxx Asset · 2xxx Liability with the Equity block
 //     exactly at 2901xxx · 3xxx Revenue · 4xxx/5xxx Expense · 8xxx (VAT) and
 //     9xxx (deferred/creditable tax) Asset or Liability.
 //   - Normal balance: Asset/Expense debit; Liability/Equity/Revenue credit —
 //     except the contra accounts 1901001 & 1902001 (credit) and 3901001 (debit).
 //   - Currency is PHP on every account.
-//   - Every P&L posting account is mapped to a BIR tax-return line, or is in
-//     the allowed-unmapped set {4001, 4002, 5008}.
+//   - Every non-blank parentCode resolves to a defined account or group header.
+//   - Every POSTABLE P&L account is mapped to a BIR tax-return line, or is in
+//     the allowed-unmapped set {4001, 4002, 5008}. Non-postable headers are
+//     exempt from coverage.
 
 import * as fs from "fs";
 import * as XLSX from "xlsx";
@@ -28,12 +40,15 @@ export interface CoaAccount {
   name: string;
   class: string; // Asset | Liability | Equity | Revenue | Expense
   accountType: string;
-  parentCode: string | null; // derived: 7-digit codes → first 4 digits
+  parentCode: string | null; // authoritative (from the hierarchy map); null = top-level
   normalBalance: NormalBalance; // derived: class rule + contra exceptions
   currency: string;
   lockDate: string | null; // ISO yyyy-mm-dd
   monthlyMovement: boolean;
   description: string | null;
+  /** Group headers are non-postable: they organise the chart but take no journal
+   *  lines and are exempt from P&L mapping coverage. Postable accounts default true. */
+  postable: boolean;
   /** Soft-deleted accounts keep their row but are exempt from P&L coverage. */
   archived?: boolean;
 }
@@ -69,11 +84,6 @@ export function expectedNormalBalance(cls: string, code: string): NormalBalance 
   const contra = CONTRA_NORMAL_BALANCE[code];
   if (contra) return contra;
   return DEBIT_CLASSES.has(cls) ? "debit" : "credit";
-}
-
-/** 7-digit sub-account → its 4-digit group code; 4-digit top-level → null. */
-export function derivedParentCode(code: string): string | null {
-  return /^\d{7}$/.test(code) ? code.slice(0, 4) : null;
 }
 
 // ------------------------------------------------------------------- parsing
@@ -159,7 +169,9 @@ function requireCodes(rows: Row[], filePath: string): Row[] {
   return kept;
 }
 
-/** Parse Chart_of_Accounts_Import.xlsx (sheet "Accounts", or the first sheet). */
+/** Parse Chart_of_Accounts_Import.xlsx (sheet "Accounts", or the first sheet).
+ *  These are the POSTABLE accounts; their parentCode is filled in from the
+ *  hierarchy map (parentCode is null here). */
 export function parseChartOfAccounts(filePath: string): CoaAccount[] {
   const rows = readRows(filePath, "Accounts", ["Code", "Name", "Class", "Account Type"]);
   return requireCodes(rows, filePath)
@@ -171,14 +183,105 @@ export function parseChartOfAccounts(filePath: string): CoaAccount[] {
         name: text(cell(r, "Name")),
         class: cls,
         accountType: text(cell(r, "Account Type")),
-        parentCode: derivedParentCode(code),
+        parentCode: null,
         normalBalance: expectedNormalBalance(cls, code),
         currency: text(cell(r, "Currency")) || "PHP",
         lockDate: toIsoDate(cell(r, "Lock Date")),
         monthlyMovement: toBool(cell(r, "Monthly Movement")),
         description: text(cell(r, "Description")) || null,
+        postable: true,
       };
     });
+}
+
+/** Read a sheet whose header row is preceded by a free-text title/notes block:
+ *  locate the header row by the anchor column, then key the data rows to it. */
+function readTitledSheet(
+  filePath: string,
+  preferredSheet: string,
+  requiredHeaders: string[],
+): Row[] {
+  const wb = XLSX.read(fs.readFileSync(filePath), { type: "buffer", cellDates: true });
+  const sheet = pickSheet(wb, preferredSheet);
+  const grid = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false });
+  const anchor = requiredHeaders[0]!;
+  const headerIdx = grid.findIndex((row) =>
+    row.some((c) => String(c ?? "").trim() === anchor),
+  );
+  if (headerIdx === -1) {
+    throw new Error(
+      `${filePath}: sheet "${preferredSheet}" has no header row containing "${anchor}".`,
+    );
+  }
+  const headerRow = grid[headerIdx]!.map((c) => String(c ?? "").trim());
+  const missing = requiredHeaders.filter((h) => !headerRow.includes(h));
+  if (missing.length > 0) {
+    throw new Error(
+      `${filePath}: sheet "${preferredSheet}" is missing headers [${missing.join(", ")}].`,
+    );
+  }
+  const rows: Row[] = [];
+  for (let i = headerIdx + 1; i < grid.length; i++) {
+    const raw = grid[i] ?? [];
+    if (raw.every((c) => String(c ?? "").trim() === "")) continue;
+    const obj: Row = {};
+    headerRow.forEach((h, ci) => {
+      if (h) obj[h] = raw[ci] ?? "";
+    });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+/** Parse CoA_Hierarchy.xlsx sheet "Parent Groups" → the non-postable group
+ *  headers. Their parentCode is null (headers are top-level in this chart). */
+export function parseParentGroups(filePath: string): CoaAccount[] {
+  const rows = readTitledSheet(filePath, "Parent Groups", [
+    "Code",
+    "Name",
+    "Class",
+    "Account Type",
+  ]);
+  // A header row with data but no Code is a malformed source file — fail loudly
+  // (mirrors requireCodes on the flat import), don't silently drop it.
+  for (const r of rows) {
+    if (text(cell(r, "Code")) === "" && Object.values(r).some((v) => text(v) !== "")) {
+      throw new Error(`${filePath}: a "Parent Groups" row has data but a blank Code.`);
+    }
+  }
+  return rows
+    .filter((r) => text(cell(r, "Code")) !== "")
+    .map((r) => {
+      const code = text(cell(r, "Code"));
+      const cls = text(cell(r, "Class"));
+      return {
+        code,
+        name: text(cell(r, "Name")),
+        class: cls,
+        accountType: text(cell(r, "Account Type")),
+        parentCode: null,
+        normalBalance: expectedNormalBalance(cls, code),
+        currency: "PHP",
+        lockDate: null,
+        monthlyMovement: false,
+        description: text(cell(r, "Description")) || null,
+        postable: false,
+      };
+    });
+}
+
+/** Parse CoA_Hierarchy.xlsx sheet "Account to Parent Map" → code → parentCode
+ *  (blank parent = null). Applied verbatim; nothing is derived. */
+export function parseAccountParentMap(filePath: string): Map<string, string | null> {
+  const rows = readTitledSheet(filePath, "Account to Parent Map", ["Account Code", "Parent Code"]);
+  const map = new Map<string, string | null>();
+  for (const r of rows) {
+    const code = text(cell(r, "Account Code"));
+    if (code === "") continue;
+    const parent = text(cell(r, "Parent Code"));
+    map.set(code, parent === "" ? null : parent);
+  }
+  return map;
 }
 
 /** Parse BIR_Income_Tax_Mapping.xlsx (sheet "BIR Income Tax", or the first).
@@ -278,29 +381,19 @@ export function validateChartOfAccounts(accounts: CoaAccount[]): string[] {
     ) {
       errors.push(`${where}: lock date "${a.lockDate}" is not a valid yyyy-mm-dd date.`);
     }
-
-    const expectedParent = derivedParentCode(a.code);
-    if (a.parentCode !== expectedParent) {
-      errors.push(
-        `${where}: parentCode "${a.parentCode ?? "null"}" should be ` +
-          `"${expectedParent ?? "null"}" (7-digit prefix rule).`,
-      );
-    }
   }
 
-  // Parent group codes are HEADERS, not posting accounts: a 4-digit posting
-  // account that is simultaneously the prefix of 7-digit sub-accounts would
-  // double-count in rollups, so the collision fails loudly.
-  const groupPrefixes = new Map<string, string>(); // prefix → first child code
+  // Referential integrity: every non-blank parent must resolve to a defined
+  // account or group header (this is what catches phantom prefix "parents").
+  const codes = new Set(accounts.map((a) => a.code));
   for (const a of accounts) {
-    const parent = derivedParentCode(a.code);
-    if (parent && !groupPrefixes.has(parent)) groupPrefixes.set(parent, a.code);
-  }
-  for (const a of accounts) {
-    if (/^\d{4}$/.test(a.code) && groupPrefixes.has(a.code)) {
+    if (a.parentCode === null) continue;
+    if (a.parentCode === a.code) {
+      errors.push(`Account ${a.code} (${a.name}): cannot be its own parent.`);
+    } else if (!codes.has(a.parentCode)) {
       errors.push(
-        `Account ${a.code} (${a.name}): is a posting account AND the parent group of ` +
-          `sub-account ${groupPrefixes.get(a.code)} — group codes must not be posting accounts.`,
+        `Account ${a.code} (${a.name}): parent "${a.parentCode}" is not a defined ` +
+          `account or group header.`,
       );
     }
   }
@@ -358,6 +451,7 @@ export function validateTaxMappings(
   );
   for (const a of accounts) {
     if (!(PL_CLASSES as readonly string[]).includes(a.class)) continue;
+    if (!a.postable) continue; // group headers take no journal lines → no mapping
     if (a.archived) continue; // archived accounts don't require a mapping
     if (mappedWithLine.has(a.code) || allowedUnmapped.has(a.code)) continue;
     errors.push(

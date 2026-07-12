@@ -15,6 +15,9 @@ export const CreateAccountSchema = z.object({
   name: z.string().min(1),
   class: zClass,
   accountType: z.string().min(1),
+  /** Optional parent group/account code (blank = top-level). Must resolve to an
+   *  existing account or group header — enforced by chart validation. */
+  parentCode: zCode.optional(),
   description: z.string().optional(),
   monthlyMovement: z.boolean().optional(),
   taxReturnLine: z.string().min(1).optional(),

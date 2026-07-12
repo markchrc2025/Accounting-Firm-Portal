@@ -9,11 +9,12 @@ import {
   type CoaAccount,
   type CoaTaxMapping,
 } from "./coa-import";
-import { BIR_MAPPING_FILE, COA_FILE } from "./coa-seed";
+import { BIR_MAPPING_FILE, COA_FILE, loadChartOfAccountsData } from "./coa-seed";
 
 const DATA_DIR = path.join(__dirname, "..", "..", "prisma", "data");
 
-/** Minimal valid account for rule fixtures; override per test. */
+/** Minimal valid account for rule fixtures; override per test. Fixtures default
+ *  to top-level (no parent) so a lone account never trips parent resolution. */
 function acct(overrides: Partial<CoaAccount>): CoaAccount {
   const code = overrides.code ?? "5002001";
   const cls = overrides.class ?? "Expense";
@@ -22,12 +23,13 @@ function acct(overrides: Partial<CoaAccount>): CoaAccount {
     name: "Fixture Account",
     class: cls,
     accountType: "Operating Expense",
-    parentCode: /^\d{7}$/.test(code) ? code.slice(0, 4) : null,
+    parentCode: null,
     normalBalance: expectedNormalBalance(cls, code),
     currency: "PHP",
     lockDate: null,
     monthlyMovement: false,
     description: null,
+    postable: true,
     ...overrides,
   };
 }
@@ -63,19 +65,11 @@ describe("Chart of Accounts import — real xlsx files (source of truth)", () =>
     expect(mappings.every((m) => m.taxCategory === "Regular")).toBe(true);
   });
 
-  it("passes every convention validation", () => {
+  it("passes every convention validation on the postable set alone", () => {
+    // The postable accounts are all top-level here (parents come from the
+    // hierarchy), so they validate on their own without parent-resolution noise.
     expect(validateChartOfAccounts(accounts)).toEqual([]);
     expect(validateTaxMappings(accounts, mappings)).toEqual([]);
-  });
-
-  it("is PHP-only and reconstructs the 7-digit prefix hierarchy", () => {
-    expect(accounts.every((a) => a.currency === "PHP")).toBe(true);
-    const sevens = accounts.filter((a) => a.code.length === 7);
-    const fours = accounts.filter((a) => a.code.length === 4);
-    expect(sevens).toHaveLength(103);
-    expect(fours).toHaveLength(13);
-    expect(sevens.every((a) => a.parentCode === a.code.slice(0, 4))).toBe(true);
-    expect(fours.every((a) => a.parentCode === null)).toBe(true);
   });
 
   it("derives normal balances incl. the three contra exceptions", () => {
@@ -94,6 +88,62 @@ describe("Chart of Accounts import — real xlsx files (source of truth)", () =>
     const equity = accounts.filter((a) => a.class === "Equity");
     expect(equity.length).toBeGreaterThan(0);
     expect(equity.every((a) => a.code.startsWith("2901"))).toBe(true);
+  });
+});
+
+describe("authoritative hierarchy — composed from CoA_Hierarchy.xlsx", () => {
+  const { accounts } = loadChartOfAccountsData(DATA_DIR);
+  const byCode = new Map(accounts.map((a) => [a.code, a]));
+
+  it("ends at exactly 116 postable accounts + 15 non-postable headers", () => {
+    const postable = accounts.filter((a) => a.postable);
+    const headers = accounts.filter((a) => !a.postable);
+    expect(postable).toHaveLength(116);
+    expect(headers).toHaveLength(15);
+    expect(headers.map((h) => h.code).sort()).toEqual(
+      ["1002", "1003", "2001", "2002", "2003", "2004", "2008", "2009", "2101", "5001", "5002", "5003", "5004", "5005", "5007"].sort(),
+    );
+    expect(headers.every((h) => !h.postable)).toBe(true);
+  });
+
+  it("applies the parent map verbatim, incl. the cross-prefix contras", () => {
+    expect(byCode.get("1002002")?.parentCode).toBe("1002");
+    expect(byCode.get("5002004")?.parentCode).toBe("5002");
+    // Contra accounts cross prefixes — the prefix rule would have mis-parented them.
+    expect(byCode.get("1901001")?.parentCode).toBe("1003");
+    expect(byCode.get("1902001")?.parentCode).toBe("1007");
+    // Standalones (the 13 phantom prefixes) are top-level, not grouped.
+    for (const code of ["8001001", "8002001", "2600001", "2700001", "2800001", "2901001", "3001001", "3901001", "9001001"]) {
+      expect(byCode.get(code)?.parentCode).toBeNull();
+    }
+  });
+
+  it("has zero phantom groups and zero nameless parents", () => {
+    const codes = new Set(accounts.map((a) => a.code));
+    const phantom = ["1901", "1902", "2600", "2700", "2800", "2901", "3001", "3002", "3901", "8001", "8002", "9001", "9002"];
+    for (const p of phantom) {
+      expect(accounts.some((a) => a.parentCode === p)).toBe(false);
+    }
+    // Every non-null parent resolves to a real record.
+    for (const a of accounts) {
+      if (a.parentCode !== null) expect(codes.has(a.parentCode)).toBe(true);
+    }
+  });
+
+  it("uses exactly the 16 legitimate parents (15 headers + postable 1007)", () => {
+    const parents = new Set(
+      accounts.map((a) => a.parentCode).filter((p): p is string => p !== null),
+    );
+    expect([...parents].sort()).toEqual(
+      ["1002", "1003", "1007", "2001", "2002", "2003", "2004", "2008", "2009", "2101", "5001", "5002", "5003", "5004", "5005", "5007"].sort(),
+    );
+    expect(byCode.get("1007")?.postable).toBe(true); // 1007 is a real posting account
+  });
+
+  it("passes every convention validation as a whole chart", () => {
+    const mappings = parseBirTaxMapping(path.join(DATA_DIR, BIR_MAPPING_FILE));
+    expect(validateChartOfAccounts(accounts)).toEqual([]);
+    expect(validateTaxMappings(accounts, mappings)).toEqual([]);
   });
 });
 
@@ -149,14 +199,6 @@ describe("validateChartOfAccounts — one failing fixture per rule", () => {
     }
   });
 
-  it("rejects a 4-digit posting account that collides with a 7-digit group prefix", () => {
-    const errors = validateChartOfAccounts([
-      acct({ code: "5002", parentCode: null }),
-      acct({ code: "5002001" }),
-    ]);
-    expect(errors.join("\n")).toMatch(/5002.*posting account AND the parent group.*5002001/);
-  });
-
   it("rejects a wrong normal balance, honouring the contra exceptions", () => {
     // Contra account forced to its class default → violation.
     const contra = validateChartOfAccounts([
@@ -181,9 +223,26 @@ describe("validateChartOfAccounts — one failing fixture per rule", () => {
     expect(validateChartOfAccounts([acct({ lockDate: "2026-12-31" })])).toEqual([]);
   });
 
-  it("rejects a parentCode that breaks the 7-digit prefix rule", () => {
+  it("rejects a parent that resolves to no account or header", () => {
     const errors = validateChartOfAccounts([acct({ code: "5002001", parentCode: "9999" })]);
-    expect(errors.join("\n")).toMatch(/5002001.*parentCode "9999" should be "5002"/);
+    expect(errors.join("\n")).toMatch(/5002001.*parent "9999" is not a defined account or group header/);
+  });
+
+  it("accepts a parent that resolves to a defined group header", () => {
+    const header = acct({
+      code: "5002",
+      class: "Expense",
+      accountType: "Operating Expense",
+      postable: false,
+    });
+    expect(
+      validateChartOfAccounts([header, acct({ code: "5002001", parentCode: "5002" })]),
+    ).toEqual([]);
+  });
+
+  it("rejects an account that is its own parent", () => {
+    const errors = validateChartOfAccounts([acct({ code: "5002001", parentCode: "5002001" })]);
+    expect(errors.join("\n")).toMatch(/5002001.*cannot be its own parent/);
   });
 });
 
@@ -198,6 +257,12 @@ describe("validateTaxMappings — one failing fixture per rule", () => {
       acct({ code, class: "Expense", accountType: "Direct Costs", parentCode: null }),
     );
     expect(validateTaxMappings(accounts, [])).toEqual([]);
+  });
+
+  it("exempts non-postable P&L group headers from mapping coverage", () => {
+    // A 5xxx expense header would otherwise demand a BIR line; postable=false skips it.
+    const header = acct({ code: "5001", class: "Expense", postable: false });
+    expect(validateTaxMappings([header], [])).toEqual([]);
   });
 
   it("flags a blank line on a mapping row outside the allowed set", () => {
