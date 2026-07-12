@@ -68,6 +68,7 @@ export function ImportModal({
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const isIncome = kind === "income";
   const schema = isIncome ? SalesImportRow : ExpenseImportRow;
@@ -292,6 +293,35 @@ export function ImportModal({
                 className="hidden"
                 onChange={(e) => onPick(e.target.files?.[0] ?? null)}
               />
+              {/* Drag & drop zone (also click-to-browse). */}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  void onPick(e.dataTransfer.files?.[0] ?? null);
+                }}
+                className={cn(
+                  "flex w-full flex-col items-center justify-center gap-1.5 rounded-card border-2 border-dashed px-6 py-10 text-center transition-colors",
+                  dragOver
+                    ? "border-gold bg-warn-bg-2"
+                    : "border-line-strong bg-paper hover:border-navy",
+                )}
+              >
+                <span className="text-2xl" aria-hidden>
+                  ⬆️
+                </span>
+                <span className="text-[14px] font-semibold text-navy">
+                  {parsing ? "Reading…" : "Drop a file here, or click to browse"}
+                </span>
+                <span className="text-[12px] text-content-secondary">.xlsx or .csv</span>
+              </button>
               <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={() => fileRef.current?.click()} disabled={parsing}>
                   {parsing ? "Reading…" : "Choose file"}
