@@ -295,6 +295,15 @@ export class PurchaseTransactionsService {
       inputTaxAttribution: input.inputTaxAttribution ?? null,
       deductible: input.deductible,
       source: input.source,
+      vendorTin: input.vendorTin ?? null,
+      dueDate: input.dueDate ? isoToDate(input.dueDate) : null,
+      account: input.account ?? null,
+      atc: input.atc ?? null,
+      taxAmount: input.taxAmount ?? null,
+      unit: input.unit ?? null,
+      quantity: input.quantity ?? null,
+      unitPrice: input.unitPrice ?? null,
+      discount: input.discount ?? null,
     };
   }
 

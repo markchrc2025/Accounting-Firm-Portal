@@ -363,6 +363,14 @@ export interface IncomeTxn {
   creditableVATWithheld5pct?: number;
   atc?: string;
   source: string;
+  customerTin?: string;
+  dueDate?: string;
+  terms?: string;
+  account?: string;
+  unit?: string;
+  quantity?: number;
+  unitPrice?: number;
+  discount?: number;
 }
 export interface PurchaseTxn {
   id: string;
@@ -380,6 +388,15 @@ export interface PurchaseTxn {
   inputTaxAttribution?: string;
   deductible: boolean;
   source: string;
+  vendorTin?: string;
+  dueDate?: string;
+  account?: string;
+  atc?: string;
+  taxAmount?: number;
+  unit?: string;
+  quantity?: number;
+  unitPrice?: number;
+  discount?: number;
 }
 export interface Paginated<T> {
   data: T[];
