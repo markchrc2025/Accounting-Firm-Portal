@@ -465,7 +465,7 @@ model PurchaseTransaction {
 model BirTaxType {
   code   String   @id
   name   String
-  forms  String[] // returns this tax type must file (e.g. ["2550M","2550Q"])
+  forms  String[] @default([]) // returns this tax type must file (e.g. ["2550M","2550Q"])
   status String   @default("active") // active | repealed
   notes  String?
 
@@ -484,7 +484,7 @@ model BirAtcCode {
   rateBasis       String?
   thresholdAmount Decimal? @db.Decimal(18, 2)
   bracket         String? // at_or_below | above
-  forms           String[]
+  forms           String[] @default([])
   certificate     String? // 2307 (creditable) | 2306 (final)
   status          String   @default("active") // active | legacy | repealed
   notes           String?
