@@ -1,16 +1,18 @@
-import { InputTaxAttribution, InputVATCategory, VatClass } from "@portal/shared";
+import { VatClass } from "@portal/shared";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
 import {
   ApiError,
   createIncome,
   createPurchase,
+  fetchBirAtcCodes,
   updateIncome,
   updatePurchase,
   type Category,
   type IncomeTxn,
   type PurchaseTxn,
 } from "../lib/api";
-import { Button, RegimeChip } from "./ui";
+import { Button, cn, peso, RegimeChip } from "./ui";
 
 export type Regime = "VAT" | "PERCENTAGE";
 export type Kind = "income" | "expense";
@@ -25,11 +27,38 @@ interface Props {
   onSaved: () => void;
 }
 
-/** VAT income may not be NON_VAT (that's the percentage regime). */
-const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
+/** Friendly labels for the Sales "Tax Rate" picker (a VatClass under the hood). */
+const VAT_RATE_LABELS: Record<string, string> = {
+  VATABLE_12: "12% VAT",
+  ZERO_RATED: "0% VAT (Zero-rated)",
+  EXEMPT: "VAT Exempt",
+};
+const VAT_RATE_OPTIONS = VatClass.options.filter((c) => c !== "NON_VAT");
+
+interface Line {
+  description: string;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+  discount: string;
+  categoryId: string; // "Account"
+  vatClass: string; // sales tax rate
+  atc: string; // Tax Code
+  taxAmount: string; // purchase Tax Amount
+}
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+function num(s: string): number {
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+/** Net line amount = qty × price − discount (never below 0). */
+function lineNet(l: Line): number {
+  const qty = l.quantity.trim() === "" ? 1 : num(l.quantity);
+  const gross = qty * num(l.unitPrice) - num(l.discount);
+  return Math.max(0, Math.round(gross * 100) / 100);
 }
 
 export default function TransactionEntryModal({
@@ -45,127 +74,165 @@ export default function TransactionEntryModal({
   const isVat = regime === "VAT";
   const inc = existing as IncomeTxn | undefined;
   const pur = existing as PurchaseTxn | undefined;
+  const editing = Boolean(existing);
 
-  // Common
-  const [txnDate, setTxnDate] = useState(existing?.txnDate ?? today());
-  const [referenceNo, setReferenceNo] = useState(existing?.referenceNo ?? "");
+  // Header
+  const [docDate, setDocDate] = useState(existing?.txnDate ?? today());
+  const [dueDate, setDueDate] = useState(
+    (isIncome ? inc?.dueDate : pur?.dueDate) ?? "",
+  );
+  const [docRef, setDocRef] = useState(existing?.referenceNo ?? "");
   const [party, setParty] = useState((isIncome ? inc?.customer : pur?.vendor) ?? "");
-  const [description, setDescription] = useState(existing?.description ?? "");
-  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? "");
-  const [netAmount, setNetAmount] = useState(String(existing?.netAmount ?? ""));
+  const [partyTin, setPartyTin] = useState(
+    (isIncome ? inc?.customerTin : pur?.vendorTin) ?? "",
+  );
+  const [terms, setTerms] = useState(inc?.terms ?? "");
 
-  // Income classification
-  const [vatClass, setVatClass] = useState(inc?.vatClass ?? "VATABLE_12");
-  const [saleToGovernment, setSaleToGovernment] = useState(
-    inc?.saleToGovernment ?? false,
-  );
-  const [creditableVAT, setCreditableVAT] = useState(
-    inc?.creditableVATWithheld5pct != null ? String(inc.creditableVATWithheld5pct) : "",
-  );
-  const [outputVAT, setOutputVAT] = useState(
-    inc?.outputVAT != null ? String(inc.outputVAT) : "",
-  );
-
-  // Purchase classification
-  const [inputVATCategory, setInputVATCategory] = useState(
-    pur?.inputVATCategory ?? "DOMESTIC_PURCHASES",
-  );
-  const [inputVAT, setInputVAT] = useState(
-    pur?.inputVAT != null ? String(pur.inputVAT) : "",
-  );
-  const [inputTaxAttribution, setInputTaxAttribution] = useState(
-    pur?.inputTaxAttribution ?? "",
-  );
-  const [isCapitalGood, setIsCapitalGood] = useState(pur?.isCapitalGood ?? false);
-  const [capCost, setCapCost] = useState(
-    pur?.capitalGoodAcquisitionCost != null ? String(pur.capitalGoodAcquisitionCost) : "",
-  );
-  const [usefulLife, setUsefulLife] = useState(
-    pur?.estimatedUsefulLifeMonths != null ? String(pur.estimatedUsefulLifeMonths) : "",
-  );
-  const [deductible, setDeductible] = useState(pur?.deductible ?? true);
+  // Lines
+  const [lines, setLines] = useState<Line[]>(() => [lineFromExisting()]);
 
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   const catOptions = useMemo(
     () => categories.filter((c) => c.type === (isIncome ? "INCOME" : "EXPENSE")),
     [categories, isIncome],
   );
-  const isCapitalCategory = inputVATCategory === "CAPITAL_GOODS_GT_1M";
-  const amountLabel = isIncome && !isVat ? "Gross receipts" : "Net of VAT";
+  const catName = useMemo(() => {
+    const m = new Map(categories.map((c) => [c.id, c.name]));
+    return (id: string) => m.get(id) ?? "";
+  }, [categories]);
 
-  function buildPayload(): Record<string, unknown> {
-    const net = Number(netAmount);
-    if (isIncome) {
-      const p: Record<string, unknown> = {
-        txnDate,
-        referenceNo: referenceNo || undefined,
-        customer: party || undefined,
-        description,
-        categoryId,
-        netAmount: net,
-        vatClass: isVat ? vatClass : "NON_VAT",
-      };
-      if (isVat) {
-        p.saleToGovernment = saleToGovernment;
-        if (saleToGovernment) p.creditableVATWithheld5pct = Number(creditableVAT);
-        if (outputVAT !== "") p.outputVAT = Number(outputVAT);
-      }
-      return p;
-    }
-    const p: Record<string, unknown> = {
-      txnDate,
-      referenceNo: referenceNo || undefined,
-      vendor: party || undefined,
-      description,
-      categoryId,
-      netAmount: net,
-      deductible,
+  // ATC codes for the Tax Code picker (withholding/VAT). Cheap + cached.
+  const atcQuery = useQuery({
+    queryKey: ["bir-atc", "active"],
+    queryFn: () => fetchBirAtcCodes({ status: "active" }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  function lineFromExisting(): Line {
+    // For a record that predates line fields, show its net as qty 1 × price.
+    const priceFallback = existing ? String(existing.netAmount) : "";
+    return {
+      description: existing?.description ?? "",
+      quantity: existing?.quantity != null ? String(existing.quantity) : existing ? "1" : "1",
+      unit: existing?.unit ?? "",
+      unitPrice: existing?.unitPrice != null ? String(existing.unitPrice) : priceFallback,
+      discount: existing?.discount != null ? String(existing.discount) : "",
+      categoryId: existing?.categoryId ?? "",
+      vatClass: inc?.vatClass ?? "VATABLE_12",
+      atc: (isIncome ? inc?.atc : pur?.atc) ?? "",
+      taxAmount: pur?.taxAmount != null ? String(pur.taxAmount) : "",
     };
-    if (isVat) {
-      p.inputVATCategory = inputVATCategory;
-      if (inputVAT !== "") p.inputVAT = Number(inputVAT);
-      if (inputTaxAttribution) p.inputTaxAttribution = inputTaxAttribution;
-      p.isCapitalGood = isCapitalGood;
-      if (isCapitalCategory) {
-        p.capitalGoodAcquisitionCost = Number(capCost);
-        p.estimatedUsefulLifeMonths = Number(usefulLife);
-      }
+  }
+
+  function addLine() {
+    setLines((prev) => [
+      ...prev,
+      {
+        description: "",
+        quantity: "1",
+        unit: "",
+        unitPrice: "",
+        discount: "",
+        categoryId: "",
+        vatClass: "VATABLE_12",
+        atc: "",
+        taxAmount: "",
+      },
+    ]);
+  }
+  function removeLine(idx: number) {
+    setLines((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
+  }
+  function updateLine(idx: number, patch: Partial<Line>) {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+
+  /** Per-line VAT (display + advisory). Sales: 12% on VATABLE_12; Purchase: the
+   *  entered Tax Amount. */
+  function lineVat(l: Line): number {
+    if (isIncome) {
+      return isVat && l.vatClass === "VATABLE_12" ? Math.round(lineNet(l) * 12) / 100 : 0;
     }
-    return p;
+    return num(l.taxAmount);
+  }
+  const subtotal = lines.reduce((s, l) => s + lineNet(l), 0);
+  const vatTotal = lines.reduce((s, l) => s + lineVat(l), 0);
+  const grandTotal = subtotal + vatTotal;
+
+  function payloadForLine(l: Line): Record<string, unknown> {
+    const net = lineNet(l);
+    const common = {
+      txnDate: docDate,
+      dueDate: dueDate || undefined,
+      referenceNo: docRef || undefined,
+      description: l.description,
+      categoryId: l.categoryId,
+      netAmount: net,
+      account: catName(l.categoryId) || undefined,
+      unit: l.unit || undefined,
+      quantity: l.quantity.trim() === "" ? undefined : num(l.quantity),
+      unitPrice: l.unitPrice.trim() === "" ? undefined : num(l.unitPrice),
+      discount: l.discount.trim() === "" ? undefined : num(l.discount),
+      atc: l.atc || undefined,
+    };
+    if (isIncome) {
+      const vat = lineVat(l);
+      return {
+        ...common,
+        customer: party || undefined,
+        customerTin: partyTin || undefined,
+        terms: terms || undefined,
+        vatClass: isVat ? l.vatClass : "NON_VAT",
+        ...(isVat && vat > 0 ? { outputVAT: vat } : {}),
+      };
+    }
+    const tax = num(l.taxAmount);
+    return {
+      ...common,
+      vendor: party || undefined,
+      vendorTin: partyTin || undefined,
+      deductible: true,
+      taxAmount: l.taxAmount.trim() === "" ? undefined : tax,
+      ...(isVat
+        ? { inputVATCategory: "DOMESTIC_PURCHASES", ...(tax > 0 ? { inputVAT: tax } : {}) }
+        : {}),
+    };
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setFieldErrors({});
+    // Validate: every line needs an account (category) and a description.
+    const bad = lines.findIndex((l) => !l.categoryId || !l.description.trim());
+    if (bad >= 0) {
+      setError(`Line ${bad + 1}: pick an Account and enter a description.`);
+      return;
+    }
     setBusy(true);
-    const payload = buildPayload();
     try {
-      if (isIncome) {
-        if (existing) await updateIncome(clientId, existing.id, payload);
-        else await createIncome(clientId, payload);
+      if (editing && existing) {
+        const p = payloadForLine(lines[0]!);
+        if (isIncome) await updateIncome(clientId, existing.id, p);
+        else await updatePurchase(clientId, existing.id, p);
       } else {
-        if (existing) await updatePurchase(clientId, existing.id, payload);
-        else await createPurchase(clientId, payload);
+        for (const l of lines) {
+          const p = payloadForLine(l);
+          if (isIncome) await createIncome(clientId, p);
+          else await createPurchase(clientId, p);
+        }
       }
       onSaved();
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-        const body = err.body as { errors?: { path: string; message: string }[] };
-        if (body?.errors) {
-          setFieldErrors(Object.fromEntries(body.errors.map((x) => [x.path, x.message])));
-        }
-      } else {
-        setError("Save failed");
-      }
+      setError(err instanceof ApiError ? err.message : "Save failed.");
     } finally {
       setBusy(false);
     }
   }
+
+  const docTitle = isIncome ? "Invoice" : "Bill";
+  const partyLabel = isIncome ? "Bill / Deliver To (Customer)" : "Supplier";
 
   return (
     <div
@@ -175,15 +242,14 @@ export default function TransactionEntryModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`${existing ? "Edit" : "Add"} ${isIncome ? "income" : "expense"}`}
-        className="flex max-h-[90vh] w-full max-w-[600px] animate-fade-rise flex-col overflow-hidden rounded-modal bg-card shadow-modal"
+        aria-label={`${editing ? "Edit" : "New"} ${docTitle}`}
+        className="flex max-h-[92vh] w-full max-w-[980px] animate-fade-rise flex-col overflow-hidden rounded-modal bg-card shadow-modal"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sticky header */}
         <div className="flex flex-none items-center justify-between gap-3 border-b border-line px-6 py-4">
           <div className="flex min-w-0 items-center gap-3">
-            <h2 className="font-serif text-[19px] font-medium text-navy">
-              {existing ? "Edit" : "Add"} {isIncome ? "income" : "expense"}
+            <h2 className="font-serif text-[20px] font-medium uppercase tracking-wide text-navy">
+              {editing ? `Edit ${docTitle}` : docTitle}
             </h2>
             <RegimeChip regime={regime} />
           </div>
@@ -198,252 +264,242 @@ export default function TransactionEntryModal({
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          {/* Scrollable body */}
-          <div className="flex-1 space-y-4 overflow-auto px-6 py-5">
-            <p className="text-[12.5px] text-content-secondary">
-              {isVat ? "VAT-registered client" : "Percentage-tax (non-VAT) client"}
-            </p>
-
+          <div className="flex-1 space-y-5 overflow-auto px-6 py-5">
             {error && (
               <div className="rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger-ink">
                 {error}
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date">
+            {/* Header */}
+            <div className="grid gap-3 md:grid-cols-4">
+              <Field label={`${docTitle} Ref`}>
+                <input
+                  value={docRef}
+                  onChange={(e) => setDocRef(e.target.value)}
+                  placeholder={isIncome ? "INV-0001" : "BILL-0001"}
+                  className="input font-mono"
+                />
+              </Field>
+              <Field label={`${docTitle} Date`}>
                 <input
                   type="date"
                   required
-                  value={txnDate}
-                  onChange={(e) => setTxnDate(e.target.value)}
+                  value={docDate}
+                  onChange={(e) => setDocDate(e.target.value)}
                   className="input font-mono"
                 />
               </Field>
-              <Field label="Reference no.">
+              <Field label="Due Date">
                 <input
-                  value={referenceNo}
-                  onChange={(e) => setReferenceNo(e.target.value)}
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="input font-mono"
+                />
+              </Field>
+              {isIncome ? (
+                <Field label="Terms">
+                  <input
+                    value={terms}
+                    onChange={(e) => setTerms(e.target.value)}
+                    placeholder="On Delivery"
+                    className="input"
+                  />
+                </Field>
+              ) : (
+                <div />
+              )}
+              <Field label={partyLabel} className="md:col-span-2">
+                <input
+                  value={party}
+                  onChange={(e) => setParty(e.target.value)}
+                  placeholder={isIncome ? "Select customer" : "Select supplier"}
+                  className="input"
+                />
+              </Field>
+              <Field label={`${isIncome ? "Customer" : "Supplier"} TIN`} className="md:col-span-2">
+                <input
+                  value={partyTin}
+                  onChange={(e) => setPartyTin(e.target.value)}
+                  placeholder="000-000-000-00000"
                   className="input font-mono"
                 />
               </Field>
             </div>
 
-            <Field label={isIncome ? "Customer" : "Vendor"}>
-              <input
-                value={party}
-                onChange={(e) => setParty(e.target.value)}
-                className="input"
-              />
-            </Field>
-
-            <Field label="Description" error={fieldErrors.description}>
-              <input
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="input"
-              />
-            </Field>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Category" error={fieldErrors.categoryId}>
-                <select
-                  required
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Select…</option>
-                  {catOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label={amountLabel} error={fieldErrors.netAmount}>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-content-secondary">
-                    ₱
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={netAmount}
-                    onChange={(e) => setNetAmount(e.target.value)}
-                    className="input pl-7 font-mono"
-                  />
+            {/* Line items */}
+            <div className="overflow-x-auto">
+              <div className="min-w-[880px]">
+                <div className="grid grid-cols-[minmax(220px,2fr)_70px_80px_100px_100px_minmax(150px,1.3fr)_minmax(150px,1.3fr)_110px_36px] gap-2 border-b border-line-strong pb-2 font-mono text-[10px] uppercase tracking-[.12em] text-content-secondary">
+                  <span>Item / Description</span>
+                  <span>Qty</span>
+                  <span>Unit</span>
+                  <span>Price</span>
+                  <span>Discount</span>
+                  <span>Account</span>
+                  <span>{isIncome ? "Tax Rate" : "Tax Code"}</span>
+                  <span className="text-right">{isIncome ? "Amount" : "Tax Amt / Amount"}</span>
+                  <span />
                 </div>
-              </Field>
-            </div>
-
-            {/* Income classification — VAT clients only */}
-            {isIncome && isVat && (
-              <div className="space-y-3 rounded-card border border-line-strong bg-paper p-4">
-                <Field label="VAT class" error={fieldErrors.vatClass}>
-                  <select
-                    value={vatClass}
-                    onChange={(e) => setVatClass(e.target.value)}
-                    className="input"
+                {lines.map((l, idx) => (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-[minmax(220px,2fr)_70px_80px_100px_100px_minmax(150px,1.3fr)_minmax(150px,1.3fr)_110px_36px] items-start gap-2 border-b border-line-divider py-2"
                   >
-                    {VAT_INCOME_CLASSES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                {vatClass === "VATABLE_12" && (
-                  <>
-                    <label className="flex items-center gap-2.5 text-[13px] text-content">
-                      <input
-                        type="checkbox"
-                        checked={saleToGovernment}
-                        onChange={(e) => setSaleToGovernment(e.target.checked)}
-                      />
-                      Sale to government (5% VAT withheld)
-                    </label>
-                    {saleToGovernment && (
-                      <Field
-                        label="Creditable VAT withheld (5%)"
-                        error={fieldErrors.creditableVATWithheld5pct}
-                      >
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          required
-                          value={creditableVAT}
-                          onChange={(e) => setCreditableVAT(e.target.value)}
-                          className="input font-mono"
-                        />
-                      </Field>
-                    )}
-                    <Field label="Output VAT (advisory)" error={fieldErrors.outputVAT}>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder={
-                          netAmount ? String(Math.round(Number(netAmount) * 12) / 100) : ""
-                        }
-                        value={outputVAT}
-                        onChange={(e) => setOutputVAT(e.target.value)}
-                        className="input font-mono"
-                      />
-                    </Field>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Purchase classification — VAT clients only */}
-            {!isIncome && isVat && (
-              <div className="space-y-3 rounded-card border border-line-strong bg-paper p-4">
-                <Field label="Input VAT category" error={fieldErrors.inputVATCategory}>
-                  <select
-                    value={inputVATCategory}
-                    onChange={(e) => setInputVATCategory(e.target.value)}
-                    className="input"
-                  >
-                    {InputVATCategory.options.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Input VAT" error={fieldErrors.inputVAT}>
+                    <textarea
+                      rows={1}
+                      value={l.description}
+                      onChange={(e) => updateLine(idx, { description: e.target.value })}
+                      placeholder="Enter name or description"
+                      className="input min-h-[38px] resize-y py-2"
+                    />
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={inputVAT}
-                      onChange={(e) => setInputVAT(e.target.value)}
+                      value={l.quantity}
+                      onChange={(e) => updateLine(idx, { quantity: e.target.value })}
+                      inputMode="decimal"
+                      placeholder="1"
                       className="input font-mono"
                     />
-                  </Field>
-                  <Field label="Input tax attribution">
+                    <input
+                      value={l.unit}
+                      onChange={(e) => updateLine(idx, { unit: e.target.value })}
+                      placeholder="pc"
+                      className="input"
+                    />
+                    <input
+                      value={l.unitPrice}
+                      onChange={(e) => updateLine(idx, { unitPrice: e.target.value })}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      className="input font-mono"
+                    />
+                    <input
+                      value={l.discount}
+                      onChange={(e) => updateLine(idx, { discount: e.target.value })}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      className="input font-mono"
+                    />
                     <select
-                      value={inputTaxAttribution}
-                      onChange={(e) => setInputTaxAttribution(e.target.value)}
+                      value={l.categoryId}
+                      onChange={(e) => updateLine(idx, { categoryId: e.target.value })}
                       className="input"
                     >
-                      <option value="">—</option>
-                      {InputTaxAttribution.options.map((a) => (
-                        <option key={a} value={a}>
-                          {a}
+                      <option value="">Select account…</option>
+                      {catOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
                         </option>
                       ))}
                     </select>
-                  </Field>
-                </div>
-                <label className="flex items-center gap-2.5 text-[13px] text-content">
-                  <input
-                    type="checkbox"
-                    checked={isCapitalGood}
-                    onChange={(e) => setIsCapitalGood(e.target.checked)}
-                  />
-                  Capital good
-                </label>
-                {isCapitalCategory && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field
-                      label="Acquisition cost"
-                      error={fieldErrors.capitalGoodAcquisitionCost}
-                    >
+                    {isIncome ? (
+                      <select
+                        value={isVat ? l.vatClass : "NON_VAT"}
+                        disabled={!isVat}
+                        onChange={(e) => updateLine(idx, { vatClass: e.target.value })}
+                        className="input"
+                      >
+                        {isVat ? (
+                          VAT_RATE_OPTIONS.map((c) => (
+                            <option key={c} value={c}>
+                              {VAT_RATE_LABELS[c] ?? c}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="NON_VAT">Non-VAT (Percentage)</option>
+                        )}
+                      </select>
+                    ) : (
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        required
-                        value={capCost}
-                        onChange={(e) => setCapCost(e.target.value)}
+                        list="atc-codes"
+                        value={l.atc}
+                        onChange={(e) => updateLine(idx, { atc: e.target.value })}
+                        placeholder="ATC (e.g. WI010)"
                         className="input font-mono"
                       />
-                    </Field>
-                    <Field
-                      label="Useful life (months)"
-                      error={fieldErrors.estimatedUsefulLifeMonths}
+                    )}
+                    <div className="pt-2 text-right">
+                      {!isIncome && (
+                        <input
+                          value={l.taxAmount}
+                          onChange={(e) => updateLine(idx, { taxAmount: e.target.value })}
+                          inputMode="decimal"
+                          placeholder="Tax amt"
+                          className="input mb-1 font-mono text-right"
+                        />
+                      )}
+                      <div className="font-mono text-[13px] font-semibold text-navy">
+                        {peso(lineNet(l))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Remove line ${idx + 1}`}
+                      onClick={() => removeLine(idx)}
+                      disabled={lines.length === 1}
+                      className={cn(
+                        "mt-2 text-content-muted hover:text-danger",
+                        lines.length === 1 && "opacity-30",
+                      )}
                     >
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={usefulLife}
-                        onChange={(e) => setUsefulLife(e.target.value)}
-                        className="input font-mono"
-                      />
-                    </Field>
+                      ✕
+                    </button>
                   </div>
-                )}
+                ))}
               </div>
+            </div>
+            <datalist id="atc-codes">
+              {(atcQuery.data ?? []).map((a) => (
+                <option key={a.atc} value={a.atc}>
+                  {a.atc} — {a.description}
+                </option>
+              ))}
+            </datalist>
+
+            {!editing && (
+              <button
+                type="button"
+                onClick={addLine}
+                className="text-[13px] font-semibold text-blue hover:text-navy-hover hover:underline"
+              >
+                + Add Item
+              </button>
             )}
 
-            {!isIncome && (
-              <label className="flex items-center gap-2.5 text-[13px] text-content">
-                <input
-                  type="checkbox"
-                  checked={deductible}
-                  onChange={(e) => setDeductible(e.target.checked)}
-                />
-                Deductible for income tax
-              </label>
-            )}
+            {/* Totals */}
+            <div className="flex justify-end">
+              <div className="w-full max-w-[300px] space-y-1.5 rounded-card border border-line-strong bg-paper px-4 py-3 text-[13.5px]">
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">Subtotal</span>
+                  <span className="font-mono">{peso(subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">VAT</span>
+                  <span className="font-mono">{peso(vatTotal)}</span>
+                </div>
+                <div className="flex justify-between border-t border-line pt-1.5 font-semibold text-navy">
+                  <span>Total (PHP)</span>
+                  <span className="font-mono">{peso(grandTotal)}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Sticky footer */}
-          <div className="flex flex-none justify-end gap-2 border-t border-line px-6 py-4">
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={busy}>
-              {busy ? "Saving…" : "Save"}
-            </Button>
+          <div className="flex flex-none items-center justify-between gap-2 border-t border-line px-6 py-4">
+            <span className="text-[12px] text-content-muted">
+              {editing
+                ? "Editing one record."
+                : `${lines.length} line${lines.length === 1 ? "" : "s"} → ${lines.length} record${lines.length === 1 ? "" : "s"}`}
+            </span>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={busy}>
+                {busy ? "Saving…" : "Save"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
@@ -454,14 +510,16 @@ export default function TransactionEntryModal({
 function Field({
   label,
   error,
+  className,
   children,
 }: {
   label: string;
   error?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
+    <label className={cn("block", className)}>
       <span className="text-[13px] font-semibold text-content">{label}</span>
       <div className="mt-1.5">{children}</div>
       {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
