@@ -133,6 +133,30 @@ describe("validateChartOfAccounts — one failing fixture per rule", () => {
     expect(errors.join("\n")).toMatch(/6001.*prefix "6"/);
   });
 
+  it("rejects every other class-vs-prefix conflict (3xxx, 4xxx, 5xxx, 8xxx, 9xxx)", () => {
+    const cases: Array<[string, string, RegExp]> = [
+      ["3001001", "Asset", /3001001.*conflicts with 3xxx income.*expected Revenue/],
+      ["4001", "Revenue", /4001.*conflicts with 4xxx cost of sales.*expected Expense/],
+      ["5002001", "Revenue", /5002001.*conflicts with 5xxx expenses.*expected Expense/],
+      ["8001001", "Expense", /8001001.*conflicts with 8xxx VAT accounts.*Asset or Liability/],
+      ["9001001", "Revenue", /9001001.*conflicts with 9xxx deferred\/creditable tax.*Asset or Liability/],
+    ];
+    for (const [code, cls, pattern] of cases) {
+      const errors = validateChartOfAccounts([
+        acct({ code, class: cls, normalBalance: expectedNormalBalance(cls, code) }),
+      ]);
+      expect(errors.join("\n")).toMatch(pattern);
+    }
+  });
+
+  it("rejects a 4-digit posting account that collides with a 7-digit group prefix", () => {
+    const errors = validateChartOfAccounts([
+      acct({ code: "5002", parentCode: null }),
+      acct({ code: "5002001" }),
+    ]);
+    expect(errors.join("\n")).toMatch(/5002.*posting account AND the parent group.*5002001/);
+  });
+
   it("rejects a wrong normal balance, honouring the contra exceptions", () => {
     // Contra account forced to its class default → violation.
     const contra = validateChartOfAccounts([
@@ -197,5 +221,13 @@ describe("validateTaxMappings — one failing fixture per rule", () => {
       [mapping({}), mapping({})],
     );
     expect(errors.join("\n")).toMatch(/5002001 \[Regular\]: duplicate mapping row/);
+  });
+
+  it("flags a tax category other than Regular", () => {
+    const errors = validateTaxMappings(
+      [acct({ code: "5002001" })],
+      [mapping({ taxCategory: "Special" })],
+    );
+    expect(errors.join("\n")).toMatch(/5002001.*"Special" is not supported.*"Regular"/);
   });
 });

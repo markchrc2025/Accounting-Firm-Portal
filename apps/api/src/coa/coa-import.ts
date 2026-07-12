@@ -88,10 +88,16 @@ function toBool(v: unknown): boolean {
   return s === "1" || s === "yes" || s === "y" || s === "true";
 }
 
-/** Excel serial / Date / string → ISO yyyy-mm-dd, or null when blank. */
+/** Excel serial / Date / string → ISO yyyy-mm-dd, or null when blank. Date
+ *  instances are formatted from their LOCAL parts: SheetJS (cellDates: true)
+ *  builds local-calendar dates, so UTC formatting could shift a day westward. */
 function toIsoDate(v: unknown): string | null {
   if (v === null || v === undefined || v === "") return null;
-  if (v instanceof Date && !Number.isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    const d = String(v.getDate()).padStart(2, "0");
+    return `${v.getFullYear()}-${m}-${d}`;
+  }
   if (typeof v === "number" && Number.isFinite(v)) {
     const d = new Date(Math.round((v - 25569) * 86400 * 1000));
     return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
@@ -111,20 +117,20 @@ function pickSheet(wb: XLSX.WorkBook, preferred: string): XLSX.WorkSheet {
 
 function readRows(filePath: string, preferredSheet: string, requiredHeaders: string[]): Row[] {
   const wb = XLSX.read(fs.readFileSync(filePath), { type: "buffer", cellDates: true });
-  const rows = XLSX.utils.sheet_to_json<Row>(pickSheet(wb, preferredSheet), {
-    defval: "",
-    raw: true,
-  });
-  const first = rows[0] ?? {};
-  const headers = new Set(Object.keys(first).map((h) => h.trim()));
+  const sheet = pickSheet(wb, preferredSheet);
+  // Validate against the header ROW itself (header: 1), not the keyed rows —
+  // a well-formed sheet with zero data rows must still pass the header check
+  // so its emptiness surfaces as convention violations naming account codes.
+  const headerRow = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })[0] ?? [];
+  const headers = new Set(headerRow.map((h) => String(h ?? "").trim()));
   const missing = requiredHeaders.filter((h) => !headers.has(h));
-  if (rows.length === 0 || missing.length > 0) {
+  if (missing.length > 0) {
     throw new Error(
-      `${filePath}: expected sheet "${preferredSheet}" with headers [${requiredHeaders.join(", ")}]` +
-        (missing.length ? `; missing [${missing.join(", ")}]` : "; sheet is empty"),
+      `${filePath}: expected sheet "${preferredSheet}" with headers ` +
+        `[${requiredHeaders.join(", ")}]; missing [${missing.join(", ")}].`,
     );
   }
-  return rows;
+  return XLSX.utils.sheet_to_json<Row>(sheet, { defval: "", raw: true });
 }
 
 /** Header-keyed cell lookup tolerant of stray whitespace in header names. */
@@ -134,11 +140,27 @@ function cell(row: Row, header: string): unknown {
   return key === undefined ? "" : row[key];
 }
 
+/** Fail loudly on a row that has data but no Code (a silent drop would hide a
+ *  half-deleted account in the source file); fully-blank rows are just noise. */
+function requireCodes(rows: Row[], filePath: string): Row[] {
+  const kept: Row[] = [];
+  rows.forEach((r, i) => {
+    const hasData = Object.values(r).some((v) => text(v) !== "");
+    if (!hasData) return; // trailing empty row — skip
+    if (text(cell(r, "Code")) === "") {
+      throw new Error(
+        `${filePath}: row ${i + 2} has data but a blank Code — fix or clear the row.`,
+      );
+    }
+    kept.push(r);
+  });
+  return kept;
+}
+
 /** Parse Chart_of_Accounts_Import.xlsx (sheet "Accounts", or the first sheet). */
 export function parseChartOfAccounts(filePath: string): CoaAccount[] {
   const rows = readRows(filePath, "Accounts", ["Code", "Name", "Class", "Account Type"]);
-  return rows
-    .filter((r) => text(cell(r, "Code")) !== "")
+  return requireCodes(rows, filePath)
     .map((r) => {
       const code = text(cell(r, "Code"));
       const cls = text(cell(r, "Class"));
@@ -162,8 +184,7 @@ export function parseChartOfAccounts(filePath: string): CoaAccount[] {
  *  (the intentionally-unmapped rows keep a row so the set stays documented). */
 export function parseBirTaxMapping(filePath: string): CoaTaxMapping[] {
   const rows = readRows(filePath, "BIR Income Tax", ["Name", "Code", "Tax Return Line"]);
-  return rows
-    .filter((r) => text(cell(r, "Code")) !== "")
+  return requireCodes(rows, filePath)
     .map((r) => ({
       accountCode: text(cell(r, "Code")),
       taxCategory: text(cell(r, "Tax Category")) || "Regular",
@@ -255,6 +276,23 @@ export function validateChartOfAccounts(accounts: CoaAccount[]): string[] {
       );
     }
   }
+
+  // Parent group codes are HEADERS, not posting accounts: a 4-digit posting
+  // account that is simultaneously the prefix of 7-digit sub-accounts would
+  // double-count in rollups, so the collision fails loudly.
+  const groupPrefixes = new Map<string, string>(); // prefix → first child code
+  for (const a of accounts) {
+    const parent = derivedParentCode(a.code);
+    if (parent && !groupPrefixes.has(parent)) groupPrefixes.set(parent, a.code);
+  }
+  for (const a of accounts) {
+    if (/^\d{4}$/.test(a.code) && groupPrefixes.has(a.code)) {
+      errors.push(
+        `Account ${a.code} (${a.name}): is a posting account AND the parent group of ` +
+          `sub-account ${groupPrefixes.get(a.code)} — group codes must not be posting accounts.`,
+      );
+    }
+  }
   return errors;
 }
 
@@ -275,6 +313,15 @@ export function validateTaxMappings(
       errors.push(`Mapping ${m.accountCode} [${m.taxCategory}]: duplicate mapping row.`);
     }
     seen.add(key);
+
+    // This dataset is keyed on Tax Category "Regular" (blanks normalise to it);
+    // any other category is a typo that would slip past the coverage check.
+    if (m.taxCategory !== "Regular") {
+      errors.push(
+        `Mapping ${m.accountCode} (${m.accountName}): tax category "${m.taxCategory}" ` +
+          `is not supported — expected "Regular".`,
+      );
+    }
 
     const account = byCode.get(m.accountCode);
     if (!account) {
