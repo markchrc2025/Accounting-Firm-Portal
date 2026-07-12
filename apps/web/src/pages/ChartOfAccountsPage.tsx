@@ -261,6 +261,7 @@ export default function ChartOfAccountsPage() {
                       {[
                         "Code",
                         "Name",
+                        "Parent account",
                         "Class",
                         "Type",
                         "Normal balance",
@@ -286,7 +287,7 @@ export default function ChartOfAccountsPage() {
                         )}
                       >
                         <td className="px-5 py-[11px] font-mono text-[13px] text-content">
-                          <span className={cn(a.parentCode && "pl-4")}>{a.code}</span>
+                          {a.code}
                         </td>
                         <td className="px-5 py-[11px] text-[13px] font-medium text-navy">
                           {a.name}
@@ -299,6 +300,20 @@ export default function ChartOfAccountsPage() {
                             <span className="ml-2 rounded-chip bg-info-bg px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-blue">
                               Custom
                             </span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-[11px] text-[12.5px] text-content-secondary">
+                          {a.parentCode ? (
+                            <>
+                              <span className="font-mono text-content">{a.parentCode}</span>
+                              {accountByCode.get(a.parentCode) && (
+                                <span className="ml-1.5">
+                                  {accountByCode.get(a.parentCode)?.name}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            "—"
                           )}
                         </td>
                         <td className="px-5 py-[11px]">
