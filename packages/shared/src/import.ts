@@ -52,11 +52,12 @@ const enumCellOptional = <T extends z.ZodTypeAny>(e: T) =>
     return b === undefined ? undefined : String(b).trim().toUpperCase();
   }, e.optional());
 
-/** A single row of the Sales / Income import template. */
+/** A single row of the Sales / Income import template (one line item). */
 export const SalesImportRow = z.object({
   Date: zDateCell,
   ReferenceNo: zTextOptional,
   Customer: zTextOptional,
+  CustomerTIN: zTextOptional,
   Description: zText,
   Category: zText,
   NetAmount: zMoneyCell,
@@ -66,6 +67,14 @@ export const SalesImportRow = z.object({
   CreditableVATWithheld5pct: zMoneyCellOptional,
   ATC: zTextOptional,
   Currency: zTextOptional,
+  // Line-item metadata (all optional).
+  DueDate: z.preprocess(blankToUndef, zIsoDate.optional()),
+  Terms: zTextOptional,
+  Account: zTextOptional,
+  Unit: zTextOptional,
+  Quantity: zMoneyCellOptional,
+  UnitPrice: zMoneyCellOptional,
+  Discount: zMoneyCellOptional,
 });
 export type SalesImportRow = z.infer<typeof SalesImportRow>;
 
@@ -75,6 +84,7 @@ export const ExpenseImportRow = z
     Date: zDateCell,
     ReferenceNo: zTextOptional,
     Vendor: zTextOptional,
+    VendorTIN: zTextOptional,
     Description: zText,
     Category: zText,
     NetAmount: zMoneyCell,
@@ -86,6 +96,15 @@ export const ExpenseImportRow = z
     InputTaxAttribution: enumCellOptional(InputTaxAttribution),
     Deductible: zYesNoOptional,
     Currency: zTextOptional,
+    // Line-item metadata (all optional). ATC = Tax Code; TaxAmount = tax on line.
+    ATC: zTextOptional,
+    TaxAmount: zMoneyCellOptional,
+    DueDate: z.preprocess(blankToUndef, zIsoDate.optional()),
+    Account: zTextOptional,
+    Unit: zTextOptional,
+    Quantity: zMoneyCellOptional,
+    UnitPrice: zMoneyCellOptional,
+    Discount: zMoneyCellOptional,
   })
   .superRefine((v, ctx) => {
     if (v.InputVATCategory === "CAPITAL_GOODS_GT_1M") {

@@ -104,6 +104,15 @@ export class PurchaseTransactionsService {
           inputTaxAttribution: parsed.InputTaxAttribution,
           deductible: parsed.Deductible ?? true,
           source: "import",
+          vendorTin: parsed.VendorTIN,
+          dueDate: parsed.DueDate,
+          account: parsed.Account,
+          atc: parsed.ATC,
+          taxAmount: parsed.TaxAmount,
+          unit: parsed.Unit,
+          quantity: parsed.Quantity,
+          unitPrice: parsed.UnitPrice,
+          discount: parsed.Discount,
         });
         this.regime.validatePurchase(regime, input);
         await this.prisma.purchaseTransaction.create({ data: this.toDb(clientId, input) });
