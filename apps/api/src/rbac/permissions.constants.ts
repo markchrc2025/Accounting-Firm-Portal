@@ -30,6 +30,7 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
   Expenses: ["Create", "Read", "Update", "Delete", "Import", "Export"],
   TaxComputation: ["Read", "Run"],
   TaxRules: ["Read", "Configure"],
+  ChartOfAccounts: ["Manage"], // reads are open to all authenticated firm users
   Billing: ["Create", "Read", "Send"],
   EmailTemplates: ["Read", "Configure"],
   Invitations: ["Create", "Read", "Revoke"],
@@ -120,6 +121,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       "Expenses",
       "TaxComputation",
       "TaxRules",
+      "ChartOfAccounts",
       "Billing",
       "Invitations",
       "Reports",

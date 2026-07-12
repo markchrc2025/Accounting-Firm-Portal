@@ -519,6 +519,13 @@ model ChartAccount {
   lockDate        DateTime? @db.Date
   monthlyMovement Boolean   @default(false)
   description     String?
+  /// "seed" rows come from the xlsx; "custom" rows were created in-app.
+  source          String    @default("custom")
+  /// Set on any in-app edit — the seeder skips edited rows so user changes
+  /// survive redeploys (the xlsx only drives untouched rows).
+  editedAt        DateTime?
+  /// Soft delete: archived accounts stay for history but leave pickers.
+  archived        Boolean   @default(false)
 
   @@index([class])
   @@index([parentCode])
@@ -530,9 +537,11 @@ model ChartAccount {
 /// and 5008 (below the line) — the allowed-unmapped set.
 model AccountTaxMapping {
   accountCode   String
-  taxCategory   String  @default("Regular")
+  taxCategory   String    @default("Regular")
   accountName   String
   taxReturnLine String?
+  source        String    @default("custom")
+  editedAt      DateTime?
 
   @@id([accountCode, taxCategory])
   @@map("account_tax_mappings")
