@@ -392,6 +392,15 @@ model IncomeTransaction {
   creditableVATWithheld5pct Decimal? @db.Decimal(18, 2)
   atc                       String?
   source                    String   @default("manual") // TransactionSource: manual | import
+  // Invoice-style line metadata (additive; netAmount stays authoritative).
+  customerTin               String?
+  dueDate                   DateTime? @db.Date
+  terms                     String?
+  account                   String?
+  unit                      String?
+  quantity                  Decimal? @db.Decimal(18, 4)
+  unitPrice                 Decimal? @db.Decimal(18, 2)
+  discount                  Decimal? @db.Decimal(18, 2)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -423,6 +432,16 @@ model PurchaseTransaction {
   inputTaxAttribution        String? // InputTaxAttribution (@portal/shared)
   deductible                 Boolean  @default(true)
   source                     String   @default("manual")
+  // Bill-style line metadata (additive). atc = withholding/Tax Code.
+  vendorTin                  String?
+  dueDate                    DateTime? @db.Date
+  account                    String?
+  atc                        String?
+  taxAmount                  Decimal? @db.Decimal(18, 2)
+  unit                       String?
+  quantity                   Decimal? @db.Decimal(18, 4)
+  unitPrice                  Decimal? @db.Decimal(18, 2)
+  discount                   Decimal? @db.Decimal(18, 2)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 

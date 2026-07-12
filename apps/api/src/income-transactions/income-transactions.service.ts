@@ -261,6 +261,14 @@ export class IncomeTransactionsService {
       creditableVATWithheld5pct: input.creditableVATWithheld5pct ?? null,
       atc: input.atc ?? null,
       source: input.source,
+      customerTin: input.customerTin ?? null,
+      dueDate: input.dueDate ? isoToDate(input.dueDate) : null,
+      terms: input.terms ?? null,
+      account: input.account ?? null,
+      unit: input.unit ?? null,
+      quantity: input.quantity ?? null,
+      unitPrice: input.unitPrice ?? null,
+      discount: input.discount ?? null,
     };
   }
 

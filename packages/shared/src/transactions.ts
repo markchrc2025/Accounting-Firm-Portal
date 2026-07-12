@@ -32,6 +32,16 @@ export const IncomeTransaction = z
     creditableVATWithheld5pct: zMoney.optional(),
     atc: z.string().optional(),
     source: TransactionSource.default("manual"),
+    // Invoice-style line metadata (additive; `netAmount` stays authoritative for
+    // aggregation). A line item maps to one record; the header fields repeat.
+    customerTin: z.string().optional(),
+    dueDate: zIsoDate.optional(),
+    terms: z.string().optional(),
+    account: z.string().optional(), // chart-of-accounts / revenue account
+    unit: z.string().optional(),
+    quantity: z.number().nonnegative().optional(),
+    unitPrice: zMoney.optional(),
+    discount: zMoney.optional(),
   })
   .superRefine((v, ctx) => {
     if (v.saleToGovernment && v.creditableVATWithheld5pct === undefined) {
@@ -72,6 +82,17 @@ export const PurchaseTransaction = z
     inputTaxAttribution: InputTaxAttribution.optional(),
     deductible: z.boolean().default(true),
     source: TransactionSource.default("manual"),
+    // Bill-style line metadata (additive). `atc` is the withholding/Tax Code and
+    // `taxAmount` the Tax Amount shown on the bill line.
+    vendorTin: z.string().optional(),
+    dueDate: zIsoDate.optional(),
+    account: z.string().optional(),
+    atc: z.string().optional(),
+    taxAmount: zMoney.optional(),
+    unit: z.string().optional(),
+    quantity: z.number().nonnegative().optional(),
+    unitPrice: zMoney.optional(),
+    discount: zMoney.optional(),
   })
   .superRefine((v, ctx) => {
     if (v.inputVATCategory === "CAPITAL_GOODS_GT_1M") {
