@@ -54,7 +54,14 @@ while [ "$i" -lt 120 ]; do
 done
 
 echo "==> Seeding RBAC catalog + bootstrap admin (idempotent)"
-pnpm --filter api db:seed || echo "WARN: seed step failed; continuing"
+if ! pnpm --filter api db:seed; then
+  echo "!!! =========================================================="
+  echo "!!! SEED FAILED — reference data (RBAC / BIR codes / Chart of"
+  echo "!!! Accounts) was NOT updated. The convention violations are"
+  echo "!!! printed above; fix the data file and redeploy. The API"
+  echo "!!! keeps serving with the previously seeded data."
+  echo "!!! =========================================================="
+fi
 
 # Forward termination to the server and keep the container tied to its lifetime.
 trap 'kill -TERM "$SERVER_PID" 2>/dev/null' TERM INT
