@@ -13,6 +13,7 @@ import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
 import { OAUTH_SCOPES } from "@portal/shared";
 import { allPermissions, DEFAULT_ROLES } from "../src/rbac/permissions.constants";
+import { seedChartOfAccounts } from "../src/coa/coa-seed";
 
 const prisma = new PrismaClient();
 
@@ -224,6 +225,14 @@ async function removeSampleClient(firmId: string): Promise<void> {
 async function main(): Promise<void> {
   await seedPermissionsAndRoles();
   await seedBirTaxCodes();
+  {
+    // PH SME Chart of Accounts + BIR income-tax mapping (xlsx = source of truth).
+    const coa = await seedChartOfAccounts(prisma, path.join(__dirname, "data"));
+    console.log(
+      `[seed] Chart of Accounts: ${coa.accounts} accounts; ` +
+        `${coa.mappings} BIR mapping rows (${coa.mapped} mapped).`,
+    );
+  }
   const firmId = await seedBootstrapAdmin();
   await seedIntegrationClient(firmId);
   await removeSampleClient(firmId);
