@@ -177,6 +177,7 @@ export function AppShell() {
                   items={[
                     { to: "/users", label: "Users & Roles", end: true },
                     { to: "/services", label: "Services", end: true },
+                    { to: "/chart-of-accounts", label: "Chart of Accounts", end: true },
                     { to: "/integrations", label: "Integrations", end: true },
                     { to: "/audit", label: "Audit Log", end: true },
                   ]}

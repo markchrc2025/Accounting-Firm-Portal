@@ -94,6 +94,39 @@ export function fetchBirAtcCodes(filters?: {
   return apiFetch<BirAtcCode[]>(`/bir/atc-codes${q ? `?${q}` : ""}`);
 }
 
+// --- Chart of Accounts reference data -----------------------------------------
+export interface ChartAccount {
+  code: string;
+  name: string;
+  class: string;
+  accountType: string;
+  parentCode?: string | null;
+  normalBalance: string;
+  currency: string;
+  lockDate?: string | null;
+  monthlyMovement: boolean;
+  description?: string | null;
+}
+export interface AccountTaxMapping {
+  accountCode: string;
+  taxCategory: string;
+  accountName: string;
+  taxReturnLine?: string | null;
+}
+export function fetchChartAccounts(filters?: {
+  class?: string;
+  search?: string;
+}): Promise<ChartAccount[]> {
+  const p = new URLSearchParams();
+  if (filters?.class) p.set("class", filters.class);
+  if (filters?.search) p.set("search", filters.search);
+  const q = p.toString();
+  return apiFetch<ChartAccount[]>(`/coa/accounts${q ? `?${q}` : ""}`);
+}
+export function fetchAccountTaxMappings(): Promise<AccountTaxMapping[]> {
+  return apiFetch<AccountTaxMapping[]>("/coa/mappings");
+}
+
 // --- Health (Phase 0) --------------------------------------------------------
 export interface HealthResponse {
   status: string;
