@@ -13,6 +13,7 @@ import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { ScopesGuard } from "./common/guards/scopes.guard";
 import { FilingsModule } from "./filings/filings.module";
 import { FinancialModule } from "./financial/financial.module";
+import { FsModule } from "./fs/fs.module";
 import { HealthModule } from "./health/health.module";
 import { IncomeTransactionsModule } from "./income-transactions/income-transactions.module";
 import { IntegrationModule } from "./integration/integration.module";
@@ -55,6 +56,7 @@ import { UsersModule } from "./users/users.module";
     TaxRulesModule,
     BirModule,
     CoaModule,
+    FsModule,
     HealthModule,
   ],
   providers: [

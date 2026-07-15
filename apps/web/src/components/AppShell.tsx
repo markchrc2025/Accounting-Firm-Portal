@@ -171,6 +171,11 @@ export function AppShell() {
                 </div>
               )}
 
+              <NavGroup
+                label="Financial Statements"
+                items={[{ to: "/financial-statements", label: "FS Creator", end: false }]}
+              />
+
               {hasPermission("Users:Read") && (
                 <NavGroup
                   label="Firm Admin"

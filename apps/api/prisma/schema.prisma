@@ -696,3 +696,94 @@ model InvoiceLineItem {
   @@index([invoiceId])
   @@map("invoice_line_items")
 }
+
+// --- Financial Statement Creator (standalone module) -------------------------
+// A self-contained FS workbench. It READS the live Chart of Accounts to validate
+// every trial-balance account code and to drive statement roll-ups, but it is
+// otherwise decoupled: firmId / accountCode / createdById are validated scalars,
+// not Prisma foreign keys, so the module owns no relationships into Client,
+// Firm, or ChartAccount. Balances are entered/imported per period (no client
+// ledger wiring yet).
+
+model FsReport {
+  id                  String    @id @default(uuid()) @db.Uuid
+  firmId              String    @db.Uuid
+  // Entity facts (typed into the report — not pulled from a client profile yet).
+  entityName          String
+  secRegistrationNo   String?
+  registeredAddress   String?
+  businessDescription String?
+  framework           String    @default("PFRS for Small Entities")
+  functionalCurrency  String    @default("PHP")
+  approvalDate        DateTime? @db.Date // BOD authorization for issue
+  status              String    @default("draft") // "draft" | "final"
+  createdById         String    @db.Uuid
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  periods     FsPeriod[]
+  tbEntries   TrialBalanceEntry[]
+  adjustments FsAdjustment[]
+
+  @@index([firmId])
+  @@map("fs_reports")
+}
+
+model FsPeriod {
+  id         String   @id @default(uuid()) @db.Uuid
+  reportId   String   @db.Uuid
+  label      String // e.g. "2025"
+  endDate    DateTime @db.Date
+  periodType String   @default("FY") // "FY" | "Interim"
+  sortOrder  Int // 0 = current period; higher = older comparative
+
+  report    FsReport            @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  tbEntries TrialBalanceEntry[]
+
+  @@unique([reportId, sortOrder])
+  @@map("fs_periods")
+}
+
+model TrialBalanceEntry {
+  id          String  @id @default(uuid()) @db.Uuid
+  reportId    String  @db.Uuid
+  periodId    String  @db.Uuid
+  accountCode String // validated against chart_accounts at write time
+  /// Period-end balance, SIGNED debit-positive (debit balance +, credit −);
+  /// presentation flips sign per statement section.
+  amount      Decimal @db.Decimal(18, 2)
+
+  report FsReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  period FsPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, accountCode])
+  @@index([reportId])
+  @@map("trial_balance_entries")
+}
+
+model FsAdjustment {
+  id        String   @id @default(uuid()) @db.Uuid
+  reportId  String   @db.Uuid
+  periodId  String   @db.Uuid // an adjustment applies to a single period
+  memo      String   @default("")
+  createdAt DateTime @default(now())
+
+  report FsReport           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  lines  FsAdjustmentLine[]
+
+  @@index([reportId])
+  @@map("fs_adjustments")
+}
+
+model FsAdjustmentLine {
+  id           String  @id @default(uuid()) @db.Uuid
+  adjustmentId String  @db.Uuid
+  accountCode  String // validated against chart_accounts at write time
+  debit        Decimal @default(0) @db.Decimal(18, 2)
+  credit       Decimal @default(0) @db.Decimal(18, 2)
+
+  adjustment FsAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+
+  @@index([adjustmentId])
+  @@map("fs_adjustment_lines")
+}
