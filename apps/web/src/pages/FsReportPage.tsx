@@ -28,13 +28,16 @@ import {
   peso,
 } from "../components/ui";
 
-type Tab = "trial-balance" | "adjustments" | "balance-sheet" | "income-statement";
+type StatementKind = "balance-sheet" | "income-statement" | "cash-flow" | "changes-in-equity";
+type Tab = "trial-balance" | "adjustments" | StatementKind;
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "trial-balance", label: "Trial Balance" },
   { key: "adjustments", label: "Adjustments" },
   { key: "balance-sheet", label: "Balance Sheet" },
   { key: "income-statement", label: "Income Statement" },
+  { key: "cash-flow", label: "Cash Flow" },
+  { key: "changes-in-equity", label: "Changes in Equity" },
 ];
 
 export default function FsReportPage() {
@@ -97,8 +100,9 @@ export default function FsReportPage() {
 
       {tab === "trial-balance" && <TrialBalanceTab reportId={id} canManage={canManage} />}
       {tab === "adjustments" && <AdjustmentsTab reportId={id} canManage={canManage} />}
-      {tab === "balance-sheet" && <StatementTab reportId={id} kind="balance-sheet" />}
-      {tab === "income-statement" && <StatementTab reportId={id} kind="income-statement" />}
+      {tab !== "trial-balance" && tab !== "adjustments" && (
+        <StatementTab reportId={id} kind={tab} />
+      )}
     </div>
   );
 }
@@ -498,7 +502,23 @@ function AdjustmentsTab({ reportId, canManage }: { reportId: string; canManage: 
 
 /* ---------------------------------------------------------------- Statements */
 
-function StatementTab({ reportId, kind }: { reportId: string; kind: "balance-sheet" | "income-statement" }) {
+const STATEMENT_META: Record<
+  "balance-sheet" | "income-statement" | "cash-flow" | "changes-in-equity",
+  string
+> = {
+  "balance-sheet": "Statement of Financial Position",
+  "income-statement": "Statement of Income",
+  "cash-flow": "Statement of Cash Flows",
+  "changes-in-equity": "Statement of Changes in Equity",
+};
+
+function StatementTab({
+  reportId,
+  kind,
+}: {
+  reportId: string;
+  kind: "balance-sheet" | "income-statement" | "cash-flow" | "changes-in-equity";
+}) {
   const statements = useQuery({
     queryKey: ["fs-statements", reportId],
     queryFn: () => fetchFsStatements(reportId),
@@ -509,17 +529,29 @@ function StatementTab({ reportId, kind }: { reportId: string; kind: "balance-she
     return <ErrorState message="Couldn't compute the statements." onRetry={() => void statements.refetch()} />;
 
   const s = statements.data;
-  const rows = kind === "balance-sheet" ? s.balanceSheet.rows : s.incomeStatement.rows;
-  const title = kind === "balance-sheet" ? "Statement of Financial Position" : "Statement of Income";
+  const rows =
+    kind === "balance-sheet"
+      ? s.balanceSheet.rows
+      : kind === "income-statement"
+        ? s.incomeStatement.rows
+        : kind === "cash-flow"
+          ? s.cashFlow.rows
+          : s.changesInEquity.rows;
 
   return (
     <div>
       <div className="mb-4">
         <h2 className="text-center font-serif text-[18px] font-medium text-navy">{s.report.entityName}</h2>
-        <p className="text-center text-[13px] text-content-secondary">{title}</p>
+        <p className="text-center text-[13px] text-content-secondary">{STATEMENT_META[kind]}</p>
       </div>
 
-      {kind === "balance-sheet" && <BalanceCheckBanner statements={s} />}
+      {kind === "balance-sheet" && <CheckBanner statements={s} kind="balance-sheet" />}
+      {kind === "cash-flow" && <CheckBanner statements={s} kind="cash-flow" />}
+      {(kind === "cash-flow" || kind === "changes-in-equity") && s.periods.length < 2 && (
+        <div className="mb-3 rounded-input border border-line-strong bg-paper px-3.5 py-2 text-[12.5px] text-content-secondary">
+          This statement needs at least two periods (it reports movements between periods).
+        </div>
+      )}
 
       <Card className="overflow-x-auto">
         <FsStatementTable rows={rows} periods={s.periods} />
@@ -528,20 +560,28 @@ function StatementTab({ reportId, kind }: { reportId: string; kind: "balance-she
   );
 }
 
-function BalanceCheckBanner({ statements }: { statements: FsStatements }) {
-  const check = statements.balanceSheet.balanceCheck;
-  const offPeriods = statements.periods.filter((p) => Math.abs(check[p.id] ?? 0) >= 0.01);
+/** Green when balanced, amber with the offending periods otherwise. Used for the
+ *  balance-sheet tie and the cash-flow reconciliation to the change in cash. */
+function CheckBanner({ statements, kind }: { statements: FsStatements; kind: "balance-sheet" | "cash-flow" }) {
+  const check = kind === "balance-sheet" ? statements.balanceSheet.balanceCheck : statements.cashFlow.check;
+  const offPeriods = statements.periods.filter((p) => p.id in check && Math.abs(check[p.id] ?? 0) >= 0.01);
+  const okMsg =
+    kind === "balance-sheet"
+      ? "Balanced — Assets = Liabilities + Equity in every period."
+      : "Reconciled — activities tie to the change in cash.";
   if (offPeriods.length === 0)
     return (
       <div className="mb-3 rounded-input border border-success/30 bg-success-bg px-3.5 py-2 text-[12.5px] text-success">
-        Balanced — Assets = Liabilities + Equity in every period.
+        {okMsg}
       </div>
     );
   return (
     <div className="mb-3 rounded-input border border-warn/40 bg-warn-bg px-3.5 py-2 text-[12.5px] text-warn">
-      Out of balance:{" "}
-      {offPeriods.map((p) => `${p.label} off by ${peso(check[p.id] ?? 0)}`).join(" · ")}. Check the
-      trial balance (a pre-closing TB differs by net income until earnings roll to equity).
+      {kind === "balance-sheet" ? "Out of balance: " : "Doesn't reconcile: "}
+      {offPeriods.map((p) => `${p.label} off by ${peso(check[p.id] ?? 0)}`).join(" · ")}
+      {kind === "balance-sheet"
+        ? ". Check the trial balance (a pre-closing TB differs by net income until earnings roll to equity)."
+        : ". Check that each period's trial balance ties."}
     </div>
   );
 }
@@ -604,7 +644,7 @@ function FsStatementTable({
                     isTotalish || row.emphasis ? "font-semibold text-navy" : "text-content",
                   )}
                 >
-                  {row.amounts ? peso(row.amounts[p.id] ?? 0) : ""}
+                  {row.amounts && p.id in row.amounts ? peso(row.amounts[p.id]!) : ""}
                 </td>
               ))}
             </tr>

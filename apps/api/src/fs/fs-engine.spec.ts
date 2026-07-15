@@ -1,8 +1,11 @@
 import {
   adjustedBalances,
   buildBalanceSheet,
+  buildCashFlow,
+  buildChangesInEquity,
   buildIncomeStatement,
   classSign,
+  classifyCashFlow,
   type FsAccountMeta,
   type FsEngineInput,
   type FsPeriodMeta,
@@ -142,6 +145,91 @@ describe("fs-engine — Balance Sheet", () => {
     );
     expect(unbalanced.totalAssets.p1).toBe(100);
     expect(unbalanced.balanceCheck.p1).toBe(100); // no liab/equity entered
+  });
+});
+
+// A clean, internally-consistent two-period set: retained earnings rolls forward
+// by net income (no dividends), each period's balance sheet ties, so the cash
+// flow reconciles exactly. p1 is the current year, p0 the prior comparative.
+const CF_ACCOUNTS: FsAccountMeta[] = [
+  { code: "1001", name: "Cash in Bank", class: "Asset", accountType: "Bank Accounts", parentCode: null, parentName: null },
+  { code: "1007", name: "Trade Receivable - Client", class: "Asset", accountType: "Current Asset", parentCode: null, parentName: null },
+  { code: "1003001", name: "Work Equipment", class: "Asset", accountType: "Fixed Asset", parentCode: "1003", parentName: "Property, Plant and Equipment" },
+  { code: "1901001", name: "Accumulated Depreciation", class: "Asset", accountType: "Fixed Asset", parentCode: "1003", parentName: "Property, Plant and Equipment" },
+  { code: "2501", name: "Loans Payable - Non-Current", class: "Liability", accountType: "Non-current Liability", parentCode: null, parentName: null },
+  { code: "2901004", name: "Share Capital", class: "Equity", accountType: "Shareholders Equity", parentCode: null, parentName: null },
+  { code: "2901003", name: "Retained Earnings", class: "Equity", accountType: "Shareholders Equity", parentCode: null, parentName: null },
+  { code: "3001001", name: "Sales", class: "Revenue", accountType: "Operating Revenue", parentCode: null, parentName: null },
+  { code: "5007001", name: "Depreciation", class: "Expense", accountType: "Operating Expense", parentCode: "5007", parentName: "Non Cash Expenses" },
+];
+const CUR: FsPeriodMeta = { id: "p1", label: "2025", sortOrder: 0 };
+const PRIOR: FsPeriodMeta = { id: "p0", label: "2024", sortOrder: 1 };
+const CF_TB: Array<[string, string, number]> = [
+  // [periodId, code, signed debit-positive]
+  ["p0", "1001", 200], ["p0", "1007", 100], ["p0", "1003001", 200], ["p0", "1901001", -40],
+  ["p0", "2501", -100], ["p0", "2901004", -100], ["p0", "2901003", -260],
+  ["p0", "3001001", -300], ["p0", "5007001", 40],
+  ["p1", "1001", 500], ["p1", "1007", 150], ["p1", "1003001", 300], ["p1", "1901001", -90],
+  ["p1", "2501", -150], ["p1", "2901004", -100], ["p1", "2901003", -610],
+  ["p1", "3001001", -400], ["p1", "5007001", 50],
+];
+const cfInput = (): FsEngineInput => ({
+  accounts: CF_ACCOUNTS,
+  periods: [CUR, PRIOR],
+  tb: CF_TB.map(([periodId, accountCode, amount]) => ({ periodId, accountCode, amount })),
+  adjustments: [],
+});
+
+describe("fs-engine — cash-flow classification", () => {
+  it("routes each balance-sheet account to the right activity", () => {
+    const c = (code: string) => classifyCashFlow(CF_ACCOUNTS.find((a) => a.code === code)!);
+    expect(c("1001")).toBe("cash");
+    expect(c("1007")).toBe("operating");
+    expect(c("1003001")).toBe("investing"); // PPE gross
+    expect(c("1901001")).toBe("operating"); // accumulated depreciation add-back
+    expect(c("2501")).toBe("financing"); // a loan
+    expect(c("2901004")).toBe("financing"); // share capital
+    expect(c("2901003")).toBe("operating"); // retained earnings (earnings)
+    expect(c("3001001")).toBe("exclude"); // P&L
+  });
+});
+
+describe("fs-engine — Statement of Cash Flows (indirect)", () => {
+  const cf = buildCashFlow(cfInput());
+  const amt = (label: string) => find(cf.rows, label)?.amounts?.p1;
+
+  it("ties to the actual change in cash (check = 0)", () => {
+    expect(cf.check.p1).toBe(0);
+    expect(amt("NET INCREASE/(DECREASE) IN CASH")).toBe(300); // 500 − 200
+    expect(amt("Cash, beginning of period")).toBe(200);
+    expect(amt("Cash, end of period")).toBe(500);
+  });
+
+  it("buckets depreciation add-back + net income into operating, PPE into investing, loans into financing", () => {
+    expect(amt("Net cash from operating activities")).toBe(350); // −50 AR +50 dep +350 RE
+    expect(amt("Net cash from investing activities")).toBe(-100); // PPE acquisition
+    expect(amt("Net cash from financing activities")).toBe(50); // loan drawdown
+  });
+
+  it("omits the earliest period (no prior to difference against)", () => {
+    expect(find(cf.rows, "Cash, end of period")?.amounts?.p0).toBeUndefined();
+  });
+});
+
+describe("fs-engine — Statement of Changes in Equity", () => {
+  const { rows } = buildChangesInEquity(cfInput());
+  const row = (label: string) => find(rows, label);
+
+  it("rolls equity forward: beginning + net income + other = ending", () => {
+    expect(row("Balance, end of period")?.amounts?.p1).toBe(710); // 100 SC + 610 RE
+    expect(row("Balance, beginning of period")?.amounts?.p1).toBe(360); // prior ending (100 + 260)
+    expect(row("Net income/(loss) for the period")?.amounts?.p1).toBe(350);
+    expect(row("Other changes in equity (capital, dividends)")?.amounts?.p1).toBe(0);
+  });
+
+  it("leaves the earliest period's beginning blank (no prior)", () => {
+    expect(row("Balance, end of period")?.amounts?.p0).toBe(360);
+    expect(row("Balance, beginning of period")?.amounts?.p0).toBeUndefined();
   });
 });
 

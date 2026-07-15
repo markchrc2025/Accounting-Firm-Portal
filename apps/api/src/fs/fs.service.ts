@@ -5,6 +5,8 @@ import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   buildBalanceSheet,
+  buildCashFlow,
+  buildChangesInEquity,
   buildIncomeStatement,
   type FsAccountMeta,
   type FsEngineInput,
@@ -337,6 +339,8 @@ export class FsService {
         .map((p) => ({ id: p.id, label: p.label, endDate: isoDate(p.endDate), sortOrder: p.sortOrder })),
       incomeStatement: buildIncomeStatement(engineInput),
       balanceSheet: buildBalanceSheet(engineInput),
+      cashFlow: buildCashFlow(engineInput),
+      changesInEquity: buildChangesInEquity(engineInput),
     };
   }
 

@@ -279,3 +279,146 @@ function subtract(a: Record<string, number>, b: Record<string, number>, periods:
   for (const p of periods) out[p.id] = round2((a[p.id] ?? 0) - (b[p.id] ?? 0));
   return out;
 }
+
+const signedBal = (balances: Map<string, Map<string, number>>, periodId: string, code: string): number =>
+  balances.get(periodId)?.get(code) ?? 0;
+
+/** Statement of Changes in Equity — a roll-forward per period column:
+ *  beginning (the older period's ending equity) + net income (from the IS)
+ *  + other changes (the reconciling plug: capital moves, dividends) = ending.
+ *  The earliest period has no prior, so its beginning/other are left blank. */
+export function buildChangesInEquity(input: FsEngineInput): { rows: FsRow[] } {
+  const periods = [...input.periods].sort((a, b) => a.sortOrder - b.sortOrder);
+  const balances = adjustedBalances({ ...input, periods });
+  const equity = input.accounts.filter((a) => a.class === "Equity");
+  const niat = buildIncomeStatement({ ...input, periods }).netIncomeAfterTax;
+  const byOrder = new Map(periods.map((p) => [p.sortOrder, p]));
+
+  const ending: Record<string, number> = {};
+  for (const p of periods) {
+    ending[p.id] = round2(equity.reduce((s, a) => s + -1 * signedBal(balances, p.id, a.code), 0));
+  }
+  const beginning: Record<string, number> = {};
+  const netIncome: Record<string, number> = {};
+  const other: Record<string, number> = {};
+  for (const p of periods) {
+    netIncome[p.id] = niat[p.id] ?? 0;
+    const older = byOrder.get(p.sortOrder + 1);
+    if (older) {
+      beginning[p.id] = ending[older.id]!;
+      other[p.id] = round2(ending[p.id]! - beginning[p.id]! - netIncome[p.id]!);
+    }
+  }
+
+  return {
+    rows: [
+      { kind: "section", label: "STATEMENT OF CHANGES IN EQUITY", level: 0 },
+      { kind: "line", label: "Balance, beginning of period", level: 1, amounts: beginning },
+      { kind: "line", label: "Net income/(loss) for the period", level: 1, amounts: netIncome },
+      { kind: "line", label: "Other changes in equity (capital, dividends)", level: 1, amounts: other },
+      { kind: "total", label: "Balance, end of period", level: 0, amounts: ending, emphasis: true },
+    ],
+  };
+}
+
+const isCashAccount = (a: FsAccountMeta): boolean =>
+  a.accountType === "Bank Accounts" || /cash|petty|undeposited|revolving fund/i.test(a.name);
+
+type CfBucket = "operating" | "investing" | "financing" | "cash" | "exclude";
+
+/** Classify a balance-sheet account into a cash-flow activity. P&L accounts are
+ *  excluded (their movement isn't a balance change). The split only affects the
+ *  subtotals — the net change in cash ties by construction (cash is the plug). */
+export function classifyCashFlow(a: FsAccountMeta): CfBucket {
+  if (a.class === "Revenue" || a.class === "Expense") return "exclude";
+  if (a.class === "Asset") {
+    if (isCashAccount(a)) return "cash";
+    if (a.accountType === "Fixed Asset") {
+      // Accumulated depreciation is a non-cash add-back → operating; PPE gross → investing.
+      return /accumulated depreciation/i.test(a.name) || a.code.startsWith("1901")
+        ? "operating"
+        : "investing";
+    }
+    return "operating"; // current assets, deferred tax, other non-current assets
+  }
+  if (a.class === "Liability") {
+    return /loan|borrow|debt|note payable/i.test(a.name) ? "financing" : "operating";
+  }
+  // Equity: retained earnings/deficit carries the period's earnings → operating;
+  // contributed capital → financing.
+  return /retained|accumulated earning|deficit|income/i.test(a.name) ? "operating" : "financing";
+}
+
+/** Statement of Cash Flows (indirect, movement-based). For each period that has
+ *  an older comparative, every balance-sheet account's movement becomes a cash
+ *  impact (−Δ of its debit-positive balance), bucketed O/I/F. The sum equals the
+ *  actual change in cash whenever the trial balance ties each period; the `check`
+ *  row surfaces any residual. The earliest period has no prior, so no column. */
+export function buildCashFlow(input: FsEngineInput): {
+  rows: FsRow[];
+  check: Record<string, number>;
+} {
+  const periods = [...input.periods].sort((a, b) => a.sortOrder - b.sortOrder);
+  const balances = adjustedBalances({ ...input, periods });
+  const byOrder = new Map(periods.map((p) => [p.sortOrder, p]));
+  const priorOf = (p: FsPeriodMeta) => byOrder.get(p.sortOrder + 1);
+  const withPrior = periods.filter((p) => priorOf(p));
+
+  const cashImpact = (code: string, p: FsPeriodMeta): number => {
+    const prior = priorOf(p)!;
+    return round2(-(signedBal(balances, p.id, code) - signedBal(balances, prior.id, code)));
+  };
+  const amountsFor = (code: string): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const p of withPrior) out[p.id] = cashImpact(code, p);
+    return out;
+  };
+  const sumOver = (accts: FsAccountMeta[]): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const p of withPrior) out[p.id] = round2(accts.reduce((s, a) => s + cashImpact(a.code, p), 0));
+    return out;
+  };
+
+  const bucket = (name: CfBucket) => input.accounts.filter((a) => classifyCashFlow(a) === name);
+  const operating = bucket("operating");
+  const investing = bucket("investing");
+  const financing = bucket("financing");
+  const cash = bucket("cash");
+
+  const rows: FsRow[] = [];
+  const emitSection = (title: string, accts: FsAccountMeta[]): Record<string, number> => {
+    rows.push({ kind: "section", label: title, level: 0 });
+    for (const a of [...accts].sort((x, y) => x.code.localeCompare(y.code))) {
+      rows.push({ kind: "line", label: a.name, level: 1, code: a.code, amounts: amountsFor(a.code) });
+    }
+    const total = sumOver(accts);
+    rows.push({ kind: "subtotal", label: `Net cash from ${title.toLowerCase()}`, level: 0, amounts: total, emphasis: true });
+    return total;
+  };
+
+  const op = emitSection("Operating Activities", operating);
+  rows.push({ kind: "spacer", label: "", level: 0 });
+  const inv = emitSection("Investing Activities", investing);
+  rows.push({ kind: "spacer", label: "", level: 0 });
+  const fin = emitSection("Financing Activities", financing);
+
+  const netChange: Record<string, number> = {};
+  const beginningCash: Record<string, number> = {};
+  const endingCash: Record<string, number> = {};
+  for (const p of withPrior) {
+    netChange[p.id] = round2((op[p.id] ?? 0) + (inv[p.id] ?? 0) + (fin[p.id] ?? 0));
+    const prior = priorOf(p)!;
+    beginningCash[p.id] = round2(cash.reduce((s, a) => s + signedBal(balances, prior.id, a.code), 0));
+    endingCash[p.id] = round2(cash.reduce((s, a) => s + signedBal(balances, p.id, a.code), 0));
+  }
+  const check: Record<string, number> = {};
+  for (const p of withPrior) {
+    check[p.id] = round2(netChange[p.id]! - (endingCash[p.id]! - beginningCash[p.id]!));
+  }
+
+  rows.push({ kind: "total", label: "NET INCREASE/(DECREASE) IN CASH", level: 0, amounts: netChange, emphasis: true });
+  rows.push({ kind: "line", label: "Cash, beginning of period", level: 0, amounts: beginningCash });
+  rows.push({ kind: "total", label: "Cash, end of period", level: 0, amounts: endingCash, emphasis: true });
+
+  return { rows, check };
+}

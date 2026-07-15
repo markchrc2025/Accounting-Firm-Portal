@@ -221,6 +221,8 @@ export interface FsStatements {
     totalLiabilitiesAndEquity: Record<string, number>;
     balanceCheck: Record<string, number>;
   };
+  cashFlow: { rows: FsRow[]; check: Record<string, number> };
+  changesInEquity: { rows: FsRow[] };
 }
 export interface TrialBalanceRow {
   periodId: string;
