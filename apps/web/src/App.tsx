@@ -5,6 +5,8 @@ import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AuditPage from "./pages/AuditPage";
 import BillingPage from "./pages/BillingPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
+import FinancialStatementsPage from "./pages/FinancialStatementsPage";
+import FsReportPage from "./pages/FsReportPage";
 import ClientDetailPage from "./pages/ClientDetailPage";
 import ClientsPage from "./pages/ClientsPage";
 import ClientFormPage from "./pages/ClientFormPage";
@@ -52,6 +54,8 @@ export default function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
+        <Route path="/financial-statements" element={<FinancialStatementsPage />} />
+        <Route path="/financial-statements/:id" element={<FsReportPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/clients" element={<ClientsPage />} />

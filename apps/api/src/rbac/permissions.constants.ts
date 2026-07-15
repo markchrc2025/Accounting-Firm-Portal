@@ -31,6 +31,8 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
   TaxComputation: ["Read", "Run"],
   TaxRules: ["Read", "Configure"],
   ChartOfAccounts: ["Manage"], // reads are open to all authenticated firm users
+  FinancialStatements: ["Manage"], // standalone FS Creator; reads open to all authenticated
+
   Billing: ["Create", "Read", "Send"],
   EmailTemplates: ["Read", "Configure"],
   Invitations: ["Create", "Read", "Revoke"],
@@ -122,6 +124,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       "TaxComputation",
       "TaxRules",
       "ChartOfAccounts",
+      "FinancialStatements",
       "Billing",
       "Invitations",
       "Reports",

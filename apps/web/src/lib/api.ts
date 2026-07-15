@@ -181,6 +181,122 @@ export function deleteAccountTaxMapping(accountCode: string): Promise<{ ok: bool
   return apiFetch(`/coa/mappings/${accountCode}`, { method: "DELETE" });
 }
 
+// --- Financial Statement Creator (standalone) --------------------------------
+export interface FsPeriod {
+  id: string;
+  label: string;
+  endDate: string | null;
+  periodType: string;
+  sortOrder: number;
+}
+export interface FsReport {
+  id: string;
+  entityName: string;
+  secRegistrationNo?: string | null;
+  registeredAddress?: string | null;
+  businessDescription?: string | null;
+  framework: string;
+  functionalCurrency: string;
+  approvalDate?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  periods: FsPeriod[];
+}
+export interface FsRow {
+  kind: "section" | "group" | "line" | "subtotal" | "total" | "spacer";
+  label: string;
+  level: number;
+  code?: string;
+  amounts?: Record<string, number>;
+  emphasis?: boolean;
+}
+export interface FsStatements {
+  report: FsReport;
+  periods: { id: string; label: string; endDate: string | null; sortOrder: number }[];
+  incomeStatement: { rows: FsRow[]; netIncomeAfterTax: Record<string, number> };
+  balanceSheet: {
+    rows: FsRow[];
+    totalAssets: Record<string, number>;
+    totalLiabilitiesAndEquity: Record<string, number>;
+    balanceCheck: Record<string, number>;
+  };
+}
+export interface TrialBalanceRow {
+  periodId: string;
+  accountCode: string;
+  amount: number;
+}
+export interface FsAdjustment {
+  id: string;
+  periodId: string;
+  memo: string;
+  createdAt: string;
+  lines: { accountCode: string; debit: number; credit: number }[];
+}
+export interface FsPeriodInput {
+  label: string;
+  endDate: string;
+  periodType?: "FY" | "Interim";
+}
+export interface CreateFsReportInput {
+  entityName: string;
+  secRegistrationNo?: string;
+  registeredAddress?: string;
+  businessDescription?: string;
+  framework?: string;
+  functionalCurrency?: string;
+  approvalDate?: string;
+  periods: FsPeriodInput[];
+}
+
+export function fetchFsReports(): Promise<FsReport[]> {
+  return apiFetch<FsReport[]>("/fs/reports");
+}
+export function fetchFsReport(id: string): Promise<FsReport> {
+  return apiFetch<FsReport>(`/fs/reports/${id}`);
+}
+export function createFsReport(body: CreateFsReportInput): Promise<FsReport> {
+  return apiFetch("/fs/reports", { method: "POST", body: JSON.stringify(body) });
+}
+export function updateFsReport(id: string, body: Partial<Omit<CreateFsReportInput, "periods">> & { status?: string }): Promise<FsReport> {
+  return apiFetch(`/fs/reports/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function deleteFsReport(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/fs/reports/${id}`, { method: "DELETE" });
+}
+export function setFsPeriods(id: string, periods: FsPeriodInput[]): Promise<FsReport> {
+  return apiFetch(`/fs/reports/${id}/periods`, { method: "PUT", body: JSON.stringify({ periods }) });
+}
+export function fetchFsTrialBalance(id: string): Promise<TrialBalanceRow[]> {
+  return apiFetch<TrialBalanceRow[]>(`/fs/reports/${id}/trial-balance`);
+}
+export function setFsTrialBalance(
+  id: string,
+  periodId: string,
+  entries: { accountCode: string; amount: number }[],
+): Promise<{ ok: boolean; entries: number }> {
+  return apiFetch(`/fs/reports/${id}/periods/${periodId}/trial-balance`, {
+    method: "PUT",
+    body: JSON.stringify({ entries }),
+  });
+}
+export function fetchFsAdjustments(id: string): Promise<FsAdjustment[]> {
+  return apiFetch<FsAdjustment[]>(`/fs/reports/${id}/adjustments`);
+}
+export function createFsAdjustment(
+  id: string,
+  body: { periodId: string; memo?: string; lines: { accountCode: string; debit?: number; credit?: number }[] },
+): Promise<{ id: string }> {
+  return apiFetch(`/fs/reports/${id}/adjustments`, { method: "POST", body: JSON.stringify(body) });
+}
+export function deleteFsAdjustment(id: string, adjustmentId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/fs/reports/${id}/adjustments/${adjustmentId}`, { method: "DELETE" });
+}
+export function fetchFsStatements(id: string): Promise<FsStatements> {
+  return apiFetch<FsStatements>(`/fs/reports/${id}/statements`);
+}
+
 // --- Health (Phase 0) --------------------------------------------------------
 export interface HealthResponse {
   status: string;
