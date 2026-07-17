@@ -724,9 +724,34 @@ model FsReport {
   periods     FsPeriod[]
   tbEntries   TrialBalanceEntry[]
   adjustments FsAdjustment[]
+  notes       FsNote[]
 
   @@index([firmId])
   @@map("fs_reports")
+}
+
+/// Per-report customisation of the Notes to Financial Statements. Policy blocks
+/// come from the framework's disclosure library (rendered with the report's
+/// entity facts); a row here only exists when the accountant toggles or
+/// overrides a block, or adds a free-text custom note.
+model FsNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  reportId  String   @db.Uuid
+  kind      String // "policy" | "custom"
+  /// Library block key for a policy override/toggle; null for a custom note.
+  blockKey  String?
+  included  Boolean  @default(true)
+  title     String? // override/custom title (null = library default)
+  body      String? // override/custom body (null = library default)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  report FsReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, blockKey])
+  @@index([reportId])
+  @@map("fs_notes")
 }
 
 model FsPeriod {
