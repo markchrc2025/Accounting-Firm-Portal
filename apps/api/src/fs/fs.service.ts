@@ -11,13 +11,28 @@ import {
   type FsAccountMeta,
   type FsEngineInput,
 } from "./fs-engine";
+import {
+  buildAccountNotes,
+  policyBlocksFor,
+  renderTokens,
+  type NoteMergeContext,
+} from "./fs-notes";
 import type {
+  AddCustomNoteInput,
   CreateAdjustmentInput,
   CreateReportInput,
   SetPeriodsInput,
+  SetPolicyNoteInput,
   SetTrialBalanceInput,
+  UpdateCustomNoteInput,
   UpdateReportInput,
 } from "./dto/fs.schemas";
+
+const splitParagraphs = (text: string): string[] =>
+  text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
 const num = (d: Prisma.Decimal | number): number => Number(d);
 const isoDate = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
@@ -309,16 +324,15 @@ export class FsService {
 
   // ---------------------------------------------------------------- statements
 
-  /** Compute the statements from the adjusted trial balance. */
-  async getStatements(user: AuthUser, id: string) {
-    const report = await this.requireReport(user, id);
+  private async buildEngineInput(
+    report: Prisma.FsReportGetPayload<{ include: { periods: true } }>,
+  ): Promise<FsEngineInput> {
     const { meta } = await this.loadCoa();
     const [tb, adjustments] = await Promise.all([
-      this.prisma.trialBalanceEntry.findMany({ where: { reportId: id } }),
-      this.prisma.fsAdjustment.findMany({ where: { reportId: id }, include: { lines: true } }),
+      this.prisma.trialBalanceEntry.findMany({ where: { reportId: report.id } }),
+      this.prisma.fsAdjustment.findMany({ where: { reportId: report.id }, include: { lines: true } }),
     ]);
-
-    const engineInput: FsEngineInput = {
+    return {
       accounts: meta,
       periods: report.periods.map((p) => ({ id: p.id, label: p.label, sortOrder: p.sortOrder })),
       tb: tb.map((e) => ({ periodId: e.periodId, accountCode: e.accountCode, amount: num(e.amount) })),
@@ -331,6 +345,12 @@ export class FsService {
         })),
       ),
     };
+  }
+
+  /** Compute the statements from the adjusted trial balance. */
+  async getStatements(user: AuthUser, id: string) {
+    const report = await this.requireReport(user, id);
+    const engineInput = await this.buildEngineInput(report);
 
     return {
       report: this.toReportDto(report),
@@ -342,6 +362,168 @@ export class FsService {
       cashFlow: buildCashFlow(engineInput),
       changesInEquity: buildChangesInEquity(engineInput),
     };
+  }
+
+  // -------------------------------------------------------------------- notes
+
+  /** Assemble the Notes to Financial Statements: the framework's policy blocks
+   *  (merged with entity facts + per-report overrides), then numeric account
+   *  notes from the trial balance, then custom notes — numbered 1..N. Also
+   *  returns the editable policy/custom state for the edit panel. */
+  async getNotes(user: AuthUser, id: string) {
+    const report = await this.requireReport(user, id);
+    const engineInput = await this.buildEngineInput(report);
+    const sortedPeriods = [...report.periods].sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const ctx: NoteMergeContext = {
+      entityName: report.entityName,
+      secRegistrationNo: report.secRegistrationNo,
+      registeredAddress: report.registeredAddress,
+      businessDescription: report.businessDescription,
+      framework: report.framework,
+      functionalCurrency: report.functionalCurrency,
+      approvalDate: isoDate(report.approvalDate),
+      periodLabels: sortedPeriods.map((p) => p.label),
+    };
+
+    const rows = await this.prisma.fsNote.findMany({ where: { reportId: id } });
+    const overrideByKey = new Map(
+      rows.filter((r) => r.kind === "policy" && r.blockKey).map((r) => [r.blockKey!, r]),
+    );
+    const customRows = rows
+      .filter((r) => r.kind === "custom")
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.getTime() - b.createdAt.getTime());
+
+    // Editable policy state (all blocks, incl. excluded ones), for the edit panel.
+    const policyBlocks = policyBlocksFor(report.framework).map((block) => {
+      const ov = overrideByKey.get(block.key);
+      return {
+        blockKey: block.key,
+        title: ov?.title ?? block.title,
+        body: ov?.body ?? renderTokens(block.body, ctx),
+        included: ov ? ov.included : true,
+        overridden: Boolean(ov && (ov.title !== null || ov.body !== null)),
+      };
+    });
+
+    // Assembled, numbered document (only included sections).
+    const document: Array<{
+      number: number;
+      key: string;
+      kind: string;
+      id?: string;
+      title: string;
+      paragraphs?: string[];
+      table?: unknown;
+    }> = [];
+    for (const b of policyBlocks) {
+      if (!b.included) continue;
+      document.push({ number: 0, key: b.blockKey, kind: "policy", title: b.title, paragraphs: splitParagraphs(b.body) });
+    }
+    for (const note of buildAccountNotes(engineInput)) {
+      document.push({ number: 0, key: note.key, kind: "account", title: note.title, table: note.table });
+    }
+    for (const c of customRows.filter((r) => r.included)) {
+      document.push({
+        number: 0,
+        key: `custom-${c.id}`,
+        kind: "custom",
+        id: c.id,
+        title: c.title ?? "Note",
+        paragraphs: splitParagraphs(c.body ?? ""),
+      });
+    }
+    document.forEach((d, i) => (d.number = i + 1));
+
+    return {
+      report: this.toReportDto(report),
+      periods: sortedPeriods.map((p) => ({ id: p.id, label: p.label, endDate: isoDate(p.endDate), sortOrder: p.sortOrder })),
+      document,
+      policyBlocks,
+      customNotes: customRows.map((c) => ({
+        id: c.id,
+        title: c.title,
+        body: c.body ?? "",
+        included: c.included,
+        sortOrder: c.sortOrder,
+      })),
+    };
+  }
+
+  /** Override or toggle a policy block. `body`/`title` null resets to the
+   *  library default while keeping the include flag. */
+  async setPolicyNote(user: AuthUser, id: string, blockKey: string, input: SetPolicyNoteInput) {
+    const report = await this.requireReport(user, id);
+    const known = policyBlocksFor(report.framework).some((b) => b.key === blockKey);
+    if (!known) throw new BadRequestException(`Unknown policy block "${blockKey}".`);
+    const where = { reportId_blockKey: { reportId: id, blockKey } };
+    await this.prisma.fsNote.upsert({
+      where,
+      create: {
+        reportId: id,
+        kind: "policy",
+        blockKey,
+        included: input.included ?? true,
+        title: input.title ?? null,
+        body: input.body ?? null,
+      },
+      update: {
+        ...(input.included !== undefined ? { included: input.included } : {}),
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.body !== undefined ? { body: input.body } : {}),
+      },
+    });
+    await this.audit.record({ userId: user.id, action: "fs.note.policy", entityType: "FsReport", entityId: id, metadata: { blockKey } });
+    return this.getNotes(user, id);
+  }
+
+  /** Reset a policy block to the library default (remove the override row). */
+  async resetPolicyNote(user: AuthUser, id: string, blockKey: string) {
+    await this.requireReport(user, id);
+    await this.prisma.fsNote.deleteMany({ where: { reportId: id, blockKey } });
+    return this.getNotes(user, id);
+  }
+
+  async addCustomNote(user: AuthUser, id: string, input: AddCustomNoteInput) {
+    await this.requireReport(user, id);
+    const max = await this.prisma.fsNote.aggregate({
+      where: { reportId: id, kind: "custom" },
+      _max: { sortOrder: true },
+    });
+    const note = await this.prisma.fsNote.create({
+      data: {
+        reportId: id,
+        kind: "custom",
+        title: input.title ?? null,
+        body: input.body,
+        sortOrder: (max._max.sortOrder ?? -1) + 1,
+      },
+    });
+    await this.audit.record({ userId: user.id, action: "fs.note.custom.add", entityType: "FsNote", entityId: note.id });
+    return this.getNotes(user, id);
+  }
+
+  async updateCustomNote(user: AuthUser, id: string, noteId: string, input: UpdateCustomNoteInput) {
+    await this.requireReport(user, id);
+    const existing = await this.prisma.fsNote.findFirst({ where: { id: noteId, reportId: id, kind: "custom" } });
+    if (!existing) throw new NotFoundException(`Custom note ${noteId} not found.`);
+    await this.prisma.fsNote.update({
+      where: { id: noteId },
+      data: {
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.body !== undefined ? { body: input.body } : {}),
+        ...(input.included !== undefined ? { included: input.included } : {}),
+      },
+    });
+    return this.getNotes(user, id);
+  }
+
+  async deleteCustomNote(user: AuthUser, id: string, noteId: string) {
+    await this.requireReport(user, id);
+    const existing = await this.prisma.fsNote.findFirst({ where: { id: noteId, reportId: id, kind: "custom" } });
+    if (!existing) throw new NotFoundException(`Custom note ${noteId} not found.`);
+    await this.prisma.fsNote.delete({ where: { id: noteId } });
+    return this.getNotes(user, id);
   }
 
   // -------------------------------------------------------------------- helpers

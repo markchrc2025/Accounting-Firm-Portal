@@ -6,14 +6,20 @@ import { RequirePermissions } from "../common/decorators/require-permissions.dec
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import { FsService } from "./fs.service";
 import {
+  AddCustomNoteInput,
+  AddCustomNoteSchema,
   CreateAdjustmentInput,
   CreateAdjustmentSchema,
   CreateReportInput,
   CreateReportSchema,
   SetPeriodsInput,
   SetPeriodsSchema,
+  SetPolicyNoteInput,
+  SetPolicyNoteSchema,
   SetTrialBalanceInput,
   SetTrialBalanceSchema,
+  UpdateCustomNoteInput,
+  UpdateCustomNoteSchema,
   UpdateReportInput,
   UpdateReportSchema,
 } from "./dto/fs.schemas";
@@ -51,6 +57,63 @@ export class FsController {
   @Get("reports/:id/statements")
   statements(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.fs.getStatements(user, id);
+  }
+
+  @Get("reports/:id/notes")
+  notes(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.fs.getNotes(user, id);
+  }
+
+  @Put("reports/:id/notes/policy/:blockKey")
+  @RequirePermissions("FinancialStatements:Manage")
+  setPolicyNote(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Param("blockKey") blockKey: string,
+    @Body(new ZodValidationPipe(SetPolicyNoteSchema)) body: SetPolicyNoteInput,
+  ) {
+    return this.fs.setPolicyNote(user, id, blockKey, body);
+  }
+
+  @Delete("reports/:id/notes/policy/:blockKey")
+  @RequirePermissions("FinancialStatements:Manage")
+  resetPolicyNote(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Param("blockKey") blockKey: string,
+  ) {
+    return this.fs.resetPolicyNote(user, id, blockKey);
+  }
+
+  @Post("reports/:id/notes/custom")
+  @RequirePermissions("FinancialStatements:Manage")
+  addCustomNote(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(AddCustomNoteSchema)) body: AddCustomNoteInput,
+  ) {
+    return this.fs.addCustomNote(user, id, body);
+  }
+
+  @Patch("reports/:id/notes/custom/:noteId")
+  @RequirePermissions("FinancialStatements:Manage")
+  updateCustomNote(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Param("noteId") noteId: string,
+    @Body(new ZodValidationPipe(UpdateCustomNoteSchema)) body: UpdateCustomNoteInput,
+  ) {
+    return this.fs.updateCustomNote(user, id, noteId, body);
+  }
+
+  @Delete("reports/:id/notes/custom/:noteId")
+  @RequirePermissions("FinancialStatements:Manage")
+  deleteCustomNote(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Param("noteId") noteId: string,
+  ) {
+    return this.fs.deleteCustomNote(user, id, noteId);
   }
 
   @Post("reports")

@@ -69,3 +69,28 @@ export const CreateAdjustmentSchema = z.object({
     .min(2),
 });
 export type CreateAdjustmentInput = z.infer<typeof CreateAdjustmentSchema>;
+
+/** Toggle/override a policy note block. */
+export const SetPolicyNoteSchema = z
+  .object({
+    included: z.boolean().optional(),
+    title: z.string().min(1).optional(),
+    body: z.string().min(1).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Provide at least one field." });
+export type SetPolicyNoteInput = z.infer<typeof SetPolicyNoteSchema>;
+
+export const AddCustomNoteSchema = z.object({
+  title: z.string().min(1).optional(),
+  body: z.string().min(1),
+});
+export type AddCustomNoteInput = z.infer<typeof AddCustomNoteSchema>;
+
+export const UpdateCustomNoteSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    body: z.string().min(1).optional(),
+    included: z.boolean().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Provide at least one field." });
+export type UpdateCustomNoteInput = z.infer<typeof UpdateCustomNoteSchema>;

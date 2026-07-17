@@ -299,6 +299,69 @@ export function fetchFsStatements(id: string): Promise<FsStatements> {
   return apiFetch<FsStatements>(`/fs/reports/${id}/statements`);
 }
 
+export interface FsNoteTableRow {
+  label: string;
+  amounts: Record<string, number>;
+  emphasis?: boolean;
+}
+export interface FsNoteDocItem {
+  number: number;
+  key: string;
+  kind: "policy" | "account" | "custom";
+  id?: string;
+  title: string;
+  paragraphs?: string[];
+  table?: { rows: FsNoteTableRow[] };
+}
+export interface FsPolicyBlock {
+  blockKey: string;
+  title: string;
+  body: string;
+  included: boolean;
+  overridden: boolean;
+}
+export interface FsCustomNote {
+  id: string;
+  title: string | null;
+  body: string;
+  included: boolean;
+  sortOrder: number;
+}
+export interface FsNotesDocument {
+  report: FsReport;
+  periods: { id: string; label: string; endDate: string | null; sortOrder: number }[];
+  document: FsNoteDocItem[];
+  policyBlocks: FsPolicyBlock[];
+  customNotes: FsCustomNote[];
+}
+
+export function fetchFsNotes(id: string): Promise<FsNotesDocument> {
+  return apiFetch<FsNotesDocument>(`/fs/reports/${id}/notes`);
+}
+export function setFsPolicyNote(
+  id: string,
+  blockKey: string,
+  body: { included?: boolean; title?: string; body?: string },
+): Promise<FsNotesDocument> {
+  return apiFetch(`/fs/reports/${id}/notes/policy/${blockKey}`, { method: "PUT", body: JSON.stringify(body) });
+}
+export function resetFsPolicyNote(id: string, blockKey: string): Promise<FsNotesDocument> {
+  return apiFetch(`/fs/reports/${id}/notes/policy/${blockKey}`, { method: "DELETE" });
+}
+export function addFsCustomNote(id: string, body: { title?: string; body: string }): Promise<FsNotesDocument> {
+  return apiFetch(`/fs/reports/${id}/notes/custom`, { method: "POST", body: JSON.stringify(body) });
+}
+export function updateFsCustomNote(
+  id: string,
+  noteId: string,
+  body: { title?: string; body?: string; included?: boolean },
+): Promise<FsNotesDocument> {
+  return apiFetch(`/fs/reports/${id}/notes/custom/${noteId}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function deleteFsCustomNote(id: string, noteId: string): Promise<FsNotesDocument> {
+  return apiFetch(`/fs/reports/${id}/notes/custom/${noteId}`, { method: "DELETE" });
+}
+
 // --- Health (Phase 0) --------------------------------------------------------
 export interface HealthResponse {
   status: string;

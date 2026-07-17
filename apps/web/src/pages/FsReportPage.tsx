@@ -4,15 +4,23 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   ApiError,
+  addFsCustomNote,
   createFsAdjustment,
   deleteFsAdjustment,
+  deleteFsCustomNote,
   deleteFsReport,
   fetchChartAccounts,
   fetchFsAdjustments,
+  fetchFsNotes,
   fetchFsReport,
   fetchFsStatements,
   fetchFsTrialBalance,
+  resetFsPolicyNote,
+  setFsPolicyNote,
   setFsTrialBalance,
+  updateFsCustomNote,
+  type FsNoteDocItem,
+  type FsPolicyBlock,
   type FsRow,
   type FsStatements,
 } from "../lib/api";
@@ -29,7 +37,7 @@ import {
 } from "../components/ui";
 
 type StatementKind = "balance-sheet" | "income-statement" | "cash-flow" | "changes-in-equity";
-type Tab = "trial-balance" | "adjustments" | StatementKind;
+type Tab = "trial-balance" | "adjustments" | StatementKind | "notes";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "trial-balance", label: "Trial Balance" },
@@ -38,6 +46,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "income-statement", label: "Income Statement" },
   { key: "cash-flow", label: "Cash Flow" },
   { key: "changes-in-equity", label: "Changes in Equity" },
+  { key: "notes", label: "Notes" },
 ];
 
 export default function FsReportPage() {
@@ -100,7 +109,8 @@ export default function FsReportPage() {
 
       {tab === "trial-balance" && <TrialBalanceTab reportId={id} canManage={canManage} />}
       {tab === "adjustments" && <AdjustmentsTab reportId={id} canManage={canManage} />}
-      {tab !== "trial-balance" && tab !== "adjustments" && (
+      {tab === "notes" && <NotesTab reportId={id} canManage={canManage} />}
+      {tab !== "trial-balance" && tab !== "adjustments" && tab !== "notes" && (
         <StatementTab reportId={id} kind={tab} />
       )}
     </div>
@@ -652,5 +662,284 @@ function FsStatementTable({
         })}
       </tbody>
     </table>
+  );
+}
+
+/* --------------------------------------------------------------------- Notes */
+
+function NotesTab({ reportId, canManage }: { reportId: string; canManage: boolean }) {
+  const queryClient = useQueryClient();
+  const [managing, setManaging] = useState(false);
+  const notes = useQuery({ queryKey: ["fs-notes", reportId], queryFn: () => fetchFsNotes(reportId) });
+
+  if (notes.isPending) return <Skeleton className="h-64" />;
+  if (notes.isError || !notes.data)
+    return <ErrorState message="Couldn't load the notes." onRetry={() => void notes.refetch()} />;
+
+  const doc = notes.data;
+  const setData = (d: typeof doc) => queryClient.setQueryData(["fs-notes", reportId], d);
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-[18px] font-medium text-navy">{doc.report.entityName}</h2>
+          <p className="text-[13px] text-content-secondary">Notes to Financial Statements</p>
+        </div>
+        {canManage && (
+          <Button variant="ghost" onClick={() => setManaging((m) => !m)}>
+            {managing ? "Done editing" : "Edit notes"}
+          </Button>
+        )}
+      </div>
+
+      {managing && canManage ? (
+        <NotesManager reportId={reportId} doc={doc} onChange={setData} />
+      ) : (
+        <Card className="space-y-6 px-6 py-6">
+          {doc.document.map((item) => (
+            <NoteView key={item.key} item={item} periods={doc.periods} />
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function NoteView({
+  item,
+  periods,
+}: {
+  item: FsNoteDocItem;
+  periods: { id: string; label: string }[];
+}) {
+  return (
+    <div>
+      <h3 className="mb-1.5 text-[14px] font-semibold text-navy">
+        {item.number}. {item.title}
+      </h3>
+      {item.paragraphs?.map((p, i) => (
+        <p key={i} className="mb-2 text-[13px] leading-relaxed text-content-secondary">
+          {p}
+        </p>
+      ))}
+      {item.table && (
+        <table className="mt-1 w-full max-w-[520px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-line">
+              <th />
+              {periods.map((p) => (
+                <th key={p.id} className="px-3 py-1.5 text-right font-mono text-[10px] uppercase tracking-wide text-content-secondary">
+                  {p.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {item.table.rows.map((r, i) => (
+              <tr key={i} className={cn(r.emphasis && "border-t border-line")}>
+                <td className={cn("px-3 py-1 text-[12.5px]", r.emphasis ? "font-semibold text-navy" : "text-content-secondary")}>
+                  {r.label}
+                </td>
+                {periods.map((p) => (
+                  <td key={p.id} className={cn("px-3 py-1 text-right font-mono text-[12px] tabular-nums", r.emphasis && "font-semibold text-navy")}>
+                    {p.id in r.amounts ? peso(r.amounts[p.id]!) : ""}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function NotesManager({
+  reportId,
+  doc,
+  onChange,
+}: {
+  reportId: string;
+  doc: import("../lib/api").FsNotesDocument;
+  onChange: (d: import("../lib/api").FsNotesDocument) => void;
+}) {
+  const [newTitle, setNewTitle] = useState("");
+  const [newBody, setNewBody] = useState("");
+
+  const togglePolicy = useMutation({
+    mutationFn: (b: FsPolicyBlock) => setFsPolicyNote(reportId, b.blockKey, { included: !b.included }),
+    onSuccess: onChange,
+  });
+  const savePolicy = useMutation({
+    mutationFn: (v: { blockKey: string; body: string }) => setFsPolicyNote(reportId, v.blockKey, { body: v.body }),
+    onSuccess: onChange,
+  });
+  const resetPolicy = useMutation({
+    mutationFn: (blockKey: string) => resetFsPolicyNote(reportId, blockKey),
+    onSuccess: onChange,
+  });
+  const addCustom = useMutation({
+    mutationFn: () => addFsCustomNote(reportId, { title: newTitle.trim() || undefined, body: newBody.trim() }),
+    onSuccess: (d) => {
+      setNewTitle("");
+      setNewBody("");
+      onChange(d);
+    },
+  });
+  const delCustom = useMutation({
+    mutationFn: (noteId: string) => deleteFsCustomNote(reportId, noteId),
+    onSuccess: onChange,
+  });
+  const saveCustom = useMutation({
+    mutationFn: (v: { noteId: string; title: string; body: string }) =>
+      updateFsCustomNote(reportId, v.noteId, { title: v.title || undefined, body: v.body }),
+    onSuccess: onChange,
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card className="px-5 py-5">
+        <h3 className="mb-3 font-serif text-[15px] font-medium text-navy">Accounting policy blocks</h3>
+        <div className="space-y-4">
+          {doc.policyBlocks.map((b) => (
+            <PolicyBlockEditor
+              key={b.blockKey}
+              block={b}
+              onToggle={() => togglePolicy.mutate(b)}
+              onSave={(body) => savePolicy.mutate({ blockKey: b.blockKey, body })}
+              onReset={() => resetPolicy.mutate(b.blockKey)}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <Card className="px-5 py-5">
+        <h3 className="mb-3 font-serif text-[15px] font-medium text-navy">Custom notes</h3>
+        <div className="space-y-4">
+          {doc.customNotes.map((c) => (
+            <CustomNoteEditor
+              key={c.id}
+              note={c}
+              onSave={(title, body) => saveCustom.mutate({ noteId: c.id, title, body })}
+              onDelete={() => delCustom.mutate(c.id)}
+            />
+          ))}
+          <div className="rounded-input border border-dashed border-line-strong p-3">
+            <input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Note title (optional)"
+              className="input mb-2"
+            />
+            <textarea
+              value={newBody}
+              onChange={(e) => setNewBody(e.target.value)}
+              placeholder="Note text — blank lines separate paragraphs."
+              rows={3}
+              className="input"
+            />
+            <Button
+              variant="primary"
+              className="mt-2"
+              disabled={!newBody.trim() || addCustom.isPending}
+              onClick={() => addCustom.mutate()}
+            >
+              {addCustom.isPending ? "Adding…" : "Add note"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function PolicyBlockEditor({
+  block,
+  onToggle,
+  onSave,
+  onReset,
+}: {
+  block: FsPolicyBlock;
+  onToggle: () => void;
+  onSave: (body: string) => void;
+  onReset: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(block.body);
+
+  return (
+    <div className="border-b border-line-divider pb-4 last:border-0 last:pb-0">
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-[13.5px] font-semibold text-navy">
+          <input type="checkbox" checked={block.included} onChange={onToggle} />
+          {block.title}
+          {block.overridden && (
+            <span className="rounded-chip bg-info-bg px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-blue">
+              Edited
+            </span>
+          )}
+        </label>
+        <div className="flex items-center gap-2 text-[12px] font-semibold">
+          <button
+            type="button"
+            className="text-blue hover:underline"
+            onClick={() => {
+              setBody(block.body);
+              setEditing((e) => !e);
+            }}
+          >
+            {editing ? "Close" : "Edit text"}
+          </button>
+          {block.overridden && (
+            <button type="button" className="text-content-secondary hover:text-danger hover:underline" onClick={onReset}>
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+      {editing && (
+        <div className="mt-2">
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} className="input font-[inherit]" />
+          <Button
+            variant="primary"
+            className="mt-2"
+            onClick={() => {
+              onSave(body);
+              setEditing(false);
+            }}
+          >
+            Save text
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomNoteEditor({
+  note,
+  onSave,
+  onDelete,
+}: {
+  note: import("../lib/api").FsCustomNote;
+  onSave: (title: string, body: string) => void;
+  onDelete: () => void;
+}) {
+  const [title, setTitle] = useState(note.title ?? "");
+  const [body, setBody] = useState(note.body);
+  return (
+    <div className="rounded-input border border-line p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="input flex-1" />
+        <button type="button" onClick={onDelete} className="text-[12px] font-semibold text-content-secondary hover:text-danger">
+          Delete
+        </button>
+      </div>
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className="input" />
+      <Button variant="ghost" className="mt-2" onClick={() => onSave(title, body)}>
+        Save
+      </Button>
+    </div>
   );
 }
