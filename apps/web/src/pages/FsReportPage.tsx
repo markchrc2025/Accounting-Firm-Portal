@@ -9,6 +9,7 @@ import {
   deleteFsAdjustment,
   deleteFsCustomNote,
   deleteFsReport,
+  exportFsReport,
   fetchChartAccounts,
   fetchFsAdjustments,
   fetchFsNotes,
@@ -63,6 +64,20 @@ export default function FsReportPage() {
     onSuccess: () => navigate("/financial-statements"),
   });
 
+  const exporting = useMutation({
+    mutationFn: () => exportFsReport(id),
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      // The browser dereferences the blob URL in a queued task — revoking
+      // synchronously races the download (intermittent failures on Safari).
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    },
+  });
+
   if (report.isPending) return <Skeleton className="h-40" />;
   if (report.isError || !report.data)
     return <ErrorState message="Couldn't load this report." onRetry={() => void report.refetch()} />;
@@ -76,18 +91,29 @@ export default function FsReportPage() {
         title={r.entityName}
         description={`${r.framework} · periods: ${r.periods.map((p) => p.label).join(", ") || "none"}`}
         actions={
-          canManage ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (confirm("Delete this FS report and all its data?")) remove.mutate();
-              }}
-            >
-              Delete
+          <>
+            <Button variant="primary" disabled={exporting.isPending} onClick={() => exporting.mutate()}>
+              {exporting.isPending ? "Exporting…" : "Export .xlsx"}
             </Button>
-          ) : null
+            {canManage && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (confirm("Delete this FS report and all its data?")) remove.mutate();
+                }}
+              >
+                Delete
+              </Button>
+            )}
+          </>
         }
       />
+
+      {exporting.isError && (
+        <div className="mb-4 rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
+          {exporting.error instanceof ApiError ? exporting.error.message : "Export failed."}
+        </div>
+      )}
 
       <div className="mb-5 flex gap-1 border-b border-line">
         {TABS.map((t) => (
