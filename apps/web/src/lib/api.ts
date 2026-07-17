@@ -338,6 +338,30 @@ export interface FsNotesDocument {
 export function fetchFsNotes(id: string): Promise<FsNotesDocument> {
   return apiFetch<FsNotesDocument>(`/fs/reports/${id}/notes`);
 }
+/** Download the assembled AFS workbook. Returns the file blob plus the server's
+ *  suggested filename (from Content-Disposition). */
+export async function exportFsReport(id: string): Promise<{ blob: Blob; filename: string }> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}/fs/reports/${id}/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    // Error paths return the usual JSON envelope — surface its message.
+    let message = `Export failed (${res.status})`;
+    let body: unknown;
+    try {
+      body = JSON.parse(await res.text());
+      const m = (body as { message?: unknown }).message;
+      if (typeof m === "string" && m) message = m;
+    } catch {
+      /* non-JSON error body — keep the generic message */
+    }
+    throw new ApiError(res.status, message, body);
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "Financial Statements.xlsx";
+  return { blob: await res.blob(), filename };
+}
 export function setFsPolicyNote(
   id: string,
   blockKey: string,

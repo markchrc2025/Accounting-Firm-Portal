@@ -15,8 +15,11 @@ import {
   buildAccountNotes,
   policyBlocksFor,
   renderTokens,
+  type FsNoteTableRow,
   type NoteMergeContext,
 } from "./fs-notes";
+import { buildFsWorkbook, exportFileName } from "./fs-export";
+import * as XLSX from "xlsx";
 import type {
   AddCustomNoteInput,
   CreateAdjustmentInput,
@@ -364,6 +367,36 @@ export class FsService {
     };
   }
 
+  // -------------------------------------------------------------------- export
+
+  /** The full AFS as an xlsx workbook (BS · IS · CF · CE · Notes), mirroring
+   *  the firm's template layout. Statements and notes are derived from ONE
+   *  report + engine-input snapshot, so a concurrent edit (trial-balance save,
+   *  adjustment, period change) can never produce a workbook whose Notes don't
+   *  tie to its statement captions. */
+  async getExport(user: AuthUser, id: string): Promise<{ buffer: Buffer; filename: string }> {
+    const report = await this.requireReport(user, id);
+    const engineInput = await this.buildEngineInput(report);
+    const notes = await this.composeNotes(report, engineInput);
+    const workbook = buildFsWorkbook({
+      entityName: report.entityName,
+      periods: notes.periods,
+      balanceSheet: buildBalanceSheet(engineInput),
+      incomeStatement: buildIncomeStatement(engineInput),
+      cashFlow: buildCashFlow(engineInput),
+      changesInEquity: buildChangesInEquity(engineInput),
+      notes: notes.document,
+    });
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    await this.audit.record({
+      userId: user.id,
+      action: "fs.report.export",
+      entityType: "FsReport",
+      entityId: id,
+    });
+    return { buffer, filename: exportFileName(report.entityName, notes.periods) };
+  }
+
   // -------------------------------------------------------------------- notes
 
   /** Assemble the Notes to Financial Statements: the framework's policy blocks
@@ -373,6 +406,16 @@ export class FsService {
   async getNotes(user: AuthUser, id: string) {
     const report = await this.requireReport(user, id);
     const engineInput = await this.buildEngineInput(report);
+    return this.composeNotes(report, engineInput);
+  }
+
+  /** Notes assembly from an already-loaded snapshot (shared by getNotes and
+   *  getExport so the export is internally consistent). */
+  private async composeNotes(
+    report: Prisma.FsReportGetPayload<{ include: { periods: true } }>,
+    engineInput: FsEngineInput,
+  ) {
+    const id = report.id;
     const sortedPeriods = [...report.periods].sort((a, b) => a.sortOrder - b.sortOrder);
 
     const ctx: NoteMergeContext = {
@@ -414,7 +457,7 @@ export class FsService {
       id?: string;
       title: string;
       paragraphs?: string[];
-      table?: unknown;
+      table?: { rows: FsNoteTableRow[] };
     }> = [];
     for (const b of policyBlocks) {
       if (!b.included) continue;

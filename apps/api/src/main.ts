@@ -12,7 +12,9 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix(API_PREFIX);
   // NOTE: request validation is done with Zod schemas from @portal/shared via a
   // dedicated pipe added in Phase 1 — we intentionally avoid class-validator.
-  app.enableCors();
+  // Expose Content-Disposition so the browser can read download filenames
+  // (e.g. the FS xlsx export) cross-origin.
+  app.enableCors({ exposedHeaders: ["Content-Disposition"] });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Accounting Firm Portal API")

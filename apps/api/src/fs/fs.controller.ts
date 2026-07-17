@@ -1,5 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Res,
+  StreamableFile,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
+import { FirmUserGuard } from "../common/guards/firm-user.guard";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
@@ -25,12 +39,16 @@ import {
 } from "./dto/fs.schemas";
 
 /**
- * Financial Statement Creator (standalone). Reads are open to any authenticated
- * firm user; every write requires FinancialStatements:Manage. Trial-balance and
- * adjustment codes are validated against the live Chart of Accounts server-side.
+ * Financial Statement Creator (standalone). FIRM STAFF ONLY — FS reports are
+ * firm work product and only firmId-scoped, so client-portal principals are
+ * rejected at the controller (FirmUserGuard). Within the firm, reads are open
+ * to any staff account; every write requires FinancialStatements:Manage.
+ * Trial-balance and adjustment codes are validated against the live Chart of
+ * Accounts server-side.
  */
 @ApiTags("financial-statements")
 @Controller("fs")
+@UseGuards(FirmUserGuard)
 export class FsController {
   constructor(private readonly fs: FsService) {}
 
@@ -62,6 +80,20 @@ export class FsController {
   @Get("reports/:id/notes")
   notes(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.fs.getNotes(user, id);
+  }
+
+  @Get("reports/:id/export")
+  async export(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename } = await this.fs.getExport(user, id);
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Put("reports/:id/notes/policy/:blockKey")
