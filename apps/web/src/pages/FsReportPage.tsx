@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { AccountCombobox } from "../components/AccountCombobox";
 import {
   ApiError,
   addFsCustomNote,
@@ -176,11 +177,6 @@ function TrialBalanceTab({ reportId, canManage }: { reportId: string; canManage:
     setSaved(false);
   }, [periodId, tb.data]);
 
-  const nameByCode = useMemo(
-    () => new Map((accounts.data ?? []).map((a) => [a.code, a.name])),
-    [accounts.data],
-  );
-
   const totals = useMemo(() => {
     let debit = 0;
     let credit = 0;
@@ -242,18 +238,11 @@ function TrialBalanceTab({ reportId, canManage }: { reportId: string; canManage:
         </div>
       )}
 
-      <Card className="overflow-hidden">
-        <datalist id="coa-codes">
-          {(accounts.data ?? []).map((a) => (
-            <option key={a.code} value={a.code}>
-              {a.name}
-            </option>
-          ))}
-        </datalist>
+      <Card className="overflow-visible">
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-line bg-sidebar">
-              {["Code", "Account", "Balance (dr +, cr −)", canManage ? "" : null]
+              {["Account", "Code", "Balance (dr +, cr −)", canManage ? "" : null]
                 .filter((h) => h !== null)
                 .map((h, i) => (
                   <th key={i} className="px-4 py-2.5 font-mono text-[10px] font-normal uppercase tracking-[.14em] text-content-secondary">
@@ -265,20 +254,16 @@ function TrialBalanceTab({ reportId, canManage }: { reportId: string; canManage:
           <tbody className="divide-y divide-line-divider">
             {lines.map((l, i) => (
               <tr key={i}>
-                <td className="px-4 py-2">
-                  <input
+                <td className="w-[360px] px-4 py-2">
+                  <AccountCombobox
+                    accounts={accounts.data ?? []}
                     value={l.accountCode}
-                    onChange={(e) => setLine(i, { accountCode: e.target.value.replace(/\D/g, "").slice(0, 7) })}
-                    list="coa-codes"
+                    onSelect={(code) => setLine(i, { accountCode: code })}
                     disabled={!canManage}
-                    placeholder="1001"
-                    className="input w-28 font-mono"
                   />
                 </td>
-                <td className="px-4 py-2 text-[13px] text-content-secondary">
-                  {nameByCode.get(l.accountCode.trim()) ?? (
-                    <span className="text-content-muted">—</span>
-                  )}
+                <td className="px-4 py-2 font-mono text-[13px] text-content-secondary">
+                  {l.accountCode || <span className="text-content-muted">—</span>}
                 </td>
                 <td className="px-4 py-2">
                   <input
@@ -437,26 +422,18 @@ function AdjustmentsTab({ reportId, canManage }: { reportId: string; canManage: 
                 className="input flex-1"
               />
             </div>
-            <datalist id="coa-codes-adj">
-              {(accounts.data ?? []).map((a) => (
-                <option key={a.code} value={a.code}>
-                  {a.name}
-                </option>
-              ))}
-            </datalist>
             {lines.map((l, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input
+                <AccountCombobox
+                  accounts={accounts.data ?? []}
                   value={l.accountCode}
-                  onChange={(e) =>
-                    setLines((ls) => ls.map((x, idx) => (idx === i ? { ...x, accountCode: e.target.value.replace(/\D/g, "").slice(0, 7) } : x)))
+                  onSelect={(code) =>
+                    setLines((ls) => ls.map((x, idx) => (idx === i ? { ...x, accountCode: code } : x)))
                   }
-                  list="coa-codes-adj"
-                  placeholder="Code"
-                  className="input w-28 font-mono"
+                  className="min-w-0 flex-1"
                 />
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-content-muted">
-                  {nameByCode.get(l.accountCode.trim()) ?? ""}
+                <span className="w-20 flex-none font-mono text-[12px] text-content-muted">
+                  {l.accountCode}
                 </span>
                 <input
                   value={l.debit}
