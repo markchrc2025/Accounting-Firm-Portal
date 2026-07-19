@@ -360,3 +360,54 @@ describe("parseCorText — adversarial cases", () => {
     expect(r.regName).toContain("SMITH BELL & CO.");
   });
 });
+
+// 2019-revision layout (SAGD Development OPC): the label prints as
+// "REGISTERING ADDRESS" (not REGISTERED), the address wraps onto a second
+// line, and BIR fills blank address components with "N.A." segments.
+const SAGD = `BIR FORM
+2303 REPUBLIKA NG PILIPINAS
+KAGAWARAN NG PANANALAPI
+REVISED: APRIL 2019
+KAWANIHAN NG RENTAS INTERNAS
+REVENUE REGION NO. 07A - QUEZON CITY
+REVENUE DISTRICT OFFICE NO. 038 - NORTH QUEZON CITY
+OCN: CRC2383874018
+Date OCN Generated: August 10, 2023
+CERTIFICATE OF REGISTRATION
+TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE
+010-764-944-000 SAGD DEVELOPMENT OPC August 09, 2023
+REGISTERING OFFICE X Head Office Branch
+REGISTERING ADDRESS
+N.A., N.A., 25, MANALO ST, N.A., DEL MONTE, N.A., 1105, QUEZON CITY, SECOND DISTRICT,
+PHILIPPINES
+TAX TYPES FORM FILING FILING FILING DUE DATE
+TYPES START DATE FREQUENCY
+CORPORATE 1702 April 1, 2024 ANNUALLY
+INCOME TAX
+REGISTRATION 0605 January 1, ANNUALLY
+FEE 2024
+`;
+
+describe("parseCorText — 2019 revision: REGISTERING ADDRESS, wrapped, N.A. segments", () => {
+  const r = parseCorText(SAGD);
+
+  it("reads the REGISTERING ADDRESS label (not just REGISTERED)", () => {
+    expect(r.address).toBeTruthy();
+  });
+
+  it("joins the wrapped second line and drops every N.A. segment", () => {
+    expect(r.address).toBe("25, MANALO ST, DEL MONTE, 1105, QUEZON CITY, SECOND DISTRICT, PHILIPPINES");
+    expect(r.address).not.toContain("N.A");
+  });
+
+  it("still extracts the ZIP from the cleaned address", () => {
+    expect(r.zip).toBe("1105");
+  });
+
+  it("keeps the neighbouring fields intact", () => {
+    expect(r.tin).toBe("010764944");
+    expect(r.branch).toBe("000");
+    expect(r.regName).toBe("SAGD DEVELOPMENT OPC");
+    expect(r.rdo).toBe("038");
+  });
+});
