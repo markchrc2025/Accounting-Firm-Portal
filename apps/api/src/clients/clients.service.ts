@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import type { CreateClientInput, UpdateClientInput } from "./dto/client.schemas";
+import { billingLinkError } from "./billing-link";
 
 /** Writable client columns (excludes server-managed + caller-provided keys). */
 type ClientWritable = Omit<
@@ -43,7 +44,29 @@ export class ClientsService {
     };
   }
 
+  /** Validate a sub-client billing link (one level deep, same firm). */
+  private async assertBillingLink(
+    firmId: string,
+    clientId: string | null,
+    billingParentId: string,
+  ): Promise<void> {
+    const [parent, clientSubCount] = await Promise.all([
+      this.prisma.client.findFirst({
+        where: { id: billingParentId, firmId },
+        select: { id: true, billingParentId: true },
+      }),
+      clientId
+        ? this.prisma.client.count({ where: { billingParentId: clientId } })
+        : Promise.resolve(0),
+    ]);
+    const error = billingLinkError({ clientId, parent, clientSubCount });
+    if (error) throw new BadRequestException(error);
+  }
+
   async create(user: AuthUser, input: CreateClientInput) {
+    if (input.billingParentId) {
+      await this.assertBillingLink(user.firmId, null, input.billingParentId);
+    }
     const client = await this.prisma.client.create({
       data: {
         firmId: user.firmId,
@@ -86,6 +109,9 @@ export class ClientsService {
 
   async update(user: AuthUser, clientId: string, input: UpdateClientInput) {
     await this.get(user, clientId); // 404 if not in firm
+    if (input.billingParentId) {
+      await this.assertBillingLink(user.firmId, clientId, input.billingParentId);
+    }
     const client = await this.prisma.client.update({
       where: { id: clientId },
       data: {

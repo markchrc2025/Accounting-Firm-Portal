@@ -478,6 +478,8 @@ export interface ClientSummary {
   city?: string | null;
   province?: string | null;
   region?: string | null;
+  /** Sub-client billing link: the main client this one is billed under. */
+  billingParentId?: string | null;
 }
 
 /** One row of the COR "Tax Types" table, as stored in `taxTypesJson`. Mirrors
@@ -538,6 +540,8 @@ export interface Client extends ClientSummary {
   branchesJson?: ClientBranch[] | null;
   professionalFee?: string | number | null;
   billingMethod?: string | null;
+  /** Sub-client billing link: billed under this main client (billing/AR only). */
+  billingParentId?: string | null;
   seatLimit?: number | null;
   /** S3 object key of the stored COR, or null when none has been uploaded. */
   corPath?: string | null;
@@ -941,6 +945,9 @@ export interface Invoice {
   clientId: string;
   /** Joined convenience field — the client's business name. */
   clientName?: string;
+  /** Sub-client the engagement was for, when billed under a main client. */
+  billedForClientId?: string | null;
+  billedForName?: string | null;
   description: string;
   issuedDate: string;
   dueDate: string;

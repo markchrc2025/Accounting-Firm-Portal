@@ -16,6 +16,7 @@ import type {
 const invoiceInclude = {
   lineItems: true,
   client: { select: { businessName: true } },
+  billedFor: { select: { businessName: true } },
 } satisfies Prisma.InvoiceInclude;
 
 type InvoiceRow = Prisma.InvoiceGetPayload<{ include: typeof invoiceInclude }>;
@@ -39,6 +40,8 @@ function toInvoiceDto(inv: InvoiceRow) {
     firmId: inv.firmId,
     clientId: inv.clientId,
     clientName: inv.client?.businessName ?? "",
+    billedForClientId: inv.billedForClientId,
+    billedForName: inv.billedFor?.businessName ?? null,
     number: inv.number,
     description: inv.description,
     issuedDate: dateToIso(inv.issuedDate),
@@ -74,8 +77,14 @@ export class InvoicesService {
   ) {}
 
   async list(user: AuthUser, clientId?: string) {
+    // A client's billing view includes invoices RECORDED under it (its own +
+    // its sub-clients') and, for a sub-client, the invoices billed to its main
+    // client on its behalf — so both workspaces see the engagement.
     const rows = await this.prisma.invoice.findMany({
-      where: { firmId: user.firmId, ...(clientId ? { clientId } : {}) },
+      where: {
+        firmId: user.firmId,
+        ...(clientId ? { OR: [{ clientId }, { billedForClientId: clientId }] } : {}),
+      },
       include: invoiceInclude,
       orderBy: { createdAt: "desc" },
     });
@@ -87,7 +96,17 @@ export class InvoicesService {
   }
 
   async create(user: AuthUser, input: CreateInvoiceInput) {
-    await this.clients.assertInFirm(user.firmId, input.clientId);
+    const target = await this.clients.assertInFirm(user.firmId, input.clientId);
+    // Sub-client billing: the invoice is RECORDED under the main client (the
+    // payer / bill addressee); billedForClientId keeps the sub-client
+    // provenance. Sales & expenses are untouched — this is billing/AR only.
+    let payerId = input.clientId;
+    let billedForClientId: string | null = null;
+    if (target.billingParentId) {
+      await this.clients.assertInFirm(user.firmId, target.billingParentId);
+      payerId = target.billingParentId;
+      billedForClientId = input.clientId;
+    }
     const lines = computeLines(input.lineItems);
     const totals = computeTotals(lines);
     const number = await this.nextNumber(user.firmId, input.issuedDate);
@@ -95,7 +114,8 @@ export class InvoicesService {
     const invoice = await this.prisma.invoice.create({
       data: {
         firmId: user.firmId,
-        clientId: input.clientId,
+        clientId: payerId,
+        billedForClientId,
         number,
         description: input.description,
         issuedDate: isoToDate(input.issuedDate),
@@ -111,7 +131,12 @@ export class InvoicesService {
       action: "invoice.create",
       entityType: "Invoice",
       entityId: invoice.id,
-      metadata: { clientId: input.clientId, number, total: totals.total },
+      metadata: {
+        clientId: payerId,
+        ...(billedForClientId ? { billedForClientId } : {}),
+        number,
+        total: totals.total,
+      },
     });
     return toInvoiceDto(invoice);
   }

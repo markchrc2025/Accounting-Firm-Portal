@@ -145,6 +145,10 @@ model Client {
   // --- Firm engagement (Portal-only; NOT sent to the BIR Generator) --------
   professionalFee Decimal?      @db.Decimal(18, 2) // fee the firm charges
   billingMethod   BillingMethod @default(AS_FILING)
+  /// Sub-client billing link: when set, this client is billed UNDER the main
+  /// client (invoices are recorded against the parent; the bill is addressed
+  /// to it). One level deep, billing/AR only — sales & expenses stay separate.
+  billingParentId String?       @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -161,8 +165,10 @@ model Client {
   inputTaxAssets       InputTaxAsset[]
   taxRule              TaxRule?
   invoices             Invoice[]
+  billedForInvoices    Invoice[]              @relation("InvoiceBilledFor")
 
   @@index([firmId])
+  @@index([billingParentId])
   @@map("clients")
 }
 
@@ -671,13 +677,19 @@ model Invoice {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// When the invoice covers a SUB-CLIENT's engagement, clientId is the
+  /// paying MAIN client and this records which sub-client the work was for.
+  billedForClientId String? @db.Uuid
+
   firm      Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  billedFor Client?           @relation("InvoiceBilledFor", fields: [billedForClientId], references: [id], onDelete: SetNull)
   lineItems InvoiceLineItem[]
 
   @@unique([firmId, number])
   @@index([firmId])
   @@index([clientId])
+  @@index([billedForClientId])
   @@map("invoices")
 }
 

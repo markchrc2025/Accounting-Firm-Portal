@@ -63,6 +63,12 @@ export default function ClientsPage() {
     [data, region],
   );
 
+  // Sub-client billing links: resolve the main client's name for the roster tag.
+  const nameById = useMemo(
+    () => new Map((data ?? []).map((c) => [c.id, c.businessName])),
+    [data],
+  );
+
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (data ?? []).filter((c) => {
@@ -186,12 +192,20 @@ export default function ClientsPage() {
                         <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy font-mono text-[10px] font-semibold text-gold-soft">
                           {initials(c.businessName)}
                         </span>
-                        <Link
-                          to={`/clients/${c.id}`}
-                          className="text-[13px] font-semibold text-navy hover:underline"
-                        >
-                          {c.businessName}
-                        </Link>
+                        <div className="min-w-0">
+                          <Link
+                            to={`/clients/${c.id}`}
+                            className="text-[13px] font-semibold text-navy hover:underline"
+                          >
+                            {c.businessName}
+                          </Link>
+                          {c.billingParentId && (
+                            <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[.08em] text-content-secondary">
+                              Billed under{" "}
+                              {nameById.get(c.billingParentId) ?? "main client"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-[13px] font-mono text-[13px] text-content-secondary">
