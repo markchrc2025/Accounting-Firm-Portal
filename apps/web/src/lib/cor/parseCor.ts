@@ -148,11 +148,46 @@ function cleanTradeName(s: string): string {
     .trim();
 }
 
-/** Drop trailing OCR junk tokens (runs of O/0/dashes/tildes) from an address. */
+/** Drop trailing OCR junk tokens (runs of O/0/dashes/tildes) from an address,
+ *  then drop the "N.A." segments BIR prints for blank address components
+ *  ("N.A., N.A., 25, MANALO ST, N.A., …" → "25, MANALO ST, …"). The filter is
+ *  per comma-segment, so real words containing NA are untouched. */
 function cleanAddress(s: string): string {
   const toks = s.split(/\s+/);
   while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
-  return toks.join(" ");
+  return toks
+    .join(" ")
+    .split(",")
+    .map((seg) => seg.trim())
+    .filter((seg) => seg && !/^N\.?\s*\/?\s*A\.?$/i.test(seg))
+    .join(", ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** The address block: everything after the REGISTERED/REGISTERING ADDRESS
+ *  label up to the tax-types table. The 2019-revision COR wraps the address
+ *  onto a second line ("… SECOND DISTRICT," / "PHILIPPINES"), so unlike
+ *  valueAfter this joins continuation lines until a table/label boundary. */
+function addressAfterLabel(lines: string[]): string {
+  const labelRe = /REGISTER(?:ED|ING)\s*ADDRESS/;
+  const stopRe =
+    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|\bFILING\b|REMINDERS|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|REGISTERING\s*OFFICE|\bOCN\b/;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i]!.match(labelRe);
+    if (!m) continue;
+    const parts: string[] = [];
+    const tail = lines[i]!.slice((m.index ?? 0) + m[0].length).replace(/^[\s:.\-|]+/, "").trim();
+    if (tail.length >= 2 && !stopRe.test(tail)) parts.push(tail);
+    for (let j = i + 1; j < Math.min(i + 4, lines.length) && parts.length < 3; j++) {
+      const next = lines[j]!.trim();
+      if (!next) continue;
+      if (stopRe.test(next)) break;
+      parts.push(next);
+    }
+    if (parts.length) return parts.join(" ");
+  }
+  return "";
 }
 
 /** COR rows print the return each tax type is filed on; when OCR destroyed the
@@ -286,7 +321,9 @@ export function parseCorText(raw: string): ExtractedCor {
   }
 
   // --- Registered address + ZIP ---
-  const addr = valueAfter(lines, /REGISTERED\s*ADDRESS/);
+  // Older CORs print "REGISTERED ADDRESS"; the 2019 revision prints
+  // "REGISTERING ADDRESS" and wraps onto a second line — handle both.
+  const addr = addressAfterLabel(lines);
   if (addr) {
     out.address = cleanAddress(addr);
     const zip = out.address.match(/\b(\d{4})\b/);
