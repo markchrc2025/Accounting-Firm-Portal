@@ -345,6 +345,12 @@ function InvoiceList({
                 >
                   <td className="px-4 py-3 font-mono font-semibold text-navy">
                     {inv.number}
+                    {inv.billedForName ? (
+                      // Provenance: this invoice is billed on behalf of a sub-client.
+                      <span className="mt-0.5 block font-mono text-[10px] font-normal uppercase tracking-[.08em] text-content-secondary">
+                        For: {inv.billedForName}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-content">{inv.description}</td>
                   <td className="px-4 py-3 font-mono text-[12px] text-content-secondary">
@@ -780,6 +786,15 @@ export default function BillingPage() {
     enabled: !!clientId,
   });
 
+  // Sub-client link: when the active client is billed under a main client,
+  // resolve the parent's name for the banner below.
+  const billingParentId = activeClientQ.data?.billingParentId ?? null;
+  const parentClientQ = useQuery({
+    queryKey: ["client", billingParentId],
+    queryFn: () => fetchClient(billingParentId as string),
+    enabled: !!billingParentId,
+  });
+
   // If "New invoice" was clicked before the active client loaded, hydrate the
   // default Bill-to once it arrives.
   useEffect(() => {
@@ -859,6 +874,21 @@ export default function BillingPage() {
   return (
     <div className="animate-fade-rise">
       <ClientWorkspaceTabs clientId={clientId} />
+
+      {billingParentId ? (
+        <div className="mb-4 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
+          <span className="font-semibold">Sub-client:</span> billing for this client is
+          recorded under{" "}
+          <span className="font-semibold">
+            {parentClientQ.data?.businessName ?? "its main client"}
+          </span>
+          . New invoices are addressed to the main client (tagged{" "}
+          <span className="font-mono text-[11px] uppercase">
+            For: {activeClientQ.data?.businessName ?? "this client"}
+          </span>
+          ) and appear in both workspaces. Sales and expenses stay separate.
+        </div>
+      ) : null}
 
       {view === "list" ? (
         <InvoiceList

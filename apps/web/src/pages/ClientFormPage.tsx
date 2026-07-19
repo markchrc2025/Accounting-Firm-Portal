@@ -6,6 +6,7 @@ import {
   createClient,
   deleteCor,
   fetchClient,
+  fetchClients,
   getCorUrl,
   updateClient,
   uploadCor,
@@ -194,6 +195,18 @@ function ClientForm({ existing }: { existing: Client | null }) {
     existing?.professionalFee != null ? String(existing.professionalFee) : "",
   );
   const [billingMethod, setBillingMethod] = useState(existing?.billingMethod ?? "AS_FILING");
+  // Sub-client billing link: "" = bills directly, otherwise the main client's id.
+  const [billingParentId, setBillingParentId] = useState(existing?.billingParentId ?? "");
+  // Candidate main clients for the "Billed under" select. Links are one level
+  // deep, so clients that are themselves sub-clients are excluded (and self).
+  const clientsQuery = useQuery({ queryKey: ["clients"], queryFn: fetchClients });
+  const parentOptions = (clientsQuery.data ?? []).filter(
+    (c) => c.id !== existing?.id && !c.billingParentId && c.status !== "ARCHIVED",
+  );
+  // A client that already has sub-clients cannot itself become a sub-client.
+  const hasSubClients = Boolean(
+    existing && (clientsQuery.data ?? []).some((c) => c.billingParentId === existing.id),
+  );
 
   // --- Save state -----------------------------------------------------------
   const [error, setError] = useState<string | null>(null);
@@ -449,6 +462,9 @@ function ClientForm({ existing }: { existing: Client | null }) {
       if (Number.isFinite(fee)) p.professionalFee = fee;
     }
     p.billingMethod = billingMethod;
+    // Sub-client link: a uuid links, null clears. Omit when empty on create.
+    if (billingParentId) p.billingParentId = billingParentId;
+    else if (isEdit) p.billingParentId = null;
 
     // Sent as an array even when empty so an edit that clears every row persists.
     p.taxTypes = taxTypes
@@ -1393,6 +1409,39 @@ function ClientForm({ existing }: { existing: Client | null }) {
                     {fieldErrors.billingMethod}
                   </span>
                 )}
+              </div>
+              <div className="md:col-span-2">
+                <Field
+                  label="Billed under (main client)"
+                  error={fieldErrors.billingParentId}
+                >
+                  {hasSubClients ? (
+                    <p className="text-[12.5px] text-content-secondary">
+                      Other clients are billed under this client, so it cannot itself
+                      become a sub-client.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={billingParentId}
+                        onChange={(e) => setBillingParentId(e.target.value)}
+                        className="input"
+                      >
+                        <option value="">— None (billed directly) —</option>
+                        {parentOptions.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.businessName}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1.5 text-xs text-content-secondary">
+                        Invoices for this client will be recorded under — and addressed
+                        to — the selected main client. Billing / AR only: sales and
+                        expenses stay separate records.
+                      </p>
+                    </>
+                  )}
+                </Field>
               </div>
             </div>
           </CardContent>
