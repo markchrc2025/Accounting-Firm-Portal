@@ -33,9 +33,42 @@ describe("fs-notes — token merge & library", () => {
   });
 
   it("falls back to the Small Entities library for an unknown framework", () => {
-    expect(policyBlocksFor("Something Else").map((b) => b.key)).toEqual(
-      policyBlocksFor("PFRS for Small Entities").map((b) => b.key),
-    );
+    expect(policyBlocksFor("Something Else")).toBe(policyBlocksFor("PFRS for Small Entities"));
+  });
+
+  it("every framework library shares the same block keys (overrides stay valid)", () => {
+    const keys = policyBlocksFor("PFRS for Small Entities").map((b) => b.key);
+    expect(policyBlocksFor("PFRS for SMEs").map((b) => b.key)).toEqual(keys);
+    expect(policyBlocksFor("Full PFRS").map((b) => b.key)).toEqual(keys);
+  });
+
+  it("PFRS for SMEs carries its own compliance statement and deferred-tax policy", () => {
+    const blocks = policyBlocksFor("PFRS for SMEs");
+    const basis = blocks.find((b) => b.key === "basis-of-preparation")!;
+    expect(basis.body).toContain("Small and Medium-sized Entities (PFRS for SMEs)");
+    const policies = blocks.find((b) => b.key === "significant-accounting-policies")!;
+    expect(policies.body).toContain("Deferred tax is recognized on temporary differences");
+    expect(policies.body).toContain("Borrowing costs are recognized as an expense");
+    expect(policies.body).not.toContain("PFRS 15");
+  });
+
+  it("Full PFRS speaks PFRS 9 / 15 / 16 with expected credit losses", () => {
+    const blocks = policyBlocksFor("Full PFRS");
+    const basis = blocks.find((b) => b.key === "basis-of-preparation")!;
+    expect(basis.body).toContain("Philippine Financial Reporting Standards (PFRS)");
+    const policies = blocks.find((b) => b.key === "significant-accounting-policies")!;
+    expect(policies.body).toContain("PFRS 9");
+    expect(policies.body).toContain("expected credit losses");
+    expect(policies.body).toContain("PFRS 15");
+    expect(policies.body).toContain("PFRS 16");
+    expect(policies.body).toContain("right-of-use");
+  });
+
+  it("Small Entities keeps the firm's historical-cost narrative", () => {
+    const policies = policyBlocksFor("PFRS for Small Entities")
+      .find((b) => b.key === "significant-accounting-policies")!;
+    expect(policies.body).toContain("basic financial instruments");
+    expect(policies.body).not.toContain("PFRS 9");
   });
 });
 

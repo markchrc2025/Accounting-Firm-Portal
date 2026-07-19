@@ -106,12 +106,116 @@ Events After the Reporting Date. Post year-end events that provide evidence of c
   },
 ];
 
-/** Disclosure library keyed by reporting framework. Frameworks without a bespoke
- *  library fall back to the Small Entities set (the accountant can override). */
+// Corporate Information is framework-agnostic — reuse the Small Entities block
+// so all three libraries share identical block KEYS (per-report overrides are
+// keyed by blockKey and stay valid when the framework changes).
+const CORPORATE_INFORMATION = SMALL_ENTITIES[0]!;
+
+/** PFRS for SMEs (IFRS for SMEs as adopted in the Philippines) — medium
+ *  entities: total assets ₱100M–₱350M or liabilities ₱100M–₱250M. Key
+ *  differences vs Small Entities: deferred tax is REQUIRED (liability method),
+ *  borrowing costs and development costs are expensed, finance/operating lease
+ *  classification, and fuller impairment language. */
+const SMES: PolicyBlock[] = [
+  CORPORATE_INFORMATION,
+  {
+    key: "basis-of-preparation",
+    title: "Basis of Preparation",
+    body: `Statement of Compliance. The accompanying financial statements have been prepared in compliance with the Philippine Financial Reporting Standard for Small and Medium-sized Entities (PFRS for SMEs), as approved by the Financial and Sustainability Reporting Standards Council, the Board of Accountancy and adopted by the SEC.
+
+Basis of Measurement. The financial statements have been prepared on the historical cost basis except for certain financial instruments that are measured at fair value at the end of each reporting period. All values are rounded to the nearest Peso unless otherwise indicated.
+
+Functional and Presentation Currency. The financial statements are presented in {{functionalCurrency}}, which is also the Company's functional currency.`,
+  },
+  {
+    key: "significant-accounting-policies",
+    title: "Significant Accounting Policies",
+    body: `Financial Instruments. Basic financial instruments — cash, trade and other receivables, trade and other payables, and loans — are recognized when the Company becomes a party to the contractual provisions of the instrument. They are measured initially at the transaction price (including transaction costs, except in a financing transaction, where measurement is at the present value of future payments discounted at a market rate) and subsequently at amortized cost using the effective interest method. Other financial instruments, if any, are measured at fair value with changes recognized in profit or loss.
+
+Impairment of Financial Assets. At the end of each reporting period, the carrying amounts of financial assets measured at cost or amortized cost are reviewed for objective evidence of impairment. An impairment loss — the difference between the carrying amount and the present value of estimated cash flows discounted at the original effective interest rate — is recognized in profit or loss immediately, and may be reversed if the reversal can be related objectively to a subsequent event.
+
+Cash. Cash includes cash on hand and unrestricted cash in bank, stated at face value.
+
+Inventories. Inventories are measured at the lower of cost and estimated selling price less costs to complete and sell, cost being determined on a first-in, first-out or weighted-average basis.
+
+Property, Plant and Equipment. Property, plant and equipment are carried at cost less accumulated depreciation and any accumulated impairment losses. Depreciation is recognized on a straight-line basis over the estimated useful lives of the assets. Residual values, useful lives and depreciation methods are reviewed when there is an indication they have changed.
+
+Impairment of Non-financial Assets. At each reporting date, non-financial assets are assessed for indications of impairment; where the recoverable amount (the higher of fair value less costs to sell and value in use) is below carrying amount, an impairment loss is recognized in profit or loss.
+
+Borrowing Costs and Research and Development. Borrowing costs are recognized as an expense in profit or loss in the period incurred. Research and development expenditure is likewise recognized as an expense when incurred.
+
+Leases. Leases that transfer substantially all the risks and rewards of ownership are classified as finance leases and recognized as assets and liabilities at the lower of fair value and the present value of minimum lease payments; all other leases are operating leases whose payments are recognized as an expense on a straight-line basis over the lease term.
+
+Related Parties. Parties are considered related if one has the ability, directly or indirectly, to control the other or exercise significant influence over it in making financial and operating decisions.
+
+Equity. Common shares are classified as equity; incremental costs directly attributable to the issue of shares are recognized as a deduction from equity, net of tax. Retained earnings represent accumulated profits or losses net of dividend distributions and other capital adjustments.
+
+Revenue Recognition. Revenue is measured at the fair value of the consideration received or receivable, net of discounts and returns. Revenue from the sale of goods is recognized when the significant risks and rewards of ownership have transferred to the buyer; revenue from services is recognized by reference to the stage of completion at the reporting date. Interest income is recognized using the effective interest method.
+
+Cost and Expense Recognition. Costs and expenses are recognized on the accrual basis when incurred.
+
+Income Taxes. Current tax is the expected tax payable on taxable income for the period using enacted or substantively enacted rates. Deferred tax is recognized on temporary differences between the carrying amounts of assets and liabilities and their tax bases, and on the carryforward of unused tax losses (NOLCO) and credits (MCIT), to the extent recovery is probable, using the liability method and the rates expected to apply when the differences reverse.
+
+Provisions and Contingencies. Provisions are recognized for present legal or constructive obligations that will probably require an outflow of resources and can be estimated reliably, at the best estimate of the settlement amount. Contingent liabilities are not recognized but are disclosed unless remote; contingent assets are disclosed when an inflow is probable.
+
+Events After the Reporting Date. Adjusting events are reflected in the financial statements; non-adjusting events are disclosed when material.`,
+  },
+];
+
+/** Full PFRS — large / publicly-accountable entities: total assets > ₱350M or
+ *  liabilities > ₱250M, listed or in the process of listing, or holders of
+ *  secondary licenses. PFRS 9 classification + expected credit losses, PFRS 15
+ *  five-step revenue, PFRS 16 right-of-use leases, PAS 12 deferred tax. */
+const FULL_PFRS: PolicyBlock[] = [
+  CORPORATE_INFORMATION,
+  {
+    key: "basis-of-preparation",
+    title: "Basis of Preparation",
+    body: `Statement of Compliance. The accompanying financial statements have been prepared in compliance with Philippine Financial Reporting Standards (PFRS), which include the standards and interpretations approved by the Financial and Sustainability Reporting Standards Council, based on International Financial Reporting Standards.
+
+Basis of Measurement. The financial statements have been prepared on the historical cost basis, except for financial instruments and other items required or permitted to be measured at fair value. All values are rounded to the nearest Peso unless otherwise indicated.
+
+Functional and Presentation Currency. The financial statements are presented in {{functionalCurrency}}, which is also the Company's functional currency.`,
+  },
+  {
+    key: "significant-accounting-policies",
+    title: "Significant Accounting Policies",
+    body: `Financial Instruments (PFRS 9). Financial assets are classified at initial recognition, based on the Company's business model and the contractual cash-flow characteristics, as measured at amortized cost, at fair value through other comprehensive income, or at fair value through profit or loss. The Company's financial assets — cash, trade and other receivables — are held to collect contractual cash flows that are solely payments of principal and interest and are measured at amortized cost using the effective interest method. Financial liabilities are measured at amortized cost.
+
+Impairment of Financial Assets. The Company recognizes an allowance for expected credit losses (ECL) on financial assets measured at amortized cost. For trade receivables, the simplified approach is applied, measuring the loss allowance at lifetime ECL using a provision matrix based on historical loss experience adjusted for forward-looking factors.
+
+Cash and Cash Equivalents. Cash includes cash on hand and demand deposits; cash equivalents are short-term, highly liquid investments readily convertible to known amounts of cash with insignificant risk of changes in value.
+
+Inventories (PAS 2). Inventories are measured at the lower of cost and net realizable value.
+
+Property, Plant and Equipment (PAS 16). Property, plant and equipment are carried at cost less accumulated depreciation and accumulated impairment losses. Depreciation is recognized on a straight-line basis over estimated useful lives; residual values, useful lives and methods are reviewed at each year-end and adjusted prospectively.
+
+Impairment of Non-financial Assets (PAS 36). At each reporting date, assets are reviewed for indicators of impairment; where the recoverable amount — the higher of fair value less costs of disposal and value in use — is below carrying amount, the asset is written down and the loss recognized in profit or loss.
+
+Leases (PFRS 16). At the commencement of a lease, the Company recognizes a right-of-use asset and a lease liability measured at the present value of remaining lease payments, except for short-term leases and leases of low-value assets, for which payments are recognized as an expense on a straight-line basis.
+
+Related Parties. Parties are considered related if one has the ability, directly or indirectly, to control the other or exercise significant influence over it in making financial and operating decisions, including key management personnel.
+
+Equity. Common shares are classified as equity; incremental costs directly attributable to the issue of shares are recognized as a deduction from equity, net of tax. Retained earnings represent accumulated profits or losses net of dividends declared and other capital adjustments.
+
+Revenue from Contracts with Customers (PFRS 15). Revenue is recognized when (or as) the Company satisfies a performance obligation by transferring control of a good or service to the customer, in an amount that reflects the consideration to which the Company expects to be entitled, applying the five-step model: identify the contract; identify the performance obligations; determine the transaction price; allocate the transaction price; and recognize revenue as obligations are satisfied. Interest income is recognized using the effective interest method.
+
+Cost and Expense Recognition. Costs and expenses are recognized on the accrual basis when incurred.
+
+Income Taxes (PAS 12). Current tax is the expected tax payable on taxable income using enacted or substantively enacted rates. Deferred tax is recognized on all taxable temporary differences, and deferred tax assets on deductible temporary differences, NOLCO and MCIT to the extent that future taxable profit will be available, measured at the rates expected to apply when the asset is realized or the liability settled. Deferred tax is reviewed at each reporting date.
+
+Provisions and Contingencies (PAS 37). Provisions are recognized for present obligations arising from past events when an outflow is probable and reliably estimable, discounted where the time value of money is material. Contingent liabilities are disclosed unless remote; contingent assets are disclosed when an inflow is probable.
+
+Events After the Reporting Period (PAS 10). Adjusting events are reflected in the financial statements; material non-adjusting events are disclosed.`,
+  },
+];
+
+/** Disclosure library keyed by reporting framework. Unknown frameworks fall
+ *  back to the Small Entities set (the accountant can override per report). */
 export const POLICY_LIBRARY: Record<string, PolicyBlock[]> = {
   "PFRS for Small Entities": SMALL_ENTITIES,
-  "PFRS for SMEs": SMALL_ENTITIES,
-  "Full PFRS": SMALL_ENTITIES,
+  "PFRS for SMEs": SMES,
+  "Full PFRS": FULL_PFRS,
 };
 
 export function policyBlocksFor(framework: string): PolicyBlock[] {
