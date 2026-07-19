@@ -65,9 +65,11 @@ export default function FsReportPage() {
     onSuccess: () => navigate("/financial-statements"),
   });
 
+  const [exportWarnings, setExportWarnings] = useState(0);
   const exporting = useMutation({
-    mutationFn: () => exportFsReport(id),
-    onSuccess: ({ blob, filename }) => {
+    mutationFn: (presentation: "formal" | "detailed") => exportFsReport(id, { presentation }),
+    onSuccess: ({ blob, filename, warnings }) => {
+      setExportWarnings(warnings);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -93,7 +95,15 @@ export default function FsReportPage() {
         description={`${r.framework} · periods: ${r.periods.map((p) => p.label).join(", ") || "none"}`}
         actions={
           <>
-            <Button variant="primary" disabled={exporting.isPending} onClick={() => exporting.mutate()}>
+            <Button
+              variant="ghost"
+              disabled={exporting.isPending}
+              onClick={() => exporting.mutate("detailed")}
+              title="Full chart-of-accounts layout for working-paper use"
+            >
+              Working paper
+            </Button>
+            <Button variant="primary" disabled={exporting.isPending} onClick={() => exporting.mutate("formal")}>
               {exporting.isPending ? "Exporting…" : "Export .xlsx"}
             </Button>
             {canManage && (
@@ -113,6 +123,12 @@ export default function FsReportPage() {
       {exporting.isError && (
         <div className="mb-4 rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
           {exporting.error instanceof ApiError ? exporting.error.message : "Export failed."}
+        </div>
+      )}
+      {exporting.isSuccess && exportWarnings > 0 && (
+        <div className="mb-4 rounded-input border border-warn/40 bg-warn-bg px-3.5 py-2.5 text-[13px] text-warn">
+          Exported with {exportWarnings} data-quality warning{exportWarnings === 1 ? "" : "s"} (system
+          accounts, unmapped balances or missing profile fields). Details are in the Audit Log entry.
         </div>
       )}
 
