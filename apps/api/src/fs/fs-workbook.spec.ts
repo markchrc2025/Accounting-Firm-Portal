@@ -499,4 +499,31 @@ describe("FS export rework — acceptance criteria", () => {
     expect(rendered.title).toContain("FY2026");
     expect(rendered.company).toBe("Sample Corp OPC");
   });
+
+  it("includeNotes=false drops the Notes sheet and the Note reference column", async () => {
+    const input = fixtureInput();
+    input.includeNotes = false;
+    const m = buildExportModel(input);
+    expect(m.sheets.map((s) => s.name)).toEqual(["BS", "IS", "CF", "CE"]);
+    const wbNoNotes = renderWorkbook(m, input.profile.entityName);
+    const buffer = await workbookBuffer(wbNoNotes);
+    const read = new ExcelJS.Workbook();
+    await read.xlsx.load(buffer as unknown as ArrayBuffer);
+    // Without the Note column the period headers start right after the labels.
+    expect(read.getWorksheet("BS")!.getCell(6, 2).value).toBe("2026");
+    // Fixture gross revenue (1.0M) is below the P3M threshold → no warning.
+    expect(m.warnings.map((w) => w.code)).not.toContain("notes-required");
+  });
+
+  it("warns when Notes are off but gross revenue meets the P3,000,000 threshold", () => {
+    const input = fixtureInput();
+    input.includeNotes = false;
+    input.engine.tb = input.engine.tb.map((e) =>
+      e.accountCode === "3001001" && e.periodId === "p0" ? { ...e, amount: -3_500_000 } : e,
+    );
+    const m = buildExportModel(input);
+    const warning = m.warnings.find((w) => w.code === "notes-required");
+    expect(warning).toBeDefined();
+    expect(warning!.message).toContain("3,000,000");
+  });
 });

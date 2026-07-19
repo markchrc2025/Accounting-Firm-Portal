@@ -103,6 +103,7 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
   const [clientId, setClientId] = useState("");
   const [entityName, setEntityName] = useState("");
   const [framework, setFramework] = useState("PFRS for Small Entities");
+  const [includeNotes, setIncludeNotes] = useState(true);
   const [periods, setPeriods] = useState<FsPeriodInput[]>([
     { label: String(thisYear), endDate: `${thisYear}-12-31`, periodType: "FY" },
   ]);
@@ -145,6 +146,7 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
       ...(clientId ? { clientId } : {}),
       ...(entityName.trim() ? { entityName: entityName.trim() } : {}),
       framework,
+      includeNotes,
       periods,
     });
   }
@@ -208,6 +210,24 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
                 <option>PFRS for SMEs</option>
                 <option>Full PFRS</option>
               </select>
+            </label>
+
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={includeNotes}
+                onChange={(e) => setIncludeNotes(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="block text-[13px] font-semibold text-content">
+                  Generate Notes to Financial Statements
+                </span>
+                <span className="block text-[11.5px] text-content-muted">
+                  Required for entities with gross sales/revenue of ₱3,000,000 and above. If turned
+                  off but the threshold is met, the export flags a warning.
+                </span>
+              </span>
             </label>
 
             <div>

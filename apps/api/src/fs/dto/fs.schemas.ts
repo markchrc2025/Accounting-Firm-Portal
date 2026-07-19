@@ -27,6 +27,9 @@ export const CreateReportSchema = z
     authorizedShares: z.number().int().positive().optional(),
     issuedShares: z.number().int().positive().optional(),
     parValue: z.number().positive().optional(),
+    /** Generate Notes to Financial Statements (required for entities with
+     *  gross sales/revenue of P3,000,000 and above). Default true. */
+    includeNotes: z.boolean().optional(),
     periods: z.array(PeriodSchema).min(1).max(5),
   })
   .refine((v) => v.entityName || v.clientId, {
@@ -46,6 +49,7 @@ export const UpdateReportSchema = z
     authorizedShares: z.number().int().positive().nullable().optional(),
     issuedShares: z.number().int().positive().nullable().optional(),
     parValue: z.number().positive().nullable().optional(),
+    includeNotes: z.boolean().optional(),
     status: z.enum(["draft", "final"]).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Provide at least one field." });

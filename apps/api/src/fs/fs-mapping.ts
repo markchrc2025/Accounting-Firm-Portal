@@ -17,7 +17,8 @@ export interface ExportWarning {
     | "unmapped-account"
     | "missing-profile-field"
     | "equity-plug"
-    | "dividends-plug";
+    | "dividends-plug"
+    | "notes-required";
   message: string;
 }
 
