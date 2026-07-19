@@ -62,6 +62,11 @@ export default function FsReportPage() {
 
   const report = useQuery({ queryKey: ["fs-report", id], queryFn: () => fetchFsReport(id) });
 
+  // If Notes get turned off while the Notes tab is open, fall back gracefully.
+  useEffect(() => {
+    if (report.data?.includeNotes === false && tab === "notes") setTab("trial-balance");
+  }, [report.data?.includeNotes, tab]);
+
   const remove = useMutation({
     mutationFn: () => deleteFsReport(id),
     onSuccess: () => navigate("/financial-statements"),
@@ -142,7 +147,7 @@ export default function FsReportPage() {
       )}
 
       <div className="mb-5 flex gap-1 border-b border-line">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.key !== "notes" || r.includeNotes !== false).map((t) => (
           <button
             key={t.key}
             type="button"
@@ -200,6 +205,7 @@ function EntityDetailsModal({
     issuedShares: report.issuedShares?.toString() ?? "",
     parValue: report.parValue?.toString() ?? "",
   });
+  const [includeNotes, setIncludeNotes] = useState(report.includeNotes !== false);
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
@@ -213,6 +219,7 @@ function EntityDetailsModal({
         ...(form.authorizedShares ? { authorizedShares: Number(form.authorizedShares) } : {}),
         ...(form.issuedShares ? { issuedShares: Number(form.issuedShares) } : {}),
         ...(form.parValue ? { parValue: Number(form.parValue) } : {}),
+        includeNotes,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fs-report", report.id] });
@@ -303,6 +310,23 @@ function EntityDetailsModal({
                 <input value={form.parValue} onChange={set("parValue")} inputMode="decimal" className="input mt-1.5" />
               </label>
             </div>
+            <label className="flex items-start gap-2.5 pt-1">
+              <input
+                type="checkbox"
+                checked={includeNotes}
+                onChange={(e) => setIncludeNotes(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="block text-[13px] font-semibold text-content">
+                  Generate Notes to Financial Statements
+                </span>
+                <span className="block text-[11.5px] text-content-muted">
+                  Required at ₱3,000,000+ gross sales/revenue — the export warns if turned off past
+                  the threshold.
+                </span>
+              </span>
+            </label>
             <p className="text-[12px] text-content-muted">
               These feed the Notes (Corporate Information, Capital Stock) and the export — filled fields replace the
               bracket placeholders and clear the export warnings.

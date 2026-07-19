@@ -152,6 +152,7 @@ export class FsService {
         authorizedShares: input.authorizedShares ?? null,
         issuedShares: input.issuedShares ?? null,
         parValue: input.parValue ?? null,
+        includeNotes: input.includeNotes ?? true,
         periods: {
           create: input.periods.map((p, i) => ({
             label: p.label,
@@ -190,6 +191,7 @@ export class FsService {
         ...(input.authorizedShares !== undefined ? { authorizedShares: input.authorizedShares } : {}),
         ...(input.issuedShares !== undefined ? { issuedShares: input.issuedShares } : {}),
         ...(input.parValue !== undefined ? { parValue: input.parValue } : {}),
+        ...(input.includeNotes !== undefined ? { includeNotes: input.includeNotes } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
       },
       include: { periods: { orderBy: { sortOrder: "asc" } } },
@@ -460,6 +462,7 @@ export class FsService {
       customNotes: notes.customNotes
         .filter((c) => c.included)
         .map((c) => ({ title: c.title ?? "Other Matters", body: c.body })),
+      includeNotes: report.includeNotes,
       options: opts,
     });
 
@@ -693,6 +696,7 @@ export class FsService {
       authorizedShares: r.authorizedShares,
       issuedShares: r.issuedShares,
       parValue: r.parValue === null ? null : num(r.parValue),
+      includeNotes: r.includeNotes,
       status: r.status,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),

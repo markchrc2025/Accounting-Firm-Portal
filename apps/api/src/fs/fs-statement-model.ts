@@ -87,6 +87,10 @@ export interface ModelInput {
   engine: FsEngineInput; // accounts + ALL periods' tb + adjustments
   policyNotes: PolicyNoteText[]; // included blocks, already merged
   customNotes: CustomNoteText[];
+  /** Generate the Notes sheet + Note reference column (default true). Entities
+   *  with gross sales/revenue of P3,000,000 and above are REQUIRED to present
+   *  Notes — exporting without them emits a "notes-required" warning. */
+  includeNotes?: boolean;
   options: FsExportOptions;
 }
 
@@ -169,6 +173,9 @@ function forLine(periods: ExportPeriod[]): string {
   if (dates.length === 1) return `For the ${unit} ended ${dates[0]}`;
   return `For the ${unit}s ended ${dates.join(" and ")}`;
 }
+
+/** PH SEC/BIR rule of thumb: Notes are required at P3,000,000 gross revenue. */
+export const NOTES_REQUIRED_THRESHOLD = 3_000_000;
 
 const cell = (v: number, f?: FormulaSpec): XCell => ({ v: round2(v), f });
 const zeros = (n: number): XCell[] => Array.from({ length: n }, () => cell(0));
@@ -477,7 +484,7 @@ function buildBs(ctx: Ctx): XSheet {
     ],
     amountHeads: periods.map((p) => p.label),
     amountCols: faceCols,
-    hasNoteCol: true,
+    hasNoteCol: input.includeNotes !== false,
     rows,
   };
 }
@@ -644,7 +651,7 @@ function buildIs(ctx: Ctx): XSheet {
     ],
     amountHeads: periods.map((p) => p.label),
     amountCols: faceCols,
-    hasNoteCol: true,
+    hasNoteCol: input.includeNotes !== false,
     rows,
   };
 }
@@ -1256,10 +1263,34 @@ export function buildExportModel(input: ModelInput): ExportModel {
     }
   }
 
-  const specs = buildNoteSpecs(ctx);
-  assignNoteNumbers(ctx, specs);
+  const includeNotes = input.includeNotes !== false;
+  if (!includeNotes) {
+    // PH filing rule: gross sales/revenue of P3,000,000 and above requires
+    // Notes to Financial Statements — warn when this export omits them.
+    const grossRevenue = round2(
+      -input.engine.accounts
+        .filter((a) => a.class === "Revenue" && a.code !== "3901001")
+        .reduce((s2, a) => s2 + ctx.bal.raw(0, a.code), 0),
+    );
+    if (grossRevenue >= NOTES_REQUIRED_THRESHOLD) {
+      ctx.warnings.push({
+        code: "notes-required",
+        message:
+          `Gross sales/revenue of ${grossRevenue.toLocaleString("en-PH", { minimumFractionDigits: 2 })} ` +
+          `meets or exceeds the P3,000,000 threshold — Notes to Financial Statements are required, ` +
+          `but this report is set not to generate them.`,
+      });
+    }
+  }
 
-  const sheets: XSheet[] = [buildBs(ctx), buildIs(ctx), buildCf(ctx), buildCe(ctx), buildNotes(ctx, specs)];
+  const sheets: XSheet[] = [];
+  if (includeNotes) {
+    const specs = buildNoteSpecs(ctx);
+    assignNoteNumbers(ctx, specs);
+    sheets.push(buildBs(ctx), buildIs(ctx), buildCf(ctx), buildCe(ctx), buildNotes(ctx, specs));
+  } else {
+    sheets.push(buildBs(ctx), buildIs(ctx), buildCf(ctx), buildCe(ctx));
+  }
   return { sheets, warnings: ctx.warnings, currentLabel: input.periods[0]?.label ?? "" };
 }
 

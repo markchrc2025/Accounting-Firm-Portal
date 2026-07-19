@@ -719,6 +719,9 @@ model FsReport {
   framework           String    @default("PFRS for Small Entities")
   functionalCurrency  String    @default("PHP")
   approvalDate        DateTime? @db.Date // BOD authorization for issue
+  /// Whether the report generates Notes to Financial Statements (entities
+  /// with gross sales/revenue of P3,000,000 and above are required to).
+  includeNotes        Boolean   @default(true)
   // Capital-stock profile (feeds the Capital Stock note; optional).
   authorizedShares    Int?
   issuedShares        Int?

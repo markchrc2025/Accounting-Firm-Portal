@@ -203,6 +203,7 @@ export interface FsReport {
   authorizedShares?: number | null;
   issuedShares?: number | null;
   parValue?: number | null;
+  includeNotes?: boolean;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -258,6 +259,7 @@ export interface CreateFsReportInput {
   authorizedShares?: number;
   issuedShares?: number;
   parValue?: number;
+  includeNotes?: boolean;
   periods: FsPeriodInput[];
 }
 
