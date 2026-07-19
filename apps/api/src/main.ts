@@ -14,7 +14,7 @@ async function bootstrap(): Promise<void> {
   // dedicated pipe added in Phase 1 — we intentionally avoid class-validator.
   // Expose Content-Disposition so the browser can read download filenames
   // (e.g. the FS xlsx export) cross-origin.
-  app.enableCors({ exposedHeaders: ["Content-Disposition"] });
+  app.enableCors({ exposedHeaders: ["Content-Disposition", "X-Export-Warnings"] });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Accounting Firm Portal API")

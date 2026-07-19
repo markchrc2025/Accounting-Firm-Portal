@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
@@ -18,8 +18,14 @@ import {
   type FsNoteTableRow,
   type NoteMergeContext,
 } from "./fs-notes";
-import { buildFsWorkbook, exportFileName } from "./fs-export";
-import * as XLSX from "xlsx";
+import {
+  buildExportModel,
+  exportFileName,
+  DEFAULT_EXPORT_OPTIONS,
+  type FsExportOptions,
+} from "./fs-statement-model";
+import type { ExportWarning } from "./fs-mapping";
+import { renderWorkbook, workbookBuffer } from "./fs-workbook";
 import type {
   AddCustomNoteInput,
   CreateAdjustmentInput,
@@ -50,6 +56,8 @@ const toDate = (s: string): Date => new Date(`${s}T00:00:00.000Z`);
  */
 @Injectable()
 export class FsService {
+  private readonly logger = new Logger(FsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -111,6 +119,9 @@ export class FsService {
         framework: input.framework ?? "PFRS for Small Entities",
         functionalCurrency: input.functionalCurrency ?? "PHP",
         approvalDate: input.approvalDate ? toDate(input.approvalDate) : null,
+        authorizedShares: input.authorizedShares ?? null,
+        issuedShares: input.issuedShares ?? null,
+        parValue: input.parValue ?? null,
         periods: {
           create: input.periods.map((p, i) => ({
             label: p.label,
@@ -146,6 +157,9 @@ export class FsService {
         ...(input.approvalDate !== undefined
           ? { approvalDate: input.approvalDate ? toDate(input.approvalDate) : null }
           : {}),
+        ...(input.authorizedShares !== undefined ? { authorizedShares: input.authorizedShares } : {}),
+        ...(input.issuedShares !== undefined ? { issuedShares: input.issuedShares } : {}),
+        ...(input.parValue !== undefined ? { parValue: input.parValue } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
       },
       include: { periods: { orderBy: { sortOrder: "asc" } } },
@@ -369,32 +383,77 @@ export class FsService {
 
   // -------------------------------------------------------------------- export
 
-  /** The full AFS as an xlsx workbook (BS · IS · CF · CE · Notes), mirroring
-   *  the firm's template layout. Statements and notes are derived from ONE
-   *  report + engine-input snapshot, so a concurrent edit (trial-balance save,
-   *  adjustment, period change) can never produce a workbook whose Notes don't
-   *  tie to its statement captions. */
-  async getExport(user: AuthUser, id: string): Promise<{ buffer: Buffer; filename: string }> {
+  /** The full AFS as an xlsx workbook (BS · IS · CF · CE · Notes) with live
+   *  formulas + cached results, formal/detailed presentation, comparative
+   *  columns and the export warning log. Everything derives from ONE report +
+   *  engine-input snapshot so the workbook is internally consistent. */
+  async getExport(
+    user: AuthUser,
+    id: string,
+    options: Partial<FsExportOptions> = {},
+  ): Promise<{ buffer: Buffer; filename: string; warnings: ExportWarning[] }> {
     const report = await this.requireReport(user, id);
     const engineInput = await this.buildEngineInput(report);
     const notes = await this.composeNotes(report, engineInput);
-    const workbook = buildFsWorkbook({
-      entityName: report.entityName,
-      periods: notes.periods,
-      balanceSheet: buildBalanceSheet(engineInput),
-      incomeStatement: buildIncomeStatement(engineInput),
-      cashFlow: buildCashFlow(engineInput),
-      changesInEquity: buildChangesInEquity(engineInput),
-      notes: notes.document,
+    const sortedPeriods = [...report.periods].sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const opts: FsExportOptions = {
+      ...DEFAULT_EXPORT_OPTIONS,
+      includeComparative: sortedPeriods.length > 1,
+      ...options,
+    };
+
+    const model = buildExportModel({
+      profile: {
+        entityName: report.entityName,
+        secRegistrationNo: report.secRegistrationNo,
+        registeredAddress: report.registeredAddress,
+        businessDescription: report.businessDescription,
+        framework: report.framework,
+        functionalCurrency: report.functionalCurrency,
+        approvalDate: isoDate(report.approvalDate),
+        authorizedShares: report.authorizedShares,
+        issuedShares: report.issuedShares,
+        parValue: report.parValue === null ? null : num(report.parValue),
+      },
+      periods: sortedPeriods.map((p) => ({
+        id: p.id,
+        label: p.label,
+        endDate: isoDate(p.endDate),
+        periodType: p.periodType,
+        sortOrder: p.sortOrder,
+      })),
+      engine: engineInput,
+      policyNotes: notes.policyBlocks
+        .filter((b) => b.included)
+        .map((b) => ({ title: b.title, body: b.body })),
+      customNotes: notes.customNotes
+        .filter((c) => c.included)
+        .map((c) => ({ title: c.title ?? "Other Matters", body: c.body })),
+      options: opts,
     });
-    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+    const workbook = renderWorkbook(model, report.entityName);
+    const buffer = await workbookBuffer(workbook);
+    for (const w of model.warnings) {
+      this.logger.warn(`fs-export ${id} [${w.code}] ${w.message}`);
+    }
     await this.audit.record({
       userId: user.id,
       action: "fs.report.export",
       entityType: "FsReport",
       entityId: id,
+      metadata: {
+        presentation: opts.presentation,
+        comparative: opts.includeComparative,
+        warnings: model.warnings.map((w) => `[${w.code}] ${w.message}`),
+      },
     });
-    return { buffer, filename: exportFileName(report.entityName, notes.periods) };
+    return {
+      buffer,
+      filename: exportFileName(report.entityName, model.currentLabel),
+      warnings: model.warnings,
+    };
   }
 
   // -------------------------------------------------------------------- notes
@@ -598,6 +657,9 @@ export class FsService {
       framework: r.framework,
       functionalCurrency: r.functionalCurrency,
       approvalDate: isoDate(r.approvalDate),
+      authorizedShares: r.authorizedShares,
+      issuedShares: r.issuedShares,
+      parValue: r.parValue === null ? null : num(r.parValue),
       status: r.status,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),

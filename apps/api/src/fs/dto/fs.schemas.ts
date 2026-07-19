@@ -20,6 +20,9 @@ export const CreateReportSchema = z.object({
   framework: z.string().optional(),
   functionalCurrency: z.string().optional(),
   approvalDate: zDate.optional(),
+  authorizedShares: z.number().int().positive().optional(),
+  issuedShares: z.number().int().positive().optional(),
+  parValue: z.number().positive().optional(),
   periods: z.array(PeriodSchema).min(1).max(5),
 });
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
@@ -33,9 +36,21 @@ export const UpdateReportSchema = z
     framework: z.string().optional(),
     functionalCurrency: z.string().optional(),
     approvalDate: zDate.nullable().optional(),
+    authorizedShares: z.number().int().positive().nullable().optional(),
+    issuedShares: z.number().int().positive().nullable().optional(),
+    parValue: z.number().positive().nullable().optional(),
     status: z.enum(["draft", "final"]).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Provide at least one field." });
+
+/** Export options (§D), all optional — defaults: formal, comparative when a
+ *  prior period exists, zero rows suppressed. */
+export const ExportOptionsSchema = z.object({
+  presentation: z.enum(["formal", "detailed"]).optional(),
+  comparative: z.enum(["true", "false"]).optional(),
+  suppressZero: z.enum(["true", "false"]).optional(),
+});
+export type ExportOptionsInput = z.infer<typeof ExportOptionsSchema>;
 export type UpdateReportInput = z.infer<typeof UpdateReportSchema>;
 
 /** Replace the report's period configuration (1–5). Removed periods drop their

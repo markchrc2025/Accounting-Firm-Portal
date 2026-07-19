@@ -338,11 +338,15 @@ export interface FsNotesDocument {
 export function fetchFsNotes(id: string): Promise<FsNotesDocument> {
   return apiFetch<FsNotesDocument>(`/fs/reports/${id}/notes`);
 }
-/** Download the assembled AFS workbook. Returns the file blob plus the server's
- *  suggested filename (from Content-Disposition). */
-export async function exportFsReport(id: string): Promise<{ blob: Blob; filename: string }> {
+/** Download the assembled AFS workbook. Returns the file blob, the server's
+ *  suggested filename (Content-Disposition) and the export-warning count. */
+export async function exportFsReport(
+  id: string,
+  options?: { presentation?: "formal" | "detailed" },
+): Promise<{ blob: Blob; filename: string; warnings: number }> {
   const token = getToken();
-  const res = await fetch(`${API_BASE_URL}/fs/reports/${id}/export`, {
+  const q = options?.presentation ? `?presentation=${options.presentation}` : "";
+  const res = await fetch(`${API_BASE_URL}/fs/reports/${id}/export${q}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) {
@@ -360,7 +364,8 @@ export async function exportFsReport(id: string): Promise<{ blob: Blob; filename
   }
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "Financial Statements.xlsx";
-  return { blob: await res.blob(), filename };
+  const warnings = Number(res.headers.get("X-Export-Warnings") ?? "0") || 0;
+  return { blob: await res.blob(), filename, warnings };
 }
 export function setFsPolicyNote(
   id: string,

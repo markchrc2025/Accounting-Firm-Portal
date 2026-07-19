@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Res,
   StreamableFile,
   UseGuards,
@@ -82,16 +83,30 @@ export class FsController {
     return this.fs.getNotes(user, id);
   }
 
+  /** Backward-compatible entry point; §D options ride optional query params:
+   *  ?presentation=formal|detailed & comparative=true|false & suppressZero=…  */
   @Get("reports/:id/export")
   async export(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,
     @Res({ passthrough: true }) res: Response,
+    @Query("presentation") presentation?: string,
+    @Query("comparative") comparative?: string,
+    @Query("suppressZero") suppressZero?: string,
   ) {
-    const { buffer, filename } = await this.fs.getExport(user, id);
+    const { buffer, filename, warnings } = await this.fs.getExport(user, id, {
+      ...(presentation === "formal" || presentation === "detailed" ? { presentation } : {}),
+      ...(comparative === "true" || comparative === "false"
+        ? { includeComparative: comparative === "true" }
+        : {}),
+      ...(suppressZero === "true" || suppressZero === "false"
+        ? { suppressZeroRows: suppressZero === "true" }
+        : {}),
+    });
     res.set({
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-Export-Warnings": String(warnings.length),
     });
     return new StreamableFile(buffer);
   }

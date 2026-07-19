@@ -716,6 +716,10 @@ model FsReport {
   framework           String    @default("PFRS for Small Entities")
   functionalCurrency  String    @default("PHP")
   approvalDate        DateTime? @db.Date // BOD authorization for issue
+  // Capital-stock profile (feeds the Capital Stock note; optional).
+  authorizedShares    Int?
+  issuedShares        Int?
+  parValue            Decimal?  @db.Decimal(18, 2)
   status              String    @default("draft") // "draft" | "final"
   createdById         String    @db.Uuid
   createdAt           DateTime  @default(now())
