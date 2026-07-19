@@ -12,19 +12,26 @@ export const PeriodSchema = z.object({
 
 /** Create an FS report with 1–5 comparative periods. Entity facts are typed in
  *  (no client-profile wiring yet). */
-export const CreateReportSchema = z.object({
-  entityName: z.string().min(1),
-  secRegistrationNo: z.string().optional(),
-  registeredAddress: z.string().optional(),
-  businessDescription: z.string().optional(),
-  framework: z.string().optional(),
-  functionalCurrency: z.string().optional(),
-  approvalDate: zDate.optional(),
-  authorizedShares: z.number().int().positive().optional(),
-  issuedShares: z.number().int().positive().optional(),
-  parValue: z.number().positive().optional(),
-  periods: z.array(PeriodSchema).min(1).max(5),
-});
+export const CreateReportSchema = z
+  .object({
+    /** Link to a portal client — its profile is fetched and snapshotted onto
+     *  the report (entityName may still override the fetched name). */
+    clientId: z.string().uuid().optional(),
+    entityName: z.string().min(1).optional(),
+    secRegistrationNo: z.string().optional(),
+    registeredAddress: z.string().optional(),
+    businessDescription: z.string().optional(),
+    framework: z.string().optional(),
+    functionalCurrency: z.string().optional(),
+    approvalDate: zDate.optional(),
+    authorizedShares: z.number().int().positive().optional(),
+    issuedShares: z.number().int().positive().optional(),
+    parValue: z.number().positive().optional(),
+    periods: z.array(PeriodSchema).min(1).max(5),
+  })
+  .refine((v) => v.entityName || v.clientId, {
+    message: "Provide an entity name or link a client.",
+  });
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
 
 export const UpdateReportSchema = z

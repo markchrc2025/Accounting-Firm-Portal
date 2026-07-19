@@ -21,6 +21,7 @@ import {
   setFsPolicyNote,
   setFsTrialBalance,
   updateFsCustomNote,
+  updateFsReport,
   type FsNoteDocItem,
   type FsPolicyBlock,
   type FsRow,
@@ -57,6 +58,7 @@ export default function FsReportPage() {
   const { hasPermission } = useAuth();
   const canManage = hasPermission("FinancialStatements:Manage");
   const [tab, setTab] = useState<Tab>("trial-balance");
+  const [editingEntity, setEditingEntity] = useState(false);
 
   const report = useQuery({ queryKey: ["fs-report", id], queryFn: () => fetchFsReport(id) });
 
@@ -92,9 +94,16 @@ export default function FsReportPage() {
       <PageHeader
         eyebrow="Financial Statements"
         title={r.entityName}
-        description={`${r.framework} · periods: ${r.periods.map((p) => p.label).join(", ") || "none"}`}
+        description={`${r.clientName ? `Client: ${r.clientName} · ` : ""}${r.framework} · periods: ${
+          r.periods.map((p) => p.label).join(", ") || "none"
+        }`}
         actions={
           <>
+            {canManage && (
+              <Button variant="ghost" onClick={() => setEditingEntity(true)}>
+                Entity details
+              </Button>
+            )}
             <Button
               variant="ghost"
               disabled={exporting.isPending}
@@ -156,6 +165,159 @@ export default function FsReportPage() {
       {tab !== "trial-balance" && tab !== "adjustments" && tab !== "notes" && (
         <StatementTab reportId={id} kind={tab} />
       )}
+
+      {editingEntity && (
+        <EntityDetailsModal
+          report={r}
+          onClose={() => setEditingEntity(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- Entity details */
+
+/** Edit the report's entity facts — the fields that feed the Notes merge and
+ *  the exported title blocks. A linked client seeds name/address; the rest
+ *  (SEC no., business activity, approval date, capital stock) are completed
+ *  here, clearing the bracket placeholders and export warnings. */
+function EntityDetailsModal({
+  report,
+  onClose,
+}: {
+  report: import("../lib/api").FsReport;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    entityName: report.entityName,
+    secRegistrationNo: report.secRegistrationNo ?? "",
+    registeredAddress: report.registeredAddress ?? "",
+    businessDescription: report.businessDescription ?? "",
+    approvalDate: report.approvalDate ?? "",
+    authorizedShares: report.authorizedShares?.toString() ?? "",
+    issuedShares: report.issuedShares?.toString() ?? "",
+    parValue: report.parValue?.toString() ?? "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateFsReport(report.id, {
+        entityName: form.entityName.trim(),
+        secRegistrationNo: form.secRegistrationNo.trim() || undefined,
+        registeredAddress: form.registeredAddress.trim() || undefined,
+        businessDescription: form.businessDescription.trim() || undefined,
+        ...(form.approvalDate ? { approvalDate: form.approvalDate } : {}),
+        ...(form.authorizedShares ? { authorizedShares: Number(form.authorizedShares) } : {}),
+        ...(form.issuedShares ? { issuedShares: Number(form.issuedShares) } : {}),
+        ...(form.parValue ? { parValue: Number(form.parValue) } : {}),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fs-report", report.id] });
+      queryClient.invalidateQueries({ queryKey: ["fs-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["fs-notes", report.id] });
+      queryClient.invalidateQueries({ queryKey: ["fs-statements", report.id] });
+      onClose();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Save failed."),
+  });
+
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(14,33,44,0.45)] p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[90vh] w-full max-w-[560px] animate-fade-rise flex-col overflow-hidden rounded-modal bg-card shadow-modal"
+      >
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <h2 className="font-serif text-[19px] font-medium text-navy">Entity details</h2>
+          <button type="button" aria-label="Close" onClick={onClose} className="text-content-muted hover:text-navy">
+            ✕
+          </button>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setError(null);
+            save.mutate();
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="flex-1 space-y-3 overflow-auto px-6 py-5">
+            {error && (
+              <div className="rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
+                {error}
+              </div>
+            )}
+            {report.clientName && (
+              <p className="text-[12.5px] text-content-secondary">
+                Linked to client <span className="font-semibold text-navy">{report.clientName}</span> — name and
+                address were fetched from the client database; complete the rest here.
+              </p>
+            )}
+            <label className="block">
+              <span className="text-[13px] font-semibold text-content">Entity name</span>
+              <input value={form.entityName} onChange={set("entityName")} required className="input mt-1.5" />
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-semibold text-content">SEC / DTI Registration No.</span>
+              <input value={form.secRegistrationNo} onChange={set("secRegistrationNo")} className="input mt-1.5" />
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-semibold text-content">Registered address</span>
+              <input value={form.registeredAddress} onChange={set("registeredAddress")} className="input mt-1.5" />
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-semibold text-content">Principal business activity</span>
+              <input
+                value={form.businessDescription}
+                onChange={set("businessDescription")}
+                placeholder="e.g. management consulting services"
+                className="input mt-1.5"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[13px] font-semibold text-content">BOD approval date</span>
+              <input type="date" value={form.approvalDate} onChange={set("approvalDate")} className="input mt-1.5" />
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              <label className="block">
+                <span className="text-[13px] font-semibold text-content">Authorized shares</span>
+                <input value={form.authorizedShares} onChange={set("authorizedShares")} inputMode="numeric" className="input mt-1.5" />
+              </label>
+              <label className="block">
+                <span className="text-[13px] font-semibold text-content">Issued shares</span>
+                <input value={form.issuedShares} onChange={set("issuedShares")} inputMode="numeric" className="input mt-1.5" />
+              </label>
+              <label className="block">
+                <span className="text-[13px] font-semibold text-content">Par value (₱)</span>
+                <input value={form.parValue} onChange={set("parValue")} inputMode="decimal" className="input mt-1.5" />
+              </label>
+            </div>
+            <p className="text-[12px] text-content-muted">
+              These feed the Notes (Corporate Information, Capital Stock) and the export — filled fields replace the
+              bracket placeholders and clear the export warnings.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={save.isPending}>
+              {save.isPending ? "Saving…" : "Save details"}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

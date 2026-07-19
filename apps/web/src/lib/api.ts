@@ -191,6 +191,8 @@ export interface FsPeriod {
 }
 export interface FsReport {
   id: string;
+  clientId?: string | null;
+  clientName?: string | null;
   entityName: string;
   secRegistrationNo?: string | null;
   registeredAddress?: string | null;
@@ -198,6 +200,9 @@ export interface FsReport {
   framework: string;
   functionalCurrency: string;
   approvalDate?: string | null;
+  authorizedShares?: number | null;
+  issuedShares?: number | null;
+  parValue?: number | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -242,13 +247,17 @@ export interface FsPeriodInput {
   periodType?: "FY" | "Interim";
 }
 export interface CreateFsReportInput {
-  entityName: string;
+  clientId?: string;
+  entityName?: string;
   secRegistrationNo?: string;
   registeredAddress?: string;
   businessDescription?: string;
   framework?: string;
   functionalCurrency?: string;
   approvalDate?: string;
+  authorizedShares?: number;
+  issuedShares?: number;
+  parValue?: number;
   periods: FsPeriodInput[];
 }
 

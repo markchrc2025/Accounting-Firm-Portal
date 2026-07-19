@@ -708,7 +708,10 @@ model InvoiceLineItem {
 model FsReport {
   id                  String    @id @default(uuid()) @db.Uuid
   firmId              String    @db.Uuid
-  // Entity facts (typed into the report — not pulled from a client profile yet).
+  /// Linked portal client (validated scalar, no FK — the module stays decoupled).
+  /// Entity facts are SNAPSHOTTED from the client at link time and remain
+  /// editable on the report; the link records provenance and drives auto-fill.
+  clientId            String?   @db.Uuid
   entityName          String
   secRegistrationNo   String?
   registeredAddress   String?
@@ -731,6 +734,7 @@ model FsReport {
   notes       FsNote[]
 
   @@index([firmId])
+  @@index([clientId])
   @@map("fs_reports")
 }
 
