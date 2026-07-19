@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import {
   ApiError,
   createFsReport,
+  fetchClients,
   fetchFsReports,
   type CreateFsReportInput,
   type FsPeriodInput,
@@ -74,6 +75,7 @@ export default function FinancialStatementsPage() {
                     <Chip variant={r.status === "final" ? "success" : "neutral"}>{r.status}</Chip>
                   </div>
                   <div className="mt-1 font-mono text-[11.5px] text-content-muted">
+                    {r.clientId ? "Linked client · " : ""}
                     {r.framework} · {r.periods.length} period{r.periods.length === 1 ? "" : "s"}
                     {r.periods.length ? ` (${r.periods.map((p) => p.label).join(", ")})` : ""}
                   </div>
@@ -97,6 +99,8 @@ const thisYear = new Date().getFullYear();
 function CreateReportModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const clients = useQuery({ queryKey: ["clients"], queryFn: fetchClients, staleTime: 60_000 });
+  const [clientId, setClientId] = useState("");
   const [entityName, setEntityName] = useState("");
   const [framework, setFramework] = useState("PFRS for Small Entities");
   const [periods, setPeriods] = useState<FsPeriodInput[]>([
@@ -126,10 +130,23 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
     setPeriods(periods.filter((_, idx) => idx !== i));
   }
 
+  function onPickClient(id: string) {
+    setClientId(id);
+    // Prefill (still editable) — the server snapshots the full profile
+    // (registered name, address) from the client record on create.
+    const picked = clients.data?.find((c) => c.id === id);
+    if (picked) setEntityName(picked.businessName);
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    create.mutate({ entityName: entityName.trim(), framework, periods });
+    create.mutate({
+      ...(clientId ? { clientId } : {}),
+      ...(entityName.trim() ? { entityName: entityName.trim() } : {}),
+      framework,
+      periods,
+    });
   }
 
   return (
@@ -157,11 +174,29 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
             <label className="block">
+              <span className="text-[13px] font-semibold text-content">Client</span>
+              <select
+                value={clientId}
+                onChange={(e) => onPickClient(e.target.value)}
+                className="input mt-1.5"
+              >
+                <option value="">— Standalone (enter details manually) —</option>
+                {(clients.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.businessName}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[11.5px] text-content-muted">
+                Picking a client fetches its registered name and address from the client database.
+              </span>
+            </label>
+            <label className="block">
               <span className="text-[13px] font-semibold text-content">Entity name</span>
               <input
                 value={entityName}
                 onChange={(e) => setEntityName(e.target.value)}
-                required
+                required={!clientId}
                 placeholder="e.g. Workscale Resources Inc."
                 className="input mt-1.5"
               />

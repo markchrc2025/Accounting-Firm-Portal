@@ -25,6 +25,7 @@ import {
   type FsExportOptions,
 } from "./fs-statement-model";
 import type { ExportWarning } from "./fs-mapping";
+import { composeClientEntityFacts } from "./fs-client-profile";
 import { renderWorkbook, workbookBuffer } from "./fs-workbook";
 import type {
   AddCustomNoteInput,
@@ -99,23 +100,52 @@ export class FsService {
       orderBy: { updatedAt: "desc" },
       include: { periods: { orderBy: { sortOrder: "asc" } } },
     });
-    return rows.map((r) => this.toReportDto(r));
+    const clientNames = await this.clientNames(rows.map((r) => r.clientId));
+    return rows.map((r) => this.toReportDto(r, clientNames));
   }
 
   async getReport(user: AuthUser, id: string) {
     const report = await this.requireReport(user, id);
-    return this.toReportDto(report);
+    const clientNames = await this.clientNames([report.clientId]);
+    return this.toReportDto(report, clientNames);
+  }
+
+  /** Display names for linked clients (bulk, firm-scoped). */
+  private async clientNames(ids: (string | null)[]): Promise<Map<string, string>> {
+    const wanted = [...new Set(ids.filter((x): x is string => Boolean(x)))];
+    if (wanted.length === 0) return new Map();
+    const rows = await this.prisma.client.findMany({
+      where: { id: { in: wanted } },
+      select: { id: true, businessName: true, regName: true },
+    });
+    return new Map(rows.map((c) => [c.id, c.regName?.trim() || c.businessName]));
+  }
+
+  /** Resolve + validate a client link and snapshot its entity facts. */
+  private async resolveClientFacts(user: AuthUser, clientId: string) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, firmId: user.firmId },
+    });
+    if (!client) throw new NotFoundException(`Client ${clientId} not found in this firm.`);
+    return composeClientEntityFacts(client);
   }
 
   async createReport(user: AuthUser, input: CreateReportInput) {
+    // A linked client's profile is fetched and snapshotted; explicit input wins.
+    const facts = input.clientId ? await this.resolveClientFacts(user, input.clientId) : null;
+    const entityName = input.entityName ?? facts?.entityName;
+    if (!entityName) {
+      throw new BadRequestException("The linked client has no usable entity name — provide one.");
+    }
     const report = await this.prisma.fsReport.create({
       data: {
         firmId: user.firmId,
         createdById: user.id,
-        entityName: input.entityName,
+        clientId: input.clientId ?? null,
+        entityName,
         secRegistrationNo: input.secRegistrationNo ?? null,
-        registeredAddress: input.registeredAddress ?? null,
-        businessDescription: input.businessDescription ?? null,
+        registeredAddress: input.registeredAddress ?? facts?.registeredAddress ?? null,
+        businessDescription: input.businessDescription ?? facts?.businessDescription ?? null,
         framework: input.framework ?? "PFRS for Small Entities",
         functionalCurrency: input.functionalCurrency ?? "PHP",
         approvalDate: input.approvalDate ? toDate(input.approvalDate) : null,
@@ -647,9 +677,12 @@ export class FsService {
 
   private toReportDto(
     r: Prisma.FsReportGetPayload<{ include: { periods: true } }>,
+    clientNames?: Map<string, string>,
   ) {
     return {
       id: r.id,
+      clientId: r.clientId,
+      clientName: r.clientId ? (clientNames?.get(r.clientId) ?? null) : null,
       entityName: r.entityName,
       secRegistrationNo: r.secRegistrationNo,
       registeredAddress: r.registeredAddress,
