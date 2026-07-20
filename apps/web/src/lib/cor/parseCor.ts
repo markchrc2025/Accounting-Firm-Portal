@@ -193,12 +193,25 @@ function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void
   // so leading tokens carrying them are junk.
   const lastToks = last.trim().split(/\s+/).filter(Boolean);
   while (lastToks.length > 1 && /[\d:]/.test(lastToks[0]!)) lastToks.shift();
-  // Scan noise glues quotes/periods to name parts ("'GABAYNO", ".TITO").
-  out.lastName = lastToks.join(" ").replace(/^['".,‘’“”]+/, "");
+  // Margin garble also lands as short letter tokens before the surname
+  // ("IT {GABAYNO"). Multi-token surnames always start with a particle
+  // (DELA CRUZ, DE GUZMAN, SAN JUAN) — a non-particle <=2-char or
+  // junk-bearing lead token is noise. Single-token surnames (GO, SY, UY)
+  // are never touched.
+  const PARTICLES = new Set(["DE", "LA", "DEL", "DELA", "DELOS", "DELAS", "SAN", "STA", "STO", "MC", "MAC", "VAN", "DER"]);
+  while (
+    lastToks.length > 1 &&
+    !PARTICLES.has(lastToks[0]!.replace(/[^A-Z]/gi, "")) &&
+    (lastToks[0]!.replace(/[^A-Z]/gi, "").length <= 2 || /[^A-Z'.-]/i.test(lastToks[0]!))
+  ) {
+    lastToks.shift();
+  }
+  // Scan noise glues quotes/braces/periods to name parts ("'GABAYNO", "{GABAYNO").
+  out.lastName = lastToks.join(" ").replace(/^['".,‘’“”{}[\]|]+/, "");
   const rest = restRaw
     .trim()
     .split(/\s+/)
-    .map((tok) => tok.replace(/^['".,‘’“”]+/, ""))
+    .map((tok) => tok.replace(/^['".,‘’“”{}[\]|]+|[,;'"‘’“”]+$/g, ""))
     .filter(Boolean);
   const suffix = rest.length && NAME_SUFFIXES.has(rest[rest.length - 1]!) ? rest.pop() : "";
   if (rest.length >= 2) {
@@ -277,7 +290,9 @@ function tradeNameLooksGarbled(candidate: string): boolean {
  *  ("N.A., N.A., 25, MANALO ST, N.A., …" → "25, MANALO ST, …"). The filter is
  *  per comma-segment, so real words containing NA are untouched. */
 function cleanAddress(s: string): string {
-  const toks = s.replace(/\|/g, " ").split(/\s+/);
+  // Pipes and double/curly quotes are never address characters (straight
+  // apostrophes are kept - "O'NEIL ST").
+  const toks = s.replace(/[|"“”]/g, " ").split(/\s+/);
   while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
   while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[0]!)) toks.shift();
   return (
@@ -308,7 +323,7 @@ function addressAfterLabel(lines: string[]): string {
   // lines ("i — TTT TT ;") that would otherwise be joined onto the address.
   const looksLikeContent = (l: string) =>
     /\d/.test(l) || l.split(/\s+/).some((t) => /^[A-Z'.-]{3,}$/.test(t) && /[AEIOU]/.test(t));
-  const leadJunk = /^[\s:.\-–—|_~©®[\]{}]+/;
+  const leadJunk = /^[\s:.\-–—|_~©®[\]{}'"‘’“”]+/;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i]!.match(labelRe);
     if (!m) continue;
