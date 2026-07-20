@@ -9,9 +9,11 @@ import {
   EmptyState,
   ErrorState,
   PageHeader,
+  peso,
   RegimeChip,
   Skeleton,
   StatusChip,
+  cn,
   type ChipVariant,
 } from "../components/ui";
 
@@ -174,14 +176,19 @@ export default function ClientsPage() {
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-line bg-sidebar">
-                  {["Business", "TIN", "Location", "Regime", "Status", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-2.5 font-mono text-[10px] font-normal uppercase tracking-[.14em] text-content-secondary"
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {["Business", "TIN", "Location", "Regime", "Fee", "Status", "Actions"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className={cn(
+                          "px-5 py-2.5 font-mono text-[10px] font-normal uppercase tracking-[.14em] text-content-secondary",
+                          h === "Fee" && "text-right",
+                        )}
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-divider">
@@ -225,6 +232,13 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-5 py-[13px]">
                       <RegimeChip regime={c.taxType} />
+                    </td>
+                    <td className="px-5 py-[13px] text-right font-mono text-[13px] tabular-nums">
+                      {c.professionalFee != null && c.professionalFee !== "" ? (
+                        <span className="text-content">{peso(c.professionalFee)}</span>
+                      ) : (
+                        <span className="text-content-muted">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-[13px]">
                       <StatusChip label={c.status} variant={statusTone(c.status)} />
