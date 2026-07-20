@@ -7,5 +7,6 @@ import { InvoicesService } from "./invoices.service";
   imports: [ClientsModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
+  exports: [InvoicesService], // used by the MCP write tools
 })
 export class InvoicesModule {}

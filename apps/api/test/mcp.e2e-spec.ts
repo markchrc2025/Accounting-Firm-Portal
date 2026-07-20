@@ -69,7 +69,10 @@ describe("MCP endpoint (e2e)", () => {
     const names = (res.body.result.tools as { name: string }[]).map((t) => t.name);
     expect(names).toContain("portal_list_clients");
     expect(names).toContain("portal_financial_summary");
-    expect(names).toHaveLength(6);
+    expect(names).toContain("portal_create_client");
+    expect(names).toContain("portal_record_income");
+    expect(names).toContain("portal_create_invoice");
+    expect(names).toHaveLength(16);
   });
 
   it("answers 405 to GET with the right key (stateless — POST only)", async () => {

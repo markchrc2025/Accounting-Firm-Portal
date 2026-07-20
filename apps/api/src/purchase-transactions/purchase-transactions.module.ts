@@ -9,5 +9,6 @@ import { PurchaseTransactionsService } from "./purchase-transactions.service";
   imports: [ClientsModule, CategoriesModule, FinancialModule],
   controllers: [PurchaseTransactionsController],
   providers: [PurchaseTransactionsService],
+  exports: [PurchaseTransactionsService], // used by the MCP write tools
 })
 export class PurchaseTransactionsModule {}

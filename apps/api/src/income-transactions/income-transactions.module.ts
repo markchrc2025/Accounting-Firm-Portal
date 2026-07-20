@@ -9,5 +9,6 @@ import { IncomeTransactionsService } from "./income-transactions.service";
   imports: [ClientsModule, CategoriesModule, FinancialModule],
   controllers: [IncomeTransactionsController],
   providers: [IncomeTransactionsService],
+  exports: [IncomeTransactionsService], // used by the MCP write tools
 })
 export class IncomeTransactionsModule {}
