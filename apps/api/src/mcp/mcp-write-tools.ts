@@ -552,6 +552,8 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
     reference?: string;
     vatClass?: "VATABLE_12" | "ZERO_RATED" | "EXEMPT";
     vatAmount?: number;
+    atc?: string;
+    whtAmount?: number;
   }
 
   async function handleRecord(kind: "income" | "expense", args: RecordArgs) {
@@ -610,6 +612,9 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
         dto = (await purchases.create(actor, client.id, {
           ...base,
           ...(args.counterparty ? { vendor: args.counterparty } : {}),
+          // Withholding can coexist with VAT and applies regardless of regime.
+          ...(args.atc ? { atc: args.atc.toUpperCase() } : {}),
+          ...(args.whtAmount ? { whtAmount: round2(args.whtAmount) } : {}),
           ...(isVatClient
             ? {
                 inputVATCategory: "DOMESTIC_PURCHASES",
@@ -674,6 +679,16 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
           .nonnegative()
           .optional()
           .describe("Input VAT on the purchase in PHP (VAT-registered clients only)"),
+        atc: z
+          .string()
+          .max(10)
+          .optional()
+          .describe('Withholding tax code (ATC) applied to the supplier, e.g. "WI010"'),
+        whtAmount: z
+          .number()
+          .nonnegative()
+          .optional()
+          .describe("Creditable withholding tax withheld from the supplier in PHP, e.g. 250.00"),
       },
       annotations: WRITE_CREATE,
     },

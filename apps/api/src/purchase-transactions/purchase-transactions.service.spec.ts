@@ -34,6 +34,7 @@ function row(overrides: Record<string, unknown> = {}) {
     account: "Office Supplies",
     atc: null,
     taxAmount: null,
+    whtAmount: null,
     unit: null,
     quantity: null,
     unitPrice: null,
