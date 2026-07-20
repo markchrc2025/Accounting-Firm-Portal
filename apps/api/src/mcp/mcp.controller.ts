@@ -1,9 +1,12 @@
 // Streamable-HTTP MCP endpoint: POST /api/v1/mcp/<key>
 //
 // The route is @Public() (the global JwtAuthGuard skips it) and instead gated
-// by a capability URL: <key> must match MCP_SHARED_SECRET (Sliplane env var,
-// 32+ chars) in constant time. A wrong or missing key — or an unset/weak
-// secret — returns a plain 404, indistinguishable from the route not existing.
+// by a capability URL: <key> must match the firm's connector secret in
+// constant time. The secret is portal-managed (Firm.settingsJson.mcpSecret,
+// rotated by the Super Admin from the Integrations page) with the
+// MCP_SHARED_SECRET env var as a pre-portal fallback; 32+ chars required.
+// A wrong or missing key — or an unset/weak/disabled secret — returns a
+// plain 404, indistinguishable from the route not existing.
 //
 // Stateless JSON mode: each POST gets a fresh McpServer + transport (no
 // sessions to store, safe across multiple container instances). GET/DELETE
@@ -24,8 +27,8 @@ import { McpService } from "./mcp.service";
 export class McpController {
   constructor(private readonly mcp: McpService) {}
 
-  private authorized(key: string): boolean {
-    return mcpKeyMatches(key, process.env.MCP_SHARED_SECRET);
+  private async authorized(key: string): Promise<boolean> {
+    return mcpKeyMatches(key, await this.mcp.resolveSecret());
   }
 
   @Post()
@@ -34,7 +37,7 @@ export class McpController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    if (!this.authorized(key)) {
+    if (!(await this.authorized(key))) {
       res.status(404).json({ statusCode: 404, message: "Not Found" });
       return;
     }
@@ -53,17 +56,17 @@ export class McpController {
   }
 
   @Get()
-  notAllowedGet(@Param("key") key: string, @Res() res: Response): void {
-    this.notAllowed(key, res);
+  async notAllowedGet(@Param("key") key: string, @Res() res: Response): Promise<void> {
+    await this.notAllowed(key, res);
   }
 
   @Delete()
-  notAllowedDelete(@Param("key") key: string, @Res() res: Response): void {
-    this.notAllowed(key, res);
+  async notAllowedDelete(@Param("key") key: string, @Res() res: Response): Promise<void> {
+    await this.notAllowed(key, res);
   }
 
-  private notAllowed(key: string, res: Response): void {
-    if (!this.authorized(key)) {
+  private async notAllowed(key: string, res: Response): Promise<void> {
+    if (!(await this.authorized(key))) {
       res.status(404).json({ statusCode: 404, message: "Not Found" });
       return;
     }

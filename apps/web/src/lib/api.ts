@@ -1036,6 +1036,30 @@ export function revokeIntegration(id: string): Promise<Integration> {
   return apiFetch(`/integrations/${id}/revoke`, { method: "POST" });
 }
 
+// --- Claude connector (MCP) — Super Admin only ---------------------------------
+export interface McpConnector {
+  enabled: boolean;
+  /** "portal" = rotated from this page; "environment" = MCP_SHARED_SECRET env var. */
+  source: "portal" | "environment" | null;
+  secret: string | null;
+}
+export function fetchMcpConnector(): Promise<McpConnector> {
+  return apiFetch("/mcp-connector");
+}
+export function rotateMcpConnector(): Promise<McpConnector> {
+  return apiFetch("/mcp-connector/rotate", { method: "POST" });
+}
+export function disableMcpConnector(): Promise<McpConnector> {
+  return apiFetch("/mcp-connector/disable", { method: "POST" });
+}
+/** The full connector URL Claude needs (the API base already ends in /api/v1). */
+export function mcpConnectorUrl(secret: string): string {
+  const base = API_BASE_URL.startsWith("http")
+    ? API_BASE_URL
+    : `${window.location.origin}${API_BASE_URL}`;
+  return `${base}/mcp/${secret}`;
+}
+
 // --- Audit log (append-only; firm-scoped read) --------------------------------------
 export interface AuditRow {
   id: string;

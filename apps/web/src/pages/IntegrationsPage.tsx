@@ -2,12 +2,17 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OAUTH_SCOPES } from "@portal/shared";
 import {
+  ApiError,
   createIntegration,
+  disableMcpConnector,
   fetchIntegrations,
+  fetchMcpConnector,
+  mcpConnectorUrl,
   revokeIntegration,
   rotateIntegrationSecret,
+  rotateMcpConnector,
 } from "../lib/api";
-import type { Integration, IntegrationReveal } from "../lib/api";
+import type { Integration, IntegrationReveal, McpConnector } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
@@ -63,6 +68,10 @@ export default function IntegrationsPage() {
           ) : undefined
         }
       />
+
+      {/* Claude connector — Super Admin only (the API 403s everyone else, and
+          only Super Admin holds IntegrationClient:Update). */}
+      {canUpdate && <McpConnectorCard />}
 
       {integrations.isPending && (
         <div className="space-y-6">
@@ -123,6 +132,154 @@ export default function IntegrationsPage() {
         />
       )}
     </div>
+  );
+}
+
+/* --------------------------------------------------------- Claude (MCP) card */
+
+/**
+ * The Claude connector's capability URL. The secret IS the access grant:
+ * anyone with the full link can read and write portal data, so it renders
+ * masked with an explicit reveal, and rotation kills the old link instantly.
+ */
+function McpConnectorCard() {
+  const qc = useQueryClient();
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const connector = useQuery({
+    queryKey: ["mcp-connector"],
+    queryFn: () => fetchMcpConnector(),
+  });
+
+  function onDone(next: McpConnector) {
+    setError(null);
+    qc.setQueryData(["mcp-connector"], next);
+    setShow(next.enabled); // show the fresh link right away after a rotate
+  }
+  const rotate = useMutation({
+    mutationFn: () => rotateMcpConnector(),
+    onSuccess: onDone,
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not rotate the link."),
+  });
+  const disable = useMutation({
+    mutationFn: () => disableMcpConnector(),
+    onSuccess: onDone,
+    onError: (err) =>
+      setError(err instanceof ApiError ? err.message : "Could not turn the connector off."),
+  });
+  const busy = rotate.isPending || disable.isPending;
+
+  const data = connector.data;
+  const url = data?.secret ? mcpConnectorUrl(data.secret) : null;
+  const maskedUrl = data?.secret
+    ? mcpConnectorUrl(`${data.secret.slice(0, 4)}…${data.secret.slice(-4)}`)
+    : null;
+
+  async function copy() {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Copy failed — reveal the link and copy it manually.");
+    }
+  }
+
+  function confirmRotate() {
+    const started = data?.enabled
+      ? "This mints a NEW link and the current one stops working immediately — anyone using it (including Claude) must be given the new link.\n\nRotate now?"
+      : "This creates the connector link. Anyone holding it can read AND write portal data.\n\nCreate it?";
+    if (window.confirm(started)) rotate.mutate();
+  }
+  function confirmDisable() {
+    if (
+      window.confirm(
+        "Turn the Claude connector OFF? The link stops working immediately. You can re-enable it later by rotating (which mints a new link).",
+      )
+    ) {
+      disable.mutate();
+    }
+  }
+
+  return (
+    <Card className="mb-6">
+      <div className="space-y-4 px-6 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h2 className="font-serif text-[17px] font-medium text-navy">
+                Claude Connector (MCP)
+              </h2>
+              {connector.isSuccess &&
+                (data?.enabled ? (
+                  <Chip variant="success">Active</Chip>
+                ) : (
+                  <Chip variant="neutral">Off</Chip>
+                ))}
+            </div>
+            <p className="mt-1 text-[12.5px] text-content-secondary">
+              Connect Claude (claude.ai → Settings → Connectors) to the firm&apos;s books.
+              The link is the key: <span className="font-semibold">anyone you share it
+              with can read and write portal data</span> — rotate it to cut off every
+              copy at once.
+            </p>
+          </div>
+          <div className="flex flex-none gap-2">
+            <Button size="sm" disabled={busy || connector.isPending} onClick={confirmRotate}>
+              {rotate.isPending
+                ? "Rotating…"
+                : data?.enabled
+                  ? "Rotate link"
+                  : "Create link"}
+            </Button>
+            {data?.enabled && (
+              <Button variant="ghost" size="sm" disabled={busy} onClick={confirmDisable}>
+                {disable.isPending ? "Turning off…" : "Turn off"}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {connector.isPending && <Skeleton className="h-10 w-full" />}
+        {connector.isError && (
+          <p className="text-[13px] text-content-secondary">
+            Could not load the connector status.
+          </p>
+        )}
+
+        {data?.enabled && (
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-input border border-line-input bg-paper px-3 py-2 font-mono text-[12px] text-content">
+              {show ? url : maskedUrl}
+            </code>
+            <Button variant="outline" size="sm" onClick={() => setShow((v) => !v)}>
+              {show ? "Hide" : "Reveal"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void copy()}>
+              {copied ? "Copied ✓" : "Copy link"}
+            </Button>
+          </div>
+        )}
+
+        {data?.enabled && data.source === "environment" && (
+          <p className="text-[12px] text-content-muted">
+            This link still comes from the server&apos;s MCP_SHARED_SECRET variable. The
+            first rotation switches it to a portal-managed secret (after that, the env
+            var is ignored and can be removed).
+          </p>
+        )}
+
+        {error && (
+          <div className="rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
+            {error}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 
