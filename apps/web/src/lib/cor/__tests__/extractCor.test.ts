@@ -533,6 +533,10 @@ describe("parseCorText — real browser pipeline, phone-photo COR (Palisoc)", ()
     expect(r.taxTypes.length).toBe(2);
   });
 
+  it("leaves the unreadable trade-name cell EMPTY instead of showing mush", () => {
+    expect(r.tradeName ?? "").toBe("");
+  });
+
   it("never reads the REMINDERS 'P3,000,000' as a TIN (fuzzy needs a dash)", () => {
     const noTinLine = parseCorText(
       "REMINDERS\ndoes not exceed P3,000,000 and who opted to avail\nalso 345,678,901 mentioned",
@@ -561,6 +565,20 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
       "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | KRISHIA STORE | ASPMWM20E5 |\n47216-RETAIL",
     );
     expect(r.tradeName).toBe("KRISHIA STORE");
+  });
+
+  it("rejects an unbroken-mush trade name rather than displaying it", () => {
+    const r = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | MARMEUNCARPALEOC I August 30, 2023\n62090-OTHER",
+    );
+    expect(r.tradeName ?? "").toBe("");
+  });
+
+  it("keeps a real long word inside a ≥3-token trade name ('JUAN TRANSPORTATION SERVICES')", () => {
+    const r = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 JUAN TRANSPORTATION SERVICES May 5, 2020\n49330-TRANSPORT",
+    );
+    expect(r.tradeName).toBe("JUAN TRANSPORTATION SERVICES");
   });
 
   it("keeps legitimate digit-bearing trade-name tokens ('HEBREWS 13-8', '7ELEVEN')", () => {
