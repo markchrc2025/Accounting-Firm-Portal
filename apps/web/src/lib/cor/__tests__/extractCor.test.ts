@@ -346,6 +346,19 @@ describe("parseCorText — adversarial cases", () => {
     expect(r.tradeName).toBe("HEBREWS 13-8 MILKTEA SHOP");
   });
 
+  it("strips a bracketed border token glued before the trade name ('[_] NCV…')", () => {
+    // An EMPTY neighbouring cell's border binarises into "[_]" (seen live on
+    // the NCV Rice Trading COR in the browser pipeline).
+    const r = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 [_] | NCV RICE TRADING May 27, 2022\n47216-RETAIL",
+    );
+    expect(r.tradeName).toBe("NCV RICE TRADING");
+    const braced = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 {_] NCV RICE TRADING May 27, 2022\n47216-RETAIL",
+    );
+    expect(braced.tradeName).toBe("NCV RICE TRADING");
+  });
+
   it("treats an individual whose middle name is CO as an individual", () => {
     const r = parseCorText("NAME OF TAXPAYER\n123-456-789-00000 SANTOS, MARIA CO May 5, 2010");
     expect(r.kind).toBe("individual");

@@ -154,11 +154,11 @@ function cleanName(s: string): string {
     .replace(/\s{2,}/g, " ")
     .trim();
   const toks = t.split(/\s+/).filter(Boolean);
-  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
-  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[0]!)) toks.shift();
+  while (toks.length && /^[O0~_\-.,|©®[\]{}]+$/i.test(toks[toks.length - 1]!)) toks.pop();
+  while (toks.length && /^[O0~_\-.,|©®[\]{}]+$/i.test(toks[0]!)) toks.shift();
   return toks
     .join(" ")
-    .replace(/^[\s_~'"©®|.:\-]+|[\s_~'"©®|]+$/g, "")
+    .replace(/^[\s_~'"©®|.:\-[\]{}]+|[\s_~'"©®|[\]{}]+$/g, "")
     .trim();
 }
 
@@ -173,7 +173,10 @@ function cleanTradeName(s: string): string {
     .replace(new RegExp(DATE_SRC, "g"), " ")
     .replace(/[({[]\s*PSIC\s*[)}\]]?/g, " ")
     .replace(/(?:\s*\b(?:PRIMARY|SECONDARY)\b)+[\s:.\-|_~©®]*$/, " ")
-    .replace(/^[\s:.\-|_~©®]+|[\s:.\-|_~©®]+$/g, "")
+    // Edge junk includes brackets/braces — an empty neighbouring cell's border
+    // binarises into tokens like "[_]" glued before the value ("[_] NCV RICE
+    // TRADING"). Parentheses are NOT stripped (real names use them).
+    .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.\-|_~©®[\]{}"']+$/g, "")
     // A lone trailing letter is border/CATEGORY-cell garble glued after the
     // value ("…APARTMENT RENTAL a January 25. 2024"), not part of the name.
     .replace(/(\S\s+\S.*)\s+[A-Z]$/, "$1")
@@ -217,7 +220,7 @@ function addressAfterLabel(lines: string[]): string {
   // lines ("i — TTT TT ;") that would otherwise be joined onto the address.
   const looksLikeContent = (l: string) =>
     /\d/.test(l) || l.split(/\s+/).some((t) => /^[A-Z'.-]{3,}$/.test(t) && /[AEIOU]/.test(t));
-  const leadJunk = /^[\s:.\-|_~©®]+/;
+  const leadJunk = /^[\s:.\-|_~©®[\]{}]+/;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i]!.match(labelRe);
     if (!m) continue;
