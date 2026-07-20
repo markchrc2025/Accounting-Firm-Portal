@@ -21,7 +21,12 @@ import {
   AVATAR_MAX_BYTES,
   StorageService,
 } from "../storage/storage.service";
-import { UpdateProfileInput, UpdateProfileSchema } from "./dto/profile.schemas";
+import {
+  ChangeEmailInput,
+  ChangeEmailSchema,
+  UpdateProfileInput,
+  UpdateProfileSchema,
+} from "./dto/profile.schemas";
 import { ProfileService } from "./profile.service";
 
 /**
@@ -47,6 +52,15 @@ export class ProfileController {
     @Body(new ZodValidationPipe(UpdateProfileSchema)) body: UpdateProfileInput,
   ) {
     return this.profile.updateMe(user, body);
+  }
+
+  /** Change the caller's own login email (requires the current password). */
+  @Patch("me/email")
+  changeEmail(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(ChangeEmailSchema)) body: ChangeEmailInput,
+  ) {
+    return this.profile.changeEmail(user, body);
   }
 
   /** Store the uploaded avatar (raw image body) and return a fresh signed URL. */

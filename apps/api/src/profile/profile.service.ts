@@ -1,9 +1,15 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
+import { PasswordService } from "../auth/password.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
-import type { UpdateProfileInput } from "./dto/profile.schemas";
+import type { ChangeEmailInput, UpdateProfileInput } from "./dto/profile.schemas";
 
 /** The self-service profile shape returned to the authenticated user. */
 export interface ProfileDto {
@@ -25,6 +31,7 @@ export class ProfileService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly passwords: PasswordService,
   ) {}
 
   /** Presign the avatar GET url when the key is set AND storage is enabled. */
@@ -88,6 +95,55 @@ export class ProfileService {
       metadata: { fields: Object.keys(input) },
     });
     return this.toDto(record);
+  }
+
+  /**
+   * Change the caller's OWN login email. Guarded by a fresh password check
+   * (possession of a live session is not enough to rotate the login
+   * identifier), firm users only — client-portal seat emails are managed by
+   * the firm. The JWT stays valid (it is keyed by user id); the new email
+   * applies from the next sign-in.
+   */
+  async changeEmail(user: AuthUser, input: ChangeEmailInput): Promise<ProfileDto> {
+    if (user.userType !== "FIRM") {
+      throw new ForbiddenException("Client-portal emails are managed by the firm.");
+    }
+    const record = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, email: true, passwordHash: true },
+    });
+    if (!record?.passwordHash) throw new UnauthorizedException("Account has no password set");
+    const ok = await this.passwords.verify(record.passwordHash, input.currentPassword);
+    if (!ok) throw new UnauthorizedException("Incorrect password");
+
+    // Login lowercases the email, so store it normalized (matches AuthService).
+    const newEmail = input.newEmail.trim().toLowerCase();
+    if (newEmail !== record.email) {
+      const taken = await this.prisma.user.findUnique({ where: { email: newEmail } });
+      if (taken && taken.id !== user.id) {
+        throw new ConflictException("That email is already in use by another account.");
+      }
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { email: newEmail },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        userType: true,
+        mfaEnabled: true,
+        avatarPath: true,
+      },
+    });
+    await this.audit.record({
+      userId: user.id,
+      action: "profile.email.change",
+      entityType: "User",
+      entityId: user.id,
+      metadata: { from: record.email, to: newEmail },
+    });
+    return this.toDto(updated);
   }
 
   /** Store an uploaded avatar image and record its object key on the user. */

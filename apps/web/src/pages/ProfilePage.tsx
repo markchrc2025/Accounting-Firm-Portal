@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
+  changeProfileEmail,
   deleteAvatar,
   fetchProfile,
   updateProfile,
@@ -71,6 +72,11 @@ export default function ProfilePage() {
         <div className="space-y-5">
           <AvatarCard profile={profile.data} />
           <DetailsCard profile={profile.data} />
+          {/* Client-portal seat emails are managed by the firm, so the
+              self-service email change is firm users only. */}
+          {profile.data.userType === "FIRM" && (
+            <LoginEmailCard profile={profile.data} />
+          )}
           <SecurityCard profile={profile.data} />
         </div>
       )}
@@ -327,6 +333,11 @@ function DetailsCard({ profile }: { profile: Profile }) {
               className="input font-mono text-content-secondary"
             />
           </div>
+          {profile.userType === "FIRM" && (
+            <p className="mt-1.5 text-[12.5px] text-content-muted">
+              You can change your login email in the section below.
+            </p>
+          )}
         </label>
 
         {save.isError && (
@@ -344,6 +355,99 @@ function DetailsCard({ profile }: { profile: Profile }) {
           </Button>
           {saved && !save.isPending && (
             <span className="text-[12.5px] font-semibold text-success">Saved</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ----------------------------------------------------------- Login email card */
+
+function LoginEmailCard({ profile }: { profile: Profile }) {
+  const qc = useQueryClient();
+  const { refreshUser } = useAuth();
+  const [newEmail, setNewEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [savedTo, setSavedTo] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () => changeProfileEmail({ newEmail: newEmail.trim(), currentPassword }),
+    onSuccess: (updated) => {
+      setSavedTo(updated.email);
+      setNewEmail("");
+      setCurrentPassword("");
+      void qc.invalidateQueries({ queryKey: ["profile"] });
+      // Refresh the session so the email updates in the top-bar menu immediately.
+      void refreshUser();
+    },
+  });
+
+  const trimmed = newEmail.trim();
+  const looksLikeEmail = /\S+@\S+\.\S+/.test(trimmed);
+  const unchanged = trimmed.toLowerCase() === profile.email.toLowerCase();
+  const disabled =
+    save.isPending || !looksLikeEmail || unchanged || currentPassword === "";
+
+  return (
+    <Card>
+      <CardContent className="space-y-5">
+        <div className="eyebrow">Login email</div>
+        <p className="text-[12.5px] leading-relaxed text-content-secondary">
+          You currently sign in as{" "}
+          <span className="font-mono font-semibold text-content">{profile.email}</span>.
+          Changing it requires your current password; the new email applies the next
+          time you sign in.
+        </p>
+
+        <label className="block">
+          <span className="text-[13px] font-semibold text-content">New email</span>
+          <div className="mt-1.5">
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => {
+                setNewEmail(e.target.value);
+                setSavedTo(null);
+              }}
+              className="input"
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+          </div>
+        </label>
+
+        <label className="block">
+          <span className="text-[13px] font-semibold text-content">Current password</span>
+          <div className="mt-1.5">
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value);
+                setSavedTo(null);
+              }}
+              className="input"
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
+        </label>
+
+        {save.isError && (
+          <div className="rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
+            {errMessage(save.error, "Could not change your login email.")}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <Button disabled={disabled} onClick={() => save.mutate()}>
+            {save.isPending ? "Saving…" : "Change email"}
+          </Button>
+          {savedTo && !save.isPending && (
+            <span className="text-[12.5px] font-semibold text-success">
+              Login email changed to {savedTo}
+            </span>
           )}
         </div>
       </CardContent>

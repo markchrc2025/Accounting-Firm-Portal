@@ -432,7 +432,9 @@ function ClientForm({ existing }: { existing: Client | null }) {
     p.kind = kind;
     put("tin", tin);
     put("branch", branch);
-    putStrict("taxType", taxType); // ClientTaxType enum (VAT | PERCENTAGE)
+    // Tax regime is clearable: "" means "no tax regime" (client exempt from
+    // business tax) and the API maps it to NULL, so use `put`, not `putStrict`.
+    put("taxType", taxType);
     put("rdo", rdo);
     put("tradeName", tradeName);
     put("classification", classification);
@@ -1042,7 +1044,7 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   onChange={(e) => setTaxType(e.target.value)}
                   className="input"
                 >
-                  <option value="">Not set</option>
+                  <option value="">None (exempt from business tax)</option>
                   {TAX_TYPES.map((t) => (
                     <option key={t} value={t}>
                       {t}

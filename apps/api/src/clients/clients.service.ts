@@ -32,9 +32,13 @@ export class ClientsService {
   private toClientData(
     input: Partial<CreateClientInput & UpdateClientInput>,
   ): ClientWritable {
-    const { businessName: _bn, taxTypes, branches, birthdate, incorpDate, ...rest } = input;
+    const { businessName: _bn, taxTypes, branches, birthdate, incorpDate, taxType, ...rest } =
+      input;
     return {
       ...(rest as ClientWritable),
+      // "" means "no tax regime" (client exempt from business tax) — store NULL,
+      // never the empty string.
+      ...(taxType !== undefined ? { taxType: taxType || null } : {}),
       ...(taxTypes !== undefined ? { taxTypesJson: taxTypes as Prisma.InputJsonValue } : {}),
       ...(branches !== undefined ? { branchesJson: branches as Prisma.InputJsonValue } : {}),
       ...(birthdate !== undefined ? { birthdate: birthdate ? new Date(birthdate) : null } : {}),

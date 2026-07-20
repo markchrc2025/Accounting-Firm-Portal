@@ -40,7 +40,9 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
 const filerFields = {
   tin: z.string().optional(),
   address: z.string().optional(),
-  taxType: ClientTaxType.optional(),
+  // "" (like the clearable dates below) means "no tax regime": some clients are
+  // exempt from business tax entirely. The service maps "" → null.
+  taxType: ClientTaxType.optional().or(z.literal("")),
 
   kind: ClientKind.optional(),
   regName: z.string().optional(),
