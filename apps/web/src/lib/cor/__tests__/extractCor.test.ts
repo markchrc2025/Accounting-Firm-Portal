@@ -470,6 +470,111 @@ describe("parseCorText — fuzzy TIN (look-alike letters inside the digit groups
   });
 });
 
+// Real browser-pipeline OCR — a PHONE PHOTO of a COR (Palisoc, dark/skewed
+// scan): the TIN's middle dash reads as a period ("306-344.911-00000"), the
+// "TAX TYPES" header is destroyed (only "FILING DUE DATE" survives), the
+// address label carries glued border garble ("_— Ea"), and stray ":" / lone
+// letters ride the name line.
+const PALISOC = `
+ihm SEE s Re ees ss mess
+Emil Re eh me pT Po EA rg rE pret te EE CIS ES)
+22308 isn E by ERE EE SEE CEE
+on | SLIT RENE pe Ey ONS MARNONA $27 1 20 Tin, mini
+[Ta scHooes TNE or axparen - - TIN TESUANCE DATE HE]
+306-344.911-00000 PALISOC, MARIA EUNICA HAMA} November 12,2010 :
+{REGSTERNGOFFICE |X, [HeadOMos ._ . | [Bani |
+REGISTERED ADDRESS _— Ea
+BUCS LOTS MONDELLO HOMES GUITHANG BAYAN {POB.) 1850 SAN MATED RIZAL PHILIPPINES
+FoAm | Fina FILING. FILING DUE DATE |
+TYPES | START DATE FREQUENCY v
+On or before Apri 15 of each
+preceding taxabie year. i
+INDIVIDUAL INCOME 1st Quarter-on or befors MAY 15 {
+August 30, 2nd Quarter-on or betore
+TAX oa 2023 QUARTERLY | aJGUST 15 3nd Quarer-on or
+batore November 15
+PERCENTAGE TAX - ust Wath
+ee cca
+LT caTecoRY |_AEGETRATONDATE | :
+{ TRADENAME( |WMAMMEUNCAMPALIOC | Apmawzer | :
+TECHNOLOGY AND COMPUTER EEN : =
+SERVICE ACTIVITIES Primary : SENEAN § z
+REMINDERS: pe : ETO TN
+1. An annual registration fo shall ba pald pon ragisiraion and every yaar thereatier 61 or alos; Ba ieal-dy. | 22 1+
+of January, using BIR Form No. 0606.
+5. does not exceed P3,000,000 and who opted to avail of the 8% Income tax rate, the tax type Percentage Tax`;
+
+describe("parseCorText — real browser pipeline, phone-photo COR (Palisoc)", () => {
+  const r = parseCorText(PALISOC);
+
+  it("reads the TIN through a blurred dash ('306-344.911-00000')", () => {
+    expect(r.tin).toBe("306344911");
+    expect(r.branch).toBe("00000");
+  });
+
+  it("splits the name and drops the stray ':' and border fragments", () => {
+    expect(r.kind).toBe("individual");
+    expect(r.lastName).toBe("PALISOC");
+    expect(r.firstName).toBe("MARIA EUNICA");
+    expect(r.middleName).toBe("HAMA"); // OCR-clipped HAMAL — user-corrected
+  });
+
+  it("skips the address label's glued garble ('_— Ea') and reads the value line", () => {
+    expect(r.address).toBe(
+      "BUCS LOTS MONDELLO HOMES GUITHANG BAYAN {POB.) 1850 SAN MATED RIZAL PHILIPPINES",
+    );
+    expect(r.zip).toBe("1850");
+  });
+
+  it("anchors the tax-type region on the surviving header token (FILING DUE)", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}`);
+    expect(keys).toContain("Income Tax|1701Q");
+    expect(keys).toContain("Percentage Tax|2551Q");
+    expect(r.taxTypes.length).toBe(2);
+  });
+
+  it("never reads the REMINDERS 'P3,000,000' as a TIN (fuzzy needs a dash)", () => {
+    const noTinLine = parseCorText(
+      "REMINDERS\ndoes not exceed P3,000,000 and who opted to avail\nalso 345,678,901 mentioned",
+    );
+    expect(noTinLine.tin).toBeUndefined();
+  });
+});
+
+describe("parseCorText — photo-blur name and trade-name damage", () => {
+  it("splits an individual whose comma blurred into a period ('PALISOG. MARIA…')", () => {
+    const r = parseCorText("NAME OF TAXPAYER\nPALISOG. MARIA EUNICA HAMAL");
+    expect(r.kind).toBe("individual");
+    expect(r.lastName).toBe("PALISOG");
+    expect(r.firstName).toBe("MARIA EUNICA");
+    expect(r.middleName).toBe("HAMAL");
+  });
+
+  it("keeps 'ST. JOSEPH TRADING' a business name (period rule needs ≥4 letters)", () => {
+    const r = parseCorText("NAME OF TAXPAYER\nST. JOSEPH TRADING");
+    expect(r.kind).toBeUndefined();
+    expect(r.regName).toBe("ST. JOSEPH TRADING");
+  });
+
+  it("drops a garbled date-column mush token from the trade name ('ASPMWM20E5')", () => {
+    const r = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | KRISHIA STORE | ASPMWM20E5 |\n47216-RETAIL",
+    );
+    expect(r.tradeName).toBe("KRISHIA STORE");
+  });
+
+  it("keeps legitimate digit-bearing trade-name tokens ('HEBREWS 13-8', '7ELEVEN')", () => {
+    const a = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 HEBREWS 13-8 MILKTEA SHOP May 16, 2022\n56104-REFRESHMENT",
+    );
+    expect(a.tradeName).toBe("HEBREWS 13-8 MILKTEA SHOP");
+    const b = parseCorText(
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 7ELEVEN FRANCHISE May 16, 2022\n47110-RETAIL",
+    );
+    expect(b.tradeName).toBe("7ELEVEN FRANCHISE");
+  });
+});
+
 // 2019-revision layout (SAGD Development OPC): the label prints as
 // "REGISTERING ADDRESS" (not REGISTERED), the address wraps onto a second
 // line, and BIR fills blank address components with "N.A." segments.
