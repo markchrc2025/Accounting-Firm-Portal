@@ -27,13 +27,29 @@ export class IncomeTransactionsService {
     private readonly audit: AuditService,
   ) {}
 
+  /**
+   * The web's Account picker sends a Chart-of-Accounts account NAME in `account`;
+   * the per-client Category is resolved here (created on first use, same as the
+   * import path) so callers don't need Categories:Create. An explicit categoryId
+   * always wins.
+   */
+  private async resolveCategoryFromAccount(
+    clientId: string,
+    raw: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const account = typeof raw.account === "string" ? raw.account.trim() : "";
+    if (raw.categoryId || !account) return raw;
+    const cat = await this.categories.resolveByName(clientId, account, "INCOME");
+    return { ...raw, categoryId: cat.id };
+  }
+
   async create(user: AuthUser, clientId: string, body: unknown) {
     const client = await this.clients.assertInFirm(user.firmId, clientId);
     const regime = this.regime.requireRegime(client.taxType);
 
     // The FROZEN @portal/shared schema is the sole shape/coupling validator.
     const input = parseOrBadRequest(IncomeTransaction, {
-      ...asObject(body),
+      ...(await this.resolveCategoryFromAccount(clientId, asObject(body))),
       clientId,
       source: "manual",
     });
@@ -161,10 +177,12 @@ export class IncomeTransactionsService {
 
     // Load existing → merge patch → validate the FULL object, so the shared
     // cross-field couplings (gov-sale, capital-goods) and regime rules re-run.
+    // A patch that changes `account` (without a categoryId) re-resolves the
+    // category so the two never drift apart.
     const base = toIncomeDto(existing);
     const merged = {
       ...base,
-      ...asObject(body),
+      ...(await this.resolveCategoryFromAccount(clientId, asObject(body))),
       clientId, // never re-parented
       source: existing.source, // immutable
     };

@@ -6,12 +6,14 @@ import {
   createIncome,
   createPurchase,
   fetchBirAtcCodes,
+  fetchChartAccounts,
   updateIncome,
   updatePurchase,
   type Category,
   type IncomeTxn,
   type PurchaseTxn,
 } from "../lib/api";
+import { AccountCombobox } from "./AccountCombobox";
 import { Button, cn, peso, RegimeChip } from "./ui";
 
 export type Regime = "VAT" | "PERCENTAGE";
@@ -41,7 +43,11 @@ interface Line {
   unit: string;
   unitPrice: string;
   discount: string;
-  categoryId: string; // "Account"
+  /** Chart-of-Accounts account NAME ("Account" column). The API stores it and
+   *  resolves the per-client category from it server-side. */
+  account: string;
+  /** Pre-CoA records keep their category when the account is left untouched. */
+  categoryId: string;
   vatClass: string; // sales tax rate
   atc: string; // Tax Code
   taxAmount: string; // purchase Tax Amount
@@ -94,21 +100,31 @@ export default function TransactionEntryModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const catOptions = useMemo(
-    () => categories.filter((c) => c.type === (isIncome ? "INCOME" : "EXPENSE")),
-    [categories, isIncome],
-  );
-  const catName = useMemo(() => {
-    const m = new Map(categories.map((c) => [c.id, c.name]));
-    return (id: string) => m.get(id) ?? "";
-  }, [categories]);
-
   // ATC codes for the Tax Code picker (withholding/VAT). Cheap + cached.
   const atcQuery = useQuery({
     queryKey: ["bir-atc", "active"],
     queryFn: () => fetchBirAtcCodes({ status: "active" }),
     staleTime: 5 * 60 * 1000,
   });
+
+  // The firm's Chart of Accounts feeds the Account picker. Any postable,
+  // non-archived account is selectable; accounts on the transaction's natural
+  // side (income → Revenue, expense → Expense) sort first.
+  const coaQuery = useQuery({
+    queryKey: ["coa-accounts"],
+    queryFn: () => fetchChartAccounts(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const preferredClass = isIncome ? "Revenue" : "Expense";
+  const accounts = useMemo(() => {
+    return (coaQuery.data ?? [])
+      .filter((a) => !a.archived)
+      .sort((a, b) => {
+        const ap = a.class === preferredClass ? 0 : 1;
+        const bp = b.class === preferredClass ? 0 : 1;
+        return ap !== bp ? ap - bp : a.code.localeCompare(b.code);
+      });
+  }, [coaQuery.data, preferredClass]);
 
   function lineFromExisting(): Line {
     // For a record that predates line fields, show its net as qty 1 × price.
@@ -119,6 +135,10 @@ export default function TransactionEntryModal({
       unit: existing?.unit ?? "",
       unitPrice: existing?.unitPrice != null ? String(existing.unitPrice) : priceFallback,
       discount: existing?.discount != null ? String(existing.discount) : "",
+      account:
+        existing?.account ??
+        categories.find((c) => c.id === existing?.categoryId)?.name ??
+        "",
       categoryId: existing?.categoryId ?? "",
       vatClass: inc?.vatClass ?? "VATABLE_12",
       atc: (isIncome ? inc?.atc : pur?.atc) ?? "",
@@ -135,6 +155,7 @@ export default function TransactionEntryModal({
         unit: "",
         unitPrice: "",
         discount: "",
+        account: "",
         categoryId: "",
         vatClass: "VATABLE_12",
         atc: "",
@@ -163,14 +184,18 @@ export default function TransactionEntryModal({
 
   function payloadForLine(l: Line): Record<string, unknown> {
     const net = lineNet(l);
+    // A chart-picked account travels as its NAME only — the server resolves
+    // (or creates) the matching per-client category. Records that predate the
+    // CoA picker keep their categoryId as long as the account is untouched.
+    const pickedFromChart = accounts.some((a) => a.name === l.account);
     const common = {
       txnDate: docDate,
       dueDate: dueDate || undefined,
       referenceNo: docRef || undefined,
       description: l.description,
-      categoryId: l.categoryId,
+      ...(l.categoryId && !pickedFromChart ? { categoryId: l.categoryId } : {}),
       netAmount: net,
-      account: catName(l.categoryId) || undefined,
+      account: l.account.trim() || undefined,
       unit: l.unit || undefined,
       quantity: l.quantity.trim() === "" ? undefined : num(l.quantity),
       unitPrice: l.unitPrice.trim() === "" ? undefined : num(l.unitPrice),
@@ -204,8 +229,10 @@ export default function TransactionEntryModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    // Validate: every line needs an account (category) and a description.
-    const bad = lines.findIndex((l) => !l.categoryId || !l.description.trim());
+    // Validate: every line needs an account (or a legacy category) + description.
+    const bad = lines.findIndex(
+      (l) => (!l.account.trim() && !l.categoryId) || !l.description.trim(),
+    );
     if (bad >= 0) {
       setError(`Line ${bad + 1}: pick an Account and enter a description.`);
       return;
@@ -328,8 +355,9 @@ export default function TransactionEntryModal({
               </Field>
             </div>
 
-            {/* Line items */}
-            <div className="overflow-x-auto">
+            {/* Line items. No overflow wrapper of its own (it would clip the
+                Account combobox dropdown) — the modal body scrolls instead. */}
+            <div>
               <div className="min-w-[880px]">
                 <div className="grid grid-cols-[minmax(220px,2fr)_70px_80px_100px_100px_minmax(150px,1.3fr)_minmax(150px,1.3fr)_110px_36px] gap-2 border-b border-line-strong pb-2 font-mono text-[10px] uppercase tracking-[.12em] text-content-secondary">
                   <span>Item / Description</span>
@@ -381,18 +409,18 @@ export default function TransactionEntryModal({
                       placeholder="0.00"
                       className="input font-mono"
                     />
-                    <select
-                      value={l.categoryId}
-                      onChange={(e) => updateLine(idx, { categoryId: e.target.value })}
-                      className="input"
-                    >
-                      <option value="">Select account…</option>
-                      {catOptions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                    <AccountCombobox
+                      accounts={accounts}
+                      value={accounts.find((a) => a.name === l.account)?.code ?? ""}
+                      onSelect={(code) =>
+                        updateLine(idx, {
+                          account: code
+                            ? (accounts.find((a) => a.code === code)?.name ?? "")
+                            : "",
+                        })
+                      }
+                      placeholder={l.account || "Select account…"}
+                    />
                     {isIncome ? (
                       <select
                         value={isVat ? l.vatClass : "NON_VAT"}
