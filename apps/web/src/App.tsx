@@ -66,8 +66,13 @@ export default function App() {
         <Route path="/clients/:clientId/expenses" element={<ExpensesPage />} />
         <Route path="/clients/:clientId/tax" element={<TaxPage />} />
         <Route path="/clients/:clientId/tax-rules" element={<TaxRulesPage />} />
-        <Route path="/clients/:clientId/billing" element={<BillingPage />} />
         <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
+        {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
+        <Route path="/billing" element={<BillingPage />} />
+        <Route
+          path="/clients/:clientId/billing"
+          element={<Navigate to="/billing" replace />}
+        />
 
         {/* Client portal (CLIENT users — scoped to their own org) */}
         <Route path="/portal" element={<PortalHomePage />} />

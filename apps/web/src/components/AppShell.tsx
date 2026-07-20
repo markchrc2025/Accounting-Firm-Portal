@@ -148,7 +148,6 @@ export function AppShell() {
                     { to: `/clients/${workspaceClientId}/expenses`, label: "Expenses" },
                     { to: `/clients/${workspaceClientId}/tax`, label: "Tax Estimate" },
                     { to: `/clients/${workspaceClientId}/tax-rules`, label: "Tax Rules" },
-                    { to: `/clients/${workspaceClientId}/billing`, label: "Billing & Invoices" },
                     { to: `/clients/${workspaceClientId}/filings`, label: "BIR Filings" },
                   ]}
                 />
@@ -176,15 +175,24 @@ export function AppShell() {
                 items={[{ to: "/financial-statements", label: "FS Creator", end: false }]}
               />
 
-              {hasPermission("Users:Read") && (
+              {(hasPermission("Users:Read") || hasPermission("Billing:Read")) && (
                 <NavGroup
                   label="Firm Admin"
                   items={[
-                    { to: "/users", label: "Users & Roles", end: true },
-                    { to: "/services", label: "Services", end: true },
-                    { to: "/chart-of-accounts", label: "Chart of Accounts", end: true },
-                    { to: "/integrations", label: "Integrations", end: true },
-                    { to: "/audit", label: "Audit Log", end: true },
+                    // Billing is centralized here (all clients, one consolidated
+                    // list) and gated on its own permission, not Users:Read.
+                    ...(hasPermission("Billing:Read")
+                      ? [{ to: "/billing", label: "Billing & Invoices", end: true }]
+                      : []),
+                    ...(hasPermission("Users:Read")
+                      ? [
+                          { to: "/users", label: "Users & Roles", end: true },
+                          { to: "/services", label: "Services", end: true },
+                          { to: "/chart-of-accounts", label: "Chart of Accounts", end: true },
+                          { to: "/integrations", label: "Integrations", end: true },
+                          { to: "/audit", label: "Audit Log", end: true },
+                        ]
+                      : []),
                   ]}
                 />
               )}

@@ -1,14 +1,15 @@
 /**
- * Billing & Invoices — a client-scoped screen with three local views (no routing):
- *  - "list"    — invoices table (4 states) + "New invoice".
+ * Billing & Invoices — the CENTRALIZED firm-admin screen (all clients, one
+ * consolidated list) with three local views (no routing):
+ *  - "list"    — every invoice in the firm (filterable by client) + "New invoice".
  *  - "create"  — invoice form: a type-to-search "Bill to" combobox, dates, a
  *                Description field, an editable LINE ITEMS grid, and a live totals block.
  *  - "preview" — a rendered branded email mock (From/To/Subject + navy header,
  *                AMOUNT DUE panel, CTA, engagement-lead footer).
  *
  * Wired to the live API (`../lib/api`): `fetchInvoices` / `createInvoice` /
- * `sendInvoice`, plus `fetchClients` / `fetchClient` for the combobox. Money is
- * always rendered via `peso`, mono + right-aligned; numeric fields are coerced with
+ * `sendInvoice`, plus `fetchClients` for the combobox + filter. Money is always
+ * rendered via `peso`, mono + right-aligned; numeric fields are coerced with
  * `Number()`. GUARDRAIL-neutral: invoices are firm billing, not BIR tax.
  */
 import {
@@ -19,14 +20,12 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
 import { McrcMark } from "../components/McrcMark";
 import { useAuth } from "../auth/AuthContext";
 import {
   createInvoice,
-  fetchClient,
   fetchClients,
   fetchInvoices,
   sendInvoice,
@@ -253,32 +252,33 @@ function BillToCombobox({
  * ------------------------------------------------------------------------- */
 
 function InvoiceList({
-  clientId,
   canCreate,
   canSend,
   onNew,
 }: {
-  clientId: string;
   canCreate: boolean;
   canSend: boolean;
   onNew: () => void;
 }) {
   const queryClient = useQueryClient();
+  // "" = all clients; otherwise narrow the consolidated list to one client
+  // (the API's clientId filter also matches invoices billed FOR a sub-client).
+  const [clientFilter, setClientFilter] = useState("");
+  const clientsQ = useQuery({ queryKey: ["clients"], queryFn: fetchClients });
   const invoicesQ = useQuery({
-    queryKey: ["invoices", clientId],
-    queryFn: () => fetchInvoices(clientId),
-    enabled: !!clientId,
+    queryKey: ["invoices", clientFilter || "all"],
+    queryFn: () => fetchInvoices(clientFilter || undefined),
   });
   const sendMut = useMutation({
     mutationFn: (id: string) => sendInvoice(id),
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["invoices", clientId] }),
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] }),
   });
 
   const header = (
     <PageHeader
       title="Billing & Invoices"
-      eyebrow="Firm billing"
+      eyebrow="Firm admin"
       actions={
         canCreate ? (
           <Button size="sm" onClick={onNew}>
@@ -287,6 +287,30 @@ function InvoiceList({
         ) : undefined
       }
     />
+  );
+
+  const filterBar = (
+    <div className="mb-4 flex items-center gap-3">
+      <label
+        htmlFor="invoice-client-filter"
+        className="text-[13px] font-semibold text-content"
+      >
+        Client
+      </label>
+      <select
+        id="invoice-client-filter"
+        value={clientFilter}
+        onChange={(e) => setClientFilter(e.target.value)}
+        className="input w-auto min-w-[240px]"
+      >
+        <option value="">All clients</option>
+        {(clientsQ.data ?? []).map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.businessName}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 
   let body: ReactNode;
@@ -315,7 +339,11 @@ function InvoiceList({
       <Card>
         <EmptyState
           title="No invoices yet"
-          description="Create the first invoice for this client to start billing."
+          description={
+            clientFilter
+              ? "No invoices for this client yet."
+              : "Create the first invoice to start billing your clients."
+          }
         >
           {canCreate ? <Button onClick={onNew}>+ New invoice</Button> : null}
         </EmptyState>
@@ -329,6 +357,7 @@ function InvoiceList({
             <thead>
               <tr className="border-b border-line-divider bg-sidebar font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
                 <th className="px-4 py-2.5 font-semibold">Invoice</th>
+                <th className="px-4 py-2.5 font-semibold">Client</th>
                 <th className="px-4 py-2.5 font-semibold">Description</th>
                 <th className="px-4 py-2.5 font-semibold">Issued</th>
                 <th className="px-4 py-2.5 font-semibold">Due</th>
@@ -345,9 +374,14 @@ function InvoiceList({
                 >
                   <td className="px-4 py-3 font-mono font-semibold text-navy">
                     {inv.number}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="block font-semibold text-content">
+                      {inv.clientName || "—"}
+                    </span>
                     {inv.billedForName ? (
                       // Provenance: this invoice is billed on behalf of a sub-client.
-                      <span className="mt-0.5 block font-mono text-[10px] font-normal uppercase tracking-[.08em] text-content-secondary">
+                      <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[.08em] text-content-secondary">
                         For: {inv.billedForName}
                       </span>
                     ) : null}
@@ -399,6 +433,7 @@ function InvoiceList({
   return (
     <>
       {header}
+      {filterBar}
       {body}
     </>
   );
@@ -451,6 +486,13 @@ function InvoiceCreate({
     );
   }
 
+  // Sub-client link: when the selected Bill-to is billed under a main client,
+  // resolve the parent's name for the note below (list is cached from the combobox).
+  const clientsQ = useQuery({ queryKey: ["clients"], queryFn: fetchClients });
+  const billingParent = billTo?.billingParentId
+    ? (clientsQ.data ?? []).find((c) => c.id === billTo.billingParentId) ?? null
+    : null;
+
   return (
     <>
       <PageHeader title="New invoice" eyebrow="Firm billing" />
@@ -462,6 +504,20 @@ function InvoiceCreate({
             Bill to
           </label>
           <BillToCombobox value={billTo} onSelect={onBillTo} />
+          {billTo?.billingParentId ? (
+            <p className="mt-2 rounded-btn border border-warn/40 bg-warn-bg-2 px-3 py-2 text-[12.5px] text-content">
+              <span className="font-semibold">Sub-client:</span> this invoice will be
+              recorded under — and addressed to —{" "}
+              <span className="font-semibold">
+                {billingParent?.businessName ?? "the main client"}
+              </span>
+              , tagged{" "}
+              <span className="font-mono text-[11px] uppercase">
+                For: {billTo.businessName}
+              </span>
+              .
+            </p>
+          ) : null}
         </div>
 
         {/* Dates */}
@@ -762,7 +818,6 @@ function EmailPreview({
  * ------------------------------------------------------------------------- */
 
 export default function BillingPage() {
-  const { clientId = "" } = useParams();
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
@@ -779,30 +834,6 @@ export default function BillingPage() {
   const canCreate = hasPermission("Billing:Create");
   const canSend = hasPermission("Billing:Send");
 
-  // The active client (route-scoped) — the default Bill-to selection.
-  const activeClientQ = useQuery({
-    queryKey: ["client", clientId],
-    queryFn: () => fetchClient(clientId),
-    enabled: !!clientId,
-  });
-
-  // Sub-client link: when the active client is billed under a main client,
-  // resolve the parent's name for the banner below.
-  const billingParentId = activeClientQ.data?.billingParentId ?? null;
-  const parentClientQ = useQuery({
-    queryKey: ["client", billingParentId],
-    queryFn: () => fetchClient(billingParentId as string),
-    enabled: !!billingParentId,
-  });
-
-  // If "New invoice" was clicked before the active client loaded, hydrate the
-  // default Bill-to once it arrives.
-  useEffect(() => {
-    if (view === "create" && !billTo && activeClientQ.data) {
-      setBillTo(activeClientQ.data);
-    }
-  }, [view, billTo, activeClientQ.data]);
-
   const subtotal = useMemo(
     () => lineItems.reduce((sum, li) => sum + li.qty * li.rate, 0),
     [lineItems],
@@ -811,10 +842,12 @@ export default function BillingPage() {
   const total = subtotal + vat;
 
   const invalidateInvoices = () =>
-    void queryClient.invalidateQueries({ queryKey: ["invoices", clientId] });
+    void queryClient.invalidateQueries({ queryKey: ["invoices"] });
 
   const buildInput = (status?: string): InvoiceInput => ({
-    clientId: billTo?.id ?? clientId,
+    // The mutations are only reachable once a Bill-to client is selected
+    // (Save/Preview are disabled without one).
+    clientId: billTo?.id ?? "",
     description: description.trim() || undefined,
     issuedDate,
     dueDate,
@@ -851,7 +884,7 @@ export default function BillingPage() {
   });
 
   function goCreate(): void {
-    setBillTo(activeClientQ.data ?? null);
+    setBillTo(null);
     const today = todayISO();
     setIssuedDate(today);
     setDueDate(addDaysISO(today, 30));
@@ -861,42 +894,10 @@ export default function BillingPage() {
     setView("create");
   }
 
-  if (!clientId) {
-    return (
-      <div className="animate-fade-rise">
-        <Card>
-          <ErrorState message="No client selected." />
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="animate-fade-rise">
-      <ClientWorkspaceTabs clientId={clientId} />
-
-      {billingParentId ? (
-        <div className="mb-4 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
-          <span className="font-semibold">Sub-client:</span> billing for this client is
-          recorded under{" "}
-          <span className="font-semibold">
-            {parentClientQ.data?.businessName ?? "its main client"}
-          </span>
-          . New invoices are addressed to the main client (tagged{" "}
-          <span className="font-mono text-[11px] uppercase">
-            For: {activeClientQ.data?.businessName ?? "this client"}
-          </span>
-          ) and appear in both workspaces. Sales and expenses stay separate.
-        </div>
-      ) : null}
-
       {view === "list" ? (
-        <InvoiceList
-          clientId={clientId}
-          canCreate={canCreate}
-          canSend={canSend}
-          onNew={goCreate}
-        />
+        <InvoiceList canCreate={canCreate} canSend={canSend} onNew={goCreate} />
       ) : null}
 
       {view === "create" ? (
