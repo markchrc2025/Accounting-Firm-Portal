@@ -24,7 +24,8 @@
 import * as pdfjsLib from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import Tesseract from "tesseract.js";
-import { parseCorText, type ExtractedCor } from "./parseCor";
+import { FIXED_THRESHOLD, otsuThreshold } from "./binarize";
+import { isStrongExtract, parseCorText, scoreExtract, type ExtractedCor } from "./parseCor";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -44,7 +45,6 @@ export type ExtractProgress = (stage: string, pct: number) => void;
 
 const MAX_PAGES = 2;
 const RENDER_SCALE = 2.4;
-const BINARIZE_THRESHOLD = 160;
 
 // ---------------------------------------------------------------- rasterise
 
@@ -88,33 +88,66 @@ async function rasterImage(file: File): Promise<HTMLCanvasElement[]> {
   }
 }
 
-/** Grayscale + fixed-threshold binarisation — removes the light green guilloché
- *  pattern so Tesseract sees near-black text on white. */
-function binarize(canvas: HTMLCanvasElement): void {
+/** An untouched copy of a rendered page — binarisation mutates pixels, and the
+ *  second OCR pass needs the original grayscale back. */
+function cloneCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
+  const copy = document.createElement("canvas");
+  copy.width = src.width;
+  copy.height = src.height;
+  copy.getContext("2d")?.drawImage(src, 0, 0);
+  return copy;
+}
+
+/** Grayscale + threshold binarisation — removes the light green guilloché
+ *  pattern so Tesseract sees near-black text on white. `threshold` is either
+ *  the proven fixed value (flat scans) or an Otsu-adaptive one (photos). */
+function binarize(canvas: HTMLCanvasElement, threshold: number): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
     const lum = 0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!;
-    const v = lum < BINARIZE_THRESHOLD ? 0 : 255;
+    const v = lum < threshold ? 0 : 255;
     d[i] = d[i + 1] = d[i + 2] = v;
   }
   ctx.putImageData(img, 0, 0);
 }
 
+/** The page's Otsu threshold (adaptive, clamped) from its luminance histogram. */
+function pageOtsuThreshold(canvas: HTMLCanvasElement): number {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return FIXED_THRESHOLD;
+  const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  const hist = new Array<number>(256).fill(0);
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = 0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!;
+    hist[Math.round(lum)]!++;
+  }
+  return otsuThreshold(hist, d.length / 4);
+}
+
 // ---------------------------------------------------------------- ocr
 
-async function ocr(canvases: HTMLCanvasElement[], onProgress?: ExtractProgress): Promise<string> {
+async function ocr(
+  canvases: HTMLCanvasElement[],
+  pickThreshold: (canvas: HTMLCanvasElement) => number,
+  stageLabel: string,
+  onProgress?: ExtractProgress,
+): Promise<string> {
   let text = "";
   for (let i = 0; i < canvases.length; i++) {
-    const canvas = canvases[i]!;
-    binarize(canvas);
+    // Binarise a CLONE so the rendered original stays available for a re-pass.
+    const canvas = cloneCanvas(canvases[i]!);
+    binarize(canvas, pickThreshold(canvas));
     const { data } = await Tesseract.recognize(canvas, "eng", {
       ...TESS_PATHS,
       logger: (m: { status?: string; progress?: number }) => {
         if (m.status === "recognizing text" && onProgress) {
-          onProgress(`Reading page ${i + 1}`, (i + (m.progress ?? 0)) / canvases.length);
+          onProgress(
+            `${stageLabel} — page ${i + 1}`,
+            (i + (m.progress ?? 0)) / canvases.length,
+          );
         }
       },
     });
@@ -177,12 +210,29 @@ export async function extractCorFromFile(file: File, onProgress?: ExtractProgres
     throw new CorExtractError("This file couldn't be opened as a PDF or image.", "render");
   }
 
-  let text: string;
+  // Two-pass OCR. Pass 1 uses the fixed threshold proven on flat scans; when
+  // its extract is weak (typically a dark phone PHOTO of a COR — no TIN/RDO,
+  // missing tax rows), pass 2 re-OCRs with a per-page Otsu-adaptive threshold
+  // and the better-scoring extract wins (ties keep pass 1).
+  let first: ExtractedCor;
   try {
-    text = await ocr(canvases, onProgress);
+    first = parseCorText(await ocr(canvases, () => FIXED_THRESHOLD, "Reading", onProgress));
   } catch (err) {
     throw new CorExtractError("The OCR engine failed while reading the document.", "ocr", err);
   }
-  onProgress?.("Extracting fields", 1);
-  return parseCorText(text);
+  if (isStrongExtract(first)) {
+    onProgress?.("Extracting fields", 1);
+    return first;
+  }
+  try {
+    const second = parseCorText(
+      await ocr(canvases, pageOtsuThreshold, "Enhancing photo", onProgress),
+    );
+    onProgress?.("Extracting fields", 1);
+    return scoreExtract(second) > scoreExtract(first) ? second : first;
+  } catch {
+    // The re-pass is best-effort — a failure there must not lose pass 1.
+    onProgress?.("Extracting fields", 1);
+    return first;
+  }
 }

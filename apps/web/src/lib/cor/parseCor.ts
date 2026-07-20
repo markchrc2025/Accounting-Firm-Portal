@@ -96,9 +96,14 @@ const TIN_SRC = String.raw`\d{3}\s*[-–—]?\s*\d{3}\s*[-–—]?\s*\d{3}\s*(?:
 // REQUIRES the printed dashes, so it can only fire on a TIN-shaped run —
 // never on prose — and the lookarounds keep it off longer runs like the OCN.
 const DIGITISH = String.raw`[0-9OQDILSBZG]`;
+// Photo blur also turns a dash into "." or "," ("306-344.911-00000"), so the
+// separator class admits them — but a candidate is only ACCEPTED when at least
+// one real dash survives (checked at the match site), so a plain thousands
+// number ("345,678,901") can never read as a TIN.
+const FUZZY_TIN_SEP = String.raw`\s*[-–—.,]\s*`;
 const FUZZY_TIN_SRC =
-  String.raw`(?<![0-9A-Z])(${DIGITISH}{3})\s*[-–—]\s*(${DIGITISH}{3})\s*[-–—]\s*` +
-  String.raw`(${DIGITISH}{3})(?:\s*[-–—]\s*(${DIGITISH}{3,5}))?(?![0-9A-Z])`;
+  String.raw`(?<![0-9A-Z])(${DIGITISH}{3})${FUZZY_TIN_SEP}(${DIGITISH}{3})${FUZZY_TIN_SEP}` +
+  String.raw`(${DIGITISH}{3})(?:${FUZZY_TIN_SEP}(${DIGITISH}{3,5}))?(?![0-9A-Z])`;
 /** Map OCR look-alike letters back to the digits they were misread from. */
 function digitish(s: string): string {
   return s
@@ -154,12 +159,32 @@ function cleanName(s: string): string {
     .replace(/\s{2,}/g, " ")
     .trim();
   const toks = t.split(/\s+/).filter(Boolean);
-  while (toks.length && /^[O0~_\-.,|©®[\]{}]+$/i.test(toks[toks.length - 1]!)) toks.pop();
-  while (toks.length && /^[O0~_\-.,|©®[\]{}]+$/i.test(toks[0]!)) toks.shift();
+  // Trailing junk: pure punctuation/O-run tokens AND a lone bare letter (a
+  // column fragment — a real middle initial would print with its dot, "H.").
+  const junkTok = /^[O0~_\-.,:;|©®[\]{}!]+$/i;
+  while (toks.length > 1 && (junkTok.test(toks[toks.length - 1]!) || /^[A-Z]$/.test(toks[toks.length - 1]!)))
+    toks.pop();
+  while (toks.length && junkTok.test(toks[0]!)) toks.shift();
   return toks
     .join(" ")
-    .replace(/^[\s_~'"©®|.:\-[\]{}]+|[\s_~'"©®|[\]{}]+$/g, "")
+    .replace(/^[\s_~'"©®|.:;\-[\]{}!]+|[\s_~'"©®|:;[\]{}!]+$/g, "")
     .trim();
+}
+
+/** Fill the individual-name fields from "LAST" + "FIRST MIDDLE [SUFFIX]" —
+ *  a trailing suffix (JR/III/…) is held aside, the final token is the middle
+ *  name, and the suffix rides with the first name. */
+function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void {
+  out.kind = "individual";
+  out.lastName = last.trim();
+  const rest = restRaw.trim().split(/\s+/).filter(Boolean);
+  const suffix = rest.length && NAME_SUFFIXES.has(rest[rest.length - 1]!) ? rest.pop() : "";
+  if (rest.length >= 2) {
+    out.middleName = rest[rest.length - 1];
+    out.firstName = [rest.slice(0, -1).join(" "), suffix].filter(Boolean).join(" ");
+  } else {
+    out.firstName = [rest.join(" "), suffix].filter(Boolean).join(" ");
+  }
 }
 
 /** Clean a trade-name candidate: drop glued registration dates, PSIC tags,
@@ -172,11 +197,19 @@ function cleanTradeName(s: string): string {
   return s
     .replace(new RegExp(DATE_SRC, "g"), " ")
     .replace(/[({[]\s*PSIC\s*[)}\]]?/g, " ")
+    // Cell separators aren't part of a name; a garbled REGISTRATION-DATE
+    // column shows up as a letters+digits mush token ("ASPMWM20E5") — drop
+    // tokens with digit→letter AND letter→digit transitions ("13-8", "1-A",
+    // "7ELEVEN" and pure numbers are untouched).
+    .replace(/\|/g, " ")
+    .replace(/(?:^|\s)(?=\S*[0-9][A-Z])(?=\S*[A-Z][0-9])\S{4,}/g, " ")
     .replace(/(?:\s*\b(?:PRIMARY|SECONDARY)\b)+[\s:.\-|_~©®]*$/, " ")
     // Edge junk includes brackets/braces — an empty neighbouring cell's border
     // binarises into tokens like "[_]" glued before the value ("[_] NCV RICE
-    // TRADING"). Parentheses are NOT stripped (real names use them).
+    // TRADING"). Parentheses are NOT stripped (real names use them) — except a
+    // lone UNPAIRED leading "(" (border junk when no ")" follows anywhere).
     .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.\-|_~©®[\]{}"']+$/g, "")
+    .replace(/^\(\s*(?=[^)]*$)/, "")
     // A lone trailing letter is border/CATEGORY-cell garble glued after the
     // value ("…APARTMENT RENTAL a January 25. 2024"), not part of the name.
     .replace(/(\S\s+\S.*)\s+[A-Z]$/, "$1")
@@ -189,7 +222,7 @@ function cleanTradeName(s: string): string {
  *  ("N.A., N.A., 25, MANALO ST, N.A., …" → "25, MANALO ST, …"). The filter is
  *  per comma-segment, so real words containing NA are untouched. */
 function cleanAddress(s: string): string {
-  const toks = s.split(/\s+/);
+  const toks = s.replace(/\|/g, " ").split(/\s+/);
   while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
   while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[0]!)) toks.shift();
   return (
@@ -220,13 +253,15 @@ function addressAfterLabel(lines: string[]): string {
   // lines ("i — TTT TT ;") that would otherwise be joined onto the address.
   const looksLikeContent = (l: string) =>
     /\d/.test(l) || l.split(/\s+/).some((t) => /^[A-Z'.-]{3,}$/.test(t) && /[AEIOU]/.test(t));
-  const leadJunk = /^[\s:.\-|_~©®[\]{}]+/;
+  const leadJunk = /^[\s:.\-–—|_~©®[\]{}]+/;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i]!.match(labelRe);
     if (!m) continue;
     const parts: string[] = [];
+    // The label line's own tail must ALSO look like address content — border
+    // garble glued after the label ("REGISTERED ADDRESS _— Ea") is skipped.
     const tail = lines[i]!.slice((m.index ?? 0) + m[0].length).replace(leadJunk, "").trim();
-    if (tail.length >= 2 && !stopRe.test(tail)) parts.push(tail);
+    if (tail.length >= 2 && !stopRe.test(tail) && looksLikeContent(tail)) parts.push(tail);
     for (let j = i + 1; j < Math.min(i + 4, lines.length) && parts.length < 3; j++) {
       const next = lines[j]!.trim();
       if (!next) continue;
@@ -253,6 +288,33 @@ function fallbackForm(type: string, individual: boolean, frequency: string): str
   return "";
 }
 
+// ---------------------------------------------------------------- quality
+
+/**
+ * How complete an extract is — used by the two-pass OCR pipeline to decide
+ * whether a re-OCR with an adaptive threshold is worth trying and, when both
+ * passes ran, which result to keep. Field weights favour the identifiers a
+ * user would otherwise re-type (TIN above all).
+ */
+export function scoreExtract(r: ExtractedCor): number {
+  let s = 0;
+  if (r.tin) s += 3;
+  if (r.branch) s += 1;
+  if (r.rdo) s += 2;
+  if (r.kind) s += 2;
+  if (r.lastName || r.regName) s += 1;
+  if (r.address) s += 1;
+  if (r.zip) s += 1;
+  if (r.tradeName) s += 1;
+  s += Math.min(r.taxTypes.length, 3);
+  return s;
+}
+
+/** A pass this strong is kept without paying for a second OCR pass. */
+export function isStrongExtract(r: ExtractedCor): boolean {
+  return Boolean(r.tin && r.rdo && r.taxTypes.length >= 2);
+}
+
 // ---------------------------------------------------------------- parse
 
 /** Parse OCR text from a BIR Form 2303 into structured fields. */
@@ -276,10 +338,11 @@ export function parseCorText(raw: string): ExtractedCor {
     out.tin = tinMatch[1]! + tinMatch[2]! + tinMatch[3]!;
     if (tinMatch[4]) out.branch = tinMatch[4];
   } else {
-    // No clean digit run anywhere — try the dash-anchored fuzzy pattern and
-    // map misread look-alike letters back to digits (still user-reviewed).
+    // No clean digit run anywhere — try the fuzzy pattern (look-alike letters,
+    // "."/"," for a blurred dash) and map back to digits (still user-reviewed).
+    // At least one REAL dash must survive in the match, or it's not a TIN.
     const fz = text.match(new RegExp(FUZZY_TIN_SRC));
-    if (fz) {
+    if (fz && /[-–—]/.test(fz[0])) {
       out.tin = digitish(fz[1]! + fz[2]! + fz[3]!);
       if (fz[4]) out.branch = digitish(fz[4]);
     }
@@ -314,26 +377,21 @@ export function parseCorText(raw: string): ExtractedCor {
       out.kind = "non-individual";
       out.regName = nameCand;
     } else if (nameCand.includes(",")) {
-      // Individual names print as "LAST, FIRST MIDDLE [SUFFIX]" — hold a
-      // trailing suffix (JR/III/…) aside, then the final token is the middle
-      // name and the suffix rides with the first name.
-      out.kind = "individual";
-      const ci = nameCand.indexOf(",");
-      out.lastName = nameCand.slice(0, ci).trim();
-      const rest = nameCand.slice(ci + 1).trim().split(/\s+/).filter(Boolean);
-      const suffix = rest.length && NAME_SUFFIXES.has(rest[rest.length - 1]!) ? rest.pop() : "";
-      if (rest.length >= 2) {
-        out.middleName = rest[rest.length - 1];
-        out.firstName = [rest.slice(0, -1).join(" "), suffix].filter(Boolean).join(" ");
-      } else {
-        out.firstName = [rest.join(" "), suffix].filter(Boolean).join(" ");
-      }
+      splitIndividual(out, nameCand.slice(0, nameCand.indexOf(",")), nameCand.slice(nameCand.indexOf(",") + 1));
     } else if (TRAILING_CO_RE.test(nameCand)) {
       // "SMITH BELL & CO." — comma-less trailing CO reads as a company.
       out.kind = "non-individual";
       out.regName = nameCand;
     } else {
-      out.regName = nameCand; // unknown shape — keep for review
+      // Photo blur turns the comma into a period ("PALISOG. MARIA EUNICA…").
+      // A single leading token ending in "." reads as the surname — but only
+      // when it's ≥4 letters, so "ST. JOSEPH TRADING" stays a business name.
+      const pm = nameCand.match(/^([A-Z'-]{4,})\.\s+(\S.*)$/);
+      if (pm) {
+        splitIndividual(out, pm[1]!, pm[2]!);
+      } else {
+        out.regName = nameCand; // unknown shape — keep for review
+      }
     }
   }
 
@@ -348,7 +406,9 @@ export function parseCorText(raw: string): ExtractedCor {
   //     Nichievan): take the first data line in the section, AFTER the (possibly
   //     garbled) column-header row and BEFORE the PSIC code, so a lost value is
   //     left empty rather than capturing the header or the Line of Business.
-  const TN_LABEL = /TRA[DC]E\s*NA[MN]E\s*\d*/i;
+  // Fuzzy label: photo OCR yields "TRADENAME(", "TRADEWAMEY" ("NAME" → WAME,
+  // glued Y/(). Matching the garbled label keeps it OUT of the value.
+  const TN_LABEL = /TRA[DC]E\s*[NW]A[MNW]E[YI!]?\s*\d*/i;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     if (!TN_LABEL.test(line)) continue;
@@ -400,7 +460,12 @@ export function parseCorText(raw: string): ExtractedCor {
   // then JOIN the region: table cells wrap ("INDIVIDUAL INCOME" / "TAX 01A"),
   // so per-line matching misses rows. Fuzzy anchors mark each row's start;
   // the segment up to the next anchor carries its form, frequency and date.
-  let lo = lines.findIndex((l) => /\bTAX\s*TYPES?\b/.test(l));
+  // The header row itself is often OCR-damaged ("FoAm | Fina FILING."), so any
+  // surviving header token anchors the region start — otherwise a REMINDERS
+  // line mentioning "tax type" could become `lo` and orphan the real rows.
+  let lo = lines.findIndex((l) =>
+    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|FILING\s*(?:DUE|FREQUENCY|START)/.test(l),
+  );
   if (lo < 0) lo = 0;
   let hi = lines.findIndex(
     (l, idx) =>
