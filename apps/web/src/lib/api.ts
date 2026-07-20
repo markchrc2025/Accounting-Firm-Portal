@@ -1131,6 +1131,13 @@ export function fetchProfile(): Promise<Profile> {
 export function updateProfile(body: { fullName: string }): Promise<Profile> {
   return apiFetch("/profile/me", { method: "PATCH", body: JSON.stringify(body) });
 }
+/** Change the login email (firm users only; re-authenticates with the password). */
+export function changeProfileEmail(body: {
+  newEmail: string;
+  currentPassword: string;
+}): Promise<Profile> {
+  return apiFetch("/profile/me/email", { method: "PATCH", body: JSON.stringify(body) });
+}
 /**
  * Upload a profile photo. Uses XMLHttpRequest (not fetch) so the caller can
  * observe real upload progress: `onProgress` receives an integer 0–100, and
