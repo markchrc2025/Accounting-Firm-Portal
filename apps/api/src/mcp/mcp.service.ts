@@ -13,6 +13,7 @@
 // A fresh McpServer is built per request (stateless Streamable HTTP), so
 // request ids never collide across concurrent calls.
 
+import { randomBytes } from "crypto";
 import { Injectable } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Prisma } from "@prisma/client";
@@ -26,7 +27,18 @@ import { InvoicesService } from "../invoices/invoices.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PurchaseTransactionsService } from "../purchase-transactions/purchase-transactions.service";
 import { fail, isoDate, ok, READ_ONLY } from "./mcp-common";
+import { mcpEnabled } from "./mcp-secret";
 import { registerWriteTools } from "./mcp-write-tools";
+
+/** What the Super-Admin connector surface sees. `secret` is the capability
+ *  key itself — the whole point is that the admin can view and share it. */
+export interface McpConnectorDto {
+  enabled: boolean;
+  /** Where the active secret lives: rotated from the portal, or the
+   *  MCP_SHARED_SECRET env var. null when the connector is off. */
+  source: "portal" | "environment" | null;
+  secret: string | null;
+}
 
 const SERVER_NAME = "mcrc-portal-mcp-server";
 const SERVER_VERSION = "1.1.0";
@@ -59,6 +71,104 @@ export class McpService {
     const firm = await this.prisma.firm.findFirst({ orderBy: { createdAt: "asc" } });
     if (!firm) throw new Error("No firm exists yet — seed the database first.");
     return firm.id;
+  }
+
+  // --- Connector secret management (Super Admin surface) --------------------
+  //
+  // The capability secret lives in Firm.settingsJson.mcpSecret so the Super
+  // Admin can view/rotate/disable it from the portal without a redeploy:
+  //   string  → the active secret (rotated from the portal)
+  //   null    → connector explicitly disabled (env var is IGNORED)
+  //   absent  → fall back to the MCP_SHARED_SECRET env var (pre-portal setup)
+
+  /** The stored secret: string = set, null = disabled, undefined = absent. */
+  private async storedSecret(): Promise<string | null | undefined> {
+    try {
+      const firm = await this.prisma.firm.findFirst({
+        orderBy: { createdAt: "asc" },
+        select: { settingsJson: true },
+      });
+      const s = firm?.settingsJson;
+      if (s && typeof s === "object" && !Array.isArray(s) && "mcpSecret" in s) {
+        const v = (s as Record<string, unknown>).mcpSecret;
+        if (typeof v === "string") return v;
+        if (v === null) return null;
+      }
+      return undefined;
+    } catch {
+      // No DB reachable (e.g. hermetic boot) — behave as "nothing stored".
+      return undefined;
+    }
+  }
+
+  /** The secret the /mcp/<key> gate checks against (portal value wins). */
+  async resolveSecret(): Promise<string | undefined> {
+    const stored = await this.storedSecret();
+    if (stored === null) return undefined; // explicitly disabled
+    if (typeof stored === "string") return stored;
+    return process.env.MCP_SHARED_SECRET;
+  }
+
+  private connectorDto(
+    secret: string | undefined,
+    source: "portal" | "environment",
+  ): McpConnectorDto {
+    const enabled = mcpEnabled(secret);
+    return {
+      enabled,
+      source: enabled ? source : null,
+      secret: enabled ? (secret as string) : null,
+    };
+  }
+
+  async getConnector(): Promise<McpConnectorDto> {
+    const stored = await this.storedSecret();
+    if (typeof stored === "string") return this.connectorDto(stored, "portal");
+    if (stored === null) return { enabled: false, source: null, secret: null };
+    return this.connectorDto(process.env.MCP_SHARED_SECRET, "environment");
+  }
+
+  /** Write settingsJson.mcpSecret, preserving any other firm settings. */
+  private async setStoredSecret(firmId: string, value: string | null): Promise<void> {
+    const firm = await this.prisma.firm.findUniqueOrThrow({
+      where: { id: firmId },
+      select: { settingsJson: true },
+    });
+    const current =
+      firm.settingsJson && typeof firm.settingsJson === "object" && !Array.isArray(firm.settingsJson)
+        ? (firm.settingsJson as Record<string, unknown>)
+        : {};
+    await this.prisma.firm.update({
+      where: { id: firmId },
+      data: { settingsJson: { ...current, mcpSecret: value } as Prisma.InputJsonValue },
+    });
+  }
+
+  /** Mint a fresh secret — the old link stops working immediately. */
+  async rotateConnector(user: AuthUser): Promise<McpConnectorDto> {
+    const secret = randomBytes(32).toString("base64url"); // 43 chars ≥ min 32
+    await this.setStoredSecret(user.firmId, secret);
+    await this.audit.record({
+      userId: user.id,
+      action: "mcp.connector.rotate",
+      entityType: "Firm",
+      entityId: user.firmId,
+      metadata: { firmId: user.firmId },
+    });
+    return this.connectorDto(secret, "portal");
+  }
+
+  /** Turn the connector off entirely (the env fallback is ignored too). */
+  async disableConnector(user: AuthUser): Promise<McpConnectorDto> {
+    await this.setStoredSecret(user.firmId, null);
+    await this.audit.record({
+      userId: user.id,
+      action: "mcp.connector.disable",
+      entityType: "Firm",
+      entityId: user.firmId,
+      metadata: { firmId: user.firmId },
+    });
+    return { enabled: false, source: null, secret: null };
   }
 
   /**

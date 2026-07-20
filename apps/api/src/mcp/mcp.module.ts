@@ -3,6 +3,7 @@ import { ClientsModule } from "../clients/clients.module";
 import { IncomeTransactionsModule } from "../income-transactions/income-transactions.module";
 import { InvoicesModule } from "../invoices/invoices.module";
 import { PurchaseTransactionsModule } from "../purchase-transactions/purchase-transactions.module";
+import { McpConnectorController } from "./mcp-connector.controller";
 import { McpController } from "./mcp.controller";
 import { McpService } from "./mcp.service";
 
@@ -18,7 +19,7 @@ import { McpService } from "./mcp.service";
     PurchaseTransactionsModule,
     InvoicesModule,
   ],
-  controllers: [McpController],
+  controllers: [McpController, McpConnectorController],
   providers: [McpService],
 })
 export class McpModule {}
