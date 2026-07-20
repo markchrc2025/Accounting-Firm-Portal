@@ -480,6 +480,8 @@ export interface ClientSummary {
   region?: string | null;
   /** Sub-client billing link: the main client this one is billed under. */
   billingParentId?: string | null;
+  /** Firm-only engagement fee (Decimal serializes as a string over JSON). */
+  professionalFee?: number | string | null;
 }
 
 /** One row of the COR "Tax Types" table, as stored in `taxTypesJson`. Mirrors
