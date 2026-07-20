@@ -175,14 +175,19 @@ export function AppShell() {
                 items={[{ to: "/financial-statements", label: "FS Creator", end: false }]}
               />
 
-              {(hasPermission("Users:Read") || hasPermission("Billing:Read")) && (
+              {(hasPermission("Users:Read") ||
+                hasPermission("Billing:Read") ||
+                hasPermission("Clients:Read")) && (
                 <NavGroup
                   label="Firm Admin"
                   items={[
-                    // Billing is centralized here (all clients, one consolidated
-                    // list) and gated on its own permission, not Users:Read.
+                    // Billing and Documents are centralized here (all clients in
+                    // one place), each gated on its own permission, not Users:Read.
                     ...(hasPermission("Billing:Read")
                       ? [{ to: "/billing", label: "Billing & Invoices", end: true }]
+                      : []),
+                    ...(hasPermission("Clients:Read")
+                      ? [{ to: "/documents", label: "Documents", end: true }]
                       : []),
                     ...(hasPermission("Users:Read")
                       ? [

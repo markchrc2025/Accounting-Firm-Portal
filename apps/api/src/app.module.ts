@@ -11,6 +11,7 @@ import { DashboardModule } from "./dashboard/dashboard.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { ScopesGuard } from "./common/guards/scopes.guard";
+import { FilesModule } from "./files/files.module";
 import { FilingsModule } from "./filings/filings.module";
 import { FinancialModule } from "./financial/financial.module";
 import { FsModule } from "./fs/fs.module";
@@ -58,6 +59,7 @@ import { UsersModule } from "./users/users.module";
     BirModule,
     CoaModule,
     FsModule,
+    FilesModule,
     McpModule,
     HealthModule,
   ],

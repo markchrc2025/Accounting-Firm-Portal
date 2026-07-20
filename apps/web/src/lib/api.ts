@@ -605,6 +605,26 @@ export function deleteCor(clientId: string): Promise<{ ok: boolean }> {
   });
 }
 
+/** One object in the firm's storage bucket, mapped to its client (Documents page). */
+export interface StoredFile {
+  key: string;
+  kind: "cor";
+  size: number;
+  lastModified: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  tin: string | null;
+  clientStatus: string | null;
+}
+
+export function fetchStoredFiles(): Promise<{ files: StoredFile[] }> {
+  return apiFetch<{ files: StoredFile[] }>("/files");
+}
+
+export function fetchStoredFileUrl(key: string): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>(`/files/url?key=${encodeURIComponent(key)}`);
+}
+
 export interface FirmUserSummary {
   id: string;
   email: string;

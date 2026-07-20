@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -96,6 +97,34 @@ export class StorageService {
         ContentType: contentType,
       }),
     );
+  }
+
+  /** All objects under a key prefix (paginates past the 1000-object page cap). */
+  async listObjects(
+    prefix: string,
+  ): Promise<Array<{ key: string; size: number; lastModified: string | null }>> {
+    const s3 = this.require();
+    const out: Array<{ key: string; size: number; lastModified: string | null }> = [];
+    let continuationToken: string | undefined;
+    do {
+      const page = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      for (const obj of page.Contents ?? []) {
+        if (!obj.Key) continue;
+        out.push({
+          key: obj.Key,
+          size: obj.Size ?? 0,
+          lastModified: obj.LastModified ? obj.LastModified.toISOString() : null,
+        });
+      }
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return out;
   }
 
   /** A short-lived (1 hour) presigned GET URL for an arbitrary stored object. */
