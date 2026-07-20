@@ -38,7 +38,7 @@ export interface ExtractedCor {
 // BIR return codes, longest/most-specific first (JS alternation is
 // leftmost-position, first-alternative — "1701Q" must precede "1701").
 const FORM_CODES =
-  "1701Q|1701A|1702RT|1702Q|1702EX|1702MX|2550Q|2550M|2551Q|2551M|1601C|1601EQ|1601FQ|1604CF|1604E|1604F|0619E|0619F|1701|1702|0605|2000";
+  "1701Q|1701A|1702RT|1702Q|1702EX|1702MX|2550Q|2550M|2551Q|2551M|1601C|1601EQ|1601FQ|1604CF|1604C|1604E|1604F|0619E|0619F|1701|1702|0605|2000";
 const FORM_SRC = String.raw`\b(` + FORM_CODES + String.raw`)\b`;
 
 // Bounded gap for the withholding anchors: may not cross into another
@@ -59,8 +59,8 @@ const EXPANDED_ISH = String.raw`(?:EXPANDED|CREDITABLE|\w*PANDED)`;
 // withholding rows print in both word orders ("WITHHOLDING TAX - EXPANDED"
 // and "EXPANDED WITHHOLDING TAX"), so both are anchored.
 const TYPE_ANCHORS: Array<{ src: string; type: string; individual?: boolean }> = [
-  // "NCOME" tolerates an inserted glyph ("INDIVIDUALINCONME").
-  { src: String.raw`INDIVID\w*[\s!|.,:;-]{0,4}I?NC\w{0,2}ME`, type: "Income Tax", individual: true },
+  // "NCOME" tolerates an inserted glyph ("INDIVIDUALINCONME", "INDIVIDUAL INGOME").
+  { src: String.raw`INDIVID\w*[\s!|.,:;-]{0,4}I?N[CG]\w{0,2}ME`, type: "Income Tax", individual: true },
   // The ADDED→TAX gap admits I/1 — a cell border OCRs into the word
   // ("VALUE ADDEDITAX").
   { src: String.raw`VALUE[\s|-]{0,4}ADDED[\s|I1]{0,4}TAX|\bVAT\b`, type: "Value-Added Tax" },
@@ -244,7 +244,7 @@ function cleanTradeName(s: string): string {
     // binarises into tokens like "[_]" glued before the value ("[_] NCV RICE
     // TRADING"). Parentheses are NOT stripped (real names use them) — except a
     // lone UNPAIRED leading "(" (border junk when no ")" follows anywhere).
-    .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.\-|_~©®[\]{}"']+$/g, "")
+    .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.,\-|_~©®[\]{}"']+$/g, "")
     .replace(/^\(\s*(?=[^)]*$)/, "")
     // A lone trailing letter is border/CATEGORY-cell garble glued after the
     // value ("…APARTMENT RENTAL a", "MARMEUNCARPALEOC I"), not part of the name.
@@ -262,7 +262,9 @@ function cleanTradeName(s: string): string {
         // no-alnum tokens ("+.", "=:", "©") — everything from the first such
         // token on is the neighbouring column ("…GOODS TRADING +. =: © Jiro
         // 15,2023"). "&" is real trade-name punctuation and never cuts.
-        if (acc.toks.length && alnum === 0 && !tok.includes("&")) {
+        // No-alnum tokens AND colon-terminated tokens ("11:") mark the
+        // border into the next column.
+        if (acc.toks.length && ((alnum === 0 && !tok.includes("&")) || /:$/.test(tok))) {
           return { done: true, toks: acc.toks };
         }
         acc.toks.push(tok);
@@ -272,6 +274,7 @@ function cleanTradeName(s: string): string {
     )
     .toks.filter((tok, i, all) => !(i === all.length - 1 && /^[O0]+$/i.test(tok)))
     .join(" ")
+    .replace(/[,;]+$/, "")
     .trim();
 }
 
@@ -295,8 +298,9 @@ function cleanAddress(s: string): string {
   // Pipes and double/curly quotes are never address characters (straight
   // apostrophes are kept - "O'NEIL ST").
   const toks = s.replace(/[|"“”]/g, " ").split(/\s+/);
-  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
-  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[0]!)) toks.shift();
+  const junk = /^[O0~_\-.,|©®[\]{}()]+$/i;
+  while (toks.length && junk.test(toks[toks.length - 1]!)) toks.pop();
+  while (toks.length && junk.test(toks[0]!)) toks.shift();
   return (
     toks
       .join(" ")
@@ -316,10 +320,10 @@ function cleanAddress(s: string): string {
  *  label up to the tax-types table. The 2019-revision COR wraps the address
  *  onto a second line ("… SECOND DISTRICT," / "PHILIPPINES"), so unlike
  *  valueAfter this joins continuation lines until a table/label boundary. */
-function addressAfterLabel(lines: string[]): string {
+function addressAfterLabel(lines: string[], rawLines: string[]): string {
   const labelRe = /REGISTER(?:ED|ING)\s*ADDRESS/;
   const stopRe =
-    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|\bFILING\b|REMINDERS|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|REGISTERING\s*OFFICE|REGISTERED\s*ACTIVIT|\bOCN\b/;
+    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|\bFILING\b|START\s*DATE|FREQUENC|REMINDERS|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|REGISTERING\s*OFFICE|REGISTERED\s*ACTIVIT|\bOCN\b/;
   // A continuation line must look like address content — a digit or a ≥3-letter
   // word containing a vowel. Table borders binarise into vowel-less garble
   // lines ("i — TTT TT ;") that would otherwise be joined onto the address.
@@ -331,15 +335,21 @@ function addressAfterLabel(lines: string[]): string {
     if (!m) continue;
     const parts: string[] = [];
     // The label line's own tail must ALSO look like address content. Real
-    // same-line tails always carry a house/unit number, so a DIGIT is
+    // same-line tails always carry a house/unit number, so a MULTI-DIGIT run is
     // required — dot-noise garble ('™\' © | Te : EERE So') has none.
     const tail = lines[i]!.slice((m.index ?? 0) + m[0].length).replace(leadJunk, "").trim();
-    if (tail.length >= 2 && !stopRe.test(tail) && /\d/.test(tail)) parts.push(tail);
+    if (tail.length >= 2 && !stopRe.test(tail) && /\d{2}/.test(tail)) parts.push(tail);
     for (let j = i + 1; j < Math.min(i + 4, lines.length) && parts.length < 3; j++) {
       const next = lines[j]!.trim();
       if (!next) continue;
       if (stopRe.test(next)) break;
       if (!looksLikeContent(next)) break; // border garble — the address ended
+      // Printed address lines are CAPS — a majority-lowercase line is
+      // dot-noise garble ("ees from | ne TT wef mews"), not a continuation.
+      const rawNext = rawLines[j] ?? next;
+      const lower = (rawNext.match(/[a-z]/g) ?? []).length;
+      const upper = (rawNext.match(/[A-Z]/g) ?? []).length;
+      if (lower > upper) break;
       parts.push(next.replace(leadJunk, ""));
     }
     if (parts.length) return parts.join(" ");
@@ -393,10 +403,13 @@ export function isStrongExtract(r: ExtractedCor): boolean {
 /** Parse OCR text from a BIR Form 2303 into structured fields. */
 export function parseCorText(raw: string): ExtractedCor {
   const text = raw.toUpperCase();
-  const lines = text
+  // Parallel original-case lines (same normalization, 1:1 with `lines`) — COR
+  // VALUES print in CAPS, so original case separates values from OCR noise.
+  const rawLines = raw
     .split(/\r?\n/)
     .map((l) => l.replace(/\s{2,}/g, " ").trim())
     .filter(Boolean);
+  const lines = rawLines.map((l) => l.toUpperCase());
   const out: ExtractedCor = { taxTypes: [], rawText: raw };
 
   // --- TIN + branch: 9 digits, optionally followed by a 3-5 digit branch ---
@@ -450,12 +463,27 @@ export function parseCorText(raw: string): ExtractedCor {
   const tinLineIdx = lines.findIndex((l) => /\d{3}-\d{3}-\d{3}/.test(l) || fuzzyTinRe.test(l));
   if (tinLineIdx >= 0) {
     // The name cell sits BETWEEN the TIN and the issuance date — slicing that
-    // span drops margin/border garble on both sides structurally.
-    let seg = lines[tinLineIdx]!;
-    const tinM = seg.match(fuzzyTinRe);
-    if (tinM && tinM.index !== undefined) seg = seg.slice(tinM.index + tinM[0].length);
-    const dateM = seg.match(new RegExp(DATE_SRC));
-    if (dateM && dateM.index !== undefined) seg = seg.slice(0, dateM.index);
+    // span drops margin/border garble on both sides structurally. Slice the
+    // ORIGINAL-case line (indices align with the uppercased copy): the printed
+    // name is CAPS, so majority-lowercase tokens ("oi vit") are dot-noise.
+    const upperLine = lines[tinLineIdx]!;
+    let from = 0;
+    let to = upperLine.length;
+    const tinM = upperLine.match(fuzzyTinRe);
+    if (tinM && tinM.index !== undefined) from = tinM.index + tinM[0].length;
+    const dateM = upperLine.slice(from).match(new RegExp(DATE_SRC));
+    if (dateM && dateM.index !== undefined) to = from + dateM.index;
+    const seg = rawLines[tinLineIdx]!
+      .slice(from, to)
+      .split(/\s+/)
+      .filter((tok) => {
+        const letters = tok.replace(/[^a-zA-Z]/g, "");
+        if (!letters) return true;
+        const lower = (tok.match(/[a-z]/g) ?? []).length;
+        return lower <= letters.length / 2;
+      })
+      .join(" ")
+      .toUpperCase();
     nameCand = cleanName(seg);
     if (nameCand.replace(/[^A-Z]/g, "").length < 3) nameCand = cleanName(lines[tinLineIdx]!);
   }
@@ -560,7 +588,7 @@ export function parseCorText(raw: string): ExtractedCor {
   // --- Registered address + ZIP ---
   // Older CORs print "REGISTERED ADDRESS"; the 2019 revision prints
   // "REGISTERING ADDRESS" and wraps onto a second line — handle both.
-  const addr = addressAfterLabel(lines);
+  const addr = addressAfterLabel(lines, rawLines);
   if (addr) {
     out.address = cleanAddress(addr);
     // The ZIP prints right before the city, AFTER any street/house number —

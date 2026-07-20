@@ -616,6 +616,82 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
   });
 });
 
+// Real pipeline OCR — a dot-noise 2019 COR with the FULLEST tax table yet
+// (Rossan, 9 rows incl. two WHT-Compensation rows and form 1604C): the name
+// cell carries lowercase dot-noise ("oi vit" — printed values are CAPS), the
+// table header garbles into text that would otherwise be joined onto the
+// address ("ees from | ne TT wef mews" / "TYPES START DATE"), and the
+// page-2 trade name is chased by a colon-terminated junk column ("11: tii").
+const ROSSAN = `
+2303 rerio ras
+REVISED: APRIL 2019 KAWANRHAN, NG RENTAR IJVERNAS
+REVENUE DISTRICT OFFICE KO. 05¢.3) ATAJfGAS CITY, WEST BATANGAS
+~~ OCN: 058RC20220000007809
+. Date OCN Generated: September 14, 2022
+© [npn CERTIFICATE OF:REGISTRATION oo.
+TINS BRANCH GODE | | | NAME OF TAXPAYER ~ i "=. | TINISSUANCE DATE
++ | 224:464-389-00000 .. "PABLO, ROSSAN BUNANIG oi vit |: June 8, 2008 + ©
+[REGISTERING OFFICE: © < | X_ | Head Offige'~ ©. onto] pei] Brame ooo oo |
+[REGISTERED ADDRESS ©" "0 © i op SURI IT me st :
+[2102 ASL BUILDING | GALIGANTO 4200 BATANGAS CITY (CARLIAL) BATANGAS PHILIPRINES. . o-oo  -],
+| ees from | ne TT wef mews |
+CET nan TYPES" | START DATE Gr EREQUENGY: tin fuss ciprana ns ne mma) ©
+i INDIVIDUAL INGOME: ATOLL. Co Januan chi SR ANNOAELYE 1 year coveringlincome forthe = 1
+CE INDIVIDUAL INCOME [5 TH Sapiombar A nt] (i soca on BE SE S00 Son ond later Sof BefarS Liza 1c
+CE ee QL EE Gp QUARTER SE RUGUST 18 ard Quarter-on oF £1 i
+PERCENTAGE TAX | rrr | [September dy | mm mide Bi & uc Within twenty. fiver (25) daysafteni toms
+Gl QUARTERLY | 2081s i p0pp hi) FE QUARTRREEEE (i then of Sch taxable quite.) L-oi2
+REGISTRATION FEE os oage | if January: ti fe BiZasaiqaih Wit £1 OoRbefore Woldsttayiof fod cise 2
+2 HH WITHHOLDING TAXI: Fl ata | Seplember ai 112! SLE 1 Cis i fof takes Wilineld for December) ivi ait
+LE COMPENSATION se |i A801 565 ot oct s MONTHLY BB i S\\ymich shall be filediand gs) FEE
+of SCOMPENSATION saws 1 ZOZ0LIG cif Hit om ries evn |o00 payent aid other Indomei iia Lr
+Hl WITHHOLDING TAX bafal: [| Sepa | 2 AMONTRLY 1 i month ollowing the month in. 11 ©1252
+ofr EAPANDEDIOTEIERS | ils wo BURR aa Bd Si owt Ws wifi which withholding was made... | 31
+TAXPAYER TYPE/S SINGLE PROPRIETORSHIP ONLY (RESIDENT CITIZEN)
+BUSINESS INFORMATION DETAILS, 2 521i. fo Sims pia fo Menniens rey
+i+ [4 TRADENAME 1: :[:ROSSAN AESTHETIC. AND WELLNESS SERVICES, 11: tii oC bh iSepteniber 14,2092. 1050 1h cite
+i: [Line of Business; | AESTHETIC AND WELLNESS SERVICES alii tas mit) bt Grp
+REMINDERS:
+1. Filing of required tax return/s to conform with the above tax types.`;
+
+describe("parseCorText — dot-noise 2019 COR with the full WHT table (Rossan)", () => {
+  const r = parseCorText(ROSSAN);
+
+  it("reads TIN (':' first separator) and the RDO from the OCN", () => {
+    expect(r.tin).toBe("224464389");
+    expect(r.branch).toBe("00000");
+    expect(r.rdo).toBe("058");
+  });
+
+  it("drops lowercase dot-noise from the CAPS name ('oi vit')", () => {
+    expect(r.kind).toBe("individual");
+    expect(r.lastName).toBe("PABLO");
+    expect(r.firstName).toBe("ROSSAN");
+    expect(r.middleName).toBe("BUNANIG");
+  });
+
+  it("stops the address before the garbled table header and keeps ZIP 4200", () => {
+    expect(r.address).toBe(
+      "2102 ASL BUILDING GALIGANTO 4200 BATANGAS CITY (CARLIAL) BATANGAS PHILIPRINES.",
+    );
+    expect(r.zip).toBe("4200");
+  });
+
+  it("cuts the page-2 trade name at the colon-terminated junk column", () => {
+    expect(r.tradeName).toBe("ROSSAN AESTHETIC. AND WELLNESS SERVICES");
+  });
+
+  it("recovers 5 tax rows (incl. WHT-Compensation and 'INGOME' garble)", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}`);
+    expect(keys).toContain("Income Tax|");
+    expect(keys).toContain("Percentage Tax|2551Q");
+    expect(keys).toContain("Registration Fee|0605");
+    expect(keys).toContain("Withholding Tax - Compensation|");
+    expect(keys).toContain("Withholding Tax - Expanded|");
+    expect(r.taxTypes.length).toBe(5);
+  });
+});
+
 // Real pipeline OCR (Otsu pass) — an Aug-2024 COR photographed on a dark
 // background (Atacador): the RDO code is ALPHANUMERIC ("25B - EAST BULACAN",
 // OCN "25BRC2026…"), the address's only surviving 4-digit number is its own
