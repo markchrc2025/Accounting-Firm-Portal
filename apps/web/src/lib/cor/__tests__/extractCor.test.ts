@@ -361,6 +361,102 @@ describe("parseCorText — adversarial cases", () => {
   });
 });
 
+// Real browser-pipeline OCR — Three M Residential Apartment Rental. The table
+// border binarises into junk GLUED to the values: "_190-784-550-00000" (an
+// underscore is a word char, so a \b-anchored TIN regex silently fails),
+// "| _1-A GRANTS…" on the address, a vowel-less border-garble line
+// ("i — TTT TT ;") right under the address, and a lone letter glued after the
+// trade name ("…RENTAL a January 25. 2024").
+const THREE_M = `
+BIR FORM ’
+2 3 0 3 REPUBLIKA NG PILIFINAS
+" KAGAWARAN NG PANANALAPL
+RE'/ISED: APRIL 2019 KAWANIHAN NG RENTAS INTERNAS
+REVENYE REGION.NG. TA - QUEZON CITY
+REVENUE DISTRICT OFFICE NO. 038 - NORTH QUEZON CITY
+OCN: 038RC20240000000664
+Date OCN Generated: January 25, 2024
+J — ee
+TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE '
+_190-784-550-00000 COMIA, MARJOR'E ALCARAZ December 2, 1999 oo
+| REGISTERING OFFICE __ headOffice | |Bramch ~~
+| REGISTERED ADDRESS
+| _1-A GRANTS STREET SANGANDAAN 1116 QUEZON CITY NCR, SECOND DISTRICT PHILIPPINES
+i — TTT TT ;
+TAX TYPES FORM FILING FILING FILING DUE DATE i
+TYPES | START DATE FREQUENCY |
+t
+or N 1st Quarter-on or before MAY 15
+INDIVIDUAL INCOME J y . 2nd Quarter-on or before |
+| TAX 701A | Agrit 1, 2600 QUARTERLY AUGUST 15 3rd Quarter-on or
+I EE before November 15
+| On or befare April 15 of each
+| INDIVIDUAL INCOME 1701 January ANNUALLY year covering income for the
+TAX 2000 q
+| [EE receding taxable year. .
+: PERCENTAGE TAX - January 23 . Within twenty five (25) days after
+© QUARTERLY {28510 | Tony QUARTERLY the end of each taxable quarter._|
+_ TAXPAYER TYPE/S { SINGLE PROPRIETOR SHI TONY RSOENTOMZEN
+BUSINESS INFORMATION DETALS______ ~~~ ———— "1
+~ eee oo __.___._ CATEGORY | REGISTRATION DATE ;
+TRADE NAME 1__ | THREE M RESIDENTAL APARTMENT RENTAL a January 25. 2024
+(PSIC) 68190-OTHER REA. ESTATE ACTIVITIES
+- | WITH OWN OR LEASED PROPERTY Primary
+| _LineofBusiness [LESSOR ~~ i
+[ REMINDERS: TUT, TT
+i 1. An annual registration fae shall be said ups» “egistration and every year thereafter on or before the last day
+: of January. using BIR Fo:m No. 0605.`;
+
+describe("parseCorText — real browser pipeline, Three M (border junk glued to values)", () => {
+  const r = parseCorText(THREE_M);
+
+  it("reads the TIN despite the glued leading underscore ('_190-784-550-00000')", () => {
+    expect(r.tin).toBe("190784550");
+    expect(r.branch).toBe("00000");
+    expect(r.rdo).toBe("038");
+  });
+
+  it("splits the name and drops the border junk around it ('_ … oo')", () => {
+    expect(r.kind).toBe("individual");
+    expect(r.lastName).toBe("COMIA");
+    expect(r.firstName).toBe("MARJOR'E"); // OCR misread of MARJORIE — user-corrected
+    expect(r.middleName).toBe("ALCARAZ");
+  });
+
+  it("reads the address, strips the leading '| _' and stops at the border-garble line", () => {
+    expect(r.address).toBe(
+      "1-A GRANTS STREET SANGANDAAN 1116 QUEZON CITY NCR, SECOND DISTRICT PHILIPPINES",
+    );
+    expect(r.zip).toBe("1116");
+  });
+
+  it("reads the trade name and drops the lone glued letter ('…RENTAL a')", () => {
+    expect(r.tradeName).toBe("THREE M RESIDENTAL APARTMENT RENTAL");
+  });
+
+  it("extracts all three tax-type rows via form fallbacks ('701A', '28510')", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}|${t.frequency}`);
+    expect(keys).toContain("Income Tax|1701Q|Quarterly");
+    expect(keys).toContain("Income Tax|1701|Annually");
+    expect(keys).toContain("Percentage Tax|2551Q|Quarterly");
+    expect(r.taxTypes.length).toBe(3);
+  });
+});
+
+describe("parseCorText — fuzzy TIN (look-alike letters inside the digit groups)", () => {
+  it("maps O/S/B/I misreads back to digits when no clean TIN exists", () => {
+    const r = parseCorText("NAME OF TAXPAYER\n474-O79-835-OOOOO CANLUBO, CHRISTIAN RIGOR");
+    expect(r.tin).toBe("474079835");
+    expect(r.branch).toBe("00000");
+    expect(r.lastName).toBe("CANLUBO");
+  });
+
+  it("never fires without the printed dashes (prose stays prose)", () => {
+    const r = parseCorText("REVENUE DISTRICT OFFICE NO. 038 - NORTH QUEZON CITY");
+    expect(r.tin).toBeUndefined();
+  });
+});
+
 // 2019-revision layout (SAGD Development OPC): the label prints as
 // "REGISTERING ADDRESS" (not REGISTERED), the address wraps onto a second
 // line, and BIR fills blank address components with "N.A." segments.
