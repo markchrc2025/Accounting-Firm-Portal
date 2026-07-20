@@ -91,6 +91,24 @@ const COMPANY_RE =
   /\b(INC\.?|INCORPORATED|CORP\.?|CORPORATION|COMPANY|ENTERPRISES?|PARTNERSHIP|OPC|FOUNDATION|ASSOCIATION|COOPERATIVE)\b/;
 const TRAILING_CO_RE = /(?:&|\bAND\b)\s*CO\.?\s*$|\bCO\.?\s*$/;
 const TIN_SRC = String.raw`\d{3}\s*[-–—]?\s*\d{3}\s*[-–—]?\s*\d{3}\s*(?:[-–—]\s*\d{3,5})?`;
+// OCR of the watermarked TIN cell also confuses look-alike glyphs inside the
+// digit groups (O/Q/D→0, I/L→1, S→5, B→8, Z→2, G→6). The fuzzy pattern
+// REQUIRES the printed dashes, so it can only fire on a TIN-shaped run —
+// never on prose — and the lookarounds keep it off longer runs like the OCN.
+const DIGITISH = String.raw`[0-9OQDILSBZG]`;
+const FUZZY_TIN_SRC =
+  String.raw`(?<![0-9A-Z])(${DIGITISH}{3})\s*[-–—]\s*(${DIGITISH}{3})\s*[-–—]\s*` +
+  String.raw`(${DIGITISH}{3})(?:\s*[-–—]\s*(${DIGITISH}{3,5}))?(?![0-9A-Z])`;
+/** Map OCR look-alike letters back to the digits they were misread from. */
+function digitish(s: string): string {
+  return s
+    .replace(/[OQD]/g, "0")
+    .replace(/[IL]/g, "1")
+    .replace(/S/g, "5")
+    .replace(/B/g, "8")
+    .replace(/Z/g, "2")
+    .replace(/G/g, "6");
+}
 // Column headers / boilerplate that must never be mistaken for a field value.
 const HEADER_NOISE_SRC = String.raw`\bTIN\b|ISSUANCE|BRANCH\s*CODE|\bDATE\b|REGISTERING\s*OFFICE|HEAD\s*OFFICE|\bBRANCH\b|\(PSIC\)`;
 const NAME_SUFFIXES = new Set(["JR", "JR.", "SR", "SR.", "II", "III", "IV"]);
@@ -121,14 +139,26 @@ function valueAfter(lines: string[], labelRe: RegExp): string {
   return "";
 }
 
-/** Strip TIN runs, dates and header words so a candidate string is just a name. */
+/** Strip TIN runs, dates and header words so a candidate string is just a name.
+ *  Table borders binarise into junk glued to the name cell ("_190-… COMIA,
+ *  MARJORIE ALCARAZ … oo"), so edge marks and O/0/underscore junk TOKENS are
+ *  dropped too — but only at the edges, and never a trailing "." (it belongs
+ *  to a "JR." suffix). */
 function cleanName(s: string): string {
-  return s
+  const t = s
     .replace(new RegExp(TIN_SRC, "g"), " ")
+    .replace(new RegExp(FUZZY_TIN_SRC, "g"), " ")
     .replace(new RegExp(DATE_SRC, "g"), " ")
     .replace(new RegExp(HEADER_NOISE_SRC, "g"), " ")
     .replace(/[|]/g, " ")
     .replace(/\s{2,}/g, " ")
+    .trim();
+  const toks = t.split(/\s+/).filter(Boolean);
+  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
+  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[0]!)) toks.shift();
+  return toks
+    .join(" ")
+    .replace(/^[\s_~'"©®|.:\-]+|[\s_~'"©®|]+$/g, "")
     .trim();
 }
 
@@ -144,6 +174,9 @@ function cleanTradeName(s: string): string {
     .replace(/[({[]\s*PSIC\s*[)}\]]?/g, " ")
     .replace(/(?:\s*\b(?:PRIMARY|SECONDARY)\b)+[\s:.\-|_~©®]*$/, " ")
     .replace(/^[\s:.\-|_~©®]+|[\s:.\-|_~©®]+$/g, "")
+    // A lone trailing letter is border/CATEGORY-cell garble glued after the
+    // value ("…APARTMENT RENTAL a January 25. 2024"), not part of the name.
+    .replace(/(\S\s+\S.*)\s+[A-Z]$/, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -155,14 +188,20 @@ function cleanTradeName(s: string): string {
 function cleanAddress(s: string): string {
   const toks = s.split(/\s+/);
   while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[toks.length - 1]!)) toks.pop();
-  return toks
-    .join(" ")
-    .split(",")
-    .map((seg) => seg.trim())
-    .filter((seg) => seg && !/^N\.?\s*\/?\s*A\.?$/i.test(seg))
-    .join(", ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  while (toks.length && /^[O0~_\-.,|©®]+$/i.test(toks[0]!)) toks.shift();
+  return (
+    toks
+      .join(" ")
+      .split(",")
+      .map((seg) => seg.trim())
+      .filter((seg) => seg && !/^N\.?\s*\/?\s*A\.?$/i.test(seg))
+      .join(", ")
+      // A registered address ends at the country — anything OCR glued after
+      // "PHILIPPINES" (watermark/border fragments like "A TT A") is junk.
+      .replace(/\b(PHILIPPINES)\b[\s\S]*$/, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+  );
 }
 
 /** The address block: everything after the REGISTERED/REGISTERING ADDRESS
@@ -173,17 +212,24 @@ function addressAfterLabel(lines: string[]): string {
   const labelRe = /REGISTER(?:ED|ING)\s*ADDRESS/;
   const stopRe =
     /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|\bFILING\b|REMINDERS|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|REGISTERING\s*OFFICE|\bOCN\b/;
+  // A continuation line must look like address content — a digit or a ≥3-letter
+  // word containing a vowel. Table borders binarise into vowel-less garble
+  // lines ("i — TTT TT ;") that would otherwise be joined onto the address.
+  const looksLikeContent = (l: string) =>
+    /\d/.test(l) || l.split(/\s+/).some((t) => /^[A-Z'.-]{3,}$/.test(t) && /[AEIOU]/.test(t));
+  const leadJunk = /^[\s:.\-|_~©®]+/;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i]!.match(labelRe);
     if (!m) continue;
     const parts: string[] = [];
-    const tail = lines[i]!.slice((m.index ?? 0) + m[0].length).replace(/^[\s:.\-|]+/, "").trim();
+    const tail = lines[i]!.slice((m.index ?? 0) + m[0].length).replace(leadJunk, "").trim();
     if (tail.length >= 2 && !stopRe.test(tail)) parts.push(tail);
     for (let j = i + 1; j < Math.min(i + 4, lines.length) && parts.length < 3; j++) {
       const next = lines[j]!.trim();
       if (!next) continue;
       if (stopRe.test(next)) break;
-      parts.push(next);
+      if (!looksLikeContent(next)) break; // border garble — the address ended
+      parts.push(next.replace(leadJunk, ""));
     }
     if (parts.length) return parts.join(" ");
   }
@@ -216,10 +262,24 @@ export function parseCorText(raw: string): ExtractedCor {
   const out: ExtractedCor = { taxTypes: [], rawText: raw };
 
   // --- TIN + branch: 9 digits, optionally followed by a 3-5 digit branch ---
-  const tinMatch = text.match(/\b(\d{3})\s*[-–—]?\s*(\d{3})\s*[-–—]?\s*(\d{3})\s*(?:[-–—]\s*(\d{3,5}))?\b/);
+  // The table border binarises into junk GLUED to the TIN ("_190-784-550-…").
+  // "_" is a word character, so a \b anchor silently fails there — anchor on
+  // "not adjacent to another digit" instead, so glued punctuation is fine but
+  // the pattern still can't fire inside a longer digit run (the OCN).
+  const tinMatch = text.match(
+    /(?<!\d)(\d{3})\s*[-–—]?\s*(\d{3})\s*[-–—]?\s*(\d{3})(?:\s*[-–—]\s*(\d{3,5}))?(?!\d)/,
+  );
   if (tinMatch) {
     out.tin = tinMatch[1]! + tinMatch[2]! + tinMatch[3]!;
     if (tinMatch[4]) out.branch = tinMatch[4];
+  } else {
+    // No clean digit run anywhere — try the dash-anchored fuzzy pattern and
+    // map misread look-alike letters back to digits (still user-reviewed).
+    const fz = text.match(new RegExp(FUZZY_TIN_SRC));
+    if (fz) {
+      out.tin = digitish(fz[1]! + fz[2]! + fz[3]!);
+      if (fz[4]) out.branch = digitish(fz[4]);
+    }
   }
 
   // --- RDO code ---
@@ -240,7 +300,8 @@ export function parseCorText(raw: string): ExtractedCor {
   // dash-formatted TIN line specifically (the OCN's long digit run has no
   // dashes) and strip the TIN/date/header noise; fall back to the label.
   let nameCand = "";
-  const tinLineIdx = lines.findIndex((l) => /\d{3}-\d{3}-\d{3}/.test(l));
+  const fuzzyTinRe = new RegExp(FUZZY_TIN_SRC);
+  const tinLineIdx = lines.findIndex((l) => /\d{3}-\d{3}-\d{3}/.test(l) || fuzzyTinRe.test(l));
   if (tinLineIdx >= 0) nameCand = cleanName(lines[tinLineIdx]!);
   if (nameCand.replace(/[^A-Z]/g, "").length < 3) {
     nameCand = cleanName(valueAfter(lines, /NAME\s*OF\s*TAXPAYER/));
