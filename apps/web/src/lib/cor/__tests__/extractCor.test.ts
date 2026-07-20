@@ -593,6 +593,76 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
   });
 });
 
+// AUGUST-2024 revision layout (Flores): TAXPAYER TYPE/S moves up into the
+// header block, an "AVAILED OF 8% INCOME TAX RATE OPTION?" row prints under
+// the table, the form cell wraps ("1701/17 01A/170 1MS"), the address STARTS
+// with a 4-digit house number (3723 — the ZIP 1400 comes later), and photo
+// garble leaks TIN fragments in front of the surname.
+const FLORES = `BIR FORM
+2303 REPUBLIKA NG PILIPINAS
+REVISED: AUGUST 2024 KAWANIHAN NG RENTAS INTERNAS
+REVENUE REGION NO. 005 - CAMANAVA AND BULACAN
+REVENUE DISTRICT OFFICE NO. 027 - CALOOCAN CITY
+OCN: 027RC20260000001014
+Date OCN Generated: January 30, 2026
+CERTIFICATE OF REGISTRATION
+TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE
+L852: 528-538-00000 FLORES, RONORA GRACE SEALANA June 25, 2024
+TAXPAYER TYPE/S PROFESSIONAL - IN GENERAL
+REGISTERING OFFICE X Head Office Branch
+REGISTERED ADDRESS
+COE 3723 DAHLIA STREET SAMPAGUITA SUBD BARANGAY 178 CAMARIN 1400 CITY OF CALOOCAN NCR,
+THIRD DISTRICT PHILIPPINES
+TAX TYPES FORM TYPES FILING START DATE FILING FREQUENCY
+INDIVIDUAL INCOME TAX 1701Q January 30, 2026 QUARTERLY
+INDIVIDUAL INCOME TAX 1701/17 01A/170 1MS January 1, 2027 ANNUALLY
+PERCENTAGE TAX - QUARTERLY 2551Q January 30, 2026 QUARTERLY
+AVAILED OF 8% INCOME TAX RATE OPTION? Yes No
+BUSINESS INFORMATION DETAILS
+CATEGORY REGISTRATION DATE
+TRADE NAME 1 RONORA GRACE S. FLORES January 30, 2026
+(PSIC) 82990-OTHER BUSINESS SUPPORT
+SERVICE ACTIVITIES, N.E.C. Primary
+Line of Business VIRTUAL ASSISTANT
+REMINDERS:
+1. Filing of required tax return/s to conform with the above tax types.`;
+
+describe("parseCorText — August-2024 revision layout (Flores)", () => {
+  const r = parseCorText(FLORES);
+
+  it("drops leading TIN garble from the surname ('L852: … FLORES')", () => {
+    expect(r.kind).toBe("individual");
+    expect(r.lastName).toBe("FLORES");
+    expect(r.firstName).toBe("RONORA GRACE");
+    expect(r.middleName).toBe("SEALANA");
+  });
+
+  it("takes the LAST 4-digit run as the ZIP, not the house number", () => {
+    expect(r.address).toContain("3723 DAHLIA STREET");
+    expect(r.address).toContain("1400 CITY OF CALOOCAN");
+    expect(r.zip).toBe("1400");
+  });
+
+  it("does not manufacture a phantom row from the 8% RATE OPTION line", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}|${t.frequency}`);
+    expect(keys).toContain("Income Tax|1701Q|Quarterly");
+    expect(keys).toContain("Income Tax|1701|Annually");
+    expect(keys).toContain("Percentage Tax|2551Q|Quarterly");
+    expect(r.taxTypes.length).toBe(3);
+  });
+
+  it("reads the trade name and RDO on the new layout", () => {
+    expect(r.tradeName).toBe("RONORA GRACE S. FLORES");
+    expect(r.rdo).toBe("027");
+  });
+
+  it("recovers the TIN through a blurred colon separator ('652: 528-538-00000')", () => {
+    const c = parseCorText("TIN & BRANCH CODE\n652: 528-538-00000 FLORES, RONORA");
+    expect(c.tin).toBe("652528538");
+    expect(c.branch).toBe("00000");
+  });
+});
+
 // 2019-revision layout (SAGD Development OPC): the label prints as
 // "REGISTERING ADDRESS" (not REGISTERED), the address wraps onto a second
 // line, and BIR fills blank address components with "N.A." segments.
