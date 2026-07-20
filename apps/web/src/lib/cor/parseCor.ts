@@ -59,7 +59,8 @@ const EXPANDED_ISH = String.raw`(?:EXPANDED|CREDITABLE|\w*PANDED)`;
 // withholding rows print in both word orders ("WITHHOLDING TAX - EXPANDED"
 // and "EXPANDED WITHHOLDING TAX"), so both are anchored.
 const TYPE_ANCHORS: Array<{ src: string; type: string; individual?: boolean }> = [
-  { src: String.raw`INDIVID\w*[\s!|.,:;-]{0,4}I?NCOME`, type: "Income Tax", individual: true },
+  // "NCOME" tolerates an inserted glyph ("INDIVIDUALINCONME").
+  { src: String.raw`INDIVID\w*[\s!|.,:;-]{0,4}I?NC\w{0,2}ME`, type: "Income Tax", individual: true },
   // The ADDED→TAX gap admits I/1 — a cell border OCRs into the word
   // ("VALUE ADDEDITAX").
   { src: String.raw`VALUE[\s|-]{0,4}ADDED[\s|I1]{0,4}TAX|\bVAT\b`, type: "Value-Added Tax" },
@@ -269,7 +270,8 @@ function cleanTradeName(s: string): string {
       },
       { done: false, toks: [] },
     )
-    .toks.join(" ")
+    .toks.filter((tok, i, all) => !(i === all.length - 1 && /^[O0]+$/i.test(tok)))
+    .join(" ")
     .trim();
 }
 
@@ -425,16 +427,17 @@ export function parseCorText(raw: string): ExtractedCor {
   // The BIR seal overlaps "REVENUE DISTRICT OFFICE NO. NNN", so OCR often
   // destroys it. The OCN ("046RC2024...") prints in a clean area and STARTS
   // with the same RDO code — prefer it; fall back to the header when readable.
-  const ocn = text.match(/\b(\d{3})\s*RC\s*\d{8,}/);
+  // RDO codes can be ALPHANUMERIC ("25B - EAST BULACAN", OCN "25BRC2026…").
+  const ocn = text.match(/\b(\d{2,3}[AB]?)\s*RC\s*\d{8,}/);
   if (ocn) {
-    out.rdo = ocn[1];
+    out.rdo = /^\d+$/.test(ocn[1]!) ? ocn[1]!.padStart(3, "0") : ocn[1];
   } else {
     // Header fallback tolerates the 1997 revision ("REVENUL DISTRICT $04" —
     // no "OFFICE NO.", garbled REVENUE, "$" misread of a leading 0).
     const rdo = text.match(
-      /REVENU\w*\s+DISTRICT(?:\s*OFFICE)?(?:\s*NO\.?)?\s*[$S]?\s*(\d{2,3})\b/,
+      /REVENU\w*\s+DISTRICT(?:\s*OFFICE)?(?:\s*NO\.?)?\s*[$S]?\s*(\d{2,3}[AB]?)\b/,
     );
-    if (rdo) out.rdo = rdo[1]!.padStart(3, "0");
+    if (rdo) out.rdo = /^\d+$/.test(rdo[1]!) ? rdo[1]!.padStart(3, "0") : rdo[1];
   }
 
   // --- Name of taxpayer ---
@@ -498,8 +501,11 @@ export function parseCorText(raw: string): ExtractedCor {
   const TN_LABEL = /TRA[DC]E\s*[NW]A[MNW]E[YI!]?\s*\d*/i;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (!TN_LABEL.test(line)) continue;
-    const rest = line.replace(TN_LABEL, "");
+    const labelM = line.match(TN_LABEL);
+    if (!labelM) continue;
+    // Take the text AFTER the label — anything before it ("EEL TRADENAME 1")
+    // is margin garble, never the value.
+    const rest = line.slice((labelM.index ?? 0) + labelM[0].length);
     // 1997 revision: TRADE NAME and LINE OF BUSINESS are SIDE-BY-SIDE column
     // headers ("TRADE NAME | LINE OF BUSINESS / INDUSTRY") — the value prints
     // on a following line, first column ("MS GUTIERREZ ART & CRAFTS | 7499 …").
@@ -560,8 +566,11 @@ export function parseCorText(raw: string): ExtractedCor {
     // The ZIP prints right before the city, AFTER any street/house number —
     // "3723 DAHLIA STREET … CAMARIN 1400 CITY OF CALOOCAN" — so the LAST
     // 4-digit run is the ZIP, never the first (a house number).
-    const zips = out.address.match(/\b\d{4}\b/g);
-    if (zips) out.zip = zips[zips.length - 1];
+    const zips = [...out.address.matchAll(/\b\d{4}\b/g)];
+    const lastZip = zips[zips.length - 1];
+    // …but never the address's own LEADING house number ("7721 LUWASAN ST…"
+    // whose real ZIP was destroyed) — a ZIP never starts the address.
+    if (lastZip && lastZip.index !== 0) out.zip = lastZip[0];
   }
 
   // --- Tax Types table ---

@@ -616,6 +616,70 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
   });
 });
 
+// Real pipeline OCR (Otsu pass) — an Aug-2024 COR photographed on a dark
+// background (Atacador): the RDO code is ALPHANUMERIC ("25B - EAST BULACAN",
+// OCN "25BRC2026…"), the address's only surviving 4-digit number is its own
+// HOUSE number (7721 — the real ZIP 3022 was destroyed, so no ZIP may be
+// claimed), the income row garbles to "INDIVIDUALINCONME", and margin junk
+// precedes the trade-name label ("EEL TRADENAME 1 | DANDY L. ATACADOR oo").
+const ATACADOR = `
+BIR FORM NO. REP Ta ANCRIBPINAS
+2303 KAWANIARY NG Fl TRE TE RNAS Irs 0]
+REVENUE REGIONNO. as - CARARIvA AND BuLACAN or =
+REVISED: AUGUST 2024 REVENUE D!STRIG OF RIGED its AF - EAST BULACAN . ry 5
+OCN: 25BRC20260000012642
+Date OCN Generated: July 9, 2025
+CERTIFICATE OF REGISTRATION
+TIN & BRANCH CODE | NAME OF TAXPAYER TIN ISSUANCE DATE i
+314-160-187-00000 : ATACADOR, DANDY LACTAD May 23. 2013 i
+; TAXPAYER TYPE/S - - : | PROFESSIONAL iIN'GENERAL 1
+REGISTERING OFFICE" |X HeadOfice ~~ | | Brann oo
+REGISTERED ADDRESS". ©il i ©. |
+7721 LUWASAN ST. BALASING SU2°SANTA MARIA BULACAN PHILIPPINES oh
+i TAXTYPES |. FORM 1° FiLING FILING : FILING DUE DATE
+1 EE 1 | :TYPES' | START DATE FREQUENCY |
+INDIVIDUAL or ME. 01A/1T0. Janay t ANNUALLY | covering income for the preceding
+LTE MEL LTT IMS : taxable year.
+ INDIVIDUALINCONME ©" | 2nd Quarter-on or before
+Fs K SITAR LE 2 B . 1701Q July 9, 2026 QUARTERLY AUGUST 15 3rd Quarter-on or
+- | AVALEDOFBY% INCOME TAX RATE OPTION? Yes ONo | PERIOD COVERED:CY December 30, 2026
+oP {BUBINESSINFORMATION DETAILS |
+[EO Ruel oo CATEGORY | REGISTRATION DATE _
+EEL TRADENAME 1 | DANDY L. ATACADOR oo July 9, 2026 :
+ATRLIIY ULL PSIC) 74908-OTHER PROFESSIONAL, |
+i fos § my wl SCIENTIFIC AND TECHNICAL Pri |
+(HER: he of Business | VIRTUAL ASSISTANT oo »
+HE REMINDERS: So
+rea] 2% Filing of required tax return/s to conform with the above tax types.`;
+
+describe("parseCorText — alphanumeric RDO + house-number ZIP (Atacador, Otsu pass)", () => {
+  const r = parseCorText(ATACADOR);
+
+  it("reads the ALPHANUMERIC RDO from the OCN ('25BRC…' → 25B)", () => {
+    expect(r.rdo).toBe("25B");
+  });
+
+  it("reads TIN, name and trade name through the margin junk", () => {
+    expect(r.tin).toBe("314160187"); // 8/9 pixel ambiguity — user-reviewed
+    expect(r.branch).toBe("00000");
+    expect(r.lastName).toBe("ATACADOR");
+    expect(r.firstName).toBe("DANDY");
+    expect(r.middleName).toBe("LACTAD");
+    expect(r.tradeName).toBe("DANDY L. ATACADOR");
+  });
+
+  it("claims NO ZIP when the only 4-digit run is the leading house number", () => {
+    expect(r.address).toContain("7721 LUWASAN ST");
+    expect(r.zip).toBeUndefined();
+  });
+
+  it("anchors the income row through 'INDIVIDUALINCONME' without an 8%-line phantom", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}|${t.frequency}`);
+    expect(keys).toContain("Income Tax|1701Q|Quarterly");
+    expect(r.taxTypes.length).toBe(1);
+  });
+});
+
 // Real pipeline OCR — a CamScanner COR (Bantito) whose compression fills every
 // line with dot-noise and MARGIN columns ("To … Co" flanking each row): the
 // TIN's branch separator reads ":" ("628-201-853:00000"), curly quotes glue to
