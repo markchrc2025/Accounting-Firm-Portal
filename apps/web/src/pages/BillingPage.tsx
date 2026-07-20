@@ -15,6 +15,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -22,6 +23,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BillingDocument } from "../components/BillingDocument";
 import { McrcMark } from "../components/McrcMark";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -30,6 +32,7 @@ import {
   fetchInvoices,
   sendInvoice,
   type ClientSummary,
+  type Invoice,
   type InvoiceInput,
 } from "../lib/api";
 import {
@@ -289,14 +292,58 @@ function InvoiceList({
       void queryClient.invalidateQueries({ queryKey: ["invoices"] }),
   });
 
+  // PDF / JPEG export: render the billing document off-screen, capture it with
+  // html2canvas (lazy chunk), download; jsPDF wraps the capture for PDF.
+  const [exporting, setExporting] = useState<{ inv: Invoice; format: "pdf" | "jpeg" } | null>(
+    null,
+  );
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!exporting) return;
+    let cancelled = false;
+    const run = async () => {
+      await new Promise((r) => setTimeout(r, 60)); // let the off-screen doc paint
+      const node = exportRef.current;
+      if (!node || cancelled) return;
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#ffffff" });
+      if (cancelled) return;
+      const image = canvas.toDataURL("image/jpeg", 0.95);
+      if (exporting.format === "jpeg") {
+        const a = document.createElement("a");
+        a.href = image;
+        a.download = `${exporting.inv.number}.jpg`;
+        a.click();
+      } else {
+        const { jsPDF } = await import("jspdf");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const h = (canvas.height * pageW) / canvas.width;
+        pdf.addImage(image, "JPEG", 0, 0, pageW, Math.min(h, pageH));
+        pdf.save(`${exporting.inv.number}.pdf`);
+      }
+    };
+    setExportError(null);
+    run()
+      .catch(() => setExportError("Could not export this billing — please retry."))
+      .finally(() => {
+        if (!cancelled) setExporting(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [exporting]);
+
   const header = (
     <PageHeader
-      title="Billing & Invoices"
+      title="Billing"
       eyebrow="Firm admin"
       actions={
         canCreate ? (
           <Button size="sm" onClick={onNew}>
-            + New invoice
+            + New billing
           </Button>
         ) : undefined
       }
@@ -343,7 +390,7 @@ function InvoiceList({
     body = (
       <Card>
         <ErrorState
-          message="Could not load invoices for this client."
+          message="Could not load billings."
           onRetry={() => void invoicesQ.refetch()}
         />
       </Card>
@@ -352,14 +399,14 @@ function InvoiceList({
     body = (
       <Card>
         <EmptyState
-          title="No invoices yet"
+          title="No billings yet"
           description={
             clientFilter
-              ? "No invoices for this client yet."
-              : "Create the first invoice to start billing your clients."
+              ? "No billings for this client yet."
+              : "Create the first billing to start invoicing your clients."
           }
         >
-          {canCreate ? <Button onClick={onNew}>+ New invoice</Button> : null}
+          {canCreate ? <Button onClick={onNew}>+ New billing</Button> : null}
         </EmptyState>
       </Card>
     );
@@ -370,7 +417,7 @@ function InvoiceList({
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-line-divider bg-sidebar font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
-                <th className="px-4 py-2.5 font-semibold">Invoice</th>
+                <th className="px-4 py-2.5 font-semibold">Billing No.</th>
                 <th className="px-4 py-2.5 font-semibold">Client</th>
                 <th className="px-4 py-2.5 font-semibold">Description</th>
                 <th className="px-4 py-2.5 font-semibold">Issued</th>
@@ -421,7 +468,7 @@ function InvoiceList({
                           size="sm"
                           disabled={sendMut.isPending}
                           onClick={() => sendMut.mutate(inv.id)}
-                          aria-label={`Send invoice ${inv.number}`}
+                          aria-label={`Send billing ${inv.number}`}
                         >
                           Send
                         </Button>
@@ -429,9 +476,24 @@ function InvoiceList({
                       <Button
                         variant="outline"
                         size="sm"
-                        aria-label={`Download PDF for invoice ${inv.number}`}
+                        disabled={exporting != null}
+                        onClick={() => setExporting({ inv, format: "pdf" })}
+                        aria-label={`Download PDF for billing ${inv.number}`}
                       >
-                        PDF
+                        {exporting?.inv.id === inv.id && exporting.format === "pdf"
+                          ? "…"
+                          : "PDF"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={exporting != null}
+                        onClick={() => setExporting({ inv, format: "jpeg" })}
+                        aria-label={`Download JPEG for billing ${inv.number}`}
+                      >
+                        {exporting?.inv.id === inv.id && exporting.format === "jpeg"
+                          ? "…"
+                          : "JPEG"}
                       </Button>
                     </div>
                   </td>
@@ -448,7 +510,20 @@ function InvoiceList({
     <>
       {header}
       {filterBar}
+      {exportError ? (
+        <div className="mb-4 rounded-card border border-danger/30 bg-danger-bg px-4 py-3 text-[12.5px] text-danger-ink">
+          {exportError}
+        </div>
+      ) : null}
       {body}
+      {/* Off-screen render target for the PDF/JPEG capture. */}
+      {exporting ? (
+        <div aria-hidden style={{ position: "fixed", top: 0, left: -2000, zIndex: -1 }}>
+          <div ref={exportRef}>
+            <BillingDocument invoice={exporting.inv} />
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -513,7 +588,7 @@ function InvoiceCreate({
 
   return (
     <>
-      <PageHeader title="New invoice" eyebrow="Firm billing" />
+      <PageHeader title="New billing" eyebrow="Firm billing" />
 
       <Card className="p-6">
         {/* Bill to */}
@@ -524,7 +599,7 @@ function InvoiceCreate({
           <BillToCombobox value={billTo} onSelect={onBillTo} />
           {billTo?.billingParentId ? (
             <p className="mt-2 rounded-btn border border-warn/40 bg-warn-bg-2 px-3 py-2 text-[12.5px] text-content">
-              <span className="font-semibold">Sub-client:</span> this invoice will be
+              <span className="font-semibold">Sub-client:</span> this billing will be
               recorded under — and addressed to —{" "}
               <span className="font-semibold">
                 {billingParent?.businessName ?? "the main client"}
@@ -545,7 +620,7 @@ function InvoiceCreate({
               htmlFor="invoice-date"
               className="mb-1.5 block text-[13px] font-semibold text-content"
             >
-              Invoice date
+              Billing date
             </label>
             <input
               id="invoice-date"
@@ -762,7 +837,7 @@ function EmailPreview({
   onSend: () => void;
 }) {
   const toName = billTo?.businessName ?? "—";
-  const subject = `Invoice from MCRC — ${billTo?.businessName ?? ""}`;
+  const subject = `Billing from MCRC — ${billTo?.businessName ?? ""}`;
 
   return (
     <>
@@ -815,7 +890,7 @@ function EmailPreview({
                 {billTo ? `Hi ${billTo.businessName},` : "Hi,"}
               </p>
               <p className="mt-2 text-[13.5px] text-content-secondary">
-                Your latest invoice from MCRC is ready. A summary is below — the
+                Your latest billing statement from MCRC is ready. A summary is below — the
                 full breakdown is attached as a PDF.
               </p>
 
@@ -830,7 +905,7 @@ function EmailPreview({
               {/* CTA */}
               <div className="text-center">
                 <span className="inline-flex items-center justify-center rounded-btn bg-navy px-6 py-3 text-[13.5px] font-semibold text-white">
-                  View &amp; pay invoice
+                  View &amp; pay billing
                 </span>
               </div>
 

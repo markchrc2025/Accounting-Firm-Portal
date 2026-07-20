@@ -693,6 +693,18 @@ model Invoice {
   @@map("invoices")
 }
 
+/// Per-firm-per-year control-number counter for billings. Incremented with an
+/// atomic INSERT … ON CONFLICT DO UPDATE … RETURNING inside the billing-create
+/// transaction, so concurrent saves serialize and numbers follow save order.
+model BillingCounter {
+  firmId  String @db.Uuid
+  year    String
+  nextSeq Int    @default(1)
+
+  @@id([firmId, year])
+  @@map("billing_counters")
+}
+
 /// A single billed line on an Invoice. `amount = qty * rate`; the parent invoice's
 /// `subtotal` is the sum of these. Cascades on invoice delete.
 model InvoiceLineItem {

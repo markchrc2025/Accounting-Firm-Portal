@@ -184,7 +184,7 @@ export function AppShell() {
                     // Billing and Documents are centralized here (all clients in
                     // one place), each gated on its own permission, not Users:Read.
                     ...(hasPermission("Billing:Read")
-                      ? [{ to: "/billing", label: "Billing & Invoices", end: true }]
+                      ? [{ to: "/billing", label: "Billing", end: true }]
                       : []),
                     ...(hasPermission("Clients:Read")
                       ? [{ to: "/documents", label: "Documents", end: true }]
