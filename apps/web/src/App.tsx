@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AuditPage from "./pages/AuditPage";
 import BillingPage from "./pages/BillingPage";
+import DocumentsPage from "./pages/DocumentsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
 import FinancialStatementsPage from "./pages/FinancialStatementsPage";
 import FsReportPage from "./pages/FsReportPage";
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/financial-statements/:id" element={<FsReportPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/audit" element={<AuditPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/new" element={<ClientFormPage />} />
         <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />
