@@ -96,11 +96,11 @@ const TIN_SRC = String.raw`\d{3}\s*[-–—]?\s*\d{3}\s*[-–—]?\s*\d{3}\s*(?:
 // REQUIRES the printed dashes, so it can only fire on a TIN-shaped run —
 // never on prose — and the lookarounds keep it off longer runs like the OCN.
 const DIGITISH = String.raw`[0-9OQDILSBZG]`;
-// Photo blur also turns a dash into "." or "," ("306-344.911-00000"), so the
-// separator class admits them — but a candidate is only ACCEPTED when at least
-// one real dash survives (checked at the match site), so a plain thousands
-// number ("345,678,901") can never read as a TIN.
-const FUZZY_TIN_SEP = String.raw`\s*[-–—.,]\s*`;
+// Photo blur also turns a dash into "." / "," / ":" ("306-344.911-00000",
+// "652: 528-538-00000"), so the separator class admits them — but a candidate
+// is only ACCEPTED when at least one real dash survives (checked at the match
+// site), so a plain thousands number ("345,678,901") can never read as a TIN.
+const FUZZY_TIN_SEP = String.raw`\s*[-–—.,:]\s*`;
 const FUZZY_TIN_SRC =
   String.raw`(?<![0-9A-Z])(${DIGITISH}{3})${FUZZY_TIN_SEP}(${DIGITISH}{3})${FUZZY_TIN_SEP}` +
   String.raw`(${DIGITISH}{3})(?:${FUZZY_TIN_SEP}(${DIGITISH}{3,5}))?(?![0-9A-Z])`;
@@ -176,7 +176,12 @@ function cleanName(s: string): string {
  *  name, and the suffix rides with the first name. */
 function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void {
   out.kind = "individual";
-  out.lastName = last.trim();
+  // TIN garble the cleaners couldn't fully strip leaks in FRONT of the
+  // surname ("L852: 00 FLORES") — surnames never contain digits or colons,
+  // so leading tokens carrying them are junk.
+  const lastToks = last.trim().split(/\s+/).filter(Boolean);
+  while (lastToks.length > 1 && /[\d:]/.test(lastToks[0]!)) lastToks.shift();
+  out.lastName = lastToks.join(" ");
   const rest = restRaw.trim().split(/\s+/).filter(Boolean);
   const suffix = rest.length && NAME_SUFFIXES.has(rest[rest.length - 1]!) ? rest.pop() : "";
   if (rest.length >= 2) {
@@ -462,8 +467,11 @@ export function parseCorText(raw: string): ExtractedCor {
   const addr = addressAfterLabel(lines);
   if (addr) {
     out.address = cleanAddress(addr);
-    const zip = out.address.match(/\b(\d{4})\b/);
-    if (zip) out.zip = zip[1];
+    // The ZIP prints right before the city, AFTER any street/house number —
+    // "3723 DAHLIA STREET … CAMARIN 1400 CITY OF CALOOCAN" — so the LAST
+    // 4-digit run is the ZIP, never the first (a house number).
+    const zips = out.address.match(/\b\d{4}\b/g);
+    if (zips) out.zip = zips[zips.length - 1];
   }
 
   // --- Tax Types table ---
@@ -479,10 +487,15 @@ export function parseCorText(raw: string): ExtractedCor {
     /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|FILING\s*(?:DUE|FREQUENCY|START)/.test(l),
   );
   if (lo < 0) lo = 0;
+  // "AVAILED OF 8% INCOME TAX RATE OPTION?" (August-2024 revision) prints
+  // right under the table — it must END the region, or its "INCOME TAX"
+  // words would manufacture a phantom Income Tax row.
   let hi = lines.findIndex(
     (l, idx) =>
       idx > lo &&
-      /(REMINDERS|TAXPAYER\s*TYPE|BUSINESS\s*INFORMATION|HEREBY\s*CERTIFY|THIS\s*CERTIFICATE|TRADE\s*NAME|LINE\s*OF\s*BUSINESS)/.test(l),
+      /(REMINDERS|TAXPAYER\s*TYPE|BUSINESS\s*INFORMATION|HEREBY\s*CERTIFY|THIS\s*CERTIFICATE|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|AVAILED\s*OF|RATE\s*OPTION)/.test(
+        l,
+      ),
   );
   if (hi < 0) hi = lines.length;
   const region = lines.slice(lo, hi).join(" ");
