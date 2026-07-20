@@ -593,6 +593,75 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
   });
 });
 
+// 1997-revision layout (Gutierrez) — real browser-pipeline OCR of a typewriter
+// COR: TIN separator garbled to "~" ("165~502-880-000"), the RDO header reads
+// "REVENUL DISTRICT $04" (no OFFICE NO., "$" for the leading 0, OCN useless:
+// "ARCODOTATETTT"), the address has NO "PHILIPPINES" and runs into
+// "REGISTERED ACTIVITY(IES)", TAX TYPE lists bare type names (no form table),
+// TRADE NAME and LINE OF BUSINESS are SIDE-BY-SIDE column headers with the
+// value on the next line, and the boilerplate filing-calendar grid below
+// (with "PLRCENTAGE TAX" and "0605") must NOT leak into the tax types.
+const GUTIERREZ = `
+REPUBLIKA NG PILIPINAS
+KAGAWARAN NG PANANALAPI
+KAWANTHAN NG RENTAS INTERNAS
+REVENUE REGION NO.
+BIR REVENUL DISTRICT $04
+Form No. 2303 238
+Revised July 1997 OCN
+' ARCODOTATETTT
+CERTIFICATE OF REGISTRATION
+TIN NAME REGISTRATION DATE
+165~502-880-000 | FRR MARLEN A 8/20
+REGISTERED ADDRESS
+PULO SAN ISIDRO
+NUEVA ECIJA 3106
+REGISTERED ACTIVITY(IES)
+TAX TYPE
+INCOME TAX . REGISTRATION FEE
+VALUE - ADDED TAX
+TRADE NAME 1 LINE OF BUSINESS / INDUSTRY
+}
+MS GUTIERREZ ART & CRAFTS | 7499 OTHER BUSINESS ACTIVITIES,
+f N.E.C.
+PROPRIEYOR [Factnership/ Assodation PLRCENTAGE TAX RENCWAL DF ANNUAL NEG LSTRATION FEE ON OR
+[LZR { A" ST SL IaARY 38 US a 0 0605
+THEREBY CERTIFY THAT THE ABOVE NAMED PERSON IS REGISTERED AS
+INDICATED ABOVE. UNDER THE PROVISIONS OF THE NATIONAL INTERNAL
+REVENUE CODE, AS AMENDED.
+RDO DRY SEAL GIL B. VINLUAN, JR. a
+REVENUL DISTRICT OFFICER (signature over printed name)`;
+
+describe("parseCorText — 1997 revision layout (Gutierrez)", () => {
+  const r = parseCorText(GUTIERREZ);
+
+  it("reads the full TIN through the '~' separator (fuzzy sees the whole run)", () => {
+    expect(r.tin).toBe("165502880");
+    expect(r.branch).toBe("000");
+  });
+
+  it("reads the RDO from 'REVENUL DISTRICT $04' (no OFFICE NO., $ for 0)", () => {
+    expect(r.rdo).toBe("004");
+  });
+
+  it("stops the address at REGISTERED ACTIVITY(IES) — no PHILIPPINES on this form", () => {
+    expect(r.address).toBe("PULO SAN ISIDRO NUEVA ECIJA 3106");
+    expect(r.zip).toBe("3106");
+  });
+
+  it("reads the trade name from the line BELOW the side-by-side headers", () => {
+    expect(r.tradeName).toBe("MS GUTIERREZ ART & CRAFTS");
+  });
+
+  it("lists the bare TAX TYPE names without leaking the calendar grid", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}`);
+    expect(keys).toContain("Income Tax|");
+    expect(keys).toContain("Registration Fee|0605");
+    expect(keys).toContain("Value-Added Tax|");
+    expect(r.taxTypes.length).toBe(3); // no Percentage Tax from "PLRCENTAGE" mush
+  });
+});
+
 // AUGUST-2024 revision layout (Flores): TAXPAYER TYPE/S moves up into the
 // header block, an "AVAILED OF 8% INCOME TAX RATE OPTION?" row prints under
 // the table, the form cell wraps ("1701/17 01A/170 1MS"), the address STARTS

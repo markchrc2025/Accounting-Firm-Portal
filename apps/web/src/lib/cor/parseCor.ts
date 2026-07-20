@@ -96,11 +96,12 @@ const TIN_SRC = String.raw`\d{3}\s*[-–—]?\s*\d{3}\s*[-–—]?\s*\d{3}\s*(?:
 // REQUIRES the printed dashes, so it can only fire on a TIN-shaped run —
 // never on prose — and the lookarounds keep it off longer runs like the OCN.
 const DIGITISH = String.raw`[0-9OQDILSBZG]`;
-// Photo blur also turns a dash into "." / "," / ":" ("306-344.911-00000",
-// "652: 528-538-00000"), so the separator class admits them — but a candidate
-// is only ACCEPTED when at least one real dash survives (checked at the match
-// site), so a plain thousands number ("345,678,901") can never read as a TIN.
-const FUZZY_TIN_SEP = String.raw`\s*[-–—.,:]\s*`;
+// Blur/typewriter scans turn a dash into "." / "," / ":" / "~"
+// ("306-344.911-00000", "652: 528-538-00000", "165~502-880-000"), so the
+// separator class admits them — but a candidate is only ACCEPTED when at
+// least one real dash survives (checked at the match site), so a plain
+// thousands number ("345,678,901") can never read as a TIN.
+const FUZZY_TIN_SEP = String.raw`\s*[-–—.,:~]\s*`;
 const FUZZY_TIN_SRC =
   String.raw`(?<![0-9A-Z])(${DIGITISH}{3})${FUZZY_TIN_SEP}(${DIGITISH}{3})${FUZZY_TIN_SEP}` +
   String.raw`(${DIGITISH}{3})(?:${FUZZY_TIN_SEP}(${DIGITISH}{3,5}))?(?![0-9A-Z])`;
@@ -158,7 +159,9 @@ function cleanName(s: string): string {
     .replace(/[|]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
-  const toks = t.split(/\s+/).filter(Boolean);
+  // Digit/punct-only tokens are never part of a name — TIN remnants ("165~")
+  // and numeric dates ("8/20", "11/18/2011") the pattern strips missed.
+  const toks = t.split(/\s+/).filter((tok) => tok && !/^[\d/.:~\-]+$/.test(tok));
   // Trailing junk: pure punctuation/O-run tokens AND a lone bare letter (a
   // column fragment — a real middle initial would print with its dot, "H.").
   const junkTok = /^[O0~_\-.,:;|©®[\]{}!]+$/i;
@@ -264,7 +267,7 @@ function cleanAddress(s: string): string {
 function addressAfterLabel(lines: string[]): string {
   const labelRe = /REGISTER(?:ED|ING)\s*ADDRESS/;
   const stopRe =
-    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|\bFILING\b|REMINDERS|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|REGISTERING\s*OFFICE|\bOCN\b/;
+    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|\bFILING\b|REMINDERS|TRADE\s*NAME|LINE\s*OF\s*BUSINESS|REGISTERING\s*OFFICE|REGISTERED\s*ACTIVIT|\bOCN\b/;
   // A continuation line must look like address content — a digit or a ≥3-letter
   // word containing a vowel. Table borders binarise into vowel-less garble
   // lines ("i — TTT TT ;") that would otherwise be joined onto the address.
@@ -344,24 +347,26 @@ export function parseCorText(raw: string): ExtractedCor {
   const out: ExtractedCor = { taxTypes: [], rawText: raw };
 
   // --- TIN + branch: 9 digits, optionally followed by a 3-5 digit branch ---
-  // The table border binarises into junk GLUED to the TIN ("_190-784-550-…").
-  // "_" is a word character, so a \b anchor silently fails there — anchor on
-  // "not adjacent to another digit" instead, so glued punctuation is fine but
-  // the pattern still can't fire inside a longer digit run (the OCN).
-  const tinMatch = text.match(
-    /(?<!\d)(\d{3})\s*[-–—]?\s*(\d{3})\s*[-–—]?\s*(\d{3})(?:\s*[-–—]\s*(\d{3,5}))?(?!\d)/,
-  );
-  if (tinMatch) {
-    out.tin = tinMatch[1]! + tinMatch[2]! + tinMatch[3]!;
-    if (tinMatch[4]) out.branch = tinMatch[4];
+  // FUZZY first: it tolerates look-alike letters and blurred separators
+  // ("165~502-880-000") and so sees the WHOLE dash-anchored run — the strict
+  // pattern alone would lock onto a mid-TIN fragment ("502-880-000") when the
+  // first separator was garbled. A fuzzy candidate is only accepted when at
+  // least one REAL dash survives, so a plain thousands number can't match.
+  const fz = text.match(new RegExp(FUZZY_TIN_SRC));
+  if (fz && /[-–—]/.test(fz[0])) {
+    out.tin = digitish(fz[1]! + fz[2]! + fz[3]!);
+    if (fz[4]) out.branch = digitish(fz[4]);
   } else {
-    // No clean digit run anywhere — try the fuzzy pattern (look-alike letters,
-    // "."/"," for a blurred dash) and map back to digits (still user-reviewed).
-    // At least one REAL dash must survive in the match, or it's not a TIN.
-    const fz = text.match(new RegExp(FUZZY_TIN_SRC));
-    if (fz && /[-–—]/.test(fz[0])) {
-      out.tin = digitish(fz[1]! + fz[2]! + fz[3]!);
-      if (fz[4]) out.branch = digitish(fz[4]);
+    // Strict fallback for dashless-but-clean runs ("123 456 789"). Junk glued
+    // to the TIN ("_190-…") makes \b fail silently ("_" is a word char), so it
+    // anchors on "not adjacent to another digit" — which also keeps it from
+    // firing inside a longer digit run (the OCN).
+    const tinMatch = text.match(
+      /(?<!\d)(\d{3})\s*[-–—]?\s*(\d{3})\s*[-–—]?\s*(\d{3})(?:\s*[-–—]\s*(\d{3,5}))?(?!\d)/,
+    );
+    if (tinMatch) {
+      out.tin = tinMatch[1]! + tinMatch[2]! + tinMatch[3]!;
+      if (tinMatch[4]) out.branch = tinMatch[4];
     }
   }
 
@@ -373,7 +378,11 @@ export function parseCorText(raw: string): ExtractedCor {
   if (ocn) {
     out.rdo = ocn[1];
   } else {
-    const rdo = text.match(/DISTRICT\s*OFFICE\s*NO\.?\s*(\d{2,3})/);
+    // Header fallback tolerates the 1997 revision ("REVENUL DISTRICT $04" —
+    // no "OFFICE NO.", garbled REVENUE, "$" misread of a leading 0).
+    const rdo = text.match(
+      /REVENU\w*\s+DISTRICT(?:\s*OFFICE)?(?:\s*NO\.?)?\s*[$S]?\s*(\d{2,3})\b/,
+    );
     if (rdo) out.rdo = rdo[1]!.padStart(3, "0");
   }
 
@@ -429,7 +438,24 @@ export function parseCorText(raw: string): ExtractedCor {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     if (!TN_LABEL.test(line)) continue;
-    const c = cleanTradeName(line.replace(TN_LABEL, ""));
+    const rest = line.replace(TN_LABEL, "");
+    // 1997 revision: TRADE NAME and LINE OF BUSINESS are SIDE-BY-SIDE column
+    // headers ("TRADE NAME | LINE OF BUSINESS / INDUSTRY") — the value prints
+    // on a following line, first column ("MS GUTIERREZ ART & CRAFTS | 7499 …").
+    if (/LINE\s*OF\s*BUSINESS/.test(rest)) {
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        const firstCol = lines[j]!.split("|")[0] ?? "";
+        if (!/[AEIOU]/.test(firstCol) || firstCol.replace(/[^A-Z]/gi, "").length < 3) continue;
+        const c = cleanTradeName(firstCol);
+        if (c && c.replace(/[^A-Z]/gi, "").length >= 3 && !tradeNameLooksGarbled(c)) {
+          out.tradeName = c;
+        }
+        break; // the first content line decides either way
+      }
+      if (out.tradeName) break;
+      continue;
+    }
+    const c = cleanTradeName(rest);
     if (c && c.replace(/[^A-Z]/gi, "").length >= 3 && !tradeNameLooksGarbled(c)) {
       out.tradeName = c;
       break;
