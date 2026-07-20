@@ -727,6 +727,8 @@ export interface PurchaseTxn {
   account?: string;
   atc?: string;
   taxAmount?: number;
+  /** Creditable withholding tax withheld from the supplier (ATC in `atc`). */
+  whtAmount?: number;
   unit?: string;
   quantity?: number;
   unitPrice?: number;

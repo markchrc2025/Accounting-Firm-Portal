@@ -96,6 +96,7 @@ export function toPurchaseDto(t: PurchaseRow) {
     account: t.account ?? undefined,
     atc: t.atc ?? undefined,
     taxAmount: decToNum(t.taxAmount),
+    whtAmount: decToNum(t.whtAmount),
     unit: t.unit ?? undefined,
     quantity: decToNum(t.quantity),
     unitPrice: decToNum(t.unitPrice),

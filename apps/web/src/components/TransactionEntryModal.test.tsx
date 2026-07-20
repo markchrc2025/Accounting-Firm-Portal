@@ -34,11 +34,23 @@ const chartAccounts: ChartAccount[] = [
   },
 ];
 
+const atcCodes = [
+  {
+    atc: "WI010",
+    classification: "wht",
+    taxTypeCode: "WE",
+    payeeType: "individual",
+    description: "Professional fees — individual",
+    rate: 0.01,
+    forms: ["1601EQ"],
+  },
+];
+
 vi.mock("../lib/api", async (orig) => ({
   ...(await orig<typeof import("../lib/api")>()),
   createIncome: vi.fn(),
   createPurchase: vi.fn(),
-  fetchBirAtcCodes: vi.fn(() => Promise.resolve([])),
+  fetchBirAtcCodes: vi.fn(() => Promise.resolve(atcCodes)),
   fetchChartAccounts: vi.fn(() => Promise.resolve(chartAccounts)),
 }));
 
@@ -78,10 +90,43 @@ describe("TransactionEntryModal — invoice/bill line-item entry", () => {
     expect(screen.queryByText("12% VAT")).not.toBeInTheDocument();
   });
 
-  it("renders a Bill with a Tax Code column for an expense", () => {
+  it("renders a Purchases modal with VAT, Tax Code, and WHT columns for an expense", () => {
     open({ regime: "VAT", kind: "expense" });
-    expect(screen.getByText("Bill")).toBeInTheDocument();
+    expect(screen.getByText("Purchases")).toBeInTheDocument();
+    expect(screen.queryByText("Bill")).not.toBeInTheDocument();
+    // "VAT" appears both as the regime chip and the new column header.
+    expect(screen.getAllByText("VAT").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Tax Code")).toBeInTheDocument();
+    expect(screen.getByText("WHT")).toBeInTheDocument();
+    // 12% input VAT defaults on and is auto-computed — no manual tax input.
+    expect(screen.getByDisplayValue("12% VAT")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Tax amt")).not.toBeInTheDocument();
+  });
+
+  it("auto-computes the withholding amount from the ATC rate (still editable)", async () => {
+    open({ regime: "VAT", kind: "expense" });
+    // Wait for the ATC reference data so the rate lookup can hit.
+    await screen.findByText("Purchases");
+    const price = screen.getAllByPlaceholderText("0.00")[0]!;
+    fireEvent.change(price, { target: { value: "1000" } });
+    fireEvent.change(screen.getByPlaceholderText("ATC (e.g. WI010)"), {
+      target: { value: "WI010" },
+    });
+    const wht = screen.getByPlaceholderText("WHT") as HTMLInputElement;
+    expect(wht.value).toBe("10"); // 1% of 1000
+    // VAT (12% of net) and WHT coexist on the same line: totals show both.
+    expect(screen.getByText("Less: Withholding")).toBeInTheDocument();
+  });
+
+  it("derives the Due Date from numeric Terms on an Invoice", () => {
+    open({ regime: "VAT", kind: "income" });
+    const terms = screen.getByPlaceholderText('Days (e.g. 30) or "On Delivery"');
+    fireEvent.change(terms, { target: { value: "10" } });
+    const today = new Date().toISOString().slice(0, 10);
+    const expected = new Date(new Date(`${today}T00:00:00.000Z`).getTime() + 10 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    expect((screen.getByLabelText("Due Date") as HTMLInputElement).value).toBe(expected);
   });
 
   it("shows the line → record hint when adding", () => {

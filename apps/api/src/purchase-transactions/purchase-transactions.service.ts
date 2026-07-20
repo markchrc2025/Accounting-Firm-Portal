@@ -370,6 +370,7 @@ export class PurchaseTransactionsService {
       account: input.account ?? null,
       atc: input.atc ?? null,
       taxAmount: input.taxAmount ?? null,
+      whtAmount: input.whtAmount ?? null,
       unit: input.unit ?? null,
       quantity: input.quantity ?? null,
       unitPrice: input.unitPrice ?? null,

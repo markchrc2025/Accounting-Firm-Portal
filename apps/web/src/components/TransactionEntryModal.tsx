@@ -1,4 +1,4 @@
-import { VatClass } from "@portal/shared";
+import { round2, VatClass } from "@portal/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
 import {
@@ -37,6 +37,15 @@ const VAT_RATE_LABELS: Record<string, string> = {
 };
 const VAT_RATE_OPTIONS = VatClass.options.filter((c) => c !== "NON_VAT");
 
+/** Quick-pick payment terms (days); the field still accepts any custom value. */
+const TERMS_PRESETS = ["5", "10", "15", "30"];
+
+function addDaysIso(iso: string, days: number): string {
+  return new Date(new Date(`${iso}T00:00:00.000Z`).getTime() + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 interface Line {
   description: string;
   quantity: string;
@@ -49,8 +58,12 @@ interface Line {
   /** Pre-CoA records keep their category when the account is left untouched. */
   categoryId: string;
   vatClass: string; // sales tax rate
-  atc: string; // Tax Code
-  taxAmount: string; // purchase Tax Amount
+  atc: string; // Tax Code (withholding ATC)
+  /** Purchases: "VAT12" applies 12% input VAT (auto-computed); "NONE" = no VAT. */
+  expVat: "VAT12" | "NONE";
+  /** Purchases: creditable withholding tax withheld from the supplier —
+   *  auto-filled from the ATC's rate × net, still editable. */
+  whtAmount: string;
 }
 
 function today(): string {
@@ -142,7 +155,14 @@ export default function TransactionEntryModal({
       categoryId: existing?.categoryId ?? "",
       vatClass: inc?.vatClass ?? "VATABLE_12",
       atc: (isIncome ? inc?.atc : pur?.atc) ?? "",
-      taxAmount: pur?.taxAmount != null ? String(pur.taxAmount) : "",
+      expVat: existing
+        ? (pur?.inputVAT ?? 0) > 0
+          ? "VAT12"
+          : "NONE"
+        : isVat
+          ? "VAT12"
+          : "NONE",
+      whtAmount: pur?.whtAmount != null ? String(pur.whtAmount) : "",
     };
   }
 
@@ -159,28 +179,69 @@ export default function TransactionEntryModal({
         categoryId: "",
         vatClass: "VATABLE_12",
         atc: "",
-        taxAmount: "",
+        expVat: isVat ? "VAT12" : "NONE",
+        whtAmount: "",
       },
     ]);
   }
   function removeLine(idx: number) {
     setLines((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
   }
-  function updateLine(idx: number, patch: Partial<Line>) {
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+
+  /** Rate of a withholding ATC (fraction, e.g. 0.01), or null when unknown. */
+  function atcRate(code: string): number | null {
+    const c = code.trim().toUpperCase();
+    if (!c) return null;
+    const a = (atcQuery.data ?? []).find((x) => x.atc === c && x.classification !== "vat");
+    const rate = a?.rate == null ? NaN : Number(a.rate);
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
   }
 
-  /** Per-line VAT (display + advisory). Sales: 12% on VATABLE_12; Purchase: the
-   *  entered Tax Amount. */
+  function updateLine(idx: number, patch: Partial<Line>) {
+    setLines((prev) =>
+      prev.map((l, i) => {
+        if (i !== idx) return l;
+        const next = { ...l, ...patch };
+        // Purchases: keep the withholding amount in sync with ATC rate × net
+        // whenever the code or the net-affecting fields change (still editable).
+        if (
+          !isIncome &&
+          ("atc" in patch || "quantity" in patch || "unitPrice" in patch || "discount" in patch)
+        ) {
+          const rate = atcRate(next.atc);
+          if (rate != null) next.whtAmount = String(round2(lineNet(next) * rate));
+          else if ("atc" in patch && next.atc.trim() === "") next.whtAmount = "";
+        }
+        return next;
+      }),
+    );
+  }
+
+  /** Terms in days (numeric entry) derives the Due Date from the doc date. */
+  function handleTerms(value: string) {
+    setTerms(value);
+    if (/^\d+$/.test(value.trim())) setDueDate(addDaysIso(docDate, Number(value.trim())));
+  }
+  function handleDocDate(value: string) {
+    setDocDate(value);
+    if (isIncome && /^\d+$/.test(terms.trim()) && value) {
+      setDueDate(addDaysIso(value, Number(terms.trim())));
+    }
+  }
+
+  /** Per-line VAT, auto-computed (12% of net) — sales on VATABLE_12, purchases
+   *  when the line's VAT code is "12% VAT". Non-VAT regimes carry none. */
   function lineVat(l: Line): number {
     if (isIncome) {
-      return isVat && l.vatClass === "VATABLE_12" ? Math.round(lineNet(l) * 12) / 100 : 0;
+      return isVat && l.vatClass === "VATABLE_12" ? round2(lineNet(l) * 0.12) : 0;
     }
-    return num(l.taxAmount);
+    return isVat && l.expVat === "VAT12" ? round2(lineNet(l) * 0.12) : 0;
   }
   const subtotal = lines.reduce((s, l) => s + lineNet(l), 0);
   const vatTotal = lines.reduce((s, l) => s + lineVat(l), 0);
-  const grandTotal = subtotal + vatTotal;
+  // Purchases: withholding reduces what is actually paid to the supplier.
+  const whtTotal = isIncome ? 0 : lines.reduce((s, l) => s + num(l.whtAmount), 0);
+  const grandTotal = subtotal + vatTotal - whtTotal;
 
   function payloadForLine(l: Line): Record<string, unknown> {
     const net = lineNet(l);
@@ -213,15 +274,19 @@ export default function TransactionEntryModal({
         ...(isVat && vat > 0 ? { outputVAT: vat } : {}),
       };
     }
-    const tax = num(l.taxAmount);
+    const vat = lineVat(l); // auto-computed 12% when the line's VAT code says so
+    const wht = num(l.whtAmount);
     return {
       ...common,
       vendor: party || undefined,
       vendorTin: partyTin || undefined,
       deductible: true,
-      taxAmount: l.taxAmount.trim() === "" ? undefined : tax,
+      ...(wht > 0 ? { whtAmount: round2(wht) } : {}),
       ...(isVat
-        ? { inputVATCategory: "DOMESTIC_PURCHASES", ...(tax > 0 ? { inputVAT: tax } : {}) }
+        ? {
+            inputVATCategory: "DOMESTIC_PURCHASES",
+            ...(vat > 0 ? { inputVAT: vat, taxAmount: vat } : {}),
+          }
         : {}),
     };
   }
@@ -258,8 +323,14 @@ export default function TransactionEntryModal({
     }
   }
 
-  const docTitle = isIncome ? "Invoice" : "Bill";
+  const docTitle = isIncome ? "Invoice" : "Purchases";
+  const docLabel = isIncome ? "Invoice" : "Purchase"; // singular for field labels
   const partyLabel = isIncome ? "Bill / Deliver To (Customer)" : "Supplier";
+  // Purchases carry three tax columns (VAT / Tax Code / WHT), so the grid is
+  // wider; the modal expands instead of forcing a horizontal scroll.
+  const gridCols = isIncome
+    ? "grid-cols-[minmax(220px,2fr)_70px_80px_100px_100px_minmax(150px,1.3fr)_minmax(150px,1.3fr)_110px_36px]"
+    : "grid-cols-[minmax(180px,2fr)_64px_76px_96px_92px_minmax(140px,1.2fr)_104px_128px_104px_104px_36px]";
 
   return (
     <div
@@ -270,7 +341,10 @@ export default function TransactionEntryModal({
         role="dialog"
         aria-modal="true"
         aria-label={`${editing ? "Edit" : "New"} ${docTitle}`}
-        className="flex max-h-[92vh] w-full max-w-[980px] animate-fade-rise flex-col overflow-hidden rounded-modal bg-card shadow-modal"
+        className={cn(
+          "flex max-h-[92vh] w-full animate-fade-rise flex-col overflow-hidden rounded-modal bg-card shadow-modal",
+          isIncome ? "max-w-[1080px]" : "max-w-[1280px]",
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-none items-center justify-between gap-3 border-b border-line px-6 py-4">
@@ -300,20 +374,20 @@ export default function TransactionEntryModal({
 
             {/* Header */}
             <div className="grid gap-3 md:grid-cols-4">
-              <Field label={`${docTitle} Ref`}>
+              <Field label={`${docLabel} Ref`}>
                 <input
                   value={docRef}
                   onChange={(e) => setDocRef(e.target.value)}
-                  placeholder={isIncome ? "INV-0001" : "BILL-0001"}
+                  placeholder={isIncome ? "INV-0001" : "PUR-0001"}
                   className="input font-mono"
                 />
               </Field>
-              <Field label={`${docTitle} Date`}>
+              <Field label={`${docLabel} Date`}>
                 <input
                   type="date"
                   required
                   value={docDate}
-                  onChange={(e) => setDocDate(e.target.value)}
+                  onChange={(e) => handleDocDate(e.target.value)}
                   className="input font-mono"
                 />
               </Field>
@@ -327,12 +401,21 @@ export default function TransactionEntryModal({
               </Field>
               {isIncome ? (
                 <Field label="Terms">
+                  {/* Quick-pick days (derives the Due Date) or any custom text. */}
                   <input
+                    list="terms-presets"
                     value={terms}
-                    onChange={(e) => setTerms(e.target.value)}
-                    placeholder="On Delivery"
+                    onChange={(e) => handleTerms(e.target.value)}
+                    placeholder='Days (e.g. 30) or "On Delivery"'
                     className="input"
                   />
+                  <datalist id="terms-presets">
+                    {TERMS_PRESETS.map((d) => (
+                      <option key={d} value={d}>
+                        {d} days
+                      </option>
+                    ))}
+                  </datalist>
                 </Field>
               ) : (
                 <div />
@@ -358,22 +441,38 @@ export default function TransactionEntryModal({
             {/* Line items. No overflow wrapper of its own (it would clip the
                 Account combobox dropdown) — the modal body scrolls instead. */}
             <div>
-              <div className="min-w-[880px]">
-                <div className="grid grid-cols-[minmax(220px,2fr)_70px_80px_100px_100px_minmax(150px,1.3fr)_minmax(150px,1.3fr)_110px_36px] gap-2 border-b border-line-strong pb-2 font-mono text-[10px] uppercase tracking-[.12em] text-content-secondary">
+              <div className={isIncome ? "min-w-[880px]" : "min-w-[1100px]"}>
+                <div
+                  className={cn(
+                    "grid gap-2 border-b border-line-strong pb-2 font-mono text-[10px] uppercase tracking-[.12em] text-content-secondary",
+                    gridCols,
+                  )}
+                >
                   <span>Item / Description</span>
                   <span>Qty</span>
                   <span>Unit</span>
                   <span>Price</span>
                   <span>Discount</span>
                   <span>Account</span>
-                  <span>{isIncome ? "Tax Rate" : "Tax Code"}</span>
-                  <span className="text-right">{isIncome ? "Amount" : "Tax Amt / Amount"}</span>
+                  {isIncome ? (
+                    <span>Tax Rate</span>
+                  ) : (
+                    <>
+                      <span>VAT</span>
+                      <span>Tax Code</span>
+                      <span className="text-right">WHT</span>
+                    </>
+                  )}
+                  <span className="text-right">Amount</span>
                   <span />
                 </div>
                 {lines.map((l, idx) => (
                   <div
                     key={idx}
-                    className="grid grid-cols-[minmax(220px,2fr)_70px_80px_100px_100px_minmax(150px,1.3fr)_minmax(150px,1.3fr)_110px_36px] items-start gap-2 border-b border-line-divider py-2"
+                    className={cn(
+                      "grid items-start gap-2 border-b border-line-divider py-2",
+                      gridCols,
+                    )}
                   >
                     <textarea
                       rows={1}
@@ -439,23 +538,48 @@ export default function TransactionEntryModal({
                         )}
                       </select>
                     ) : (
-                      <input
-                        list="atc-codes"
-                        value={l.atc}
-                        onChange={(e) => updateLine(idx, { atc: e.target.value })}
-                        placeholder="ATC (e.g. WI010)"
-                        className="input font-mono"
-                      />
+                      <>
+                        {/* VAT code — the 12% input VAT is auto-computed from it. */}
+                        <select
+                          value={isVat ? l.expVat : "NONE"}
+                          disabled={!isVat}
+                          onChange={(e) =>
+                            updateLine(idx, { expVat: e.target.value as Line["expVat"] })
+                          }
+                          className="input"
+                        >
+                          {isVat ? (
+                            <>
+                              <option value="VAT12">12% VAT</option>
+                              <option value="NONE">No VAT</option>
+                            </>
+                          ) : (
+                            <option value="NONE">No VAT</option>
+                          )}
+                        </select>
+                        {/* Withholding ATC — can apply alongside the VAT code. */}
+                        <input
+                          list="atc-codes"
+                          value={l.atc}
+                          onChange={(e) => updateLine(idx, { atc: e.target.value })}
+                          placeholder="ATC (e.g. WI010)"
+                          className="input font-mono"
+                        />
+                        <input
+                          value={l.whtAmount}
+                          onChange={(e) => updateLine(idx, { whtAmount: e.target.value })}
+                          inputMode="decimal"
+                          placeholder="WHT"
+                          title="Withholding tax — auto-computed from the ATC rate, editable"
+                          className="input font-mono text-right"
+                        />
+                      </>
                     )}
                     <div className="pt-2 text-right">
-                      {!isIncome && (
-                        <input
-                          value={l.taxAmount}
-                          onChange={(e) => updateLine(idx, { taxAmount: e.target.value })}
-                          inputMode="decimal"
-                          placeholder="Tax amt"
-                          className="input mb-1 font-mono text-right"
-                        />
+                      {!isIncome && lineVat(l) > 0 && (
+                        <div className="font-mono text-[11px] text-content-secondary">
+                          +{peso(lineVat(l))} VAT
+                        </div>
                       )}
                       <div className="font-mono text-[13px] font-semibold text-navy">
                         {peso(lineNet(l))}
@@ -506,6 +630,12 @@ export default function TransactionEntryModal({
                   <span className="text-content-secondary">VAT</span>
                   <span className="font-mono">{peso(vatTotal)}</span>
                 </div>
+                {!isIncome && whtTotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-content-secondary">Less: Withholding</span>
+                    <span className="font-mono">−{peso(whtTotal)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-line pt-1.5 font-semibold text-navy">
                   <span>Total (PHP)</span>
                   <span className="font-mono">{peso(grandTotal)}</span>

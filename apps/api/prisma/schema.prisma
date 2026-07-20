@@ -444,6 +444,8 @@ model PurchaseTransaction {
   account                    String?
   atc                        String?
   taxAmount                  Decimal? @db.Decimal(18, 2)
+  /// Creditable withholding tax withheld from the supplier (ATC in `atc`).
+  whtAmount                  Decimal? @db.Decimal(18, 2)
   unit                       String?
   quantity                   Decimal? @db.Decimal(18, 4)
   unitPrice                  Decimal? @db.Decimal(18, 2)

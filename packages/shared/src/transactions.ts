@@ -89,6 +89,9 @@ export const PurchaseTransaction = z
     account: z.string().optional(),
     atc: z.string().optional(),
     taxAmount: zMoney.optional(),
+    /** Creditable withholding tax withheld from the supplier on this purchase
+     *  (amount only — the ATC rides in `atc`). Additive; may coexist with VAT. */
+    whtAmount: zMoney.optional(),
     unit: z.string().optional(),
     quantity: z.number().nonnegative().optional(),
     unitPrice: zMoney.optional(),
