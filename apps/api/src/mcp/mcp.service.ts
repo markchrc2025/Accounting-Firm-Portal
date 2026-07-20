@@ -2,9 +2,11 @@
 // Claude (claude.ai / Cowork custom connector) to their own practice data.
 //
 // Scope, by design:
-//   - READ-ONLY. Every tool is a query; nothing mutates the database.
 //   - Firm-scoped. The deployment is single-firm; all queries are pinned to
 //     the first (seeded) firm's id, mirroring the OAuth integration caller.
+//   - Reads AND writes. The six read tools below are queries; the write tools
+//     (mcp-write-tools.ts) go through the same service layer as the web UI,
+//     so validation, tenancy, and audit logging apply identically.
 //   - GUARDRAIL #1 still holds: nothing here is authoritative BIR tax — the
 //     figures exposed are the Portal's management records/estimates.
 //
@@ -15,42 +17,22 @@ import { Injectable } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Prisma } from "@prisma/client";
 import { z } from "zod/v3";
+import type { AuthUser } from "../common/auth/auth-user";
+import { AuditService } from "../audit/audit.service";
+import { ClientsService } from "../clients/clients.service";
 import { dateToIso, isoToDate, toIncomeDto, toPurchaseDto } from "../financial/serialization";
+import { IncomeTransactionsService } from "../income-transactions/income-transactions.service";
+import { InvoicesService } from "../invoices/invoices.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { PurchaseTransactionsService } from "../purchase-transactions/purchase-transactions.service";
+import { fail, isoDate, ok, READ_ONLY } from "./mcp-common";
+import { registerWriteTools } from "./mcp-write-tools";
 
 const SERVER_NAME = "mcrc-portal-mcp-server";
-const SERVER_VERSION = "1.0.0";
+const SERVER_VERSION = "1.1.0";
 /** Hard cap on list sizes so one call can't blow out the model's context. */
 const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
-
-const isoDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
-  .describe("Calendar date, YYYY-MM-DD");
-
-/** Successful tool result: pretty JSON text + the same object structured. */
-function ok(data: Record<string, unknown>) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-    structuredContent: data,
-  };
-}
-
-/** Failed tool result with an actionable message (never throws at the client). */
-function fail(message: string) {
-  return {
-    content: [{ type: "text" as const, text: `Error: ${message}` }],
-    isError: true as const,
-  };
-}
-
-const READ_ONLY = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-};
 
 /** `txnDate` range filter from optional from/to ISO dates. */
 function dateRange(from?: string, to?: string): Prisma.DateTimeFilter | undefined {
@@ -63,13 +45,41 @@ function dateRange(from?: string, to?: string): Prisma.DateTimeFilter | undefine
 
 @Injectable()
 export class McpService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly clients: ClientsService,
+    private readonly income: IncomeTransactionsService,
+    private readonly purchases: PurchaseTransactionsService,
+    private readonly invoices: InvoicesService,
+  ) {}
 
   /** The single firm this deployment serves (same model as the BIR caller). */
   private async firmId(): Promise<string> {
     const firm = await this.prisma.firm.findFirst({ orderBy: { createdAt: "asc" } });
     if (!firm) throw new Error("No firm exists yet — seed the database first.");
     return firm.id;
+  }
+
+  /**
+   * The principal MCP WRITES run as: the firm's earliest active staff user
+   * (in practice the seeded Super Admin). Service-layer audit rows attribute
+   * to this user; each write also records an `mcp.<tool>` row marking the
+   * connector as the true actor (see mcp-write-tools.ts).
+   */
+  private async getActor(): Promise<AuthUser> {
+    const firmId = await this.firmId();
+    const user = await this.prisma.user.findFirst({
+      where: { firmId, userType: "FIRM", status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, email: true },
+    });
+    if (!user) {
+      throw new Error(
+        "No active firm user exists to attribute writes to — seed the database first (db:seed).",
+      );
+    }
+    return { id: user.id, firmId, userType: "FIRM", email: user.email };
   }
 
   /** Resolve a client within the firm or explain how to find a valid id. */
@@ -436,6 +446,16 @@ export class McpService {
         }
       },
     );
+
+    registerWriteTools(server, {
+      prisma: this.prisma,
+      audit: this.audit,
+      clients: this.clients,
+      income: this.income,
+      purchases: this.purchases,
+      invoices: this.invoices,
+      getActor: () => this.getActor(),
+    });
 
     return server;
   }
