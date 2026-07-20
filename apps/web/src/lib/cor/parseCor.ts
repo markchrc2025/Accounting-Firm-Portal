@@ -38,14 +38,18 @@ export interface ExtractedCor {
 // BIR return codes, longest/most-specific first (JS alternation is
 // leftmost-position, first-alternative — "1701Q" must precede "1701").
 const FORM_CODES =
-  "1701Q|1701A|1702RT|1702Q|1702EX|1702MX|2550Q|2550M|2551Q|2551M|1601C|1601EQ|1601FQ|0619E|0619F|1701|1702|0605|2000";
+  "1701Q|1701A|1702RT|1702Q|1702EX|1702MX|2550Q|2550M|2551Q|2551M|1601C|1601EQ|1601FQ|1604CF|1604E|1604F|0619E|0619F|1701|1702|0605|2000";
 const FORM_SRC = String.raw`\b(` + FORM_CODES + String.raw`)\b`;
 
 // Bounded gap for the withholding anchors: may not cross into another
 // withholding row — i.e. may not contain WITHHOLDING, another qualifier word,
 // or a form code (a form code in the gap means we've left the type cell).
 const WHT_GAP =
-  String.raw`(?:(?!WITHHOLDING|COMPENSATION|EXPANDED|CREDITABLE|FINAL|` + FORM_CODES + String.raw`).){0,60}?`;
+  String.raw`(?:(?!WITHHOLDING|COMPENSATION|EXPANDED|CREDITABLE|FINAL|` + FORM_CODES + String.raw`).){0,90}?`;
+// Scans clip/garble the WHT row's words: "THHOLDING" for WITHHOLDING and
+// "PANDEDIOTHERS" for EXPANDED/OTHERS — accept the surviving stems.
+const WHT_WORD = String.raw`(?:WI)?TH?HOLDING`;
+const EXPANDED_ISH = String.raw`(?:EXPANDED|CREDITABLE|\w*PANDED)`;
 
 // Fuzzy tax-type anchors, matched against the joined table-region text. Gaps
 // allow the "|" cell separators and stray punctuation OCR inserts; leading
@@ -56,18 +60,21 @@ const WHT_GAP =
 // and "EXPANDED WITHHOLDING TAX"), so both are anchored.
 const TYPE_ANCHORS: Array<{ src: string; type: string; individual?: boolean }> = [
   { src: String.raw`INDIVID\w*[\s!|.,:;-]{0,4}I?NCOME`, type: "Income Tax", individual: true },
-  { src: String.raw`VALUE[\s|-]{0,4}ADDED[\s|]{0,4}TAX|\bVAT\b`, type: "Value-Added Tax" },
+  // The ADDED→TAX gap admits I/1 — a cell border OCRs into the word
+  // ("VALUE ADDEDITAX").
+  { src: String.raw`VALUE[\s|-]{0,4}ADDED[\s|I1]{0,4}TAX|\bVAT\b`, type: "Value-Added Tax" },
   { src: String.raw`\w*NTAGE[\s|]{0,4}TAX`, type: "Percentage Tax" },
   { src: String.raw`REGISTRATION[\s|]{0,4}FEE`, type: "Registration Fee" },
-  { src: String.raw`WITHHOLDING` + WHT_GAP + String.raw`COMPENSATION`, type: "Withholding Tax - Compensation" },
+  { src: WHT_WORD + WHT_GAP + String.raw`COMPENSATION`, type: "Withholding Tax - Compensation" },
   {
     src:
-      String.raw`WITHHOLDING` + WHT_GAP + String.raw`(?:EXPANDED|CREDITABLE)` +
-      String.raw`|(?:EXPANDED|CREDITABLE)[\s|]{0,6}WITHHOLDING`,
+      WHT_WORD + WHT_GAP + EXPANDED_ISH +
+      String.raw`|` + EXPANDED_ISH + String.raw`[\s|/]{0,6}` + WHT_WORD +
+      String.raw`|` + EXPANDED_ISH + String.raw`[\s|/]{0,4}OTHERS`,
     type: "Withholding Tax - Expanded",
   },
   {
-    src: String.raw`WITHHOLDING` + WHT_GAP + String.raw`FINAL|FINAL[\s|]{0,6}WITHHOLDING`,
+    src: WHT_WORD + WHT_GAP + String.raw`FINAL|FINAL[\s|]{0,6}` + WHT_WORD,
     type: "Withholding Tax - Final",
   },
   { src: String.raw`DOCUMENTARY[\s|]{0,4}STAMP`, type: "Documentary Stamp Tax" },
@@ -78,7 +85,7 @@ const FREQ_SRC = String.raw`\b(ANNUALLY|QUARTERLY|MONTHLY)\b`;
 // Day/year separator tolerates OCR's "," or "." ("February 3. 2022"); the year
 // is constrained to 19xx/20xx so a stray form code (e.g. "0605") after a due
 // date ("...November 15 0605") can't be consumed as the year.
-const DATE_SRC = String.raw`\b(JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:T(?:EMBER)?)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\s*(\d{1,2})\s*[.,]?\s*((?:19|20)\d{2})\b`;
+const DATE_SRC = String.raw`\b(JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:T(?:EMBER)?)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\s*(\d{1,2})\s*[.,;]?\s*((?:19|20)\d{2})\b`;
 const MONTH_NUM: Record<string, string> = {
   JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
   JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
@@ -164,9 +171,11 @@ function cleanName(s: string): string {
   const toks = t.split(/\s+/).filter((tok) => tok && !/^[\d/.:~\-]+$/.test(tok));
   // Trailing junk: pure punctuation/O-run tokens AND a lone bare letter (a
   // column fragment — a real middle initial would print with its dot, "H.").
-  const junkTok = /^[O0~_\-.,:;|©®[\]{}!]+$/i;
+  const junkTok = /^[O0~_\-.,:;|©®[\]{}!'"‘’“”]+$/i;
   while (toks.length > 1 && (junkTok.test(toks[toks.length - 1]!) || /^[A-Z]$/.test(toks[toks.length - 1]!)))
     toks.pop();
+  // Leading tokens carrying digits or colons are border/TIN garble ("II:").
+  while (toks.length > 1 && (junkTok.test(toks[0]!) || /[\d:]/.test(toks[0]!))) toks.shift();
   while (toks.length && junkTok.test(toks[0]!)) toks.shift();
   return toks
     .join(" ")
@@ -184,8 +193,13 @@ function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void
   // so leading tokens carrying them are junk.
   const lastToks = last.trim().split(/\s+/).filter(Boolean);
   while (lastToks.length > 1 && /[\d:]/.test(lastToks[0]!)) lastToks.shift();
-  out.lastName = lastToks.join(" ");
-  const rest = restRaw.trim().split(/\s+/).filter(Boolean);
+  // Scan noise glues quotes/periods to name parts ("'GABAYNO", ".TITO").
+  out.lastName = lastToks.join(" ").replace(/^['".,‘’“”]+/, "");
+  const rest = restRaw
+    .trim()
+    .split(/\s+/)
+    .map((tok) => tok.replace(/^['".,‘’“”]+/, ""))
+    .filter(Boolean);
   const suffix = rest.length && NAME_SUFFIXES.has(rest[rest.length - 1]!) ? rest.pop() : "";
   if (rest.length >= 2) {
     out.middleName = rest[rest.length - 1];
@@ -222,6 +236,27 @@ function cleanTradeName(s: string): string {
     // value ("…APARTMENT RENTAL a", "MARMEUNCARPALEOC I"), not part of the name.
     .replace(/(\S{3,}(?:\s+\S+)*)\s+[A-Z]$/, "$1")
     .replace(/\s{2,}/g, " ")
+    .trim()
+    .split(/\s+/)
+    .reduce<{ done: boolean; toks: string[] }>(
+      (acc, tok) => {
+        if (acc.done) return acc;
+        const alnum = tok.replace(/[^A-Z0-9]/gi, "").length;
+        // Skip leading margin garble ('U".', "[") until real content starts.
+        if (!acc.toks.length && alnum < 2) return acc;
+        // The cell ends at the CATEGORY column border, which OCRs into
+        // no-alnum tokens ("+.", "=:", "©") — everything from the first such
+        // token on is the neighbouring column ("…GOODS TRADING +. =: © Jiro
+        // 15,2023"). "&" is real trade-name punctuation and never cuts.
+        if (acc.toks.length && alnum === 0 && !tok.includes("&")) {
+          return { done: true, toks: acc.toks };
+        }
+        acc.toks.push(tok);
+        return acc;
+      },
+      { done: false, toks: [] },
+    )
+    .toks.join(" ")
     .trim();
 }
 
@@ -278,10 +313,11 @@ function addressAfterLabel(lines: string[]): string {
     const m = lines[i]!.match(labelRe);
     if (!m) continue;
     const parts: string[] = [];
-    // The label line's own tail must ALSO look like address content — border
-    // garble glued after the label ("REGISTERED ADDRESS _— Ea") is skipped.
+    // The label line's own tail must ALSO look like address content. Real
+    // same-line tails always carry a house/unit number, so a DIGIT is
+    // required — dot-noise garble ('™\' © | Te : EERE So') has none.
     const tail = lines[i]!.slice((m.index ?? 0) + m[0].length).replace(leadJunk, "").trim();
-    if (tail.length >= 2 && !stopRe.test(tail) && looksLikeContent(tail)) parts.push(tail);
+    if (tail.length >= 2 && !stopRe.test(tail) && /\d/.test(tail)) parts.push(tail);
     for (let j = i + 1; j < Math.min(i + 4, lines.length) && parts.length < 3; j++) {
       const next = lines[j]!.trim();
       if (!next) continue;
@@ -394,7 +430,17 @@ export function parseCorText(raw: string): ExtractedCor {
   let nameCand = "";
   const fuzzyTinRe = new RegExp(FUZZY_TIN_SRC);
   const tinLineIdx = lines.findIndex((l) => /\d{3}-\d{3}-\d{3}/.test(l) || fuzzyTinRe.test(l));
-  if (tinLineIdx >= 0) nameCand = cleanName(lines[tinLineIdx]!);
+  if (tinLineIdx >= 0) {
+    // The name cell sits BETWEEN the TIN and the issuance date — slicing that
+    // span drops margin/border garble on both sides structurally.
+    let seg = lines[tinLineIdx]!;
+    const tinM = seg.match(fuzzyTinRe);
+    if (tinM && tinM.index !== undefined) seg = seg.slice(tinM.index + tinM[0].length);
+    const dateM = seg.match(new RegExp(DATE_SRC));
+    if (dateM && dateM.index !== undefined) seg = seg.slice(0, dateM.index);
+    nameCand = cleanName(seg);
+    if (nameCand.replace(/[^A-Z]/g, "").length < 3) nameCand = cleanName(lines[tinLineIdx]!);
+  }
   if (nameCand.replace(/[^A-Z]/g, "").length < 3) {
     nameCand = cleanName(valueAfter(lines, /NAME\s*OF\s*TAXPAYER/));
   }
@@ -468,7 +514,10 @@ export function parseCorText(raw: string): ExtractedCor {
       for (let j = biIdx + 1; j < lines.length; j++) {
         const raw = lines[j]!;
         const body = raw.replace(TN_LABEL, "");
-        if (/^[({[]?\s*\d{4,5}\s*[-–]/.test(body)) break; // PSIC code cell → past the value
+        // PSIC code cell → past the value (margin noise may precede the code,
+        // so also break on a code pattern anywhere in the line).
+        if (/^[({[]?\s*\d{4,5}\s*[-–]/.test(body)) break;
+        if (/\b\d{4,5}\s*[-–]\s*[A-Z]{3}/.test(raw)) break;
         if (/LINE\s*OF\s*BUSINESS|REMINDERS|TAXPAYER\s*TYPE/i.test(raw)) break;
         if (/^[({[]?\s*PSIC\s*[)}\]]?\s*$/i.test(body)) continue; // lone (PSIC) sub-label
         // The first row after "BUSINESS INFORMATION DETAILS" is the
@@ -510,7 +559,7 @@ export function parseCorText(raw: string): ExtractedCor {
   // surviving header token anchors the region start — otherwise a REMINDERS
   // line mentioning "tax type" could become `lo` and orphan the real rows.
   let lo = lines.findIndex((l) =>
-    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|FILING\s*(?:DUE|FREQUENCY|START)/.test(l),
+    /\bTAX\s*TYPES?\b|\bFORM\s*TYPES?\b|FILING\s*(?:DUE|FREQUENCY|START)|START\s*DATE/.test(l),
   );
   if (lo < 0) lo = 0;
   // "AVAILED OF 8% INCOME TAX RATE OPTION?" (August-2024 revision) prints

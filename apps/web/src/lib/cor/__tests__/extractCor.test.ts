@@ -593,6 +593,81 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
   });
 });
 
+// Real pipeline OCR — a CamScanner COR (Bantito) whose compression fills every
+// line with dot-noise and MARGIN columns ("To … Co" flanking each row): the
+// TIN's branch separator reads ":" ("628-201-853:00000"), curly quotes glue to
+// the surname ("‘| 'GABAYNO"), the issuance date uses ";" ("June 15;2023"),
+// the table header is destroyed except "START DATE", the WHT rows garble to
+// "THHOLDING"/"PANDEDIOTHERS", and the trade name is flanked by border junk
+// ('U". [ TRADENAMEI | BANTITO … +." =: © Jiro 15,2023').
+const BANTITO = `
+BIR FORM 2303 REPUBLIKA NG BiLBINAS
+REVENUE DISTRICT OF CE Nf 045 - MARIKINA
+OCN: 045RC20230000007861 01, =
+Date OCN Generated: Junie 15,2023. "©;
+TIN & BRANCH CODE "ii: © NAME OF TAXPAYER EE TINISSUANCE DATE "71 7}. 0
+To |._628-201-853:00000 © ii: ‘| 'GABAYNO,.TITO JR. FROGOSA June 15;2023 (i TL. Co
+© [REGISTERING OFFICE + |X Head Ofice TT {Bmnch  .  w oo
+: I" REGISTERED ADDRESS ™' © | Te : EERE So
+© 1TTUNIT 85-B GIF PALAZZO 1 BLDG: 85 PANORAMA STREET RANCHO ESTATE iit. CONCEPCION DOS 181. |
+I. |_CITV OF MARIKINA'NGR, SECOND DISTRICT PHILIPPINES 7+.» * leo niin, Bh oo)
+Cobo saci UBL TYPES START DATE | CPREQUENCY.. fcc tv id Si
+; INDIVIDUAL INCOME: 1 HOWIT 1% darian | 7 CANNUALLY, "|" yoar covering Income for he: |.
+HR i 2 TAX enone BAe fms eels poy nm Ural ‘preceding taxable year. LL
+Co Pax CCN 00 lyf 2029 QUARTERLY A GUST 16. 31d Quarter-onor [1
+Cin VALUE ADDEDITAX: 11125500) I July; 2003 <1 + QUARTERLY: 1-2) 1 (dllowingiihie close of eagh : :
+Lr] WITHHOLDING TAX FLOG1GE :| {uulyT, 307 [1 HiAMORTHLY. | month folowing the month in :
+i i : a af GEXPARUELVD EDS ni nn tl gina oe sph Ln ann which withholding was made. to
+CTRL WITHHOLDING TAX desea | July 1, Ll a ARTERY TH merit following the close of he Ta
+CE  PANDEDIOTHERS | {1OVIEQ uly], 2028, Cf ot QUARTERLY ro): waver ing which witkfioldig: | :
+LE THHOLDING TAX. [i CE dandary:dy ERG 0 Ge which the TACO payments: © ple
+Canin [EXPANDED/OTHERS fn 1604E e024 o fits rn ANNUALLY. 71]: subject to expanded withholding : d
+. ii) REGISTRATION FEE op: 0605, (111) pops JE ARNUALLY 5 EY ary dE
+CH PAVER TYPES |-SINGLE PROPRIETORSHIP'ONLY.[RESIDENT CITIZEN) tn +» otf ini
+| BUSINESS INFORMATION DETAILS (i colori cir i nr © nt Co
+Co igo io © [7 CATEGORY | REGISTRATION DATE He
+U". [ TRADENAMEI | BANTITO CONSUMER GOODSTRADING +." =: © Jiro 15,2023: EE EE
+co (PSIC) | || 47212-RETAICSALEOF EGGSAND:: 12. | 01 n o EE EE SE
+Line of Business _| RETAIL SALE.QF.FOOD PRODUCTS, N- |" toi | i ofr
+Scanned with CamScanner`;
+
+describe("parseCorText — CamScanner dot-noise COR (Bantito)", () => {
+  const r = parseCorText(BANTITO);
+
+  it("reads the TIN through the ':' branch separator", () => {
+    expect(r.tin).toBe("628201853");
+    expect(r.branch).toBe("00000");
+    expect(r.rdo).toBe("045");
+  });
+
+  it("slices the name between TIN and date, dropping margin garble and curly quotes", () => {
+    expect(r.kind).toBe("individual");
+    expect(r.lastName).toBe("GABAYNO");
+    expect(r.firstName).toBe("TITO JR.");
+    expect(r.middleName).toBe("FROGOSA");
+  });
+
+  it("skips the digit-less garbled label tail and reads the address lines", () => {
+    expect(r.address).toContain("85-B GIF PALAZZO");
+    expect(r.address).toContain("SECOND DISTRICT PHILIPPINES");
+    expect(r.address).not.toContain("EERE");
+  });
+
+  it("reads the trade name between the border junk ('U\". [ … +.\" =:')", () => {
+    expect(r.tradeName).toBe("BANTITO CONSUMER GOODSTRADING");
+  });
+
+  it("recovers WHT + VAT rows from 'THHOLDING'/'PANDEDIOTHERS'/'ADDEDITAX' garble", () => {
+    const keys = r.taxTypes.map((t) => `${t.type}|${t.form}|${t.frequency}`);
+    expect(keys).toContain("Income Tax|1701Q|Quarterly");
+    expect(keys).toContain("Value-Added Tax|2550Q|Quarterly");
+    expect(keys).toContain("Withholding Tax - Expanded||Quarterly");
+    expect(keys).toContain("Withholding Tax - Expanded|1604E|Annually");
+    expect(keys).toContain("Registration Fee|0605|");
+    expect(r.taxTypes.length).toBe(5);
+  });
+});
+
 // 1997-revision layout (Gutierrez) — real browser-pipeline OCR of a typewriter
 // COR: TIN separator garbled to "~" ("165~502-880-000"), the RDO header reads
 // "REVENUL DISTRICT $04" (no OFFICE NO., "$" for the leading 0, OCN useless:
