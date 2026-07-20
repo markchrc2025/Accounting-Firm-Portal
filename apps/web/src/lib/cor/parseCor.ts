@@ -211,10 +211,22 @@ function cleanTradeName(s: string): string {
     .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.\-|_~©®[\]{}"']+$/g, "")
     .replace(/^\(\s*(?=[^)]*$)/, "")
     // A lone trailing letter is border/CATEGORY-cell garble glued after the
-    // value ("…APARTMENT RENTAL a January 25. 2024"), not part of the name.
-    .replace(/(\S\s+\S.*)\s+[A-Z]$/, "$1")
+    // value ("…APARTMENT RENTAL a", "MARMEUNCARPALEOC I"), not part of the name.
+    .replace(/(\S{3,}(?:\s+\S+)*)\s+[A-Z]$/, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+/**
+ * A photo-blurred trade-name cell OCRs into unbroken mush ("MARMEUNCARPALEOC",
+ * "WMAMMEUNCAMPALISGC") — better to show NOTHING than garbage on the review
+ * card. Heuristic: a candidate of ≤2 tokens where one token is ≥14 chars is
+ * mush (real trade-name words top out around "INTERNATIONAL"/"MERCHANDISING" =
+ * 13; a long word inside a ≥3-token name is still accepted).
+ */
+function tradeNameLooksGarbled(candidate: string): boolean {
+  const toks = candidate.split(/\s+/).filter(Boolean);
+  return toks.length <= 2 && toks.some((t) => t.length >= 14);
 }
 
 /** Drop trailing OCR junk tokens (runs of O/0/dashes/tildes) from an address,
@@ -413,7 +425,7 @@ export function parseCorText(raw: string): ExtractedCor {
     const line = lines[i]!;
     if (!TN_LABEL.test(line)) continue;
     const c = cleanTradeName(line.replace(TN_LABEL, ""));
-    if (c && c.replace(/[^A-Z]/gi, "").length >= 3) {
+    if (c && c.replace(/[^A-Z]/gi, "").length >= 3 && !tradeNameLooksGarbled(c)) {
       out.tradeName = c;
       break;
     }
@@ -436,7 +448,7 @@ export function parseCorText(raw: string): ExtractedCor {
           continue;
         }
         const c = cleanTradeName(body);
-        if (c && c.replace(/[^A-Z]/gi, "").length >= 3) {
+        if (c && c.replace(/[^A-Z]/gi, "").length >= 3 && !tradeNameLooksGarbled(c)) {
           out.tradeName = c;
           break;
         }
