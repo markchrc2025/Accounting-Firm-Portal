@@ -554,6 +554,29 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
     expect(r.middleName).toBe("HAMAL");
   });
 
+  it("drops a short margin-noise token and glued brace before the surname ('IT {GABAYNO')", () => {
+    // Browser-pipeline shape from the Bantito CamScanner COR.
+    const r = parseCorText("NAME OF TAXPAYER\nIT {GABAYNO, TITO JR, FROGOSA");
+    expect(r.lastName).toBe("GABAYNO");
+    expect(r.firstName).toBe("TITO JR");
+    expect(r.middleName).toBe("FROGOSA");
+  });
+
+  it("keeps particle surnames intact ('DE GUZMAN', 'DELA CRUZ')", () => {
+    const a = parseCorText("NAME OF TAXPAYER\nDE GUZMAN, ANA MARIE SANTOS");
+    expect(a.lastName).toBe("DE GUZMAN");
+    const b = parseCorText("NAME OF TAXPAYER\n123-456-789-00000 DELA CRUZ, JUAN REYES May 5, 2010");
+    expect(b.lastName).toBe("DELA CRUZ");
+  });
+
+  it("strips quote junk from an address label tail ('\" 1 \"UNIT 85-B …')", () => {
+    const r = parseCorText(
+      'REGISTERED ADDRESS " 1 "UNIT 85-B GIF PALAZZO BLDG, 85 PANGRAMA STREET\nTAX TYPES FORM',
+    );
+    expect(r.address).not.toContain('"');
+    expect(r.address).toContain("UNIT 85-B GIF PALAZZO");
+  });
+
   it("keeps 'ST. JOSEPH TRADING' a business name (period rule needs ≥4 letters)", () => {
     const r = parseCorText("NAME OF TAXPAYER\nST. JOSEPH TRADING");
     expect(r.kind).toBeUndefined();
