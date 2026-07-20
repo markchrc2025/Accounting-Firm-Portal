@@ -109,22 +109,28 @@ export class InvoicesService {
     }
     const lines = computeLines(input.lineItems);
     const totals = computeTotals(lines);
-    const number = await this.nextNumber(user.firmId, input.issuedDate);
 
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        firmId: user.firmId,
-        clientId: payerId,
-        billedForClientId,
-        number,
-        description: input.description,
-        issuedDate: isoToDate(input.issuedDate),
-        dueDate: isoToDate(input.dueDate),
-        status: input.status,
-        ...totals,
-        lineItems: { create: lines },
-      },
-      include: invoiceInclude,
+    // Control number + row in ONE transaction: the counter upsert is atomic
+    // (INSERT … ON CONFLICT … RETURNING), so concurrent saves serialize on the
+    // counter row and numbers are assigned strictly in save order — no
+    // read-then-count race, no duplicate-number unique violations.
+    const invoice = await this.prisma.$transaction(async (tx) => {
+      const number = await this.nextControlNumber(tx, user.firmId, input.issuedDate);
+      return tx.invoice.create({
+        data: {
+          firmId: user.firmId,
+          clientId: payerId,
+          billedForClientId,
+          number,
+          description: input.description,
+          issuedDate: isoToDate(input.issuedDate),
+          dueDate: isoToDate(input.dueDate),
+          status: input.status,
+          ...totals,
+          lineItems: { create: lines },
+        },
+        include: invoiceInclude,
+      });
     });
     await this.audit.record({
       userId: user.id,
@@ -134,7 +140,7 @@ export class InvoicesService {
       metadata: {
         clientId: payerId,
         ...(billedForClientId ? { billedForClientId } : {}),
-        number,
+        number: invoice.number,
         total: totals.total,
       },
     });
@@ -190,18 +196,33 @@ export class InvoicesService {
   }
 
   /**
-   * Next per-firm invoice number: `INV-<issuedYear>-<seq>`, where seq is the count
-   * of this firm's invoices already numbered for that year, plus one, zero-padded
-   * to three digits. Counting by the `INV-<year>-` prefix keeps the sequence tied
-   * to the numbering scheme (and the `@@unique([firmId, number])` constraint).
+   * Next per-firm control number: `BILL-<issuedYear>-<seq>` (4-digit pad).
+   * The sequence lives in `billing_counters`, advanced with an atomic
+   * INSERT … ON CONFLICT DO UPDATE … RETURNING — concurrent creates block on
+   * the counter row and each gets a distinct, save-ordered number. When the
+   * counter row is first created for a year it seeds PAST that year's
+   * historical billings, so the series continues rather than restarting.
    */
-  private async nextNumber(firmId: string, issuedDate: string): Promise<string> {
+  private async nextControlNumber(
+    tx: Prisma.TransactionClient,
+    firmId: string,
+    issuedDate: string,
+  ): Promise<string> {
     const year = issuedDate.slice(0, 4);
-    const prefix = `INV-${year}-`;
-    const count = await this.prisma.invoice.count({
-      where: { firmId, number: { startsWith: prefix } },
-    });
-    return `${prefix}${String(count + 1).padStart(3, "0")}`;
+    const rows = await tx.$queryRaw<Array<{ nextSeq: number | bigint }>>`
+      INSERT INTO "billing_counters" ("firmId", "year", "nextSeq")
+      VALUES (
+        ${firmId}::uuid,
+        ${year},
+        (SELECT COUNT(*) + 2 FROM "invoices"
+          WHERE "firmId" = ${firmId}::uuid
+            AND EXTRACT(YEAR FROM "issuedDate") = ${Number(year)})
+      )
+      ON CONFLICT ("firmId", "year")
+      DO UPDATE SET "nextSeq" = "billing_counters"."nextSeq" + 1
+      RETURNING "nextSeq"`;
+    const seq = Number(rows[0]?.nextSeq ?? 1) - 1;
+    return `BILL-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   /** Resolve an invoice that must belong to `firmId`; 404 otherwise. */

@@ -30,15 +30,22 @@ function makeRow(overrides: Record<string, unknown> = {}) {
 }
 
 function build(invoiceOverrides: Record<string, unknown> = {}) {
+  const invoice = {
+    findMany: jest.fn().mockResolvedValue([makeRow()]),
+    findFirst: jest.fn().mockResolvedValue(makeRow()),
+    create: jest.fn().mockResolvedValue(makeRow()),
+    update: jest.fn().mockResolvedValue(makeRow({ status: "Sent" })),
+    ...invoiceOverrides,
+  };
   const prisma = {
-    invoice: {
-      findMany: jest.fn().mockResolvedValue([makeRow()]),
-      findFirst: jest.fn().mockResolvedValue(makeRow()),
-      count: jest.fn().mockResolvedValue(2), // → next seq 003
-      create: jest.fn().mockResolvedValue(makeRow()),
-      update: jest.fn().mockResolvedValue(makeRow({ status: "Sent" })),
-      ...invoiceOverrides,
-    },
+    invoice,
+    // The create path runs inside a transaction whose client carries the same
+    // invoice delegate plus the atomic counter query ("nextSeq" 4 → seq 3).
+    $queryRaw: jest.fn().mockResolvedValue([{ nextSeq: 4 }]),
+    $transaction: jest.fn(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ invoice, $queryRaw: jest.fn().mockResolvedValue([{ nextSeq: 4 }]) }),
+    ),
   } as unknown as PrismaService;
   const clients = {
     assertInFirm: jest.fn().mockResolvedValue({ id: "c1", firmId: "f1" }),
@@ -72,7 +79,7 @@ describe("InvoicesService", () => {
       expect.objectContaining({
         firmId: "f1",
         clientId: "c1",
-        number: "INV-2026-003", // count 2 + 1, zero-padded
+        number: "BILL-2026-0003", // atomic counter returned nextSeq 4 → seq 3
         subtotal: 2500,
         vat: 300, // 12% management estimate
         total: 2800,
