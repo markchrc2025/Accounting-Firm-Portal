@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ApiError,
@@ -228,6 +228,21 @@ function ClientForm({ existing }: { existing: Client | null }) {
   const [corHint, setCorHint] = useState<string | null>(null);
   // The picked COR file, held so it can be uploaded to the saved client on Save.
   const [corFile, setCorFile] = useState<File | null>(null);
+  // Inline preview of the picked file (object URL, revoked on change/unmount).
+  const [corPreviewUrl, setCorPreviewUrl] = useState<string | null>(null);
+  const [showCorPreview, setShowCorPreview] = useState(true);
+  useEffect(() => {
+    if (!corFile) {
+      setCorPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(corFile);
+    setCorPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [corFile]);
+  const corIsPdf =
+    corFile != null &&
+    (corFile.type === "application/pdf" || /\.pdf$/i.test(corFile.name));
   // The stored COR key in edit mode (drives "View current COR" / "Remove").
   const [currentCorPath, setCurrentCorPath] = useState<string | null>(
     existing?.corPath ?? null,
@@ -717,7 +732,7 @@ function ClientForm({ existing }: { existing: Client | null }) {
             )}
 
             {corFile && (
-              <div className="flex items-center gap-2 rounded-input border border-success/30 bg-success-bg px-4 py-3 text-[13px] text-content">
+              <div className="flex flex-wrap items-center gap-2 rounded-input border border-success/30 bg-success-bg px-4 py-3 text-[13px] text-content">
                 <span aria-hidden className="font-semibold text-success">
                   ✓
                 </span>
@@ -726,6 +741,40 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   <span className="font-mono font-medium text-content">{corFile.name}</span>{" "}
                   — it will be uploaded when you save.
                 </span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setShowCorPreview((v) => !v)}
+                >
+                  {showCorPreview ? "Hide preview" : "Show preview"}
+                </Button>
+              </div>
+            )}
+
+            {corFile && corPreviewUrl && showCorPreview && (
+              <div className="overflow-hidden rounded-card border border-line bg-card">
+                <div className="flex items-center justify-between gap-3 border-b border-line-divider bg-sidebar px-4 py-2">
+                  <span className="eyebrow">COR preview</span>
+                  <span className="truncate font-mono text-[11px] text-content-secondary">
+                    {corFile.name}
+                  </span>
+                </div>
+                {corIsPdf ? (
+                  <iframe
+                    title="Preview of the uploaded COR"
+                    src={corPreviewUrl}
+                    className="h-[480px] w-full bg-paper"
+                  />
+                ) : (
+                  <div className="max-h-[480px] overflow-auto bg-paper p-3">
+                    <img
+                      src={corPreviewUrl}
+                      alt="Preview of the uploaded COR"
+                      className="mx-auto h-auto max-w-full rounded-input"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
