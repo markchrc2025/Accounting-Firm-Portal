@@ -50,6 +50,20 @@ type View = "list" | "create" | "preview";
 
 const VAT_RATE = 0.12;
 
+/** Payment terms: days from the invoice date to the due date. "custom" means
+ *  the user set the due date by hand and it no longer tracks the terms. */
+const TERMS_OPTIONS = [
+  { value: "0", label: "Due on receipt" },
+  { value: "7", label: "Net 7" },
+  { value: "15", label: "Net 15" },
+  { value: "30", label: "Net 30" },
+  { value: "45", label: "Net 45" },
+  { value: "60", label: "Net 60" },
+  { value: "custom", label: "Custom" },
+] as const;
+type TermsValue = (typeof TERMS_OPTIONS)[number]["value"];
+const DEFAULT_TERMS: TermsValue = "30";
+
 /** Local, unsaved line item — amount is derived (qty × rate), not stored. */
 interface DraftLine {
   description: string;
@@ -448,6 +462,8 @@ function InvoiceCreate({
   onBillTo,
   issuedDate,
   onIssuedDate,
+  terms,
+  onTerms,
   dueDate,
   onDueDate,
   description,
@@ -466,6 +482,8 @@ function InvoiceCreate({
   onBillTo: (c: ClientSummary) => void;
   issuedDate: string;
   onIssuedDate: (v: string) => void;
+  terms: TermsValue;
+  onTerms: (t: TermsValue) => void;
   dueDate: string;
   onDueDate: (v: string) => void;
   description: string;
@@ -520,8 +538,8 @@ function InvoiceCreate({
           ) : null}
         </div>
 
-        {/* Dates */}
-        <div className="mb-6 grid max-w-xl grid-cols-2 gap-4">
+        {/* Dates + terms */}
+        <div className="mb-6 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label
               htmlFor="invoice-date"
@@ -539,6 +557,26 @@ function InvoiceCreate({
           </div>
           <div>
             <label
+              htmlFor="invoice-terms"
+              className="mb-1.5 block text-[13px] font-semibold text-content"
+            >
+              Terms
+            </label>
+            <select
+              id="invoice-terms"
+              className="input w-full"
+              value={terms}
+              onChange={(e) => onTerms(e.target.value as TermsValue)}
+            >
+              {TERMS_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label
               htmlFor="due-date"
               className="mb-1.5 block text-[13px] font-semibold text-content"
             >
@@ -551,6 +589,11 @@ function InvoiceCreate({
               value={dueDate}
               onChange={(e) => onDueDate(e.target.value)}
             />
+            <p className="mt-1 text-[11.5px] text-content-secondary">
+              {terms === "custom"
+                ? "Set by hand — pick a term to recompute."
+                : "Computed from the invoice date."}
+            </p>
           </div>
         </div>
 
@@ -825,6 +868,7 @@ export default function BillingPage() {
   const [billTo, setBillTo] = useState<ClientSummary | null>(null);
   const [issuedDate, setIssuedDate] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [terms, setTerms] = useState<TermsValue>(DEFAULT_TERMS);
   const [description, setDescription] = useState("");
   const [lineItems, setLineItems] = useState<DraftLine[]>([emptyLine()]);
   // Once a draft has been created in this session, "Send email" reuses its id
@@ -887,11 +931,27 @@ export default function BillingPage() {
     setBillTo(null);
     const today = todayISO();
     setIssuedDate(today);
-    setDueDate(addDaysISO(today, 30));
+    setTerms(DEFAULT_TERMS);
+    setDueDate(addDaysISO(today, Number(DEFAULT_TERMS)));
     setDescription("");
     setLineItems([emptyLine()]);
     setCreatedId(null);
     setView("create");
+  }
+
+  // Terms drive the due date: picking a term (or moving the invoice date under
+  // one) recomputes it; editing the due date by hand switches terms to Custom.
+  function handleIssuedDate(v: string): void {
+    setIssuedDate(v);
+    if (terms !== "custom" && v) setDueDate(addDaysISO(v, Number(terms)));
+  }
+  function handleTerms(t: TermsValue): void {
+    setTerms(t);
+    if (t !== "custom" && issuedDate) setDueDate(addDaysISO(issuedDate, Number(t)));
+  }
+  function handleDueDate(v: string): void {
+    setDueDate(v);
+    setTerms("custom");
   }
 
   return (
@@ -905,9 +965,11 @@ export default function BillingPage() {
           billTo={billTo}
           onBillTo={setBillTo}
           issuedDate={issuedDate}
-          onIssuedDate={setIssuedDate}
+          onIssuedDate={handleIssuedDate}
+          terms={terms}
+          onTerms={handleTerms}
           dueDate={dueDate}
-          onDueDate={setDueDate}
+          onDueDate={handleDueDate}
           description={description}
           onDescription={setDescription}
           lineItems={lineItems}
