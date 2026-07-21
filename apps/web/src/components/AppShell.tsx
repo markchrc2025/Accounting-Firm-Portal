@@ -181,23 +181,19 @@ export function AppShell() {
                 <NavGroup
                   label="Firm Admin"
                   items={[
-                    // Billing and Documents are centralized here (all clients in
-                    // one place), each gated on its own permission, not Users:Read.
+                    // Kept lean: Users & Roles, Documents, Integrations and the
+                    // Audit Log live as tabs inside Settings.
                     ...(hasPermission("Billing:Read")
                       ? [{ to: "/billing", label: "Billing", end: true }]
                       : []),
-                    ...(hasPermission("Clients:Read")
-                      ? [{ to: "/documents", label: "Documents", end: true }]
-                      : []),
                     ...(hasPermission("Users:Read")
                       ? [
-                          { to: "/users", label: "Users & Roles", end: true },
                           { to: "/services", label: "Services", end: true },
                           { to: "/chart-of-accounts", label: "Chart of Accounts", end: true },
-                          { to: "/integrations", label: "Integrations", end: true },
-                          { to: "/settings", label: "Settings", end: true },
-                          { to: "/audit", label: "Audit Log", end: true },
                         ]
+                      : []),
+                    ...(hasPermission("Users:Read") || hasPermission("Clients:Read")
+                      ? [{ to: "/settings", label: "Settings", end: false }]
                       : []),
                   ]}
                 />
