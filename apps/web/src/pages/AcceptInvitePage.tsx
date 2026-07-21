@@ -47,7 +47,7 @@ export default function AcceptInvitePage() {
         <div className="eyebrow mb-2">MCRC Tax &amp; Accounting</div>
         <h1 className="font-serif text-[34px] font-medium text-navy">Accept your invitation</h1>
         <p className="mb-7 mt-1 text-[13.5px] text-content-secondary">
-          Set your name and password to activate your client-portal account.
+          Set your name and password to activate your MCRC portal account.
         </p>
 
         {!token && (

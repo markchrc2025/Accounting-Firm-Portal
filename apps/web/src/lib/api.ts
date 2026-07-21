@@ -641,6 +641,35 @@ export function fetchUsers(): Promise<FirmUserSummary[]> {
   return apiFetch<FirmUserSummary[]>("/users");
 }
 
+// --- Firm-staff invitations (Users & Roles) -------------------------------------
+export interface FirmInvitation {
+  id: string;
+  email: string;
+  role: string;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expiresAt: string;
+  createdAt: string;
+  /** Invite-email delivery: null = never attempted. */
+  emailStatus: "SENT" | "FAILED" | null;
+  emailError?: string | null;
+  invitedByName?: string | null;
+}
+export function fetchFirmInvitations(): Promise<FirmInvitation[]> {
+  return apiFetch("/firm-invitations");
+}
+export function createFirmInvitation(body: {
+  email: string;
+  roleName: string;
+}): Promise<FirmInvitation> {
+  return apiFetch("/firm-invitations", { method: "POST", body: JSON.stringify(body) });
+}
+export function resendFirmInvitation(id: string): Promise<FirmInvitation> {
+  return apiFetch(`/firm-invitations/${id}/resend`, { method: "POST" });
+}
+export function revokeFirmInvitation(id: string): Promise<{ revoked: boolean }> {
+  return apiFetch(`/firm-invitations/${id}/revoke`, { method: "POST" });
+}
+
 export function acceptInvitation(input: {
   token: string;
   fullName: string;

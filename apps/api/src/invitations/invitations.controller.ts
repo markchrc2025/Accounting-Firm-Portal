@@ -8,6 +8,8 @@ import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import {
   AcceptInvitationInput,
   AcceptInvitationSchema,
+  CreateFirmInvitationInput,
+  CreateFirmInvitationSchema,
   CreateInvitationInput,
   CreateInvitationSchema,
 } from "./dto/invitation.schemas";
@@ -43,6 +45,44 @@ export class ClientInvitationsController {
     @Param("invitationId") invitationId: string,
   ) {
     return this.invitations.revoke(user, clientId, invitationId);
+  }
+}
+
+/**
+ * Firm-staff invitations (Users & Roles). Managing staff accounts is a
+ * Users:* capability (Super Admin), not the client-seat Invitations:* one.
+ * A distinct path ("firm-invitations") avoids colliding with /users/:id.
+ */
+@ApiTags("invitations")
+@Controller("firm-invitations")
+export class FirmInvitationsController {
+  constructor(private readonly invitations: InvitationsService) {}
+
+  @Post()
+  @RequirePermissions("Users:Create")
+  invite(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(CreateFirmInvitationSchema)) body: CreateFirmInvitationInput,
+  ) {
+    return this.invitations.inviteFirmUser(user, body);
+  }
+
+  @Get()
+  @RequirePermissions("Users:Read")
+  list(@CurrentUser() user: AuthUser) {
+    return this.invitations.listFirm(user);
+  }
+
+  @Post(":invitationId/resend")
+  @RequirePermissions("Users:Create")
+  resend(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) {
+    return this.invitations.resendFirm(user, invitationId);
+  }
+
+  @Post(":invitationId/revoke")
+  @RequirePermissions("Users:Create")
+  revoke(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) {
+    return this.invitations.revokeFirm(user, invitationId);
   }
 }
 
