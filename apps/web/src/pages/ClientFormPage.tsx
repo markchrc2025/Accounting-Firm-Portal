@@ -7,6 +7,7 @@ import {
   deleteCor,
   fetchClient,
   fetchClients,
+  fetchServices,
   getCorUrl,
   updateClient,
   uploadCor,
@@ -206,6 +207,14 @@ function ClientForm({ existing }: { existing: Client | null }) {
   // A client that already has sub-clients cannot itself become a sub-client.
   const hasSubClients = Boolean(
     existing && (clientsQuery.data ?? []).some((c) => c.billingParentId === existing.id),
+  );
+  // Default service: seeds the first line item when a new billing is created
+  // for this client. Only ACTIVE catalog services can be picked (the API
+  // rejects retired ones) — but keep a retired current value visible on edit.
+  const [defaultServiceId, setDefaultServiceId] = useState(existing?.defaultServiceId ?? "");
+  const servicesQuery = useQuery({ queryKey: ["services"], queryFn: () => fetchServices() });
+  const serviceOptions = (servicesQuery.data ?? []).filter(
+    (s) => s.status === "Active" || s.id === defaultServiceId,
   );
 
   // --- Save state -----------------------------------------------------------
@@ -482,6 +491,9 @@ function ClientForm({ existing }: { existing: Client | null }) {
     // Sub-client link: a uuid links, null clears. Omit when empty on create.
     if (billingParentId) p.billingParentId = billingParentId;
     else if (isEdit) p.billingParentId = null;
+    // Default service: same pattern — a uuid sets, null clears on edit.
+    if (defaultServiceId) p.defaultServiceId = defaultServiceId;
+    else if (isEdit) p.defaultServiceId = null;
 
     // Sent as an array even when empty so an edit that clears every row persists.
     p.taxTypes = taxTypes
@@ -1460,6 +1472,28 @@ function ClientForm({ existing }: { existing: Client | null }) {
                     {fieldErrors.billingMethod}
                   </span>
                 )}
+              </div>
+              <div className="md:col-span-2">
+                <Field label="Default service" error={fieldErrors.defaultServiceId}>
+                  <select
+                    value={defaultServiceId}
+                    onChange={(e) => setDefaultServiceId(e.target.value)}
+                    className="input"
+                  >
+                    <option value="">— None —</option>
+                    {serviceOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.status === "Retired" ? " (retired)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs text-content-secondary">
+                    Pre-fills the first line item when a new billing is created for
+                    this client, priced at the professional fee above (or the
+                    service&apos;s default fee if no fee is set).
+                  </p>
+                </Field>
               </div>
               <div className="md:col-span-2">
                 <Field

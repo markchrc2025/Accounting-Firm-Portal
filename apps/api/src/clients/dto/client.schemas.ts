@@ -74,6 +74,8 @@ const filerFields = {
   // Firm-only engagement fields (never exported to the BIR Generator).
   professionalFee: z.number().nonnegative().optional(),
   billingMethod: BillingMethod.optional(),
+  /** Default catalog service — seeds New-billing line items (null clears). */
+  defaultServiceId: z.string().uuid().nullable().optional(),
   /** Sub-client billing link: bill this client under the given main client
    *  (billing/AR only — one level deep; null clears the link). */
   billingParentId: z.string().uuid().nullable().optional(),

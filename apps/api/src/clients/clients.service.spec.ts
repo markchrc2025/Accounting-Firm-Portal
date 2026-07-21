@@ -59,6 +59,46 @@ describe("ClientsService tax regime mapping", () => {
   });
 });
 
+describe("ClientsService default service", () => {
+  function withService(service: unknown) {
+    const { svc, prisma } = build();
+    (prisma as unknown as { service: unknown }).service = {
+      findFirst: jest.fn().mockResolvedValue(service),
+    };
+    return { svc, prisma };
+  }
+
+  it("accepts an ACTIVE same-firm service as the default", async () => {
+    const { svc, prisma } = withService({ id: "s1", status: "Active", name: "Bookkeeping" });
+    await svc.update(actor, "c1", {
+      defaultServiceId: "55555555-5555-4555-8555-555555555555",
+    });
+    const data = (prisma.client.update as jest.Mock).mock.calls[0]![0].data;
+    expect(data.defaultServiceId).toBe("55555555-5555-4555-8555-555555555555");
+  });
+
+  it("rejects a service outside the firm (not found)", async () => {
+    const { svc } = withService(null);
+    await expect(
+      svc.update(actor, "c1", { defaultServiceId: "55555555-5555-4555-8555-555555555555" }),
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it("rejects a retired service by name", async () => {
+    const { svc } = withService({ id: "s1", status: "Retired", name: "Old Retainer" });
+    await expect(
+      svc.update(actor, "c1", { defaultServiceId: "55555555-5555-4555-8555-555555555555" }),
+    ).rejects.toThrow(/Old Retainer.*retired/i);
+  });
+
+  it("null clears the default without touching the service table", async () => {
+    const { svc, prisma } = withService(null);
+    await svc.update(actor, "c1", { defaultServiceId: null });
+    const data = (prisma.client.update as jest.Mock).mock.calls[0]![0].data;
+    expect(data.defaultServiceId).toBeNull();
+  });
+});
+
 describe("UpdateClientSchema taxType", () => {
   it('accepts "", VAT, PERCENTAGE and rejects unknown regimes', () => {
     expect(UpdateClientSchema.safeParse({ taxType: "" }).success).toBe(true);

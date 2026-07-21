@@ -30,11 +30,13 @@ import {
   createInvoice,
   fetchClients,
   fetchInvoices,
+  fetchServices,
   sendInvoice,
   type ClientSummary,
   type Invoice,
   type InvoiceInput,
 } from "../lib/api";
+import { defaultBillingLine } from "../lib/billing-prefill";
 import {
   Button,
   Card,
@@ -953,6 +955,31 @@ export default function BillingPage() {
   const canCreate = hasPermission("Billing:Create");
   const canSend = hasPermission("Billing:Send");
 
+  // The Services catalog feeds the default line item when a client is picked.
+  const services = useQuery({
+    queryKey: ["services"],
+    queryFn: () => fetchServices(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /**
+   * Picking a Bill-to client seeds the line items from its default service +
+   * professional fee — but only while the grid is untouched, so a re-pick
+   * never clobbers lines the user already typed.
+   */
+  function handleBillTo(client: ClientSummary | null): void {
+    setBillTo(client);
+    if (!client) return;
+    const pristine =
+      lineItems.length === 1 &&
+      !lineItems[0]!.description.trim() &&
+      lineItems[0]!.rate === 0;
+    if (!pristine) return;
+    const date = issuedDate ? new Date(`${issuedDate}T00:00:00.000Z`) : new Date();
+    const line = defaultBillingLine(client, services.data ?? [], date);
+    if (line) setLineItems([line]);
+  }
+
   const subtotal = useMemo(
     () => lineItems.reduce((sum, li) => sum + li.qty * li.rate, 0),
     [lineItems],
@@ -1038,7 +1065,7 @@ export default function BillingPage() {
       {view === "create" ? (
         <InvoiceCreate
           billTo={billTo}
-          onBillTo={setBillTo}
+          onBillTo={handleBillTo}
           issuedDate={issuedDate}
           onIssuedDate={handleIssuedDate}
           terms={terms}

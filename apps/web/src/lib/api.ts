@@ -482,6 +482,9 @@ export interface ClientSummary {
   billingParentId?: string | null;
   /** Firm-only engagement fee (Decimal serializes as a string over JSON). */
   professionalFee?: number | string | null;
+  billingMethod?: string | null;
+  /** Default catalog service — seeds New-billing line items. */
+  defaultServiceId?: string | null;
 }
 
 /** One row of the COR "Tax Types" table, as stored in `taxTypesJson`. Mirrors
@@ -542,6 +545,8 @@ export interface Client extends ClientSummary {
   branchesJson?: ClientBranch[] | null;
   professionalFee?: string | number | null;
   billingMethod?: string | null;
+  /** Default catalog service — seeds New-billing line items. */
+  defaultServiceId?: string | null;
   /** Sub-client billing link: billed under this main client (billing/AR only). */
   billingParentId?: string | null;
   seatLimit?: number | null;
