@@ -127,10 +127,12 @@ export function BillingDocument({
                 <td className="py-1 text-[#5a6572]">Subtotal</td>
                 <td className="py-1 text-right font-mono tabular-nums">{peso(invoice.subtotal)}</td>
               </tr>
-              <tr>
-                <td className="py-1 text-[#5a6572]">VAT 12%</td>
-                <td className="py-1 text-right font-mono tabular-nums">{peso(invoice.vat)}</td>
-              </tr>
+              {Number(invoice.vat) > 0 ? (
+                <tr>
+                  <td className="py-1 text-[#5a6572]">VAT 12%</td>
+                  <td className="py-1 text-right font-mono tabular-nums">{peso(invoice.vat)}</td>
+                </tr>
+              ) : null}
               <tr className="border-t-2 border-navy">
                 <td className="py-2 font-serif text-[16px] font-medium text-navy">Total due</td>
                 <td className="py-2 text-right font-mono text-[16px] font-semibold tabular-nums text-navy">

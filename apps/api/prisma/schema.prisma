@@ -735,6 +735,10 @@ model InvoiceLineItem {
   qty         Decimal @db.Decimal(12, 2)
   rate        Decimal @db.Decimal(18, 2)
   amount      Decimal @db.Decimal(18, 2)
+  /// Per-line tax treatment for the firm's billing: "VAT12" adds 12% to the
+  /// invoice VAT estimate; "NONE" is untaxed. The invoice `vat` is the 12% of
+  /// the taxable lines' amounts (guardrail #1: a management estimate, not BIR).
+  taxCode     String  @default("VAT12")
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 

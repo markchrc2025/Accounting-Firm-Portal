@@ -70,15 +70,20 @@ const TERMS_OPTIONS = [
 type TermsValue = (typeof TERMS_OPTIONS)[number]["value"];
 const DEFAULT_TERMS: TermsValue = "30";
 
+/** Per-line tax treatment. "NONE" is untaxed; "VAT12" adds 12% VAT. */
+type TaxCode = "VAT12" | "NONE";
+
 /** Local, unsaved line item — amount is derived (qty × rate), not stored. */
 interface DraftLine {
   description: string;
   qty: number;
   rate: number;
+  taxCode: TaxCode;
 }
 
+// New lines are UNTAXED by default — VAT is opt-in per line, never automatic.
 function emptyLine(): DraftLine {
-  return { description: "", qty: 1, rate: 0 };
+  return { description: "", qty: 1, rate: 0, taxCode: "NONE" };
 }
 
 /** Blank / non-finite input → 0, so totals never render NaN. */
@@ -750,6 +755,7 @@ function InvoiceCreate({
                 <th className="px-4 py-2.5 font-semibold">Description</th>
                 <th className="w-24 px-4 py-2.5 text-right font-semibold">Qty</th>
                 <th className="w-36 px-4 py-2.5 text-right font-semibold">Rate</th>
+                <th className="w-32 px-4 py-2.5 font-semibold">Tax</th>
                 <th className="w-40 px-4 py-2.5 text-right font-semibold">
                   Amount
                 </th>
@@ -795,6 +801,19 @@ function InvoiceCreate({
                       aria-label={`Line ${i + 1} rate`}
                     />
                   </td>
+                  <td className="px-3 py-2">
+                    <select
+                      className="input w-full"
+                      value={li.taxCode}
+                      onChange={(e) =>
+                        updateLine(i, { taxCode: e.target.value as TaxCode })
+                      }
+                      aria-label={`Line ${i + 1} tax`}
+                    >
+                      <option value="NONE">No tax</option>
+                      <option value="VAT12">VAT 12%</option>
+                    </select>
+                  </td>
                   <td className="px-4 py-2 text-right font-mono tabular-nums text-content">
                     {peso(li.qty * li.rate)}
                   </td>
@@ -836,10 +855,12 @@ function InvoiceCreate({
                 {peso(subtotal)}
               </dd>
             </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-[13px] text-content-secondary">VAT 12%</dt>
-              <dd className="font-mono tabular-nums text-content">{peso(vat)}</dd>
-            </div>
+            {vat > 0 ? (
+              <div className="flex items-center justify-between">
+                <dt className="text-[13px] text-content-secondary">VAT 12%</dt>
+                <dd className="font-mono tabular-nums text-content">{peso(vat)}</dd>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between border-t border-line-strong pt-2">
               <dt className="text-[13px] font-semibold text-navy">Total due</dt>
               <dd className="font-mono text-[15px] font-semibold tabular-nums text-navy">
@@ -1038,14 +1059,23 @@ export default function BillingPage() {
     if (!pristine) return;
     const date = issuedDate ? new Date(`${issuedDate}T00:00:00.000Z`) : new Date();
     const line = defaultBillingLine(client, services.data ?? [], date);
-    if (line) setLineItems([line]);
+    // Prefilled service line is untaxed by default — VAT stays opt-in per line.
+    if (line) setLineItems([{ ...line, taxCode: "NONE" }]);
   }
 
   const subtotal = useMemo(
     () => lineItems.reduce((sum, li) => sum + li.qty * li.rate, 0),
     [lineItems],
   );
-  const vat = subtotal * VAT_RATE;
+  // VAT applies only to the lines flagged VAT12 — no blanket 12% on everything.
+  const vat = useMemo(
+    () =>
+      lineItems.reduce(
+        (sum, li) => (li.taxCode === "VAT12" ? sum + li.qty * li.rate * VAT_RATE : sum),
+        0,
+      ),
+    [lineItems],
+  );
   const total = subtotal + vat;
 
   const invalidateInvoices = () =>
@@ -1062,6 +1092,7 @@ export default function BillingPage() {
       description: li.description,
       qty: li.qty,
       rate: li.rate,
+      taxCode: li.taxCode,
     })),
     ...(status ? { status } : {}),
   });
@@ -1102,6 +1133,7 @@ export default function BillingPage() {
           description: li.description,
           qty: li.qty,
           rate: li.rate,
+          taxCode: li.taxCode,
         })),
       }),
     onSuccess: () => {
@@ -1143,6 +1175,7 @@ export default function BillingPage() {
             description: li.description,
             qty: Number(li.qty),
             rate: Number(li.rate),
+            taxCode: li.taxCode === "VAT12" ? "VAT12" : "NONE",
           }))
         : [emptyLine()],
     );

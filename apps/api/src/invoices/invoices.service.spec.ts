@@ -93,8 +93,8 @@ describe("InvoicesService", () => {
       issuedDate: "2026-07-11",
       dueDate: "2026-07-25",
       lineItems: [
-        { description: "Bookkeeping", qty: 2, rate: 1000 },
-        { description: "Filing", qty: 1, rate: 500 },
+        { description: "Bookkeeping", qty: 2, rate: 1000, taxCode: "VAT12" },
+        { description: "Filing", qty: 1, rate: 500, taxCode: "VAT12" },
       ],
       status: "Draft",
     });
@@ -109,15 +109,54 @@ describe("InvoicesService", () => {
         clientId: "c1",
         number: "BILL-2026-0003", // atomic counter returned nextSeq 4 → seq 3
         subtotal: 2500,
-        vat: 300, // 12% management estimate
+        vat: 300, // 12% of the VATABLE lines (both here)
         total: 2800,
       }),
     );
-    // Each line carries its derived amount = qty * rate.
+    // Each line carries its derived amount = qty * rate + its tax treatment.
     expect(arg.data.lineItems.create).toEqual([
-      { description: "Bookkeeping", qty: 2, rate: 1000, amount: 2000 },
-      { description: "Filing", qty: 1, rate: 500, amount: 500 },
+      { description: "Bookkeeping", qty: 2, rate: 1000, amount: 2000, taxCode: "VAT12" },
+      { description: "Filing", qty: 1, rate: 500, amount: 500, taxCode: "VAT12" },
     ]);
+  });
+
+  it("charges VAT only on the VATABLE lines (per-line taxCode)", async () => {
+    const { svc, prisma } = build();
+    await svc.create(actor, {
+      clientId: "c1",
+      description: "Mixed",
+      issuedDate: "2026-07-11",
+      dueDate: "2026-07-25",
+      lineItems: [
+        { description: "Vatable service", qty: 1, rate: 1000, taxCode: "VAT12" },
+        { description: "Exempt pass-through", qty: 1, rate: 500, taxCode: "NONE" },
+      ],
+      status: "Draft",
+    });
+    const arg = (prisma.invoice.create as jest.Mock).mock.calls[0][0];
+    expect(arg.data).toEqual(
+      expect.objectContaining({
+        subtotal: 1500, // both lines
+        vat: 120, // 12% of the 1000 VATABLE line only
+        total: 1620,
+      }),
+    );
+  });
+
+  it("omitted taxCode defaults to VATABLE (MCP / raw callers)", async () => {
+    const { svc, prisma } = build();
+    await svc.create(actor, {
+      clientId: "c1",
+      description: "Legacy caller",
+      issuedDate: "2026-07-11",
+      dueDate: "2026-07-25",
+      // taxCode intentionally omitted — bypasses the Zod default.
+      lineItems: [{ description: "Retainer", qty: 1, rate: 1000 } as never],
+      status: "Draft",
+    });
+    const arg = (prisma.invoice.create as jest.Mock).mock.calls[0][0];
+    expect(arg.data.vat).toBe(120); // 12% of 1000
+    expect(arg.data.lineItems.create[0].taxCode).toBe("VAT12");
   });
 
   it("404s when reading an invoice outside the firm", async () => {
