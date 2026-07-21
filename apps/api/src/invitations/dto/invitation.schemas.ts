@@ -23,3 +23,11 @@ export const AcceptInvitationSchema = z.object({
   password: z.string().min(8),
 });
 export type AcceptInvitationInput = z.infer<typeof AcceptInvitationSchema>;
+
+/** Firm-staff invitation (Users & Roles). roleName is validated against the
+ *  seeded FIRM-scope roles at the service layer. */
+export const CreateFirmInvitationSchema = z.object({
+  email: z.string().email(),
+  roleName: z.string().min(1),
+});
+export type CreateFirmInvitationInput = z.infer<typeof CreateFirmInvitationSchema>;

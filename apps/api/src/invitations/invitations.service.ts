@@ -10,26 +10,114 @@ import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PasswordService } from "../auth/password.service";
 import { ClientsService } from "../clients/clients.service";
+import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   AcceptInvitationInput,
   CLIENT_ROLE_NAME,
   ClientRole,
+  CreateFirmInvitationInput,
   CreateInvitationInput,
 } from "./dto/invitation.schemas";
+import { inviteEmail } from "./invite-email";
+
+/** Email-delivery state stored on the invitation row. */
+type EmailStatus = "SENT" | "FAILED";
+
+const FIRM_INVITE_SELECT = {
+  id: true,
+  email: true,
+  role: true,
+  status: true,
+  expiresAt: true,
+  createdAt: true,
+  emailStatus: true,
+  emailError: true,
+  invitedByName: true,
+} as const;
 
 @Injectable()
 export class InvitationsService {
   private readonly ttlHours: number;
+  private readonly webAppUrl: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly clients: ClientsService,
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
     config: ConfigService,
   ) {
     this.ttlHours = Number(config.get<string>("INVITE_TTL_HOURS", "168")); // 7 days
+    this.webAppUrl = (
+      config.get<string>("WEB_APP_URL", "https://acctgfirm.mcrctas.com") ?? ""
+    ).replace(/\/+$/, "");
+  }
+
+  // --- Invite email delivery -------------------------------------------------
+
+  private acceptUrl(token: string): string {
+    return `${this.webAppUrl}/accept?token=${token}`;
+  }
+
+  /** The inviter's display name (snapshotted onto the row for the email). */
+  private async inviterName(actorId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: { fullName: true },
+    });
+    return user?.fullName ?? "Your accountant";
+  }
+
+  private async firmName(firmId: string): Promise<string> {
+    const firm = await this.prisma.firm.findUnique({
+      where: { id: firmId },
+      select: { name: true },
+    });
+    return firm?.name ?? "MCRC Tax & Accounting";
+  }
+
+  /**
+   * Send the invite email and record the outcome on the row. MailService
+   * performs exactly one retry internally; a second failure lands here and
+   * becomes a visible "FAILED" state with a Resend button — never an exception
+   * (the invitation row itself is already created and stays valid).
+   */
+  private async deliverInviteEmail(p: {
+    invitationId: string;
+    to: string;
+    firmName: string;
+    inviterName: string;
+    roleLabel: string;
+    token: string;
+    expiresAt: Date;
+    portalLabel: string;
+  }): Promise<{ emailStatus: EmailStatus; emailError: string | null }> {
+    let emailStatus: EmailStatus;
+    let emailMessageId: string | null = null;
+    let emailError: string | null = null;
+    try {
+      const content = inviteEmail({
+        firmName: p.firmName,
+        inviterName: p.inviterName,
+        roleLabel: p.roleLabel,
+        acceptUrl: this.acceptUrl(p.token),
+        expiresAt: p.expiresAt,
+        portalLabel: p.portalLabel,
+      });
+      const result = await this.mail.send({ to: p.to, ...content });
+      emailStatus = "SENT";
+      emailMessageId = result.messageId;
+    } catch (err) {
+      emailStatus = "FAILED";
+      emailError = err instanceof Error ? err.message : String(err);
+    }
+    await this.prisma.invitation.update({
+      where: { id: p.invitationId },
+      data: { emailStatus, emailMessageId, emailError },
+    });
+    return { emailStatus, emailError };
   }
 
   /** Create a client-user invitation, enforcing the client's seat limit (FR-17). */
@@ -48,15 +136,19 @@ export class InvitationsService {
 
     const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + this.ttlHours * 3600 * 1000);
+    const invitedByName = await this.inviterName(actor.id);
 
     const invitation = await this.prisma.invitation.create({
       data: {
         clientId,
+        firmId: client.firmId,
+        kind: "CLIENT",
         email,
         role: input.clientRole,
         token,
         expiresAt,
         status: "PENDING",
+        invitedByName,
       },
     });
     await this.audit.record({
@@ -67,8 +159,19 @@ export class InvitationsService {
       metadata: { email, clientRole: input.clientRole, clientId },
     });
 
-    // The token is returned so the caller (email service, later phase) can send
-    // the activation link. It is not persisted anywhere else in plaintext form.
+    const { emailStatus, emailError } = await this.deliverInviteEmail({
+      invitationId: invitation.id,
+      to: email,
+      firmName: await this.firmName(client.firmId),
+      inviterName: invitedByName,
+      roleLabel: CLIENT_ROLE_NAME[input.clientRole],
+      token,
+      expiresAt,
+      portalLabel: "client portal",
+    });
+
+    // The token is also returned so the caller can surface the activation link
+    // directly (e.g. copy-paste when email is down). Not persisted elsewhere.
     return {
       id: invitation.id,
       email: invitation.email,
@@ -76,7 +179,155 @@ export class InvitationsService {
       expiresAt: invitation.expiresAt,
       status: invitation.status,
       token,
+      emailStatus,
+      emailError,
     };
+  }
+
+  // --- Firm-staff invitations (Users & Roles) --------------------------------
+
+  /** Invite a firm staff member by email + FIRM-scope role. */
+  async inviteFirmUser(actor: AuthUser, input: CreateFirmInvitationInput) {
+    const email = input.email.toLowerCase();
+
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      throw new ConflictException("A user with this email already exists.");
+    }
+    const alreadyPending = await this.prisma.invitation.findFirst({
+      where: { firmId: actor.firmId, kind: "FIRM", email, status: "PENDING" },
+    });
+    if (alreadyPending) {
+      throw new ConflictException(
+        "A pending invitation already exists for this email — resend or revoke it instead.",
+      );
+    }
+    const role = await this.prisma.role.findFirst({
+      where: { name: input.roleName, scope: "FIRM" },
+    });
+    if (!role) {
+      const valid = await this.prisma.role.findMany({
+        where: { scope: "FIRM" },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      });
+      throw new BadRequestException(
+        `Unknown firm role "${input.roleName}". Valid roles: ${valid
+          .map((r) => r.name)
+          .join(", ")}.`,
+      );
+    }
+
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + this.ttlHours * 3600 * 1000);
+    const invitedByName = await this.inviterName(actor.id);
+
+    const invitation = await this.prisma.invitation.create({
+      data: {
+        firmId: actor.firmId,
+        kind: "FIRM",
+        email,
+        role: role.name,
+        token,
+        expiresAt,
+        status: "PENDING",
+        invitedByName,
+      },
+      select: FIRM_INVITE_SELECT,
+    });
+    await this.audit.record({
+      userId: actor.id,
+      action: "invitation.create",
+      entityType: "Invitation",
+      entityId: invitation.id,
+      metadata: { email, kind: "FIRM", roleName: role.name },
+    });
+
+    const { emailStatus, emailError } = await this.deliverInviteEmail({
+      invitationId: invitation.id,
+      to: email,
+      firmName: await this.firmName(actor.firmId),
+      inviterName: invitedByName,
+      roleLabel: role.name,
+      token,
+      expiresAt,
+      portalLabel: "firm portal",
+    });
+    return { ...invitation, emailStatus, emailError };
+  }
+
+  async listFirm(actor: AuthUser) {
+    return this.prisma.invitation.findMany({
+      where: { firmId: actor.firmId, kind: "FIRM" },
+      select: FIRM_INVITE_SELECT,
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /** Re-send the invite email for a still-pending firm invitation. */
+  async resendFirm(actor: AuthUser, invitationId: string) {
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { id: invitationId, firmId: actor.firmId, kind: "FIRM" },
+    });
+    if (!invitation) throw new NotFoundException("Invitation not found");
+    if (invitation.status !== "PENDING") {
+      throw new BadRequestException(
+        `Only pending invitations can be resent (this one is ${invitation.status}).`,
+      );
+    }
+    if (invitation.expiresAt.getTime() < Date.now()) {
+      await this.prisma.invitation.update({
+        where: { id: invitation.id },
+        data: { status: "EXPIRED" },
+      });
+      throw new BadRequestException(
+        "This invitation has expired — revoke it and send a new one.",
+      );
+    }
+    await this.audit.record({
+      userId: actor.id,
+      action: "invitation.resend",
+      entityType: "Invitation",
+      entityId: invitation.id,
+      metadata: { email: invitation.email, kind: "FIRM" },
+    });
+    const { emailStatus, emailError } = await this.deliverInviteEmail({
+      invitationId: invitation.id,
+      to: invitation.email,
+      firmName: await this.firmName(actor.firmId),
+      inviterName: invitation.invitedByName ?? (await this.inviterName(actor.id)),
+      roleLabel: invitation.role,
+      token: invitation.token,
+      expiresAt: invitation.expiresAt,
+      portalLabel: "firm portal",
+    });
+    const fresh = await this.prisma.invitation.findUniqueOrThrow({
+      where: { id: invitation.id },
+      select: FIRM_INVITE_SELECT,
+    });
+    return { ...fresh, emailStatus, emailError };
+  }
+
+  async revokeFirm(actor: AuthUser, invitationId: string) {
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { id: invitationId, firmId: actor.firmId, kind: "FIRM" },
+    });
+    if (!invitation) throw new NotFoundException("Invitation not found");
+    if (invitation.status !== "PENDING") {
+      throw new BadRequestException("Only pending invitations can be revoked");
+    }
+    await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data: { status: "REVOKED" },
+    });
+    await this.audit.record({
+      userId: actor.id,
+      action: "invitation.revoke",
+      entityType: "Invitation",
+      entityId: invitationId,
+      metadata: { kind: "FIRM" },
+    });
+    return { revoked: true };
   }
 
   async list(actor: AuthUser, clientId: string) {
@@ -142,6 +393,18 @@ export class InvitationsService {
       throw new ConflictException("An account with this email already exists");
     }
 
+    // Firm-staff invitations create a FIRM user instead of a client seat.
+    if (invitation.kind === "FIRM") {
+      return this.acceptFirm(
+        invitation as { id: string; email: string; role: string; firmId: string | null },
+        input,
+      );
+    }
+
+    if (!invitation.client || !invitation.clientId) {
+      throw new BadRequestException("Invitation is invalid or already used");
+    }
+
     // Re-check the seat limit at acceptance time (a seat may have filled since).
     await this.assertSeatAvailable(invitation.clientId, invitation.client.seatLimit, {
       excludeInvitationId: invitation.id,
@@ -190,6 +453,48 @@ export class InvitationsService {
     });
 
     return { userId: user.id, email: user.email, clientId: invitation.clientId };
+  }
+
+  /** Accept a FIRM-staff invitation: create an active firm user with the role. */
+  private async acceptFirm(
+    invitation: { id: string; email: string; role: string; firmId: string | null },
+    input: AcceptInvitationInput,
+  ) {
+    if (!invitation.firmId) {
+      throw new BadRequestException("Invitation is invalid or already used");
+    }
+    const role = await this.prisma.role.findFirst({
+      where: { name: invitation.role, scope: "FIRM" },
+    });
+    if (!role) {
+      throw new BadRequestException("Firm role is not configured; run the seed");
+    }
+    const passwordHash = await this.passwords.hash(input.password);
+    const user = await this.prisma.user.create({
+      data: {
+        firmId: invitation.firmId,
+        userType: "FIRM",
+        email: invitation.email,
+        fullName: input.fullName,
+        passwordHash,
+        status: "ACTIVE",
+        firmProfile: { create: {} },
+        userRoles: { create: { roleId: role.id } },
+      },
+      select: { id: true, email: true, fullName: true },
+    });
+    await this.prisma.invitation.update({
+      where: { id: invitation.id },
+      data: { status: "ACCEPTED" },
+    });
+    await this.audit.record({
+      userId: user.id,
+      action: "invitation.accept",
+      entityType: "User",
+      entityId: user.id,
+      metadata: { kind: "FIRM", roleName: invitation.role },
+    });
+    return { userId: user.id, email: user.email, clientId: null };
   }
 
   /**

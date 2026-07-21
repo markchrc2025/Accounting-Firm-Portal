@@ -86,6 +86,7 @@ model Firm {
   integrationClients IntegrationClient[]
   services           Service[]
   invoices           Invoice[]
+  invitations        Invitation[]
 
   @@map("firms")
 }
@@ -302,16 +303,28 @@ model RolePermission {
 model Invitation {
   id        String           @id @default(uuid()) @db.Uuid
   email     String
-  clientId  String           @db.Uuid
+  /// CLIENT seat invite → clientId set; FIRM staff invite → firmId set instead.
+  clientId  String?          @db.Uuid
+  firmId    String?          @db.Uuid
+  kind      String           @default("CLIENT") // "CLIENT" | "FIRM"
   role      String
   token     String           @unique
   expiresAt DateTime
   status    InvitationStatus @default(PENDING)
+  /// Invite-email delivery: null = never attempted, "SENT" | "FAILED".
+  emailStatus    String?
+  /// Provider message id (Plunk emailId / Postal token) for tracing.
+  emailMessageId String?
+  emailError     String?
+  /// Snapshot of the inviter's display name (for the email body).
+  invitedByName  String?
   createdAt DateTime         @default(now())
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firm   Firm?   @relation(fields: [firmId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
+  @@index([firmId])
   @@map("invitations")
 }
 
