@@ -10,11 +10,21 @@ import { z } from "zod";
 export const InvoiceStatus = z.enum(["Draft", "Sent", "Paid", "Overdue"]);
 export type InvoiceStatus = z.infer<typeof InvoiceStatus>;
 
+/**
+ * Per-line tax treatment. "VAT12" adds 12% of the line to the invoice's VAT
+ * estimate; "NONE" is untaxed. Defaults to "VAT12" so omitting callers (and
+ * pre-existing rows) keep the historical behaviour; the web form sends the
+ * choice explicitly and defaults NEW lines to "NONE".
+ */
+export const InvoiceTaxCode = z.enum(["VAT12", "NONE"]);
+export type InvoiceTaxCode = z.infer<typeof InvoiceTaxCode>;
+
 /** One billed line. `amount` is derived server-side (`qty * rate`), never sent. */
 export const InvoiceLineItemSchema = z.object({
   description: z.string().min(1),
   qty: z.number().nonnegative(),
   rate: z.number().nonnegative(),
+  taxCode: InvoiceTaxCode.default("VAT12"),
 });
 export type InvoiceLineItemInput = z.infer<typeof InvoiceLineItemSchema>;
 

@@ -49,6 +49,7 @@ interface ComputedLine {
   qty: number;
   rate: number;
   amount: number;
+  taxCode: string;
 }
 
 /**
@@ -78,6 +79,7 @@ function toInvoiceDto(inv: InvoiceRow) {
       qty: li.qty,
       rate: li.rate,
       amount: li.amount,
+      taxCode: li.taxCode,
     })),
     createdAt: inv.createdAt.toISOString(),
     updatedAt: inv.updatedAt.toISOString(),
@@ -317,24 +319,30 @@ export class InvoicesService {
   }
 }
 
-/** Derive each line's `amount = qty * rate` (2dp, float-safe). */
+/** Derive each line's `amount = qty * rate` (2dp, float-safe); carry its taxCode. */
 function computeLines(items: InvoiceLineItemInput[]): ComputedLine[] {
   return items.map((li) => ({
     description: li.description,
     qty: li.qty,
     rate: li.rate,
     amount: round2(li.qty * li.rate),
+    // Callers that bypass the Zod default (e.g. the MCP tool) keep VATABLE.
+    taxCode: li.taxCode ?? "VAT12",
   }));
 }
 
-/** subtotal = Σ amount; vat = 12% of subtotal (estimate); total = subtotal + vat. */
+/**
+ * subtotal = Σ amount; vat = 12% of the VATABLE lines' amounts (per-line
+ * taxCode — a management estimate, guardrail #1); total = subtotal + vat.
+ */
 function computeTotals(lines: ComputedLine[]): {
   subtotal: number;
   vat: number;
   total: number;
 } {
   const subtotal = round2(lines.reduce((sum, l) => sum + l.amount, 0));
-  const vat = round2(subtotal * 0.12);
+  const vatBase = lines.reduce((sum, l) => (l.taxCode === "VAT12" ? sum + l.amount : sum), 0);
+  const vat = round2(vatBase * 0.12);
   const total = round2(subtotal + vat);
   return { subtotal, vat, total };
 }

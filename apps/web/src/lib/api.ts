@@ -1040,6 +1040,8 @@ export interface InvoiceLineItem {
   qty: number | string;
   rate: number | string;
   amount: number | string;
+  /** Per-line tax treatment: "VAT12" (adds 12% VAT) | "NONE" (untaxed). */
+  taxCode?: string;
 }
 export interface Invoice {
   id: string;
@@ -1063,6 +1065,7 @@ export interface InvoiceLineItemInput {
   description: string;
   qty: number;
   rate: number;
+  taxCode?: string;
 }
 export interface InvoiceInput {
   clientId: string;
