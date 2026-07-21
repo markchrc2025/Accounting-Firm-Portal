@@ -1,8 +1,22 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
-import { ApiError } from "../lib/api";
+import { ApiError, fetchSsoProviders, ssoStartUrl } from "../lib/api";
 import { AuthLayout } from "../components/AuthLayout";
+
+/** Friendly copy for the ?sso_error= codes the API callback redirects with. */
+const SSO_ERRORS: Record<string, string> = {
+  "no-account":
+    "No active portal account matches that email. Ask the firm to invite you first, then try again.",
+  cancelled: "Sign-in was cancelled at the provider.",
+  unavailable: "That sign-in method isn't configured yet.",
+  state: "The sign-in attempt expired — please try again.",
+  email: "The provider didn't share a verified email address for your account.",
+  exchange: "The provider rejected the sign-in — please try again.",
+  userinfo: "The provider rejected the sign-in — please try again.",
+  failed: "SSO sign-in failed — please try again.",
+};
 
 /**
  * Sign-in (design handoff screens 1–2). Password step, then — when the API returns
@@ -12,13 +26,25 @@ import { AuthLayout } from "../components/AuthLayout";
 export default function LoginPage() {
   const { signIn, completeMfa } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const ssoErrorCode = params.get("sso_error");
+  const [error, setError] = useState<string | null>(
+    ssoErrorCode ? (SSO_ERRORS[ssoErrorCode] ?? SSO_ERRORS.failed!) : null,
+  );
   const [busy, setBusy] = useState(false);
+
+  const ssoProviders = useQuery({
+    queryKey: ["sso-providers"],
+    queryFn: () => fetchSsoProviders(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const showGoogle = ssoProviders.data?.google ?? false;
+  const showMicrosoft = ssoProviders.data?.microsoft ?? false;
 
   async function handlePassword(e: FormEvent) {
     e.preventDefault();
@@ -122,6 +148,51 @@ export default function LoginPage() {
             >
               {busy ? "Signing in…" : "Sign in"}
             </button>
+
+            {(showGoogle || showMicrosoft) && (
+              <>
+                <div className="flex items-center gap-3 pt-1">
+                  <span className="h-px flex-1 bg-line-strong" />
+                  <span className="font-mono text-[10px] uppercase tracking-[.18em] text-content-muted">
+                    or continue with
+                  </span>
+                  <span className="h-px flex-1 bg-line-strong" />
+                </div>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {showGoogle && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = ssoStartUrl("google");
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-btn border border-line-strong bg-card px-4 py-[10px] text-[13.5px] font-semibold text-content transition-colors hover:border-navy hover:text-navy"
+                    >
+                      <span aria-hidden className="font-serif text-[15px] font-bold">
+                        G
+                      </span>
+                      Google
+                    </button>
+                  )}
+                  {showMicrosoft && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = ssoStartUrl("microsoft");
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-btn border border-line-strong bg-card px-4 py-[10px] text-[13.5px] font-semibold text-content transition-colors hover:border-navy hover:text-navy"
+                    >
+                      <span aria-hidden className="grid grid-cols-2 gap-[1.5px]">
+                        <span className="h-[6px] w-[6px] bg-[#f25022]" />
+                        <span className="h-[6px] w-[6px] bg-[#7fba00]" />
+                        <span className="h-[6px] w-[6px] bg-[#00a4ef]" />
+                        <span className="h-[6px] w-[6px] bg-[#ffb900]" />
+                      </span>
+                      Microsoft
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </form>
         ) : (
           <form onSubmit={handleMfa} className="space-y-4">
