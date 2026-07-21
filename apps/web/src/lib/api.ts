@@ -641,6 +641,19 @@ export function fetchUsers(): Promise<FirmUserSummary[]> {
   return apiFetch<FirmUserSummary[]>("/users");
 }
 
+// --- SSO sign-in (Google / Microsoft) --------------------------------------------
+export type SsoProvider = "google" | "microsoft";
+export function fetchSsoProviders(): Promise<Record<SsoProvider, boolean>> {
+  return apiFetch("/auth/sso/providers");
+}
+/** Absolute URL that starts the provider sign-in (full-page redirect). */
+export function ssoStartUrl(provider: SsoProvider): string {
+  const base = API_BASE_URL.startsWith("http")
+    ? API_BASE_URL
+    : `${window.location.origin}${API_BASE_URL}`;
+  return `${base}/auth/sso/${provider}/start`;
+}
+
 // --- Firm Admin Settings: transactional-email configuration ---------------------
 export const EMAIL_SENDER_STREAMS = [
   "invites",

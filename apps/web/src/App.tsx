@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AuditPage from "./pages/AuditPage";
 import SettingsPage from "./pages/SettingsPage";
+import SsoCallbackPage from "./pages/SsoCallbackPage";
 import BillingPage from "./pages/BillingPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
@@ -55,6 +56,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/accept" element={<AcceptInvitePage />} />
+      <Route path="/sso/callback" element={<SsoCallbackPage />} />
 
       <Route element={<AppShell />}>
         {/* Firm */}
