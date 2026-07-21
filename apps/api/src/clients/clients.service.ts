@@ -48,6 +48,22 @@ export class ClientsService {
     };
   }
 
+  /** A default service must be an ACTIVE catalog service of the same firm. */
+  private async assertDefaultService(firmId: string, serviceId: string): Promise<void> {
+    const service = await this.prisma.service.findFirst({
+      where: { id: serviceId, firmId },
+      select: { id: true, status: true, name: true },
+    });
+    if (!service) {
+      throw new BadRequestException("The selected default service was not found.");
+    }
+    if (service.status !== "Active") {
+      throw new BadRequestException(
+        `"${service.name}" is retired — pick an active service or clear the default.`,
+      );
+    }
+  }
+
   /** Validate a sub-client billing link (one level deep, same firm). */
   private async assertBillingLink(
     firmId: string,
@@ -70,6 +86,9 @@ export class ClientsService {
   async create(user: AuthUser, input: CreateClientInput) {
     if (input.billingParentId) {
       await this.assertBillingLink(user.firmId, null, input.billingParentId);
+    }
+    if (input.defaultServiceId) {
+      await this.assertDefaultService(user.firmId, input.defaultServiceId);
     }
     const client = await this.prisma.client.create({
       data: {
@@ -115,6 +134,9 @@ export class ClientsService {
     await this.get(user, clientId); // 404 if not in firm
     if (input.billingParentId) {
       await this.assertBillingLink(user.firmId, clientId, input.billingParentId);
+    }
+    if (input.defaultServiceId) {
+      await this.assertDefaultService(user.firmId, input.defaultServiceId);
     }
     const client = await this.prisma.client.update({
       where: { id: clientId },
