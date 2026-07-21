@@ -5,6 +5,7 @@ import type { AuditService } from "../audit/audit.service";
 import type { PasswordService } from "../auth/password.service";
 import type { ClientsService } from "../clients/clients.service";
 import type { MailService } from "../mail/mail.service";
+import type { EmailSettingsService } from "../settings/email-settings.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { AuthUser } from "../common/auth/auth-user";
 
@@ -59,10 +60,22 @@ function build(
     send: jest.fn().mockResolvedValue({ provider: "plunk", messageId: "em_1" }),
     ...mailOverrides,
   } as unknown as MailService;
+  const emailSettings = {
+    resolveContext: jest.fn().mockResolvedValue({
+      theme: {
+        firmName: "MCRC Tax & Accounting Services",
+        supportEmail: "support@mcrctas.com",
+        buttonAccent: "navy",
+        showBrandLockup: true,
+      },
+      billingFooterEmail: "billing@mcrctas.com",
+      senderFor: () => ({ fromEmail: "invites@mcrctas.com", fromName: "MCRC Tax & Accounting" }),
+    }),
+  } as unknown as EmailSettingsService;
   const config = { get: jest.fn().mockReturnValue("168") } as unknown as ConfigService;
 
   return {
-    svc: new InvitationsService(prisma, clients, passwords, audit, mail, config),
+    svc: new InvitationsService(prisma, clients, passwords, audit, mail, emailSettings, config),
     prisma,
     mail,
   };

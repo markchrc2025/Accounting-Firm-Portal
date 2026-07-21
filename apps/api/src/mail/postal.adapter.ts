@@ -14,7 +14,7 @@ export async function sendViaPostal(cfg: MailConfig, input: SendMailInput): Prom
     },
     body: JSON.stringify({
       to: [input.to],
-      from: `${cfg.fromName} <${cfg.fromEmail}>`,
+      from: `${input.fromName ?? cfg.fromName} <${input.fromEmail ?? cfg.fromEmail}>`,
       subject: input.subject,
       html_body: input.html,
       plain_body: input.text,

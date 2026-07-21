@@ -17,8 +17,8 @@ export async function sendViaPlunk(cfg: MailConfig, input: SendMailInput): Promi
       to: input.to,
       subject: input.subject,
       body: input.html,
-      from: cfg.fromEmail,
-      name: cfg.fromName,
+      from: input.fromEmail ?? cfg.fromEmail,
+      name: input.fromName ?? cfg.fromName,
     }),
   });
   if (!res.ok) {

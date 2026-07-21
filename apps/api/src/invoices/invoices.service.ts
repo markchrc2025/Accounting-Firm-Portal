@@ -1,16 +1,38 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import { round2 } from "@portal/shared";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { dateToIso, isoToDate } from "../financial/serialization";
+import { invoiceDueEmail } from "../mail/email-templates";
+import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { EmailSettingsService } from "../settings/email-settings.service";
 import type {
   CreateInvoiceInput,
   InvoiceLineItemInput,
   UpdateInvoiceInput,
 } from "./dto/invoice.schemas";
+
+/** ₱-formatted amount for the billing email (currency per guardrails: PHP). */
+function pesoLabel(v: Prisma.Decimal | number | string): string {
+  return `₱${Number(String(v)).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/** Long-form Manila date, e.g. "August 5, 2026". */
+function longDate(d: Date): string {
+  return d.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Manila",
+  });
+}
 
 /** The relations loaded for every invoice DTO: line items + the client's name. */
 const invoiceInclude = {
@@ -70,11 +92,21 @@ function toInvoiceDto(inv: InvoiceRow) {
  */
 @Injectable()
 export class InvoicesService {
+  private readonly logger = new Logger(InvoicesService.name);
+  private readonly webAppUrl: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly clients: ClientsService,
     private readonly audit: AuditService,
-  ) {}
+    private readonly mail: MailService,
+    private readonly emailSettings: EmailSettingsService,
+    config: ConfigService,
+  ) {
+    this.webAppUrl = (
+      config.get<string>("WEB_APP_URL", "https://acctgfirm.mcrctas.com") ?? ""
+    ).replace(/\/+$/, "");
+  }
 
   async list(user: AuthUser, clientId?: string) {
     // A client's billing view includes invoices RECORDED under it (its own +
@@ -186,13 +218,62 @@ export class InvoicesService {
       data: { status: "Sent" },
       include: invoiceInclude,
     });
+    const emailedTo = await this.emailBillingStatement(user.firmId, invoice);
     await this.audit.record({
       userId: user.id,
       action: "invoice.send",
       entityType: "Invoice",
       entityId: id,
+      ...(emailedTo ? { metadata: { emailedTo } } : {}),
     });
     return toInvoiceDto(invoice);
+  }
+
+  /**
+   * Best-effort billing email (design-handoff template #12) to the paying
+   * client's contact address when mail is configured. A provider failure never
+   * blocks the status change — the billing page remains the source of truth.
+   */
+  private async emailBillingStatement(
+    firmId: string,
+    invoice: InvoiceRow,
+  ): Promise<string | null> {
+    try {
+      if (!this.mail.isEnabled()) return null;
+      const client = await this.prisma.client.findUnique({
+        where: { id: invoice.clientId },
+        select: { email: true },
+      });
+      if (!client?.email) return null;
+      const ctx = await this.emailSettings.resolveContext(firmId);
+      const rendered = invoiceDueEmail(
+        {
+          invoiceNo: invoice.number,
+          amount: pesoLabel(invoice.total),
+          dueDate: longDate(invoice.dueDate),
+          lineItems: invoice.lineItems.map((li) => ({
+            label: li.description,
+            amount: pesoLabel(li.amount),
+          })),
+          payUrl: this.webAppUrl,
+          billingEmail: ctx.billingFooterEmail,
+        },
+        ctx.theme,
+      );
+      await this.mail.send({
+        to: client.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+        ...ctx.senderFor(rendered.stream),
+      });
+      return client.email;
+    } catch (err) {
+      this.logger.warn(
+        `Billing email for invoice ${invoice.number} failed: ${(err as Error).message}`,
+      );
+      return null;
+    }
   }
 
   /**

@@ -195,6 +195,7 @@ export function AppShell() {
                           { to: "/services", label: "Services", end: true },
                           { to: "/chart-of-accounts", label: "Chart of Accounts", end: true },
                           { to: "/integrations", label: "Integrations", end: true },
+                          { to: "/settings", label: "Settings", end: true },
                           { to: "/audit", label: "Audit Log", end: true },
                         ]
                       : []),

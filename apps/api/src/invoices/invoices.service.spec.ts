@@ -1,7 +1,10 @@
 import { NotFoundException } from "@nestjs/common";
+import type { ConfigService } from "@nestjs/config";
 import { InvoicesService } from "./invoices.service";
 import type { AuditService } from "../audit/audit.service";
 import type { ClientsService } from "../clients/clients.service";
+import type { MailService } from "../mail/mail.service";
+import type { EmailSettingsService } from "../settings/email-settings.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { AuthUser } from "../common/auth/auth-user";
 
@@ -39,6 +42,9 @@ function build(invoiceOverrides: Record<string, unknown> = {}) {
   };
   const prisma = {
     invoice,
+    client: {
+      findUnique: jest.fn().mockResolvedValue({ email: "owner@acme.test" }),
+    },
     // The create path runs inside a transaction whose client carries the same
     // invoice delegate plus the atomic counter query ("nextSeq" 4 → seq 3).
     $queryRaw: jest.fn().mockResolvedValue([{ nextSeq: 4 }]),
@@ -53,7 +59,29 @@ function build(invoiceOverrides: Record<string, unknown> = {}) {
   const audit = {
     record: jest.fn().mockResolvedValue(undefined),
   } as unknown as AuditService;
-  return { svc: new InvoicesService(prisma, clients, audit), prisma, clients };
+  const mail = {
+    isEnabled: jest.fn().mockReturnValue(true),
+    send: jest.fn().mockResolvedValue({ provider: "plunk", messageId: "em_1" }),
+  } as unknown as MailService;
+  const emailSettings = {
+    resolveContext: jest.fn().mockResolvedValue({
+      theme: {
+        firmName: "MCRC Tax & Accounting Services",
+        supportEmail: "support@mcrctas.com",
+        buttonAccent: "navy",
+        showBrandLockup: true,
+      },
+      billingFooterEmail: "billing@mcrctas.com",
+      senderFor: () => ({ fromEmail: "billing@mcrctas.com", fromName: "MCRC Billing" }),
+    }),
+  } as unknown as EmailSettingsService;
+  const config = { get: jest.fn((_k: string, def?: string) => def) } as unknown as ConfigService;
+  return {
+    svc: new InvoicesService(prisma, clients, audit, mail, emailSettings, config),
+    prisma,
+    clients,
+    mail,
+  };
 }
 
 describe("InvoicesService", () => {
