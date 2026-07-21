@@ -24,6 +24,7 @@ import {
   Skeleton,
   cn,
 } from "../components/ui";
+import { SettingsTabs } from "../components/SettingsTabs";
 
 /** ACTIVE clients read as success; disabled ones fade to neutral. */
 function isActive(status: string): boolean {
@@ -58,6 +59,7 @@ export default function IntegrationsPage() {
 
   return (
     <div className="animate-fade-rise">
+      <SettingsTabs />
       <PageHeader
         title="Integration Credentials"
         eyebrow="FIRM ADMIN"

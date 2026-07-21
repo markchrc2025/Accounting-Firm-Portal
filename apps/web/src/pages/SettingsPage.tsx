@@ -18,6 +18,7 @@ import {
   PageHeader,
   Skeleton,
 } from "../components/ui";
+import { SettingsTabs } from "../components/SettingsTabs";
 
 /** Labels + purpose for each sender stream (design handoff: 7 streams). */
 const STREAM_META: Record<EmailSenderStream, { label: string; used: string }> = {
@@ -35,9 +36,10 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-[760px] animate-fade-rise">
+      <SettingsTabs />
       <PageHeader
-        title="Firm Settings"
-        eyebrow="FIRM ADMIN"
+        title="Email & Senders"
+        eyebrow="SETTINGS"
         description="Transactional email identity — footer support address, sender addresses per stream, and brand options."
       />
       {settings.isPending && (

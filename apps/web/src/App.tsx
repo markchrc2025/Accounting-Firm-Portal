@@ -43,6 +43,13 @@ function HomeRoute() {
  * redirects unauthenticated visitors to /login. Firm staff and client-portal users
  * share the shell; the shell swaps its nav by `user.userType`.
  */
+/** /settings lands on the first tab the user can see. */
+function SettingsIndexRedirect() {
+  const { hasPermission } = useAuth();
+  const to = hasPermission("Users:Read") ? "/settings/users" : "/settings/documents";
+  return <Navigate to={to} replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -53,15 +60,22 @@ export default function App() {
         {/* Firm */}
         <Route path="/" element={<HomeRoute />} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/users" element={<UsersPage />} />
+        {/* Settings hub: Users & Roles, Documents, Integrations, Audit Log and
+            Email & Senders live as tabs under /settings; old paths redirect. */}
+        <Route path="/settings" element={<SettingsIndexRedirect />} />
+        <Route path="/settings/users" element={<UsersPage />} />
+        <Route path="/settings/documents" element={<DocumentsPage />} />
+        <Route path="/settings/integrations" element={<IntegrationsPage />} />
+        <Route path="/settings/audit" element={<AuditPage />} />
+        <Route path="/settings/email" element={<SettingsPage />} />
+        <Route path="/users" element={<Navigate to="/settings/users" replace />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/financial-statements" element={<FinancialStatementsPage />} />
         <Route path="/financial-statements/:id" element={<FsReportPage />} />
-        <Route path="/integrations" element={<IntegrationsPage />} />
-        <Route path="/audit" element={<AuditPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/integrations" element={<Navigate to="/settings/integrations" replace />} />
+        <Route path="/audit" element={<Navigate to="/settings/audit" replace />} />
+        <Route path="/documents" element={<Navigate to="/settings/documents" replace />} />
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/new" element={<ClientFormPage />} />
         <Route path="/clients/:clientId/edit" element={<ClientFormPage />} />

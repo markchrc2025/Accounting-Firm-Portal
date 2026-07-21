@@ -23,6 +23,7 @@ import {
   PageHeader,
   Skeleton,
 } from "../components/ui";
+import { SettingsTabs } from "../components/SettingsTabs";
 
 /** Two-letter initials from a person's name (mirrors the dashboard mark). */
 function initials(name: string): string {
@@ -89,6 +90,7 @@ export default function UsersPage() {
 
   return (
     <div className="animate-fade-rise">
+      <SettingsTabs />
       <PageHeader
         title="Users & Roles"
         eyebrow="FIRM ADMIN"

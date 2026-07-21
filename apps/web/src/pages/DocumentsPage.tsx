@@ -17,6 +17,7 @@ import {
   PageHeader,
   Skeleton,
 } from "../components/ui";
+import { SettingsTabs } from "../components/SettingsTabs";
 
 /** "12.3 KB" / "1.2 MB" — bucket-browser style sizes. */
 function formatBytes(n: number): string {
@@ -82,6 +83,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="animate-fade-rise">
+      <SettingsTabs />
       <PageHeader
         title="Documents"
         eyebrow="Firm admin"

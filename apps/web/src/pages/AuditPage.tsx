@@ -13,6 +13,7 @@ import {
   PageHeader,
   Skeleton,
 } from "../components/ui";
+import { SettingsTabs } from "../components/SettingsTabs";
 
 /** Two-digit padding for date/time parts. */
 function pad(n: number): string {
@@ -116,6 +117,7 @@ export default function AuditPage() {
 
   return (
     <div className="animate-fade-rise">
+      <SettingsTabs />
       <PageHeader
         title="Audit Log"
         eyebrow="FIRM ADMIN"
