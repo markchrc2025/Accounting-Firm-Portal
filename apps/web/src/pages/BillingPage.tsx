@@ -32,6 +32,7 @@ import {
   fetchInvoices,
   fetchServices,
   sendInvoice,
+  updateInvoice,
   type ClientSummary,
   type Invoice,
   type InvoiceInput,
@@ -123,6 +124,15 @@ function statusVariant(status: string): ChipVariant {
 /** Draft / Overdue can still be (re)sent; Sent / Paid hide the action. */
 function isSendable(status: string): boolean {
   return status === "Draft" || status === "Overdue";
+}
+
+/**
+ * Only DRAFT billings can be edited: once a billing has been sent to the client
+ * its control number and figures are on record, so editing is locked to avoid
+ * silently changing a statement the client already received.
+ */
+function isEditable(status: string): boolean {
+  return status === "Draft";
 }
 
 const SearchIcon = () => (
@@ -274,10 +284,12 @@ function InvoiceList({
   canCreate,
   canSend,
   onNew,
+  onEdit,
 }: {
   canCreate: boolean;
   canSend: boolean;
   onNew: () => void;
+  onEdit: (inv: Invoice) => void;
 }) {
   const queryClient = useQueryClient();
   // "" = all clients; otherwise narrow the consolidated list to one client
@@ -464,6 +476,16 @@ function InvoiceList({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
+                      {canCreate && isEditable(inv.status) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEdit(inv)}
+                          aria-label={`Edit billing ${inv.number}`}
+                        >
+                          Edit
+                        </Button>
+                      ) : null}
                       {canSend && isSendable(inv.status) ? (
                         <Button
                           variant="outline"
@@ -554,6 +576,10 @@ function InvoiceCreate({
   onCancel,
   onSaveDraft,
   onPreview,
+  editing = false,
+  editNumber,
+  editClientName,
+  onSaveEdit,
 }: {
   billTo: ClientSummary | null;
   onBillTo: (c: ClientSummary) => void;
@@ -574,6 +600,11 @@ function InvoiceCreate({
   onCancel: () => void;
   onSaveDraft: () => void;
   onPreview: () => void;
+  /** Edit mode: editing an existing DRAFT billing rather than creating one. */
+  editing?: boolean;
+  editNumber?: string;
+  editClientName?: string;
+  onSaveEdit?: () => void;
 }) {
   function updateLine(index: number, patch: Partial<DraftLine>): void {
     onLineItems((prev) =>
@@ -590,7 +621,10 @@ function InvoiceCreate({
 
   return (
     <>
-      <PageHeader title="New billing" eyebrow="Firm billing" />
+      <PageHeader
+        title={editing ? "Edit billing" : "New billing"}
+        eyebrow="Firm billing"
+      />
 
       <Card className="p-6">
         {/* Bill to */}
@@ -598,8 +632,23 @@ function InvoiceCreate({
           <label className="mb-1.5 block text-[13px] font-semibold text-content">
             Bill to
           </label>
-          <BillToCombobox value={billTo} onSelect={onBillTo} />
-          {billTo?.billingParentId ? (
+          {editing ? (
+            // The payer can't change on an existing billing (the control number
+            // is already assigned), so lock it and show the number for context.
+            <div className="flex items-center justify-between rounded-btn border border-line-input bg-sidebar px-3 py-2.5">
+              <span className="text-[14px] font-semibold text-content">
+                {editClientName || "—"}
+              </span>
+              {editNumber ? (
+                <span className="font-mono text-[12px] text-content-secondary">
+                  {editNumber}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <BillToCombobox value={billTo} onSelect={onBillTo} />
+          )}
+          {!editing && billTo?.billingParentId ? (
             <p className="mt-2 rounded-btn border border-warn/40 bg-warn-bg-2 px-3 py-2 text-[12.5px] text-content">
               <span className="font-semibold">Sub-client:</span> this billing will be
               recorded under — and addressed to —{" "}
@@ -806,16 +855,24 @@ function InvoiceCreate({
         <Button variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button
-          variant="outline"
-          disabled={!billTo || saving}
-          onClick={onSaveDraft}
-        >
-          {saving ? "Saving…" : "Save draft"}
-        </Button>
-        <Button disabled={!billTo} onClick={onPreview}>
-          Preview &amp; send &rarr;
-        </Button>
+        {editing ? (
+          <Button disabled={saving} onClick={onSaveEdit}>
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              disabled={!billTo || saving}
+              onClick={onSaveDraft}
+            >
+              {saving ? "Saving…" : "Save draft"}
+            </Button>
+            <Button disabled={!billTo} onClick={onPreview}>
+              Preview &amp; send &rarr;
+            </Button>
+          </>
+        )}
       </div>
     </>
   );
@@ -951,6 +1008,10 @@ export default function BillingPage() {
   // Once a draft has been created in this session, "Send email" reuses its id
   // instead of creating a duplicate.
   const [createdId, setCreatedId] = useState<string | null>(null);
+  // Edit mode: the id/number/payer of the DRAFT billing being edited (null = new).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNumber, setEditNumber] = useState("");
+  const [editClientName, setEditClientName] = useState("");
 
   const canCreate = hasPermission("Billing:Create");
   const canSend = hasPermission("Billing:Send");
@@ -1029,7 +1090,28 @@ export default function BillingPage() {
     },
   });
 
+  // Save an edited DRAFT billing. The payer (clientId) and status are fixed —
+  // only the dates, description, and line items change; totals recompute server-side.
+  const saveEditMut = useMutation({
+    mutationFn: () =>
+      updateInvoice(editingId ?? "", {
+        description: description.trim() || "",
+        issuedDate,
+        dueDate,
+        lineItems: lineItems.map((li) => ({
+          description: li.description,
+          qty: li.qty,
+          rate: li.rate,
+        })),
+      }),
+    onSuccess: () => {
+      invalidateInvoices();
+      setView("list");
+    },
+  });
+
   function goCreate(): void {
+    setEditingId(null);
     setBillTo(null);
     const today = todayISO();
     setIssuedDate(today);
@@ -1037,6 +1119,33 @@ export default function BillingPage() {
     setDueDate(addDaysISO(today, Number(DEFAULT_TERMS)));
     setDescription("");
     setLineItems([emptyLine()]);
+    setCreatedId(null);
+    setView("create");
+  }
+
+  /**
+   * Open an existing DRAFT billing in the form for editing. The payer can't
+   * change (its control number is assigned), so Bill-to is locked; terms are set
+   * to "custom" so the stored due date is preserved as-is until the user changes it.
+   */
+  function goEdit(inv: Invoice): void {
+    setEditingId(inv.id);
+    setEditNumber(inv.number);
+    setEditClientName(inv.clientName ?? "");
+    setBillTo(null);
+    setIssuedDate(inv.issuedDate);
+    setDueDate(inv.dueDate);
+    setTerms("custom");
+    setDescription(inv.description ?? "");
+    setLineItems(
+      inv.lineItems.length
+        ? inv.lineItems.map((li) => ({
+            description: li.description,
+            qty: Number(li.qty),
+            rate: Number(li.rate),
+          }))
+        : [emptyLine()],
+    );
     setCreatedId(null);
     setView("create");
   }
@@ -1059,7 +1168,12 @@ export default function BillingPage() {
   return (
     <div className="animate-fade-rise">
       {view === "list" ? (
-        <InvoiceList canCreate={canCreate} canSend={canSend} onNew={goCreate} />
+        <InvoiceList
+          canCreate={canCreate}
+          canSend={canSend}
+          onNew={goCreate}
+          onEdit={goEdit}
+        />
       ) : null}
 
       {view === "create" ? (
@@ -1079,12 +1193,16 @@ export default function BillingPage() {
           subtotal={subtotal}
           vat={vat}
           total={total}
-          saving={saveDraftMut.isPending}
+          saving={editingId ? saveEditMut.isPending : saveDraftMut.isPending}
           onCancel={() => setView("list")}
           onSaveDraft={() => {
             if (billTo) saveDraftMut.mutate();
           }}
           onPreview={() => setView("preview")}
+          editing={editingId != null}
+          editNumber={editNumber}
+          editClientName={editClientName}
+          onSaveEdit={() => saveEditMut.mutate()}
         />
       ) : null}
 
