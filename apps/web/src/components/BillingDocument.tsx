@@ -1,8 +1,12 @@
 /**
  * BillingDocument — the printable/exportable firm billing statement. Rendered
- * off-screen at A4 proportions (794px ≈ 210mm @96dpi) and captured by
- * html2canvas for the PDF / JPEG exports, so everything here must be plain
- * DOM + Tailwind v3 utilities (hex/rgb colors only — no external images).
+ * off-screen at A4 width (794px ≈ 210mm @96dpi) and captured by html2canvas for
+ * the PDF / JPEG exports, so everything here must be plain DOM + Tailwind v3
+ * utilities (hex/rgb colors only — no external images).
+ *
+ * `compact` drops the fixed A4 page height so the capture crops tight to the
+ * content — used for the JPEG export (a share-ready image with no blank tail),
+ * while the PDF keeps the full-page height so it fills an A4 sheet.
  *
  * GUARDRAIL-neutral: this is the FIRM's billing statement for its services —
  * explicitly NOT an official BIR receipt/invoice, and the footer says so.
@@ -11,10 +15,18 @@ import { McrcMark } from "./McrcMark";
 import { peso } from "./ui";
 import type { Invoice } from "../lib/api";
 
-export function BillingDocument({ invoice }: { invoice: Invoice }) {
+export function BillingDocument({
+  invoice,
+  compact = false,
+}: {
+  invoice: Invoice;
+  compact?: boolean;
+}) {
   return (
     <div
-      className="flex min-h-[1123px] w-[794px] flex-col bg-white font-sans text-[#1c2b3a]"
+      className={`flex w-[794px] flex-col bg-white font-sans text-[#1c2b3a] ${
+        compact ? "" : "min-h-[1123px]"
+      }`}
       data-billing-document
     >
       {/* Header band */}
@@ -131,7 +143,7 @@ export function BillingDocument({ invoice }: { invoice: Invoice }) {
       </div>
 
       {/* Footer */}
-      <div className="mt-auto px-12 pb-10">
+      <div className={`px-12 ${compact ? "mt-8 pb-8" : "mt-auto pb-10"}`}>
         <div className="border-t border-[#e4e0d6] pt-4 text-center">
           <p className="text-[11px] text-[#8a94a3]">
             Prepared by MCRC Tax &amp; Accounting. This billing statement covers professional
