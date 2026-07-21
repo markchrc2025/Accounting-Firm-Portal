@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#e9e1d2; }
+  a { color:#2360c8; text-decoration:underline; }
+  a:hover { color:#15395d; }
+</style>
+</helmet>
+
+<div style="background:#e9e1d2; padding:56px 40px 90px; font-family:'Hanken Grotesk',sans-serif;">
+<div style="max-width:1240px; margin:0 auto;">
+
+  <!-- ============ COVER ============ -->
+  <div style="background:#0e2a45; border-radius:14px; padding:44px 48px; color:#dbe6f1; position:relative; overflow:hidden;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <svg width="30" height="30" viewBox="0 0 120 120" fill="none" aria-hidden="true"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="rgba(255,255,255,0.06)" stroke="#e6c87c" stroke-width="3"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.2em; color:#cdd9e6;">MCRC</span>
+      <span style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.2em; color:#8fa4ba; text-transform:uppercase;">Portal · Email System</span>
+    </div>
+    <div style="margin-top:34px; font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.3em; color:#e6c87c; text-transform:uppercase;">Transactional Emails</div>
+    <h1 style="margin:14px 0 0; font-family:'Newsreader',serif; font-weight:500; font-size:60px; line-height:.98; letter-spacing:-.02em; color:#fbfaf7;">The messages<br>the portal sends</h1>
+    <p style="margin:22px 0 0; max-width:560px; font-size:15.5px; line-height:1.6; color:#a9bccf;">Seventeen system emails — invitations, onboarding, security, documents, billing and status updates — in one consistent voice. Warm paper body, Newsreader display, gold accents.</p>
+    <div style="margin-top:34px; display:flex; gap:0; border-top:1px solid rgba(255,255,255,.14); padding-top:20px;">
+      <div style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:#8fa4ba; text-transform:uppercase;">Invite &amp; Onboarding</div>
+      <div style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:#8fa4ba; text-transform:uppercase;">Account &amp; Security</div>
+      <div style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:#8fa4ba; text-transform:uppercase;">Documents &amp; Signing</div>
+      <div style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:#8fa4ba; text-transform:uppercase;">Billing &amp; Status</div>
+    </div>
+  </div>
+
+  <!-- ============ INBOX LIST FRAME ============ -->
+  <sc-if value="{{ showInboxList }}" hint-placeholder-val="{{ true }}">
+  <div style="margin-top:40px; background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -28px rgba(14,42,69,.4); overflow:hidden;">
+    <div style="display:flex; align-items:center; gap:12px; padding:16px 22px; background:#0e2a45;">
+      <span style="font-family:'Newsreader',serif; font-size:19px; color:#fbfaf7;">Inbox</span>
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; color:#8fa4ba; text-transform:uppercase;">MCRC Tax &amp; Accounting</span>
+      <span style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6f88a1;">17 of 5,751</span>
+    </div>
+    <sc-for list="{{ inbox }}" as="row" hint-placeholder-count="6">
+      <div style="display:flex; align-items:center; gap:16px; padding:13px 22px; border-bottom:1px solid #f0ebe0;">
+        <span style="color:#c8bda6; font-size:15px;">☆</span>
+        <span style="width:170px; flex:none; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row.from }}</span>
+        <span style="flex:1; min-width:0; font-size:13.5px; color:#3c4855; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong style="color:#16212c; font-weight:600;">{{ row.subject }}</strong> <span style="color:#8a97a3;">— {{ row.snippet }}</span></span>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">{{ row.time }}</span>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <!-- ============ SECTION: INVITE & ONBOARDING ============ -->
+  <div style="margin-top:52px; display:flex; align-items:baseline; gap:16px;">
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#a3781f; text-transform:uppercase;">01</span>
+    <span style="height:1px; width:44px; background:#c0902f; display:inline-block;"></span>
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#5b6976; text-transform:uppercase;">Invite &amp; Onboarding</span>
+  </div>
+
+  <div style="margin-top:26px; display:grid; grid-template-columns:repeat(auto-fill, minmax(560px, 1fr)); gap:40px; align-items:start;">
+
+    <!-- 1. STAFF INVITE -->
+    <div data-screen-label="Staff invite" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;invites@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">You're invited to the MCRC firm portal</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">9:27 AM</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">MCRC Tax and Accounting Services</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">You're invited</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Christian Canlubo has invited you to join <strong style="font-weight:600;">MCRC Tax and Accounting Services</strong>' firm portal as <strong style="font-weight:600;">Super Admin</strong>.</p>
+        <p style="margin:12px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Click below to accept the invitation and set up your account.</p>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Accept invitation</a>
+        <div style="margin-top:22px;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:13px; color:#5b6976;">Or copy this link into your browser:</div>
+          <a href="#" style="display:inline-block; margin-top:6px; word-break:break-all; font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.5;">https://acctgfirm.mcrctas.com/accept?token=32fb1934905031dc7eac174403e51f84b5bab8eb1020bfba8f7f587b119ad2f1</a>
+        </div>
+        <p style="margin:16px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">This link expires on <strong style="color:#3c4855;">July 28, 2026</strong>. If it expires, ask Christian Canlubo to send a new one. If you weren't expecting this invitation, you can safely ignore this email.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. CLIENT INVITE -->
+    <div data-screen-label="Client invite" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;invites@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Your MCRC client portal is ready</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Your secure portal</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Access your account</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">MCRC Tax and Accounting Services has set up a secure portal for you. Use it to share documents, review returns, sign forms and message your team — all in one place.</p>
+        <p style="margin:12px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Set your password to get started.</p>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Set up my portal</a>
+        <p style="margin:20px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">This invitation expires in 7 days. Your information is encrypted and only visible to you and your MCRC team.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. WELCOME CLIENT -->
+    <div data-screen-label="Welcome client" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;hello@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">You're all set — welcome to MCRC</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Welcome</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Welcome to the portal, Maria</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Your account is active. Here's what you can do from your dashboard:</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:6px 18px;">
+          <div style="display:flex; gap:12px; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;"><span style="color:#a3781f; font-family:'IBM Plex Mono',monospace;">+</span> Upload and organize your tax documents</div>
+          <div style="display:flex; gap:12px; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;"><span style="color:#a3781f; font-family:'IBM Plex Mono',monospace;">+</span> Review and e-sign returns and forms</div>
+          <div style="display:flex; gap:12px; padding:11px 0; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;"><span style="color:#a3781f; font-family:'IBM Plex Mono',monospace;">+</span> Message your accountant year-round</div>
+        </div>
+        <div style="margin-top:20px; background:#0e2a45; border-radius:8px; padding:16px 18px; display:flex; align-items:center; gap:14px;">
+          <div style="width:38px; height:38px; border-radius:50%; background:#15395d; flex:none; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; color:#e6c87c; font-size:16px;">AC</div>
+          <div><div style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:#e6c87c;">Your accountant</div><div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; color:#f6f2ea; margin-top:3px;">Angela Cruz, CPA</div></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Go to my dashboard</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. WELCOME STAFF -->
+    <div data-screen-label="Welcome staff" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;team@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Welcome to MCRC — your portal access</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Welcome to the team</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Your workspace is ready</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Your MCRC portal account is active with the <strong style="font-weight:600;">Accountant</strong> role. You can manage client files, prepare returns and collaborate with the team.</p>
+        <div style="margin-top:18px; background:#fff8e8; border:1px solid #e8d9a8; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+          <span style="font-family:'IBM Plex Mono',monospace; color:#a3781f; font-size:13px; margin-top:1px;">!</span>
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:13px; line-height:1.55; color:#6b5a2a;">Before you start, enable two-factor authentication. Client data protection is required for all staff accounts.</div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Open the firm portal</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION: ACCOUNT & SECURITY ============ -->
+  <div style="margin-top:56px; display:flex; align-items:baseline; gap:16px;">
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#a3781f; text-transform:uppercase;">02</span>
+    <span style="height:1px; width:44px; background:#c0902f; display:inline-block;"></span>
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#5b6976; text-transform:uppercase;">Account &amp; Security</span>
+  </div>
+
+  <div style="margin-top:26px; display:grid; grid-template-columns:repeat(auto-fill, minmax(560px, 1fr)); gap:40px; align-items:start;">
+
+    <!-- 5. EMAIL VERIFICATION -->
+    <div data-screen-label="Email verification" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;no-reply@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Verify your email address</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Confirm your email</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Verify your email address</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Enter this code in the portal to confirm your email, or use the button below.</p>
+        <div style="margin-top:20px; background:#ffffff; border:1px dashed #c0902f; border-radius:10px; padding:18px; text-align:center;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:34px; letter-spacing:.32em; color:#0e2a45; padding-left:.32em;">482 915</div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:20px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Verify email</a>
+        <p style="margin:18px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">This code expires in 30 minutes. If you didn't create an MCRC account, you can ignore this email.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. PASSWORD RESET -->
+    <div data-screen-label="Password reset" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;no-reply@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Reset your MCRC portal password</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Account security</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Reset your password</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">We received a request to reset the password for your MCRC portal account. Click below to choose a new one.</p>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Reset password</a>
+        <p style="margin:20px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">This link expires in 60 minutes. If you didn't request a reset, no action is needed — your password stays the same.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. PASSWORD CHANGED -->
+    <div data-screen-label="Password changed" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;no-reply@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Your password was changed</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Account security</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Your password was changed</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">The password for your MCRC portal account was updated. Here are the details:</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">When</span><span style="color:#16212c; font-weight:500;">Jul 21, 2026 · 9:31 AM</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Device</span><span style="color:#16212c; font-weight:500;">Chrome · macOS</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Location</span><span style="color:#16212c; font-weight:500;">Manila, PH · 203.0.•••.•••</span></div>
+        </div>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:16px; line-height:1.55; color:#2b3742;">If this wasn't you, secure your account immediately.</p>
+        <a href="#" style="display:inline-block; margin-top:16px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Secure my account</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 17. ROLE CHANGED (placed in security section) -->
+    <div data-screen-label="Role changed" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;no-reply@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Your portal role was updated</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Account update</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Your role was updated</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">A Super Admin changed your role in the MCRC Tax and Accounting Services portal.</p>
+        <div style="margin-top:18px; display:flex; align-items:center; gap:14px;">
+          <div style="flex:1; text-align:center; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:14px;"><div style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#7a8894;">Was</div><div style="font-family:'Newsreader',serif; font-size:19px; color:#5b6976; margin-top:5px;">Accountant</div></div>
+          <span style="color:#a3781f; font-size:20px;">→</span>
+          <div style="flex:1; text-align:center; background:#0e2a45; border-radius:8px; padding:14px;"><div style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#e6c87c;">Now</div><div style="font-family:'Newsreader',serif; font-size:19px; color:#fbfaf7; margin-top:5px;">Manager</div></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">View my permissions</a>
+        <p style="margin:18px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">If you weren't expecting this change, contact your firm administrator.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION: DOCUMENTS & SIGNING ============ -->
+  <div style="margin-top:56px; display:flex; align-items:baseline; gap:16px;">
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#a3781f; text-transform:uppercase;">03</span>
+    <span style="height:1px; width:44px; background:#c0902f; display:inline-block;"></span>
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#5b6976; text-transform:uppercase;">Documents &amp; Signing</span>
+  </div>
+
+  <div style="margin-top:26px; display:grid; grid-template-columns:repeat(auto-fill, minmax(560px, 1fr)); gap:40px; align-items:start;">
+
+    <!-- 8. DOCUMENT REQUEST -->
+    <div data-screen-label="Document request" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">Angela Cruz · MCRC <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;notifications@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Documents requested for your 2025 return</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Action requested</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">We need a few documents</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">To keep your 2025 return on track, Angela Cruz has requested the following. Upload them securely to your portal.</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f0ebe0;"><span style="width:20px; height:20px; border-radius:4px; border:1.5px solid #c8bda6; flex:none;"></span><span style="flex:1; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;">2025 W-2 / income statements</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#a3781f;">Due Aug 1</span></div>
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f0ebe0;"><span style="width:20px; height:20px; border-radius:4px; border:1.5px solid #c8bda6; flex:none;"></span><span style="flex:1; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;">Mortgage interest (Form 1098)</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#a3781f;">Due Aug 1</span></div>
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0;"><span style="width:20px; height:20px; border-radius:4px; border:1.5px solid #c8bda6; flex:none;"></span><span style="flex:1; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;">Business expense summary</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#a3781f;">Due Aug 5</span></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Upload documents</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. DOCUMENT READY -->
+    <div data-screen-label="Document ready" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">Angela Cruz · MCRC <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;notifications@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">A new document was shared with you</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Ready to review</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">A document is ready for you</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Angela Cruz shared a document in your secure portal.</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:16px 18px; display:flex; align-items:center; gap:14px;">
+          <div style="width:40px; height:48px; flex:none; background:#0e2a45; border-radius:5px; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:9px; color:#e6c87c; letter-spacing:.05em;">PDF</div>
+          <div style="flex:1;"><div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; color:#16212c;">2025 Tax Return — Draft.pdf</div><div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3; margin-top:3px;">1.4 MB · Shared Jul 21</div></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">View document</a>
+        <p style="margin:18px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">For your security, documents open only inside your portal — never as an email attachment.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. E-SIGNATURE REQUEST -->
+    <div data-screen-label="Signature request" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;esign@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Signature requested — Engagement Letter 2025</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Signature required</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Please sign your engagement letter</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Your 2025 engagement letter is ready for signature. Review and sign it electronically in a few minutes.</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Document</span><span style="color:#16212c; font-weight:500;">Engagement Letter 2025</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Requested by</span><span style="color:#16212c; font-weight:500;">Angela Cruz, CPA</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Sign by</span><span style="color:#a3781f; font-weight:600;">July 30, 2026</span></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Review &amp; sign</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION: BILLING & STATUS ============ -->
+  <div style="margin-top:56px; display:flex; align-items:baseline; gap:16px;">
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#a3781f; text-transform:uppercase;">04</span>
+    <span style="height:1px; width:44px; background:#c0902f; display:inline-block;"></span>
+    <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.24em; color:#5b6976; text-transform:uppercase;">Billing &amp; Status</span>
+  </div>
+
+  <div style="margin-top:26px; display:grid; grid-template-columns:repeat(auto-fill, minmax(560px, 1fr)); gap:40px; align-items:start;">
+
+    <!-- 11. INVOICE / PAYMENT DUE -->
+    <div data-screen-label="Invoice due" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Billing <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;billing@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Invoice #2025-0142 — ₱1,250.00 due Aug 5</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Invoice #2025-0142</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Invoice from MCRC</h2>
+        <div style="margin-top:20px; background:#0e2a45; border-radius:10px; padding:22px 24px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:#8fa4ba;">Amount due</div>
+          <div style="font-family:'Newsreader',serif; font-size:42px; color:#fbfaf7; line-height:1; margin-top:8px;">₱1,250.00</div>
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:13px; color:#a9bccf; margin-top:8px;">Due <strong style="color:#e6c87c;">August 5, 2026</strong></div>
+        </div>
+        <div style="margin-top:16px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#3c4855;">2025 tax return preparation</span><span style="color:#16212c; font-weight:500;">₱1,000.00</span></div>
+          <div style="display:flex; justify-content:space-between; padding:10px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#3c4855;">Advisory session (1 hr)</span><span style="color:#16212c; font-weight:500;">₱250.00</span></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Pay invoice</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;billing@mcrctas.com</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12. PAYMENT RECEIVED -->
+    <div data-screen-label="Payment received" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Billing <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;billing@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Receipt for your payment — ₱1,250.00</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Payment received</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Thank you — payment received</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">We've received your payment. A copy of this receipt is saved in your portal.</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Invoice</span><span style="color:#16212c; font-weight:500;">#2025-0142</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Method</span><span style="color:#16212c; font-weight:500;">Visa •••• 4142</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Date</span><span style="color:#16212c; font-weight:500;">July 21, 2026</span></div>
+          <div style="display:flex; justify-content:space-between; padding:13px 0; font-family:'Hanken Grotesk',sans-serif; font-size:15px;"><span style="color:#16212c; font-weight:700;">Amount paid</span><span style="color:#0e2a45; font-weight:700;">₱1,250.00</span></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Download receipt (PDF)</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;billing@mcrctas.com</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13. TASK / DEADLINE REMINDER -->
+    <div data-screen-label="Deadline reminder" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;notifications@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Reminder — items due this week</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Reminder</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">3 items need your attention</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">A few tasks are coming due on your account this week.</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f0ebe0;"><span style="width:8px; height:8px; border-radius:50%; background:#c0392b; flex:none;"></span><span style="flex:1; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;">Upload business expense summary</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#c0392b;">Tomorrow</span></div>
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f0ebe0;"><span style="width:8px; height:8px; border-radius:50%; background:#a3781f; flex:none;"></span><span style="flex:1; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;">Sign 2025 engagement letter</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#a3781f;">Jul 30</span></div>
+          <div style="display:flex; align-items:center; gap:12px; padding:12px 0;"><span style="width:8px; height:8px; border-radius:50%; background:#5b6976; flex:none;"></span><span style="flex:1; font-family:'Hanken Grotesk',sans-serif; font-size:14px; color:#2b3742;">Review draft return</span><span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#5b6976;">Aug 2</span></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Go to my tasks</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14. APPOINTMENT CONFIRMATION -->
+    <div data-screen-label="Appointment" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;notifications@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Confirmed — your appointment on Jul 28</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Appointment confirmed</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">You're booked with Angela Cruz</h2>
+        <div style="margin-top:20px; display:flex; gap:16px; align-items:stretch;">
+          <div style="flex:none; width:74px; background:#0e2a45; border-radius:10px; text-align:center; padding:12px 0;"><div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.16em; color:#e6c87c;">JUL</div><div style="font-family:'Newsreader',serif; font-size:32px; color:#fbfaf7; line-height:1; margin-top:2px;">28</div><div style="font-family:'IBM Plex Mono',monospace; font-size:9px; color:#8fa4ba; margin-top:4px;">MON</div></div>
+          <div style="flex:1; background:#ffffff; border:1px solid #e3dccd; border-radius:10px; padding:14px 16px;">
+            <div style="display:flex; justify-content:space-between; padding:6px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Time</span><span style="color:#16212c; font-weight:500;">2:00 – 2:45 PM</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Format</span><span style="color:#16212c; font-weight:500;">Video call</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">With</span><span style="color:#16212c; font-weight:500;">Angela Cruz, CPA</span></div>
+          </div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Add to calendar</a>
+        <p style="margin:16px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">Need a different time? <a href="#">Reschedule</a> from your portal.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15. MESSAGE NOTIFICATION -->
+    <div data-screen-label="New message" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">Angela Cruz · MCRC <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;notifications@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">New message from your MCRC team</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">New message</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Angela Cruz replied</h2>
+        <div style="margin-top:20px; background:#ffffff; border:1px solid #e3dccd; border-left:3px solid #c0902f; border-radius:8px; padding:16px 18px;">
+          <div style="display:flex; align-items:center; gap:10px;"><div style="width:30px; height:30px; border-radius:50%; background:#0e2a45; flex:none; display:flex; align-items:center; justify-content:center; font-family:'Newsreader',serif; color:#e6c87c; font-size:13px;">AC</div><div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">Angela Cruz, CPA</div></div>
+          <p style="margin:12px 0 0; font-family:'Newsreader',serif; font-style:italic; font-size:16px; line-height:1.5; color:#3c4855;">"Thanks for sending those over. I've reviewed your draft return — one quick question about the mortgage interest before we finalize…"</p>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">Read &amp; reply</a>
+        <p style="margin:16px 0 0; font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; line-height:1.6; color:#7a8894;">Please reply inside the portal to keep your information secure.</p>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16. RETURN FILED / STATUS -->
+    <div data-screen-label="Return filed" style="background:#ffffff; border:1px solid #dcd3c0; border-radius:12px; box-shadow:0 18px 44px -30px rgba(14,42,69,.42); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:13px; padding:16px 22px; background:#fbfaf7; border-bottom:1px solid #eee6d6;">
+        <svg width="36" height="36" viewBox="0 0 120 120" style="flex:none;"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg>
+        <div style="flex:1; min-width:0;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:#16212c;">MCRC Tax &amp; Accounting Services <span style="font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:11.5px; color:#8a97a3;">&lt;notifications@mcrctas.com&gt;</span></div>
+          <div style="font-family:'Newsreader',serif; font-size:15px; color:#3c4855; margin-top:2px;">Filed — your 2025 tax return</div>
+        </div>
+        <span style="flex:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a97a3;">Jul 21</span>
+      </div>
+      <div style="background:#f6f2ea; padding:32px 36px 30px;">
+        <sc-if value="{{ showBrandLockup }}" hint-placeholder-val="{{ true }}"><div style="display:flex; align-items:center; gap:10px; padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid #e3dccd;"><svg width="26" height="26" viewBox="0 0 120 120"><path d="M60 8 L103 23 L103 58 C103 85 84 103 60 113 C36 103 17 85 17 58 L17 23 Z" fill="#0e2a45"></path><text x="60" y="76" text-anchor="middle" font-family="Newsreader,serif" font-size="52" fill="#e6c87c" font-weight="500">M</text></svg><div><div style="font-family:'Newsreader',serif; font-weight:500; font-size:17px; letter-spacing:.02em; color:#0e2a45; line-height:1;">MCRC</div><div style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.16em; color:#a3781f; text-transform:uppercase; margin-top:3px;">Tax &amp; Accounting Services</div></div></div></sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:#a3781f;">Status update</div>
+        <h2 style="margin:12px 0 0; font-family:'Newsreader',serif; font-weight:600; font-size:31px; line-height:1.1; letter-spacing:-.01em; color:#0e2a45;">Your 2025 return was filed</h2>
+        <p style="margin:18px 0 0; font-family:'Newsreader',serif; font-size:17px; line-height:1.55; color:#2b3742;">Good news — MCRC has submitted your 2025 tax return. Here's your confirmation.</p>
+        <div style="margin-top:18px; background:#ffffff; border:1px solid #e3dccd; border-radius:8px; padding:4px 18px;">
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Filed on</span><span style="color:#16212c; font-weight:500;">July 21, 2026</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid #f0ebe0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Confirmation no.</span><span style="font-family:'IBM Plex Mono',monospace; color:#16212c; font-weight:500;">MCRC-25-88147</span></div>
+          <div style="display:flex; justify-content:space-between; padding:11px 0; font-family:'Hanken Grotesk',sans-serif; font-size:13.5px;"><span style="color:#7a8894;">Status</span><span style="color:#1f7a4d; font-weight:600;">● Accepted</span></div>
+        </div>
+        <a href="#" style="display:inline-block; margin-top:22px; background:{{ btnBg }}; color:#ffffff; font-family:'Hanken Grotesk',sans-serif; font-weight:600; font-size:14.5px; padding:13px 24px; border-radius:6px; text-decoration:none;">View filing details</a>
+        <div style="margin-top:28px; padding-top:18px; border-top:1px solid #e3dccd;">
+          <div style="font-family:'Hanken Grotesk',sans-serif; font-size:12.5px; color:#5b6976; line-height:1.7;">MCRC Tax &amp; Accounting Services&nbsp;&nbsp;·&nbsp;&nbsp;{{ supportEmail }}</div>
+          <div style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.6; color:#9a9078;">CONFIDENTIAL — This message is intended only for the named recipient. If it reached you in error, please delete it and notify the firm.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:900},&quot;supportEmail&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;support@mcrctas.com&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Firm Admin Settings&quot;},&quot;buttonAccent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;navy&quot;,&quot;gold&quot;],&quot;default&quot;:&quot;navy&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Style&quot;},&quot;showInboxList&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;showBrandLockup&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.buttonAccent ?? 'navy';
+    return {
+      btnBg: accent === 'gold' ? '#a3781f' : '#0e2a45',
+      showInboxList: this.props.showInboxList ?? true,
+      showBrandLockup: this.props.showBrandLockup ?? true,
+      supportEmail: this.props.supportEmail ?? 'support@mcrctas.com',
+      inbox: [
+        { from: 'MCRC Tax & Accounting', subject: "You're invited to the firm portal", snippet: 'Christian Canlubo invited you as Super Admin', time: '9:27 AM' },
+        { from: 'MCRC Tax & Accounting', subject: 'Your MCRC client portal is ready', snippet: 'Set your password to get started', time: '9:12 AM' },
+        { from: 'MCRC Tax & Accounting', subject: "You're all set — welcome to MCRC", snippet: 'Here is what you can do from your dashboard', time: 'Jul 20' },
+        { from: 'MCRC Tax & Accounting', subject: 'Welcome to MCRC — your portal access', snippet: 'Your workspace is ready · enable 2FA', time: 'Jul 20' },
+        { from: 'MCRC Tax & Accounting', subject: 'Verify your email address', snippet: 'Your code is 482 915 — expires in 30 min', time: 'Jul 19' },
+        { from: 'MCRC Tax & Accounting', subject: 'Reset your MCRC portal password', snippet: 'This link expires in 60 minutes', time: 'Jul 19' },
+        { from: 'MCRC Tax & Accounting', subject: 'Your password was changed', snippet: 'Chrome · macOS · Manila, PH', time: 'Jul 18' },
+        { from: 'MCRC Tax & Accounting', subject: 'Your portal role was updated', snippet: 'Accountant → Manager', time: 'Jul 18' },
+        { from: 'Angela Cruz · MCRC', subject: 'Documents requested for your 2025 return', snippet: '3 items — first due Aug 1', time: 'Jul 17' },
+        { from: 'Angela Cruz · MCRC', subject: 'A new document was shared with you', snippet: '2025 Tax Return — Draft.pdf', time: 'Jul 17' },
+        { from: 'MCRC Tax & Accounting', subject: 'Signature requested — Engagement Letter', snippet: 'Please review and sign by Jul 30', time: 'Jul 16' },
+        { from: 'MCRC Billing', subject: 'Invoice #2025-0142 — ₱1,250.00 due Aug 5', snippet: '2025 return prep + advisory session', time: 'Jul 16' },
+        { from: 'MCRC Billing', subject: 'Receipt for your payment — ₱1,250.00', snippet: 'Visa •••• 4142 · paid Jul 21', time: 'Jul 15' },
+        { from: 'MCRC Tax & Accounting', subject: 'Reminder — items due this week', snippet: '3 items need your attention', time: 'Jul 15' },
+        { from: 'MCRC Tax & Accounting', subject: 'Confirmed — your appointment on Jul 28', snippet: '2:00 PM video call with Angela Cruz', time: 'Jul 14' },
+        { from: 'Angela Cruz · MCRC', subject: 'New message from your MCRC team', snippet: "I've reviewed your draft return…", time: 'Jul 14' },
+        { from: 'MCRC Tax & Accounting', subject: 'Filed — your 2025 tax return', snippet: 'Confirmation MCRC-25-88147 · Accepted', time: 'Jul 13' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
