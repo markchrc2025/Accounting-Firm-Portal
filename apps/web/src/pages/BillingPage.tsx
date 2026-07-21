@@ -522,7 +522,7 @@ function InvoiceList({
       {exporting ? (
         <div aria-hidden style={{ position: "fixed", top: 0, left: -2000, zIndex: -1 }}>
           <div ref={exportRef}>
-            <BillingDocument invoice={exporting.inv} />
+            <BillingDocument invoice={exporting.inv} compact={exporting.format === "jpeg"} />
           </div>
         </div>
       ) : null}
