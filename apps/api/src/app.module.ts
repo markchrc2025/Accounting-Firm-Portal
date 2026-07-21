@@ -21,6 +21,7 @@ import { IntegrationModule } from "./integration/integration.module";
 import { InvitationsModule } from "./invitations/invitations.module";
 import { InvoicesModule } from "./invoices/invoices.module";
 import { McpModule } from "./mcp/mcp.module";
+import { SettingsModule } from "./settings/settings.module";
 import { PortalModule } from "./portal/portal.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProfileModule } from "./profile/profile.module";
@@ -61,6 +62,7 @@ import { UsersModule } from "./users/users.module";
     FsModule,
     FilesModule,
     McpModule,
+    SettingsModule,
     HealthModule,
   ],
   providers: [

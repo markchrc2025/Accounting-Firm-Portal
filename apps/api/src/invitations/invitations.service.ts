@@ -11,7 +11,13 @@ import { AuditService } from "../audit/audit.service";
 import { PasswordService } from "../auth/password.service";
 import { ClientsService } from "../clients/clients.service";
 import { MailService } from "../mail/mail.service";
+import {
+  clientInviteEmail,
+  staffInviteEmail,
+  type RenderedEmail,
+} from "../mail/email-templates";
 import { PrismaService } from "../prisma/prisma.service";
+import { EmailSettingsService } from "../settings/email-settings.service";
 import {
   AcceptInvitationInput,
   CLIENT_ROLE_NAME,
@@ -19,7 +25,16 @@ import {
   CreateFirmInvitationInput,
   CreateInvitationInput,
 } from "./dto/invitation.schemas";
-import { inviteEmail } from "./invite-email";
+
+/** Long-form Manila date for invite expiry copy, e.g. "July 28, 2026". */
+function longDate(d: Date): string {
+  return d.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Manila",
+  });
+}
 
 /** Email-delivery state stored on the invitation row. */
 type EmailStatus = "SENT" | "FAILED";
@@ -47,6 +62,7 @@ export class InvitationsService {
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly emailSettings: EmailSettingsService,
     config: ConfigService,
   ) {
     this.ttlHours = Number(config.get<string>("INVITE_TTL_HOURS", "168")); // 7 days
@@ -70,43 +86,46 @@ export class InvitationsService {
     return user?.fullName ?? "Your accountant";
   }
 
-  private async firmName(firmId: string): Promise<string> {
-    const firm = await this.prisma.firm.findUnique({
-      where: { id: firmId },
-      select: { name: true },
-    });
-    return firm?.name ?? "MCRC Tax & Accounting";
-  }
-
   /**
-   * Send the invite email and record the outcome on the row. MailService
-   * performs exactly one retry internally; a second failure lands here and
-   * becomes a visible "FAILED" state with a Resend button — never an exception
-   * (the invitation row itself is already created and stays valid).
+   * Render (design-handoff templates) + send the invite email, recording the
+   * outcome on the row. MailService performs exactly one retry internally; a
+   * second failure lands here and becomes a visible "FAILED" state with a
+   * Resend button — never an exception (the invitation row stays valid).
    */
   private async deliverInviteEmail(p: {
     invitationId: string;
     to: string;
-    firmName: string;
+    firmId: string;
+    kind: "FIRM" | "CLIENT";
     inviterName: string;
     roleLabel: string;
     token: string;
     expiresAt: Date;
-    portalLabel: string;
   }): Promise<{ emailStatus: EmailStatus; emailError: string | null }> {
     let emailStatus: EmailStatus;
     let emailMessageId: string | null = null;
     let emailError: string | null = null;
     try {
-      const content = inviteEmail({
-        firmName: p.firmName,
-        inviterName: p.inviterName,
-        roleLabel: p.roleLabel,
-        acceptUrl: this.acceptUrl(p.token),
-        expiresAt: p.expiresAt,
-        portalLabel: p.portalLabel,
+      const ctx = await this.emailSettings.resolveContext(p.firmId);
+      const rendered: RenderedEmail =
+        p.kind === "FIRM"
+          ? staffInviteEmail(
+              {
+                inviterName: p.inviterName,
+                role: p.roleLabel,
+                acceptUrl: this.acceptUrl(p.token),
+                expiryDate: longDate(p.expiresAt),
+              },
+              ctx.theme,
+            )
+          : clientInviteEmail({ setupUrl: this.acceptUrl(p.token) }, ctx.theme);
+      const result = await this.mail.send({
+        to: p.to,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+        ...ctx.senderFor(rendered.stream),
       });
-      const result = await this.mail.send({ to: p.to, ...content });
       emailStatus = "SENT";
       emailMessageId = result.messageId;
     } catch (err) {
@@ -162,12 +181,12 @@ export class InvitationsService {
     const { emailStatus, emailError } = await this.deliverInviteEmail({
       invitationId: invitation.id,
       to: email,
-      firmName: await this.firmName(client.firmId),
+      firmId: client.firmId,
+      kind: "CLIENT",
       inviterName: invitedByName,
       roleLabel: CLIENT_ROLE_NAME[input.clientRole],
       token,
       expiresAt,
-      portalLabel: "client portal",
     });
 
     // The token is also returned so the caller can surface the activation link
@@ -246,12 +265,12 @@ export class InvitationsService {
     const { emailStatus, emailError } = await this.deliverInviteEmail({
       invitationId: invitation.id,
       to: email,
-      firmName: await this.firmName(actor.firmId),
+      firmId: actor.firmId,
+      kind: "FIRM",
       inviterName: invitedByName,
       roleLabel: role.name,
       token,
       expiresAt,
-      portalLabel: "firm portal",
     });
     return { ...invitation, emailStatus, emailError };
   }
@@ -294,12 +313,12 @@ export class InvitationsService {
     const { emailStatus, emailError } = await this.deliverInviteEmail({
       invitationId: invitation.id,
       to: invitation.email,
-      firmName: await this.firmName(actor.firmId),
+      firmId: actor.firmId,
+      kind: "FIRM",
       inviterName: invitation.invitedByName ?? (await this.inviterName(actor.id)),
       roleLabel: invitation.role,
       token: invitation.token,
       expiresAt: invitation.expiresAt,
-      portalLabel: "firm portal",
     });
     const fresh = await this.prisma.invitation.findUniqueOrThrow({
       where: { id: invitation.id },

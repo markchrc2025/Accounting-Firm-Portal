@@ -641,6 +641,37 @@ export function fetchUsers(): Promise<FirmUserSummary[]> {
   return apiFetch<FirmUserSummary[]>("/users");
 }
 
+// --- Firm Admin Settings: transactional-email configuration ---------------------
+export const EMAIL_SENDER_STREAMS = [
+  "invites",
+  "hello",
+  "team",
+  "noReply",
+  "notifications",
+  "esign",
+  "billing",
+] as const;
+export type EmailSenderStream = (typeof EMAIL_SENDER_STREAMS)[number];
+export interface EmailSettings {
+  supportEmail: string;
+  fromName: string;
+  buttonAccent: "navy" | "gold";
+  showBrandLockup: boolean;
+  /** Per-stream from-address; "" = fall back to the server MAIL_FROM_EMAIL. */
+  senders: Record<EmailSenderStream, string>;
+  fallbackFromEmail: string;
+}
+export function fetchEmailSettings(): Promise<EmailSettings> {
+  return apiFetch("/firm-settings/email");
+}
+export function updateEmailSettings(
+  body: Partial<Omit<EmailSettings, "fallbackFromEmail" | "senders">> & {
+    senders?: Partial<Record<EmailSenderStream, string>>;
+  },
+): Promise<EmailSettings> {
+  return apiFetch("/firm-settings/email", { method: "PUT", body: JSON.stringify(body) });
+}
+
 // --- Firm-staff invitations (Users & Roles) -------------------------------------
 export interface FirmInvitation {
   id: string;

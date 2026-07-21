@@ -6,6 +6,10 @@ export interface SendMailInput {
   subject: string;
   html: string;
   text: string;
+  /** Per-stream sender identity from Firm Admin Settings; falls back to the
+   *  MAIL_FROM_EMAIL / MAIL_FROM_NAME env configuration when unset. */
+  fromEmail?: string;
+  fromName?: string;
 }
 
 export interface SendMailResult {
