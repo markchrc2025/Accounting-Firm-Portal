@@ -63,6 +63,7 @@ export default function SettingsPage() {
 
 function EmailSettingsForm({ initial }: { initial: EmailSettings }) {
   const qc = useQueryClient();
+  const [firmName, setFirmName] = useState(initial.firmName);
   const [supportEmail, setSupportEmail] = useState(initial.supportEmail);
   const [fromName, setFromName] = useState(initial.fromName);
   const [buttonAccent, setButtonAccent] = useState<"navy" | "gold">(initial.buttonAccent);
@@ -72,6 +73,7 @@ function EmailSettingsForm({ initial }: { initial: EmailSettings }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setFirmName(initial.firmName);
     setSupportEmail(initial.supportEmail);
     setFromName(initial.fromName);
     setButtonAccent(initial.buttonAccent);
@@ -81,7 +83,14 @@ function EmailSettingsForm({ initial }: { initial: EmailSettings }) {
 
   const save = useMutation({
     mutationFn: () =>
-      updateEmailSettings({ supportEmail, fromName, buttonAccent, showBrandLockup, senders }),
+      updateEmailSettings({
+        firmName: firmName.trim(),
+        supportEmail,
+        fromName,
+        buttonAccent,
+        showBrandLockup,
+        senders,
+      }),
     onSuccess: (next) => {
       setError(null);
       setSaved(true);
@@ -109,6 +118,20 @@ function EmailSettingsForm({ initial }: { initial: EmailSettings }) {
           <CardTitle>Email identity</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <label className="block">
+            <span className="text-[13px] font-semibold text-content">Firm name</span>
+            <p className="mt-0.5 text-[12px] text-content-muted">
+              Your firm's name as it appears in invitations and every email
+              (e.g. &ldquo;joined <em>this firm</em>&rsquo;s portal&rdquo;).
+            </p>
+            <input
+              required
+              value={firmName}
+              onChange={(e) => setFirmName(e.target.value)}
+              className="input mt-1.5"
+              placeholder="MCRC Tax & Accounting"
+            />
+          </label>
           <label className="block">
             <span className="text-[13px] font-semibold text-content">Support email</span>
             <p className="mt-0.5 text-[12px] text-content-muted">

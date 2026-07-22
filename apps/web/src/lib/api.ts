@@ -682,6 +682,8 @@ export const EMAIL_SENDER_STREAMS = [
 ] as const;
 export type EmailSenderStream = (typeof EMAIL_SENDER_STREAMS)[number];
 export interface EmailSettings {
+  /** The firm's display name — appears in emails and across the portal. */
+  firmName: string;
   supportEmail: string;
   fromName: string;
   buttonAccent: "navy" | "gold";

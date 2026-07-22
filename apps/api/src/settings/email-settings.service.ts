@@ -23,6 +23,8 @@ interface StoredEmailSettings {
 
 /** The merged, defaulted view served to the settings UI. */
 export interface EmailSettingsDto {
+  /** The firm's display name (firm.name) — shown in every email and the portal. */
+  firmName: string;
   supportEmail: string;
   fromName: string;
   buttonAccent: "navy" | "gold";
@@ -56,7 +58,7 @@ export class EmailSettingsService {
     private readonly config: ConfigService,
   ) {}
 
-  private defaults(): Omit<EmailSettingsDto, "senders"> {
+  private defaults(): Omit<EmailSettingsDto, "senders" | "firmName"> {
     return {
       supportEmail: DEFAULT_SUPPORT_EMAIL,
       fromName: this.config.get<string>("MAIL_FROM_NAME", "MCRC Tax & Accounting") ?? "",
@@ -86,9 +88,13 @@ export class EmailSettingsService {
   }
 
   async getSettings(firmId: string): Promise<EmailSettingsDto> {
-    const stored = await this.stored(firmId);
+    const [stored, firm] = await Promise.all([
+      this.stored(firmId),
+      this.prisma.firm.findUnique({ where: { id: firmId }, select: { name: true } }),
+    ]);
     const d = this.defaults();
     return {
+      firmName: firm?.name ?? "",
       supportEmail: stored.supportEmail || d.supportEmail,
       fromName: stored.fromName || d.fromName,
       buttonAccent: stored.buttonAccent ?? d.buttonAccent,
@@ -127,7 +133,11 @@ export class EmailSettingsService {
     };
     await this.prisma.firm.update({
       where: { id: actor.firmId },
-      data: { settingsJson: { ...root, email: next } as unknown as Prisma.InputJsonValue },
+      data: {
+        // The firm's display name lives on the firm row, not in settingsJson.
+        ...(input.firmName !== undefined ? { name: input.firmName } : {}),
+        settingsJson: { ...root, email: next } as unknown as Prisma.InputJsonValue,
+      },
     });
     await this.audit.record({
       userId: actor.id,
