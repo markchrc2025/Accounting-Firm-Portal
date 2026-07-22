@@ -645,6 +645,17 @@ export interface FirmUserSummary {
 export function fetchUsers(): Promise<FirmUserSummary[]> {
   return apiFetch<FirmUserSummary[]>("/users");
 }
+/** Update a firm user — e.g. flip status "ACTIVE" ⇄ "DISABLED" to (de)activate. */
+export function updateUser(
+  id: string,
+  body: { fullName?: string; status?: "ACTIVE" | "DISABLED"; title?: string },
+): Promise<FirmUserSummary> {
+  return apiFetch(`/users/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+/** Permanently delete a firm user (cannot be your own account). */
+export function deleteUser(id: string): Promise<{ deleted: true }> {
+  return apiFetch(`/users/${id}`, { method: "DELETE" });
+}
 
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------
 export type SsoProvider = "google" | "microsoft";
