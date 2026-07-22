@@ -2,12 +2,17 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PasswordService } from "../auth/password.service";
+import { roleChangedEmail } from "../mail/email-templates";
+import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { EmailSettingsService } from "../settings/email-settings.service";
 import { StorageService } from "../storage/storage.service";
 import type {
   AssignClientsInput,
@@ -32,12 +37,22 @@ const publicUserSelect = {
 /** Firm-user management (FR-03). Firm-scoped: all operations are within firmId. */
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+  private readonly webAppUrl: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
     private readonly storage: StorageService,
-  ) {}
+    private readonly mail: MailService,
+    private readonly emailSettings: EmailSettingsService,
+    config: ConfigService,
+  ) {
+    this.webAppUrl = (
+      config.get<string>("WEB_APP_URL", "https://acctgfirm.mcrctas.com") ?? ""
+    ).replace(/\/+$/, "");
+  }
 
   /** Replace a row's raw `avatarPath` with a short-lived presigned `avatarUrl`. */
   private async withAvatarUrl<T extends { avatarPath: string | null }>(
@@ -144,7 +159,7 @@ export class UsersService {
   }
 
   async setRoles(actor: AuthUser, id: string, input: SetRolesInput) {
-    await this.get(actor, id);
+    const before = await this.get(actor, id);
     const roles = await this.resolveFirmRoles(input.roleNames);
     await this.prisma.$transaction([
       // Replace only firm-wide (unscoped) role grants.
@@ -160,7 +175,46 @@ export class UsersService {
       entityId: id,
       metadata: { roleNames: input.roleNames },
     });
-    return this.get(actor, id);
+    const after = await this.get(actor, id);
+    // Notify the affected user their role changed (best-effort; never blocks).
+    await this.notifyRoleChange(
+      actor.firmId,
+      { email: after.email, status: after.status },
+      firstRoleName(before.userRoles),
+      firstRoleName(after.userRoles),
+    );
+    return after;
+  }
+
+  /**
+   * Email the affected user that their role changed. Best-effort: a mail failure
+   * (or mail being unconfigured) never blocks the role change. Skipped when the
+   * role is unchanged or the account hasn't finished accepting its invite.
+   */
+  private async notifyRoleChange(
+    firmId: string,
+    user: { email: string; status: string },
+    oldRole: string,
+    newRole: string,
+  ): Promise<void> {
+    try {
+      if (oldRole === newRole) return;
+      if (!user.email || !this.mail.isEnabled()) return;
+      const ctx = await this.emailSettings.resolveContext(firmId);
+      const rendered = roleChangedEmail(
+        { oldRole, newRole, permissionsUrl: this.webAppUrl },
+        ctx.theme,
+      );
+      await this.mail.send({
+        to: user.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+        ...ctx.senderFor(rendered.stream),
+      });
+    } catch (err) {
+      this.logger.warn(`Role-change email to ${user.email} failed: ${(err as Error).message}`);
+    }
   }
 
   async assignClients(actor: AuthUser, id: string, input: AssignClientsInput) {
@@ -205,4 +259,12 @@ export class UsersService {
     }
     return roles;
   }
+}
+
+/** The user's primary firm-wide role name (clientScopeId null), or "None". */
+function firstRoleName(
+  userRoles: { role: { name: string }; clientScopeId: string | null }[],
+): string {
+  const firmWide = userRoles.find((r) => r.clientScopeId === null);
+  return firmWide?.role.name ?? userRoles[0]?.role.name ?? "None";
 }

@@ -641,6 +641,10 @@ export interface FirmUserSummary {
   /** Presigned URL of the user's profile photo, or null. */
   avatarUrl?: string | null;
   userRoles: { role: { name: string }; clientScopeId: string | null }[];
+  /** Firm-staff profile details (from FirmUserProfile). */
+  firmProfile?: { title: string | null; employeeId: string | null } | null;
+  lastLoginAt?: string | null;
+  createdAt?: string | null;
 }
 export function fetchUsers(): Promise<FirmUserSummary[]> {
   return apiFetch<FirmUserSummary[]>("/users");

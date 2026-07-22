@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -97,6 +97,7 @@ export default function UsersPage() {
   const showActions = canManage || canDelete;
   const users = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [profileUser, setProfileUser] = useState<FirmUserSummary | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const invalidateUsers = () =>
@@ -194,7 +195,12 @@ export default function UsersPage() {
                           className="text-[13px] transition-colors hover:bg-rowhover"
                         >
                           <td className="px-6 py-3">
-                            <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setProfileUser(u)}
+                              className="flex items-center gap-3 text-left transition-colors hover:text-navy"
+                              aria-label={`View ${u.fullName}'s profile`}
+                            >
                               <span className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-navy font-mono text-[11px] font-semibold text-gold-soft">
                                 {u.avatarUrl ? (
                                   <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -202,8 +208,10 @@ export default function UsersPage() {
                                   initials(u.fullName)
                                 )}
                               </span>
-                              <span className="font-medium text-content">{u.fullName}</span>
-                            </div>
+                              <span className="font-medium text-content underline-offset-2 hover:underline">
+                                {u.fullName}
+                              </span>
+                            </button>
                           </td>
                           <td className="px-6 py-3 font-mono text-[12px] text-content-secondary">
                             {u.email}
@@ -369,6 +377,118 @@ export default function UsersPage() {
       </div>
 
       {inviteOpen && <InviteUserModal onClose={() => setInviteOpen(false)} />}
+      {profileUser && (
+        <UserProfileModal user={profileUser} onClose={() => setProfileUser(null)} />
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ User profile */
+
+/** Manila-formatted date, or a dash when absent. */
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Manila",
+  });
+}
+
+/** Read-only profile / contact preview for a firm user. */
+function UserProfileModal({
+  user,
+  onClose,
+}: {
+  user: FirmUserSummary;
+  onClose: () => void;
+}) {
+  const roles = distinctRoles(user);
+  const rows: { label: string; value: ReactNode }[] = [
+    {
+      label: "Email",
+      value: (
+        <a href={`mailto:${user.email}`} className="font-mono text-[12.5px] text-blue hover:underline">
+          {user.email}
+        </a>
+      ),
+    },
+    { label: "Title", value: user.firmProfile?.title || "—" },
+    { label: "Employee ID", value: user.firmProfile?.employeeId || "—" },
+    {
+      label: "Role",
+      value:
+        roles.length > 0 ? (
+          <span className="flex flex-wrap gap-1.5">
+            {roles.map((r) => (
+              <Chip key={r} variant={roleTone(r)}>
+                {r}
+              </Chip>
+            ))}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      label: "Status",
+      value: user.status ? <Chip variant={statusTone(user.status)}>{user.status}</Chip> : "—",
+    },
+    {
+      label: "MFA",
+      value: user.mfaEnabled ? (
+        <Chip variant="success">Enrolled</Chip>
+      ) : (
+        <Chip variant="warn">Pending</Chip>
+      ),
+    },
+    { label: "Last sign-in", value: fmtDate(user.lastLoginAt) },
+    { label: "Joined", value: fmtDate(user.createdAt) },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(14,33,44,0.45)] p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-label={`${user.fullName} profile`}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md overflow-hidden rounded-card border border-line bg-card shadow-xl"
+      >
+        <div className="flex items-center gap-4 border-b border-line bg-sidebar px-6 py-5">
+          <span className="flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-full bg-navy font-mono text-[16px] font-semibold text-gold-soft">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials(user.fullName)
+            )}
+          </span>
+          <div>
+            <div className="font-serif text-[18px] font-medium text-navy">{user.fullName}</div>
+            <div className="text-[12.5px] text-content-secondary">
+              {user.firmProfile?.title || "Firm staff"}
+            </div>
+          </div>
+        </div>
+        <dl className="divide-y divide-line-divider px-6">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-[12px] font-semibold uppercase tracking-wide text-content-secondary">
+                {r.label}
+              </dt>
+              <dd className="text-right text-[13px] text-content">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="flex justify-end border-t border-line px-6 py-4">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
