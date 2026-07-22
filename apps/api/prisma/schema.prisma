@@ -253,6 +253,10 @@ model Role {
   id        String    @id @default(uuid()) @db.Uuid
   name      String
   scope     RoleScope
+  /// Seed-provided roles (Super Admin, Manager, …). System roles can't be
+  /// renamed or deleted; Super Admin additionally can't have its permissions
+  /// changed. Custom roles created in the app are fully editable.
+  isSystem  Boolean   @default(false)
   createdAt DateTime  @default(now())
 
   userRoles       UserRole[]

@@ -27,6 +27,7 @@ import {
   Skeleton,
 } from "../components/ui";
 import { SettingsTabs } from "../components/SettingsTabs";
+import { RolesManager } from "../components/RolesManager";
 
 /** Two-letter initials from a person's name (mirrors the dashboard mark). */
 function initials(name: string): string {
@@ -92,6 +93,7 @@ export default function UsersPage() {
   const canManage = hasPermission("Users:Update");
   const canDelete = hasPermission("Users:Delete");
   const canAssignRoles = hasPermission("Roles:Assign");
+  const canConfigureRoles = hasPermission("Roles:Configure");
   const showActions = canManage || canDelete;
   const users = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -319,7 +321,10 @@ export default function UsersPage() {
 
         {canInvite && <InvitationsCard />}
 
-        {/* Roles & permissions matrix */}
+        {/* Roles & permissions — editable for role admins, else a read-only matrix. */}
+        {canConfigureRoles ? (
+          <RolesManager />
+        ) : (
         <Card>
           <CardHeader>
             <CardTitle>Roles &amp; permissions</CardTitle>
@@ -360,6 +365,7 @@ export default function UsersPage() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {inviteOpen && <InviteUserModal onClose={() => setInviteOpen(false)} />}
