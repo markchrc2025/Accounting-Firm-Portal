@@ -17,6 +17,8 @@ const optionalEmail = z.string().email().or(z.literal("")).optional();
 /** PUT /firm-settings/email — every field optional; "" clears an override. */
 export const UpdateEmailSettingsSchema = z
   .object({
+    /** The firm's display name (firm.name) — used across emails and the portal. */
+    firmName: z.string().min(1).max(160).optional(),
     supportEmail: optionalEmail,
     fromName: z.string().max(120).optional(),
     buttonAccent: z.enum(["navy", "gold"]).optional(),
