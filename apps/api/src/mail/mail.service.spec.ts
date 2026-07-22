@@ -111,6 +111,31 @@ describe("MailService", () => {
     });
   });
 
+  it("honors POSTAL_API_URL (full endpoint) and MAIL_FROM as the sender", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        status: "success",
+        data: { messages: { [MSG.to]: { id: 5, token: "tok_z" } } },
+      }),
+    );
+    const svc = new MailService(
+      configStub({
+        // No MAIL_PROVIDER — defaults to postal now.
+        MAIL_FROM: "invites@mail.mcrctas.com",
+        MAIL_FROM_NAME: "MCRC Tax & Accounting",
+        POSTAL_API_KEY: "postal_key",
+        POSTAL_API_URL: "https://postal.sentire.solutions/api/v1/send/message",
+      }),
+    );
+    const result = await svc.send(MSG);
+    expect(result).toEqual({ provider: "postal", messageId: "tok_z" });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://postal.sentire.solutions/api/v1/send/message");
+    expect(JSON.parse(init.body as string).from).toBe(
+      "MCRC Tax & Accounting <invites@mail.mcrctas.com>",
+    );
+  });
+
   it("throws an actionable error when unconfigured instead of calling out", async () => {
     const svc = new MailService(configStub({}));
     await expect(svc.send(MSG)).rejects.toThrow(/MAIL_PROVIDER/);
