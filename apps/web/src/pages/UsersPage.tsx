@@ -8,6 +8,7 @@ import {
   fetchUsers,
   resendFirmInvitation,
   revokeFirmInvitation,
+  setUserRoles,
   updateUser,
 } from "../lib/api";
 import type { FirmInvitation, FirmUserSummary } from "../lib/api";
@@ -90,6 +91,7 @@ export default function UsersPage() {
   const canInvite = hasPermission("Users:Create");
   const canManage = hasPermission("Users:Update");
   const canDelete = hasPermission("Users:Delete");
+  const canAssignRoles = hasPermission("Roles:Assign");
   const showActions = canManage || canDelete;
   const users = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -113,7 +115,13 @@ export default function UsersPage() {
     onSuccess: invalidateUsers,
     onError: onActionError,
   });
-  const actionBusy = setStatus.isPending || removeUser.isPending;
+  // Change a firm user's role.
+  const setRole = useMutation({
+    mutationFn: (v: { id: string; role: string }) => setUserRoles(v.id, [v.role]),
+    onSuccess: invalidateUsers,
+    onError: onActionError,
+  });
+  const actionBusy = setStatus.isPending || removeUser.isPending || setRole.isPending;
 
   return (
     <div className="animate-fade-rise">
@@ -199,7 +207,27 @@ export default function UsersPage() {
                             {u.email}
                           </td>
                           <td className="px-6 py-3">
-                            {roles.length > 0 ? (
+                            {canAssignRoles && u.id !== me?.id ? (
+                              // Change this user's role. Your own role is locked
+                              // (rendered as a chip) so you can't demote yourself
+                              // out of Users & Roles management.
+                              <select
+                                className="input h-9 py-1 text-[13px]"
+                                value={roles[0] ?? ""}
+                                disabled={actionBusy}
+                                onChange={(e) =>
+                                  setRole.mutate({ id: u.id, role: e.target.value })
+                                }
+                                aria-label={`Role for ${u.fullName}`}
+                              >
+                                {roles[0] ? null : <option value="">— No role —</option>}
+                                {FIRM_ROLES.map((r) => (
+                                  <option key={r} value={r}>
+                                    {r}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : roles.length > 0 ? (
                               <div className="flex flex-wrap items-center gap-1.5">
                                 {roles.map((name) => (
                                   <Chip key={name} variant={roleTone(name)}>

@@ -656,6 +656,13 @@ export function updateUser(
 export function deleteUser(id: string): Promise<{ deleted: true }> {
   return apiFetch(`/users/${id}`, { method: "DELETE" });
 }
+/** Replace a firm user's firm-wide role grants (e.g. ["Manager"]). */
+export function setUserRoles(id: string, roleNames: string[]): Promise<FirmUserSummary> {
+  return apiFetch(`/users/${id}/roles`, {
+    method: "POST",
+    body: JSON.stringify({ roleNames }),
+  });
+}
 
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------
 export type SsoProvider = "google" | "microsoft";
