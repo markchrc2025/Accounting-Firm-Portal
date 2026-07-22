@@ -6,7 +6,7 @@ import { MailConfig, MailError, SendMailInput, truncateBody } from "./mail.types
  * data.messages[<recipient>] is stored as the provider message id.
  */
 export async function sendViaPostal(cfg: MailConfig, input: SendMailInput): Promise<string | null> {
-  const res = await fetch(`${cfg.postalBaseUrl}/api/v1/send/message`, {
+  const res = await fetch(cfg.postalSendUrl, {
     method: "POST",
     headers: {
       "X-Server-API-Key": cfg.postalApiKey ?? "",

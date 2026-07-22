@@ -12,8 +12,9 @@ import {
 
 /**
  * Provider-agnostic outbound mail. The active sender is picked by the
- * MAIL_PROVIDER env var ("plunk" today, "postal" when that server is live) —
- * swapping providers is a config change, never a code change.
+ * MAIL_PROVIDER env var (defaults to "postal", the firm's self-hosted server;
+ * "plunk" remains available) — swapping providers is a config change, never a
+ * code change.
  *
  * Retry policy: exactly ONE retry after a short pause, then the error
  * propagates to the caller (which records a visible "email failed" state).
@@ -26,18 +27,27 @@ export class MailService {
   constructor(private readonly config: ConfigService) {}
 
   private cfg(): MailConfig {
-    const provider = (this.config.get<string>("MAIL_PROVIDER", "plunk") || "plunk")
+    const provider = (this.config.get<string>("MAIL_PROVIDER", "postal") || "postal")
       .trim()
       .toLowerCase() as MailProvider;
+    // Postal send endpoint: POSTAL_API_URL is the full URL; POSTAL_BASE_URL is a
+    // host that we append the send path to. The former wins when both are set.
+    const postalApiUrl = (this.config.get<string>("POSTAL_API_URL", "") ?? "").trim();
+    const postalBaseUrl = (
+      this.config.get<string>("POSTAL_BASE_URL", "https://postal.sentire.solutions") ??
+      "https://postal.sentire.solutions"
+    ).replace(/\/+$/, "");
     return {
       provider,
-      fromEmail: this.config.get<string>("MAIL_FROM_EMAIL", "") ?? "",
+      // MAIL_FROM is the primary from-address; MAIL_FROM_EMAIL stays as a fallback.
+      fromEmail:
+        (this.config.get<string>("MAIL_FROM", "") ||
+          this.config.get<string>("MAIL_FROM_EMAIL", "") ||
+          "") ?? "",
       fromName: this.config.get<string>("MAIL_FROM_NAME", "MCRC Tax & Accounting") ?? "",
       plunkSecretKey: this.config.get<string>("PLUNK_SECRET_KEY") ?? undefined,
       postalApiKey: this.config.get<string>("POSTAL_API_KEY") ?? undefined,
-      postalBaseUrl:
-        this.config.get<string>("POSTAL_BASE_URL", "https://postal.sentire.solutions") ??
-        "https://postal.sentire.solutions",
+      postalSendUrl: postalApiUrl || `${postalBaseUrl}/api/v1/send/message`,
     };
   }
 
@@ -54,8 +64,8 @@ export class MailService {
     const c = this.cfg();
     if (!this.isEnabled()) {
       throw new MailError(
-        "Email sending is not configured — set MAIL_PROVIDER, MAIL_FROM_EMAIL and the " +
-          "provider key (PLUNK_SECRET_KEY or POSTAL_API_KEY) in the API environment.",
+        "Email sending is not configured — set MAIL_PROVIDER, MAIL_FROM and the " +
+          "provider key (POSTAL_API_KEY or PLUNK_SECRET_KEY) in the API environment.",
       );
     }
     try {

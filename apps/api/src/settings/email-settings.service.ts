@@ -62,7 +62,11 @@ export class EmailSettingsService {
       fromName: this.config.get<string>("MAIL_FROM_NAME", "MCRC Tax & Accounting") ?? "",
       buttonAccent: "navy",
       showBrandLockup: true,
-      fallbackFromEmail: this.config.get<string>("MAIL_FROM_EMAIL", "") ?? "",
+      // Mirror MailService: MAIL_FROM is primary, MAIL_FROM_EMAIL the fallback.
+      fallbackFromEmail:
+        this.config.get<string>("MAIL_FROM", "") ||
+        this.config.get<string>("MAIL_FROM_EMAIL", "") ||
+        "",
     };
   }
 

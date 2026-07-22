@@ -27,7 +27,8 @@ export interface MailConfig {
   fromName: string;
   plunkSecretKey?: string;
   postalApiKey?: string;
-  postalBaseUrl: string;
+  /** Full Postal send endpoint, e.g. https://postal.example/api/v1/send/message. */
+  postalSendUrl: string;
 }
 
 /** Actionable, provider-labeled failure (no secrets, truncated bodies). */
