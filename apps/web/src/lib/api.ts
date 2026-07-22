@@ -664,6 +664,44 @@ export function setUserRoles(id: string, roleNames: string[]): Promise<FirmUserS
   });
 }
 
+// --- Roles & permissions editor -------------------------------------------------
+export interface FirmRole {
+  id: string;
+  name: string;
+  /** Seed-provided role (built-in) vs. a custom role created in the app. */
+  isSystem: boolean;
+  /** Super Admin — fully read-only. */
+  locked: boolean;
+  canEditPermissions: boolean;
+  canRename: boolean;
+  canDelete: boolean;
+  assignedUserCount: number;
+  /** Granted permissions as "Resource:Action". */
+  permissions: string[];
+}
+export interface PermissionGroup {
+  resource: string;
+  actions: string[];
+}
+export function fetchRoles(): Promise<FirmRole[]> {
+  return apiFetch<FirmRole[]>("/roles");
+}
+export function fetchPermissionCatalog(): Promise<PermissionGroup[]> {
+  return apiFetch<PermissionGroup[]>("/roles/permission-catalog");
+}
+export function createRole(body: { name: string; permissions: string[] }): Promise<FirmRole> {
+  return apiFetch("/roles", { method: "POST", body: JSON.stringify(body) });
+}
+export function updateRole(
+  id: string,
+  body: { name?: string; permissions?: string[] },
+): Promise<FirmRole> {
+  return apiFetch(`/roles/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function deleteRole(id: string): Promise<{ deleted: true }> {
+  return apiFetch(`/roles/${id}`, { method: "DELETE" });
+}
+
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------
 export type SsoProvider = "google" | "microsoft";
 export function fetchSsoProviders(): Promise<Record<SsoProvider, boolean>> {

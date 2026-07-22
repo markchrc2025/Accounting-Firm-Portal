@@ -27,6 +27,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { ProfileModule } from "./profile/profile.module";
 import { PurchaseTransactionsModule } from "./purchase-transactions/purchase-transactions.module";
 import { RbacModule } from "./rbac/rbac.module";
+import { RolesModule } from "./roles/roles.module";
 import { RedisModule } from "./redis/redis.module";
 import { ServicesModule } from "./services/services.module";
 import { StorageModule } from "./storage/storage.module";
@@ -45,6 +46,7 @@ import { UsersModule } from "./users/users.module";
     ClientsModule,
     DashboardModule,
     UsersModule,
+    RolesModule,
     ProfileModule,
     ServicesModule,
     InvitationsModule,

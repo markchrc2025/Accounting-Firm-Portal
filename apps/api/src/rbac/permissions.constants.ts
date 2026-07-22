@@ -53,6 +53,23 @@ const CLIENT_PERMISSIONS: Record<string, string[]> = {
   BIRFiling: ["Read"],
 };
 
+/**
+ * The FIRM permission catalog grouped by resource — drives the role editor's
+ * checkboxes and validates which permissions a firm role may be granted.
+ */
+export function firmPermissionCatalog(): { resource: string; actions: string[] }[] {
+  return Object.entries(FIRM_PERMISSIONS).map(([resource, actions]) => ({
+    resource,
+    actions: [...actions],
+  }));
+}
+
+/** True when "Resource:Action" is a valid FIRM-scope permission. */
+export function isFirmPermission(p: string): boolean {
+  const [resource, action] = p.split(":");
+  return Boolean(resource && action && FIRM_PERMISSIONS[resource]?.includes(action));
+}
+
 /** Flattened catalog of every permission across both scopes (deduplicated). */
 export function allPermissions(): { resource: string; action: string }[] {
   const seen = new Set<string>();

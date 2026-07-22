@@ -107,8 +107,8 @@ async function seedPermissionsAndRoles(): Promise<void> {
   for (const def of DEFAULT_ROLES) {
     const role = await prisma.role.upsert({
       where: { name_scope: { name: def.name, scope: def.scope } },
-      update: {},
-      create: { name: def.name, scope: def.scope },
+      update: { isSystem: true },
+      create: { name: def.name, scope: def.scope, isSystem: true },
     });
 
     // Reset this role's permission mappings to match the definition.
