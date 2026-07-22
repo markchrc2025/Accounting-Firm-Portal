@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   createFirmInvitation,
+  deleteUser,
   fetchFirmInvitations,
   fetchUsers,
   resendFirmInvitation,
   revokeFirmInvitation,
+  updateUser,
 } from "../lib/api";
 import type { FirmInvitation, FirmUserSummary } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -83,10 +85,35 @@ const CAPABILITY_MATRIX: CapabilityRow[] = [
 ];
 
 export default function UsersPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user: me } = useAuth();
+  const queryClient = useQueryClient();
   const canInvite = hasPermission("Users:Create");
+  const canManage = hasPermission("Users:Update");
+  const canDelete = hasPermission("Users:Delete");
+  const showActions = canManage || canDelete;
   const users = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const invalidateUsers = () =>
+    void queryClient.invalidateQueries({ queryKey: ["users"] });
+  const onActionError = (e: unknown) =>
+    setActionError(e instanceof ApiError ? e.message : "That action could not be completed.");
+
+  // Deactivate / reactivate a firm user (status DISABLED ⇄ ACTIVE).
+  const setStatus = useMutation({
+    mutationFn: (v: { id: string; status: "ACTIVE" | "DISABLED" }) =>
+      updateUser(v.id, { status: v.status }),
+    onSuccess: invalidateUsers,
+    onError: onActionError,
+  });
+  // Permanently delete a firm user.
+  const removeUser = useMutation({
+    mutationFn: (id: string) => deleteUser(id),
+    onSuccess: invalidateUsers,
+    onError: onActionError,
+  });
+  const actionBusy = setStatus.isPending || removeUser.isPending;
 
   return (
     <div className="animate-fade-rise">
@@ -109,6 +136,11 @@ export default function UsersPage() {
             <CardTitle>Firm users</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            {actionError ? (
+              <div className="mx-6 mt-4 rounded-card border border-danger/30 bg-danger-bg px-4 py-3 text-[12.5px] text-danger-ink">
+                {actionError}
+              </div>
+            ) : null}
             {users.isPending && (
               <div className="space-y-3 px-6 py-5">
                 <Skeleton />
@@ -138,6 +170,9 @@ export default function UsersPage() {
                       <th className="px-6 py-2.5 font-semibold">Role</th>
                       <th className="px-6 py-2.5 font-semibold">MFA</th>
                       <th className="px-6 py-2.5 font-semibold">Status</th>
+                      {showActions ? (
+                        <th className="px-6 py-2.5 text-right font-semibold">Actions</th>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-divider">
@@ -190,6 +225,60 @@ export default function UsersPage() {
                               <span className="text-content-muted">—</span>
                             )}
                           </td>
+                          {showActions ? (
+                            <td className="px-6 py-3">
+                              {u.id === me?.id ? (
+                                // No self-service deactivate/delete — that would lock
+                                // you out of your own firm. Manage yourself in Profile.
+                                <span className="block text-right text-[11px] uppercase tracking-wide text-content-muted">
+                                  You
+                                </span>
+                              ) : (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {canManage ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={actionBusy}
+                                      onClick={() =>
+                                        setStatus.mutate({
+                                          id: u.id,
+                                          status:
+                                            u.status?.toUpperCase() === "ACTIVE"
+                                              ? "DISABLED"
+                                              : "ACTIVE",
+                                        })
+                                      }
+                                    >
+                                      {u.status?.toUpperCase() === "ACTIVE"
+                                        ? "Deactivate"
+                                        : "Reactivate"}
+                                    </Button>
+                                  ) : null}
+                                  {canDelete ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-danger hover:bg-danger-bg"
+                                      disabled={actionBusy}
+                                      onClick={() => {
+                                        setActionError(null);
+                                        if (
+                                          window.confirm(
+                                            `Delete ${u.fullName}? This permanently removes their account and cannot be undone.`,
+                                          )
+                                        ) {
+                                          removeUser.mutate(u.id);
+                                        }
+                                      }}
+                                    >
+                                      Delete
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              )}
+                            </td>
+                          ) : null}
                         </tr>
                       );
                     })}
