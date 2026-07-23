@@ -102,7 +102,10 @@ export class SsoService {
       clientSecret,
       authorizeUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
       tokenUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
-      scope: "openid profile email User.Read",
+      // Only the OIDC basics — these are user-consentable and don't require an
+      // Azure admin to pre-approve the app (unlike Graph's User.Read). The email
+      // comes straight from the id_token, so no Microsoft Graph call is needed.
+      scope: "openid profile email",
     };
   }
 
@@ -154,8 +157,8 @@ export class SsoService {
       throw new SsoError("state");
     }
 
-    const accessToken = await this.exchangeCode(cfg, provider, code);
-    const email = (await this.fetchEmail(provider, accessToken)).toLowerCase();
+    const tokens = await this.exchangeCode(cfg, provider, code);
+    const email = (await this.fetchEmail(provider, tokens)).toLowerCase();
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -207,12 +210,12 @@ export class SsoService {
     return { kind: "access", token: this.tokens.signAccess(tokenUser) };
   }
 
-  /** Authorization-code → provider access token. */
+  /** Authorization-code → provider tokens (access + id token). */
   private async exchangeCode(
     cfg: ProviderConfig,
     provider: SsoProvider,
     code: string,
-  ): Promise<string> {
+  ): Promise<{ accessToken: string; idToken?: string }> {
     const res = await fetch(cfg.tokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -225,35 +228,52 @@ export class SsoService {
       }).toString(),
     });
     if (!res.ok) {
-      this.logger.warn(`${provider} token exchange failed (${res.status})`);
+      const detail = await res.text().catch(() => "");
+      this.logger.warn(`${provider} token exchange failed (${res.status}): ${detail.slice(0, 300)}`);
       throw new SsoError("exchange");
     }
-    const data = (await res.json().catch(() => ({}))) as { access_token?: string };
+    const data = (await res.json().catch(() => ({}))) as {
+      access_token?: string;
+      id_token?: string;
+    };
     if (!data.access_token) throw new SsoError("exchange");
-    return data.access_token;
+    return { accessToken: data.access_token, idToken: data.id_token };
   }
 
-  /** Verified email from the provider's userinfo (Graph fallback for MS). */
-  private async fetchEmail(provider: SsoProvider, accessToken: string): Promise<string> {
-    const userinfoUrl =
-      provider === "google"
-        ? "https://openidconnect.googleapis.com/v1/userinfo"
-        : "https://graph.microsoft.com/oidc/userinfo";
-    const info = await this.getJson(userinfoUrl, accessToken);
+  /**
+   * Verified email from the provider. Google uses its OIDC userinfo endpoint;
+   * Microsoft reads the id_token claims directly (email → preferred_username →
+   * upn), which needs no Graph permission and works for work/school accounts
+   * whose UPN is the login address (e.g. name@mcrctas.com).
+   */
+  private async fetchEmail(
+    provider: SsoProvider,
+    tokens: { accessToken: string; idToken?: string },
+  ): Promise<string> {
     if (provider === "google") {
+      const info = await this.getJson(
+        "https://openidconnect.googleapis.com/v1/userinfo",
+        tokens.accessToken,
+      );
       const email = typeof info.email === "string" ? info.email : "";
       if (!email || info.email_verified === false) throw new SsoError("email");
       return email;
     }
-    if (typeof info.email === "string" && info.email) return info.email;
-    // Some Microsoft accounts omit `email` in userinfo — fall back to Graph.
-    const me = await this.getJson("https://graph.microsoft.com/v1.0/me", accessToken);
-    const email =
-      (typeof me.mail === "string" && me.mail) ||
-      (typeof me.userPrincipalName === "string" && me.userPrincipalName) ||
-      "";
-    if (!email || !email.includes("@")) throw new SsoError("email");
-    return email;
+
+    // Microsoft: the id_token carries the identity — no Graph call required.
+    const claims = tokens.idToken ? decodeJwtClaims(tokens.idToken) : {};
+    const fromClaims =
+      firstString(claims.email) || firstString(claims.preferred_username) || firstString(claims.upn);
+    if (fromClaims && fromClaims.includes("@")) return fromClaims;
+
+    // Fallback (only the OIDC scope is needed): the userinfo endpoint.
+    const info = await this.getJson(
+      "https://graph.microsoft.com/oidc/userinfo",
+      tokens.accessToken,
+    );
+    const fromInfo = firstString(info.email) || firstString(info.preferred_username);
+    if (fromInfo && fromInfo.includes("@")) return fromInfo;
+    throw new SsoError("email");
   }
 
   private async getJson(url: string, accessToken: string): Promise<Record<string, unknown>> {
@@ -263,5 +283,28 @@ export class SsoService {
       throw new SsoError("userinfo");
     }
     return ((await res.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+  }
+}
+
+/** A non-empty string, or "". */
+function firstString(v: unknown): string {
+  return typeof v === "string" && v ? v : "";
+}
+
+/**
+ * Decode a JWT's claims WITHOUT verifying the signature. Safe here because the
+ * token came straight from the provider's token endpoint over TLS (OIDC code
+ * flow) — we never accept an id_token from the browser.
+ */
+function decodeJwtClaims(token: string): Record<string, unknown> {
+  const parts = token.split(".");
+  if (parts.length < 2 || !parts[1]) return {};
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    return {};
   }
 }

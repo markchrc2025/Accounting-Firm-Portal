@@ -66,6 +66,12 @@ function stateOf(url: string): string {
   return new URL(url).searchParams.get("state")!;
 }
 
+/** A minimal unsigned id_token carrying the given claims (header.payload.sig). */
+function fakeIdToken(claims: Record<string, unknown>): string {
+  const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  return `eyJhbGciOiJub25lIn0.${payload}.sig`;
+}
+
 describe("SsoService", () => {
   let fetchMock: jest.SpyInstance;
   beforeEach(() => {
@@ -150,19 +156,39 @@ describe("SsoService", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to Microsoft Graph /me when userinfo has no email", async () => {
+  it("reads the Microsoft email from the id_token (preferred_username / UPN)", async () => {
+    const { svc, prisma } = build();
+    const state = stateOf(svc.startUrl("microsoft"));
+    // Single call: the token exchange. Email comes from the id_token — no Graph.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        access_token: "t",
+        id_token: fakeIdToken({ preferred_username: "Mark@mcrctas.com" }),
+      }),
+    );
+    const result = await svc.handleCallback("microsoft", "c", state);
+    expect(result.kind).toBe("access");
+    expect(fetchMock).toHaveBeenCalledTimes(1); // no userinfo / Graph round-trip
+    expect((prisma.user.findUnique as jest.Mock).mock.calls[0]![0]).toEqual(
+      expect.objectContaining({ where: { email: "mark@mcrctas.com" } }),
+    );
+  });
+
+  it("requests only the consentable OIDC scopes for Microsoft (no Graph User.Read)", () => {
+    const scope = new URL(build().svc.startUrl("microsoft")).searchParams.get("scope");
+    expect(scope).toBe("openid profile email");
+  });
+
+  it("falls back to Microsoft OIDC userinfo when the id_token lacks an email", async () => {
     const { svc } = build();
     const state = stateOf(svc.startUrl("microsoft"));
     fetchMock
-      .mockResolvedValueOnce(jsonResponse(200, { access_token: "t" }))
-      .mockResolvedValueOnce(jsonResponse(200, { sub: "abc" })) // userinfo: no email
-      .mockResolvedValueOnce(
-        jsonResponse(200, { mail: null, userPrincipalName: "mark@mcrctas.com" }),
-      );
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "t", id_token: fakeIdToken({ sub: "x" }) }))
+      .mockResolvedValueOnce(jsonResponse(200, { email: "mark@mcrctas.com" }));
     const result = await svc.handleCallback("microsoft", "c", state);
     expect(result.kind).toBe("access");
-    expect((fetchMock.mock.calls[2] as [string])[0]).toBe(
-      "https://graph.microsoft.com/v1.0/me",
+    expect((fetchMock.mock.calls[1] as [string])[0]).toBe(
+      "https://graph.microsoft.com/oidc/userinfo",
     );
   });
 
