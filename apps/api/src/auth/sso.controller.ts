@@ -24,6 +24,11 @@ function callbackErrorCode(
   return "provider";
 }
 
+/** Extract the Microsoft AADSTS diagnostic code from an error_description. */
+function aadstsCode(description: string | undefined): string | undefined {
+  return description?.match(/AADSTS\d+/)?.[0];
+}
+
 /**
  * SSO endpoints (public — they ARE the sign-in). Start redirects to the
  * provider; the callback exchanges the code and hands the browser back to the
@@ -81,7 +86,12 @@ export class SsoController {
           `${provider} SSO callback error: ${providerError} — ${providerErrorDescription ?? ""}`,
         );
       }
-      res.redirect(this.sso.loginRedirect(callbackErrorCode(providerError, code, state)));
+      // Surface the provider's own diagnostic code (e.g. AADSTS65001) so an admin
+      // can act on it — this is app-config info, never account-existence info.
+      const detail = providerError
+        ? aadstsCode(providerErrorDescription) ?? providerError
+        : undefined;
+      res.redirect(this.sso.loginRedirect(callbackErrorCode(providerError, code, state), detail));
       return;
     }
     try {

@@ -708,7 +708,13 @@ export function deleteRole(id: string): Promise<{ deleted: true }> {
 
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------
 export type SsoProvider = "google" | "microsoft";
-export function fetchSsoProviders(): Promise<Record<SsoProvider, boolean>> {
+export interface SsoProviders {
+  google: boolean;
+  microsoft: boolean;
+  /** Exact callback URL each provider must have registered (for setup/debugging). */
+  redirectUris: Record<SsoProvider, string>;
+}
+export function fetchSsoProviders(): Promise<SsoProviders> {
   return apiFetch("/auth/sso/providers");
 }
 /** Absolute URL that starts the provider sign-in (full-page redirect). */

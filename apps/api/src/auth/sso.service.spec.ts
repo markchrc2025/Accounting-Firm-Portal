@@ -80,13 +80,22 @@ describe("SsoService", () => {
   afterEach(() => fetchMock.mockRestore());
 
   it("reports providers as available only when fully configured", () => {
-    expect(build().svc.providers()).toEqual({ google: true, microsoft: true });
+    expect(build().svc.providers()).toEqual(
+      expect.objectContaining({ google: true, microsoft: true }),
+    );
     expect(
       build({ config: { GOOGLE_CLIENT_SECRET: "" } }).svc.providers().google,
     ).toBe(false);
-    expect(
-      build({ config: { API_PUBLIC_URL: "" } }).svc.providers(),
-    ).toEqual({ google: false, microsoft: false });
+    const off = build({ config: { API_PUBLIC_URL: "" } }).svc.providers();
+    expect(off.google).toBe(false);
+    expect(off.microsoft).toBe(false);
+  });
+
+  it("exposes the exact provider callback URLs for admin setup", () => {
+    expect(build().svc.providers().redirectUris).toEqual({
+      google: "https://api.test/api/v1/auth/sso/google/callback",
+      microsoft: "https://api.test/api/v1/auth/sso/microsoft/callback",
+    });
   });
 
   it("builds a Google authorize URL with the registered redirect and signed state", () => {
