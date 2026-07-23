@@ -21,6 +21,7 @@ import {
   CardTitle,
   Chip,
   ChipVariant,
+  cn,
   EmptyState,
   ErrorState,
   PageHeader,
@@ -501,14 +502,36 @@ function invitationStatusTone(status: FirmInvitation["status"]): ChipVariant {
   return "neutral";
 }
 
-/** Pending firm-staff invitations with email-delivery state and actions. */
+/** Firm-staff invitations: Active (pending) by default; revoked/expired/accepted
+ *  are tucked into Archived. */
+type InviteFilter = "active" | "archived" | "all";
+const INVITE_FILTERS: { key: InviteFilter; label: string }[] = [
+  { key: "active", label: "Active" },
+  { key: "archived", label: "Archived" },
+  { key: "all", label: "All" },
+];
+/** Only PENDING invitations are "active" (still actionable); the rest archive. */
+function isActiveInvite(status: FirmInvitation["status"]): boolean {
+  return status === "PENDING";
+}
+
 function InvitationsCard() {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<InviteFilter>("active");
   const invitations = useQuery({
     queryKey: ["firm-invitations"],
     queryFn: () => fetchFirmInvitations(),
   });
+  const all = invitations.data ?? [];
+  const counts = {
+    active: all.filter((i) => isActiveInvite(i.status)).length,
+    archived: all.filter((i) => !isActiveInvite(i.status)).length,
+    all: all.length,
+  };
+  const visible = all.filter((i) =>
+    filter === "all" ? true : filter === "active" ? isActiveInvite(i.status) : !isActiveInvite(i.status),
+  );
 
   const resend = useMutation({
     mutationFn: (id: string) => resendFirmInvitation(id),
@@ -532,8 +555,36 @@ function InvitationsCard() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Invitations</CardTitle>
+        {all.length > 0 && (
+          <div
+            role="group"
+            aria-label="Filter invitations"
+            className="inline-flex flex-wrap rounded-btn border border-line-input bg-card p-1"
+          >
+            {INVITE_FILTERS.map((f) => {
+              const active = filter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setFilter(f.key)}
+                  className={cn(
+                    "rounded-[5px] px-3 py-1 text-[12.5px] font-semibold transition-colors",
+                    active ? "bg-navy text-white" : "text-content-secondary hover:bg-rowhover",
+                  )}
+                >
+                  {f.label}{" "}
+                  <span className={active ? "text-white/70" : "text-content-muted"}>
+                    {counts[f.key]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         {error && (
@@ -553,12 +604,19 @@ function InvitationsCard() {
             onRetry={() => void invitations.refetch()}
           />
         )}
-        {invitations.data && invitations.data.length === 0 && (
+        {invitations.data && all.length === 0 && (
           <p className="px-6 py-5 text-[13px] text-content-secondary">
             No invitations yet — use “Invite user” to add firm staff by email.
           </p>
         )}
-        {invitations.data && invitations.data.length > 0 && (
+        {all.length > 0 && visible.length === 0 && (
+          <p className="px-6 py-5 text-[13px] text-content-secondary">
+            {filter === "active"
+              ? "No active invitations — everything here has been accepted, revoked, or has expired."
+              : "No archived invitations."}
+          </p>
+        )}
+        {visible.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -572,7 +630,7 @@ function InvitationsCard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-divider">
-                {invitations.data.map((inv) => (
+                {visible.map((inv) => (
                   <tr key={inv.id} className="text-[13px] transition-colors hover:bg-rowhover">
                     <td className="px-6 py-3 font-mono text-[12px] text-content-secondary">
                       {inv.email}
