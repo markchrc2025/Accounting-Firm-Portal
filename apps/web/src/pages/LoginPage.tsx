@@ -10,6 +10,9 @@ const SSO_ERRORS: Record<string, string> = {
   "no-account":
     "No active portal account matches that email. Ask the firm to invite you first, then try again.",
   cancelled: "Sign-in was cancelled at the provider.",
+  denied: "You declined access at the provider. Try again and approve the sign-in to continue.",
+  provider:
+    "The provider rejected the sign-in — this usually means the app needs your IT/admin's approval. Please contact your administrator.",
   unavailable: "That sign-in method isn't configured yet.",
   state: "The sign-in attempt expired — please try again.",
   email: "The provider didn't share a verified email address for your account.",

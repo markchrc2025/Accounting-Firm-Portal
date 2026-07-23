@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req, Res } from "@nestjs/common";
+import { Controller, Get, Logger, Param, Query, Req, Res } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request, Response } from "express";
 import { Public } from "../common/decorators/public.decorator";
@@ -6,6 +6,22 @@ import { SSO_PROVIDERS, SsoError, SsoService, type SsoProvider } from "./sso.ser
 
 function asProvider(value: string): SsoProvider | null {
   return (SSO_PROVIDERS as string[]).includes(value) ? (value as SsoProvider) : null;
+}
+
+/**
+ * Map the provider's callback error to a login-page code. `access_denied` is a
+ * genuine user cancel/decline; any other provider error is a configuration or
+ * consent problem (e.g. the app needs Azure admin approval) — flagged distinctly
+ * so it isn't mistaken for a cancellation.
+ */
+function callbackErrorCode(
+  providerError: string | undefined,
+  code: string | undefined,
+  state: string | undefined,
+): string {
+  if (!providerError) return code && state ? "failed" : "state";
+  if (providerError === "access_denied") return "denied";
+  return "provider";
 }
 
 /**
@@ -18,6 +34,8 @@ function asProvider(value: string): SsoProvider | null {
 @Public()
 @Controller("auth/sso")
 export class SsoController {
+  private readonly logger = new Logger(SsoController.name);
+
   constructor(private readonly sso: SsoService) {}
 
   @Get("providers")
@@ -45,6 +63,7 @@ export class SsoController {
     @Query("code") code: string | undefined,
     @Query("state") state: string | undefined,
     @Query("error") providerError: string | undefined,
+    @Query("error_description") providerErrorDescription: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
@@ -54,8 +73,15 @@ export class SsoController {
       return;
     }
     if (providerError || !code || !state) {
-      // User cancelled at the provider, or the provider returned an error.
-      res.redirect(this.sso.loginRedirect(providerError ? "cancelled" : "state"));
+      // The provider bounced back with an error, or without a code/state. Log the
+      // real reason (never shown to the browser) so a misconfigured Azure/Google
+      // app can actually be diagnosed, then map it to a specific login message.
+      if (providerError) {
+        this.logger.warn(
+          `${provider} SSO callback error: ${providerError} — ${providerErrorDescription ?? ""}`,
+        );
+      }
+      res.redirect(this.sso.loginRedirect(callbackErrorCode(providerError, code, state)));
       return;
     }
     try {
