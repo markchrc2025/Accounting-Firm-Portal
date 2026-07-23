@@ -12,7 +12,7 @@ const SSO_ERRORS: Record<string, string> = {
   cancelled: "Sign-in was cancelled at the provider.",
   denied: "You declined access at the provider. Try again and approve the sign-in to continue.",
   provider:
-    "The provider rejected the sign-in — this usually means the app needs your IT/admin's approval. Please contact your administrator.",
+    "The provider rejected the sign-in. Your Microsoft/Google tenant likely requires a one-time admin consent for this app — grant it in the provider's admin console (for Microsoft: Entra ID → Enterprise applications → this app → Permissions → “Grant admin consent”), then try again.",
   unavailable: "That sign-in method isn't configured yet.",
   state: "The sign-in attempt expired — please try again.",
   email: "The provider didn't share a verified email address for your account.",
@@ -36,8 +36,13 @@ export default function LoginPage() {
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const ssoErrorCode = params.get("sso_error");
+  const ssoDetail = params.get("sso_detail");
   const [error, setError] = useState<string | null>(
-    ssoErrorCode ? (SSO_ERRORS[ssoErrorCode] ?? SSO_ERRORS.failed!) : null,
+    ssoErrorCode
+      ? `${SSO_ERRORS[ssoErrorCode] ?? SSO_ERRORS.failed!}${
+          ssoDetail ? ` (provider code: ${ssoDetail})` : ""
+        }`
+      : null,
   );
   const [busy, setBusy] = useState(false);
 
@@ -96,6 +101,36 @@ export default function LoginPage() {
             {error}
           </div>
         )}
+
+        {/* On an SSO config error, show the exact callback URLs to register — the
+            #1 cause is a redirect URI that isn't registered at the provider. */}
+        {ssoErrorCode &&
+          ssoErrorCode !== "no-account" &&
+          ssoProviders.data?.redirectUris && (
+            <div className="mb-5 rounded-input border border-line-strong bg-sidebar px-3.5 py-3 text-[12px] text-content-secondary">
+              <p className="mb-1.5 font-semibold text-content">
+                Admin setup — register these exact callback URLs at the provider:
+              </p>
+              <ul className="space-y-1">
+                <li>
+                  <span className="font-semibold">Google:</span>{" "}
+                  <code className="break-all font-mono text-[11.5px] text-navy">
+                    {ssoProviders.data.redirectUris.google}
+                  </code>
+                </li>
+                <li>
+                  <span className="font-semibold">Microsoft:</span>{" "}
+                  <code className="break-all font-mono text-[11.5px] text-navy">
+                    {ssoProviders.data.redirectUris.microsoft}
+                  </code>
+                </li>
+              </ul>
+              <p className="mt-1.5">
+                Google Cloud Console → Credentials → OAuth client → Authorized redirect
+                URIs. Azure → App registration → Authentication → Web → Redirect URIs.
+              </p>
+            </div>
+          )}
 
         {!mfaToken ? (
           <form onSubmit={handlePassword} className="space-y-4">

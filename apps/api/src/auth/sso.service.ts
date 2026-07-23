@@ -66,10 +66,12 @@ export class SsoService {
     return `${this.apiPublicUrl()}/api/v1/auth/sso/${provider}/callback`;
   }
 
-  loginRedirect(errorCode?: string): string {
-    return errorCode
-      ? `${this.webAppUrl()}/login?sso_error=${encodeURIComponent(errorCode)}`
-      : `${this.webAppUrl()}/login`;
+  loginRedirect(errorCode?: string, detail?: string): string {
+    if (!errorCode) return `${this.webAppUrl()}/login`;
+    // `detail` is only ever a provider-side config code (e.g. AADSTS65001) — safe
+    // to show; account-existence errors never carry one.
+    const detailParam = detail ? `&sso_detail=${encodeURIComponent(detail)}` : "";
+    return `${this.webAppUrl()}/login?sso_error=${encodeURIComponent(errorCode)}${detailParam}`;
   }
 
   callbackRedirect(result: SsoResult): string {
@@ -109,12 +111,24 @@ export class SsoService {
     };
   }
 
-  /** Which providers are configured (drives the login-page buttons). */
-  providers(): Record<SsoProvider, boolean> {
+  /**
+   * Which providers are configured (drives the login-page buttons), plus the
+   * exact callback URL each provider must have registered — surfaced so an admin
+   * can copy it into the Google Cloud / Azure console to fix a redirect mismatch.
+   */
+  providers(): {
+    google: boolean;
+    microsoft: boolean;
+    redirectUris: Record<SsoProvider, string>;
+  } {
     const ready = Boolean(this.apiPublicUrl());
     return {
       google: ready && this.providerConfig("google") !== null,
       microsoft: ready && this.providerConfig("microsoft") !== null,
+      redirectUris: {
+        google: this.redirectUri("google"),
+        microsoft: this.redirectUri("microsoft"),
+      },
     };
   }
 

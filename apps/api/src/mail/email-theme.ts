@@ -232,15 +232,17 @@ export function accountantCard(initials: string, name: string, marginTop = 20): 
 
 /** Before → after role chips. */
 export function roleChips(oldRole: string, newRole: string, marginTop = 20): string {
+  // Both boxes are the SAME fixed width and vertically centered, so the pair
+  // stays symmetric regardless of how long each role name is.
   const cell = (label: string, value: string, dark: boolean) =>
-    `<td align="center" style="background:${dark ? C.navy : C.cardWhite}; ${dark ? "" : `border:1px solid ${C.borderPaper};`} border-radius:8px; padding:14px; text-align:center;">
+    `<td width="45%" valign="middle" align="center" style="width:45%; height:78px; background:${dark ? C.navy : C.cardWhite}; border:1px solid ${dark ? C.navy : C.borderPaper}; border-radius:8px; padding:14px 10px; text-align:center;">
 <div style="font-family:${MONO}; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:${dark ? C.goldSoft : C.muted2};">${esc(label)}</div>
-<div style="font-family:${SERIF}; font-size:19px; color:${dark ? C.navyBody : C.muted}; margin-top:5px;">${esc(value)}</div>
+<div style="font-family:${SERIF}; font-size:19px; line-height:1.2; color:${dark ? C.navyBody : C.muted}; margin-top:5px;">${esc(value)}</div>
 </td>`;
   return `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:${marginTop}px;"><tr>
 ${cell("Was", oldRole, false)}
-<td width="44" align="center" style="width:44px; color:${C.goldDeep}; font-size:20px; text-align:center;">&rarr;</td>
+<td width="10%" valign="middle" align="center" style="width:10%; color:${C.goldDeep}; font-size:20px; text-align:center;">&rarr;</td>
 ${cell("Now", newRole, true)}
 </tr></table>`;
 }
