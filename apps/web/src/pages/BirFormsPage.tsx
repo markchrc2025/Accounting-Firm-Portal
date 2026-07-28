@@ -44,9 +44,14 @@ export default function BirFormsPage() {
         eyebrow="Firm admin"
         description="Generate and file BIR tax forms from your bookkeeping data."
         actions={
-          <Button size="sm" onClick={() => navigate("/bir-forms/new")}>
-            New 2551Q
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/bir-forms/new?form=2550Q")}>
+              New 2550Q
+            </Button>
+            <Button size="sm" onClick={() => navigate("/bir-forms/new?form=2551Q")}>
+              New 2551Q
+            </Button>
+          </div>
         }
       />
 
@@ -164,23 +169,52 @@ export default function BirFormsPage() {
             )}
             {catalog.data && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {catalog.data.map((f) => (
-                  <div key={f.code} className="rounded-card border border-line p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[13px] font-semibold text-navy">{f.code}</span>
-                      <Chip variant={f.status === "available" ? "success" : "neutral"}>
-                        {f.status === "available" ? "Available" : "Planned"}
-                      </Chip>
+                {catalog.data.map((f) => {
+                  const available = f.status === "available";
+                  return (
+                    <div
+                      key={f.code}
+                      role={available ? "button" : undefined}
+                      tabIndex={available ? 0 : undefined}
+                      onClick={available ? () => navigate(`/bir-forms/new?form=${f.code}`) : undefined}
+                      onKeyDown={
+                        available
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                navigate(`/bir-forms/new?form=${f.code}`);
+                              }
+                            }
+                          : undefined
+                      }
+                      className={cn(
+                        "rounded-card border border-line p-4 transition-colors",
+                        available
+                          ? "cursor-pointer hover:border-navy/40 hover:bg-rowhover"
+                          : "opacity-80",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[13px] font-semibold text-navy">{f.code}</span>
+                        <Chip variant={available ? "success" : "neutral"}>
+                          {available ? "Available" : "Planned"}
+                        </Chip>
+                      </div>
+                      <div className="mt-1 font-serif text-[14px] font-medium text-content">
+                        {f.title}
+                      </div>
+                      <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[.1em] text-content-secondary">
+                        {f.category} · {f.frequency}
+                      </div>
+                      <p className="mt-2 text-[12.5px] text-content-secondary">{f.description}</p>
+                      {available ? (
+                        <div className="mt-2 font-mono text-[10.5px] uppercase tracking-[.1em] text-navy">
+                          Start new →
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="mt-1 font-serif text-[14px] font-medium text-content">
-                      {f.title}
-                    </div>
-                    <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[.1em] text-content-secondary">
-                      {f.category} · {f.frequency}
-                    </div>
-                    <p className="mt-2 text-[12.5px] text-content-secondary">{f.description}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

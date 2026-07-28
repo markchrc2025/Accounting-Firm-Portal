@@ -8,16 +8,21 @@ import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
 import {
+  build2550Q,
   build2551Q,
+  compute2550Q,
   compute2551Q,
+  fileName2550Q,
   fileName2551Q,
+  type Filing,
   type FilingData,
   type FormCode,
+  type Taxpayer,
 } from "./engine";
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
 /** Forms whose compute + XML have been ported and are usable end-to-end. */
-export const AVAILABLE_FORMS = new Set(["2551Q"]);
+export const AVAILABLE_FORMS = new Set(["2551Q", "2550Q"]);
 
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
@@ -166,9 +171,7 @@ export class BirFormsService {
       createdAt: 0,
       updatedAt: 0,
     };
-    const comp = compute2551Q(data);
-    const xml = build2551Q(filing, taxpayer, comp);
-    const filename = fileName2551Q(filing, taxpayer);
+    const { xml, filename } = this.buildXml(filing, taxpayer);
 
     const key = this.storage.birFormExportKey(user.firmId, f.id, filename);
     await this.storage.putObject(key, new TextEncoder().encode(xml), "application/xml");
@@ -208,10 +211,25 @@ export class BirFormsService {
     }
   }
 
-  /** Dispatch to the ported compute engine (2551Q today). */
+  /** Dispatch to the ported compute engine (2551Q + 2550Q). */
   private compute(form: string, data: FilingData) {
     if (form === "2551Q") return compute2551Q(data);
+    if (form === "2550Q") return compute2550Q(data);
     throw new BadRequestException(`Form ${form} is not available yet.`);
+  }
+
+  /** Build the eBIRForms XML + canonical filename for a saved form. */
+  private buildXml(filing: Filing, taxpayer: Taxpayer): { xml: string; filename: string } {
+    const data = filing.data ?? {};
+    if (filing.form === "2551Q") {
+      const comp = compute2551Q(data);
+      return { xml: build2551Q(filing, taxpayer, comp), filename: fileName2551Q(filing, taxpayer) };
+    }
+    if (filing.form === "2550Q") {
+      const comp = compute2550Q(data);
+      return { xml: build2550Q(filing, taxpayer, comp), filename: fileName2550Q(filing, taxpayer) };
+    }
+    throw new BadRequestException(`Form ${filing.form} is not available yet.`);
   }
 
   /**
@@ -223,6 +241,11 @@ export class BirFormsService {
     if (form === "2551Q") {
       const c = compute2551Q(data);
       return { totalTaxDue: c.i14, totalPayable: c.i24 };
+    }
+    if (form === "2550Q") {
+      const c = compute2550Q(data);
+      // i34b = total output tax due; i26 = total amount payable.
+      return { totalTaxDue: c.i34b, totalPayable: c.i26 };
     }
     return null;
   }

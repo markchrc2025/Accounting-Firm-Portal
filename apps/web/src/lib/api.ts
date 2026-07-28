@@ -763,6 +763,29 @@ export interface BirForm2551QComputed {
   i23: number;
   i24: number;
 }
+/** Computed 2550Q (Quarterly VAT) figures the editor surfaces (server-computed). */
+export interface BirForm2550QComputed {
+  i31a: number;
+  i31b: number;
+  i34a: number;
+  i34b: number;
+  i37: number;
+  i43: number;
+  i50a: number;
+  i50b: number;
+  i51: number;
+  i57: number;
+  i59: number;
+  i60: number;
+  i61: number;
+  i15: number;
+  i16: number;
+  i17: number;
+  i20: number;
+  i21: number;
+  i25: number;
+  i26: number;
+}
 export interface BirFormExportRef {
   id: string;
   kind: string;
@@ -771,7 +794,7 @@ export interface BirFormExportRef {
 }
 export interface BirFormDetail extends BirFormSummary {
   data: Record<string, unknown>;
-  computed: BirForm2551QComputed | null;
+  computed: BirForm2551QComputed | BirForm2550QComputed | null;
   exports: BirFormExportRef[];
 }
 export function fetchBirForm(id: string): Promise<BirFormDetail> {
@@ -791,10 +814,10 @@ export function updateBirForm(
 ): Promise<BirFormDetail> {
   return apiFetch(`/bir-forms/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 }
-export function computeBirForm(
+export function computeBirForm<T = BirForm2551QComputed>(
   form: string,
   data: Record<string, unknown>,
-): Promise<BirForm2551QComputed> {
+): Promise<T> {
   return apiFetch("/bir-forms/compute", { method: "POST", body: JSON.stringify({ form, data }) });
 }
 export function exportBirForm(

@@ -87,8 +87,19 @@ describe("BirFormsService", () => {
     expect(c.i24).toBe(30000);
   });
 
+  it("computes 2550Q authoritatively (preview)", () => {
+    const c = build().svc.computePreview("2550Q", { i31a: "1000000", i44b: "50000" }) as {
+      i34b: number;
+      i61: number;
+      i26: number;
+    };
+    expect(c.i34b).toBe(120000); // 12% output tax
+    expect(c.i61).toBe(70000); // net VAT payable
+    expect(c.i26).toBe(70000); // total payable
+  });
+
   it("rejects a form that isn't ported yet", () => {
-    expect(() => build().svc.computePreview("2550Q", {})).toThrow(BadRequestException);
+    expect(() => build().svc.computePreview("1701Q", {})).toThrow(BadRequestException);
   });
 
   it("creates a draft only for a same-firm client", async () => {
@@ -101,7 +112,7 @@ describe("BirFormsService", () => {
   it("won't create an unsupported form", async () => {
     const { svc } = build();
     await expect(
-      svc.create(actor, { clientId: "c1", form: "2550Q", period: "", data: {} }),
+      svc.create(actor, { clientId: "c1", form: "1701Q", period: "", data: {} }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -113,6 +124,26 @@ describe("BirFormsService", () => {
     expect(new TextDecoder().decode(body)).toContain("frm2551Qv2018:txt14=");
     expect(contentType).toBe("application/xml");
     expect(res).toEqual(expect.objectContaining({ kind: "xml", url: "https://signed/url" }));
+  });
+
+  it("exports 2550Q XML with the frm2550qv2024 namespace", async () => {
+    const findFirst = jest.fn().mockResolvedValue({
+      id: "bf2",
+      firmId: "f1",
+      clientId: "c1",
+      client: { businessName: "Acme" },
+      form: "2550Q",
+      status: "draft",
+      period: "2026-Q1",
+      dataJson: { i31a: "1000000" },
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+      updatedAt: new Date("2026-07-02T00:00:00Z"),
+      exports: [],
+    });
+    const { svc, storage } = build({ findFirst });
+    await svc.exportForm(actor, "bf2");
+    const [, body] = (storage.putObject as jest.Mock).mock.calls[0];
+    expect(new TextDecoder().decode(body)).toContain("frm2550qv2024:netVatPayable=");
   });
 
   it("won't export when storage is unconfigured", async () => {
