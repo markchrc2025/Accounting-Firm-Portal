@@ -722,14 +722,32 @@ export interface BirFormSummary {
   form: string;
   status: string;
   period: string;
+  filedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
   return apiFetch<BirFormCatalogItem[]>("/bir-forms/catalog");
 }
-export function fetchBirForms(clientId?: string): Promise<BirFormSummary[]> {
-  return apiFetch<BirFormSummary[]>(`/bir-forms${clientId ? `?clientId=${clientId}` : ""}`);
+export function fetchBirForms(opts?: {
+  clientId?: string;
+  status?: "draft" | "filed";
+}): Promise<BirFormSummary[]> {
+  const params = new URLSearchParams();
+  if (opts?.clientId) params.set("clientId", opts.clientId);
+  if (opts?.status) params.set("status", opts.status);
+  const qs = params.toString();
+  return apiFetch<BirFormSummary[]>(`/bir-forms${qs ? `?${qs}` : ""}`);
+}
+
+/** A filed form plus its authoritative key figures (for the client tax view). */
+export interface FiledBirForm extends BirFormSummary {
+  figures: { totalTaxDue: number; totalPayable: number } | null;
+}
+export function fetchFiledBirForms(clientId?: string): Promise<FiledBirForm[]> {
+  return apiFetch<FiledBirForm[]>(
+    `/bir-forms/filed${clientId ? `?clientId=${clientId}` : ""}`,
+  );
 }
 export interface BirForm2551QComputed {
   rows: { due: number }[];

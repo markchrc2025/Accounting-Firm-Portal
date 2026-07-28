@@ -2,8 +2,10 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
+import { Link } from "react-router-dom";
 import {
   fetchClient,
+  fetchFiledBirForms,
   fetchIncomeSummary,
   fetchPurchaseSummary,
 } from "../lib/api";
@@ -80,6 +82,12 @@ export default function TaxPage() {
   const purchaseQ = useQuery({
     queryKey: ["purchase-summary", clientId],
     queryFn: () => fetchPurchaseSummary(clientId),
+    enabled: !!clientId,
+  });
+  // Filed BIR forms supersede the estimate for the periods they cover (guardrail #1).
+  const filedQ = useQuery({
+    queryKey: ["filed-bir-forms", clientId],
+    queryFn: () => fetchFiledBirForms(clientId),
     enabled: !!clientId,
   });
 
@@ -274,6 +282,7 @@ export default function TaxPage() {
 
         {/* RIGHT — business tax + assumptions */}
         <div className="min-w-0 space-y-6">
+          <FiledFormsPanel forms={filedQ.data ?? []} />
           {isVat ? (
             <Card>
               <CardHeader>
@@ -382,6 +391,60 @@ export default function TaxPage() {
 
       {body}
     </div>
+  );
+}
+
+/**
+ * Filed BIR forms for the client, with their authoritative figures. When a form
+ * is filed, its numbers are the *filed* truth for that period and supersede the
+ * management estimate on this page (guardrail #1). Renders nothing when there
+ * are no filed forms yet.
+ */
+function FiledFormsPanel({
+  forms,
+}: {
+  forms: import("../lib/api").FiledBirForm[];
+}) {
+  if (forms.length === 0) return null;
+  return (
+    <Card className="border-success/40">
+      <CardHeader>
+        <CardTitle>Filed BIR forms</CardTitle>
+        <Chip variant="success">AUTHORITATIVE</Chip>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-[12.5px] leading-relaxed text-content-secondary">
+          These figures were filed from the BIR Form Generator and are the
+          authoritative return amounts — they supersede the estimate for the
+          periods they cover.
+        </p>
+        <ul className="divide-y divide-line-divider">
+          {forms.map((f) => (
+            <li key={f.id} className="flex items-center justify-between gap-3 py-2.5">
+              <div className="min-w-0">
+                <Link
+                  to={`/bir-forms/${f.id}`}
+                  className="font-mono text-[13px] font-semibold text-navy hover:underline"
+                >
+                  {f.form}
+                </Link>
+                <span className="ml-2 font-mono text-[11.5px] text-content-secondary">
+                  {f.period || "—"}
+                </span>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-mono text-[14px] font-semibold tabular-nums text-navy">
+                  {peso(f.figures?.totalPayable ?? 0)}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[.12em] text-content-muted">
+                  Payable
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -127,6 +127,16 @@ export default function BirFormEditorPage() {
     onError: (e) => setError(e instanceof ApiError ? e.message : "Could not export the XML."),
   });
 
+  // Filing lifecycle: mark filed (figures flow to the client tax view) / reopen.
+  const setStatus = useMutation({
+    mutationFn: (status: "draft" | "filed") => updateBirForm(id!, { status }),
+    onSuccess: () => {
+      setError(null);
+      void existing.refetch();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Could not update the form status."),
+  });
+
   function updateRow(i: number, patch: Partial<Row>): void {
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
@@ -145,6 +155,8 @@ export default function BirFormEditorPage() {
 
   const clients = clientsQ.data ?? [];
   const c = computed.data;
+  const isFiled = existing.data?.status === "filed";
+  const filedAt = existing.data?.filedAt ?? null;
 
   return (
     <div className="animate-fade-rise">
@@ -370,7 +382,38 @@ export default function BirFormEditorPage() {
                 Save the draft to enable XML export.
               </p>
             )}
+            {!isNew ? (
+              isFiled ? (
+                <Button
+                  variant="ghost"
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate("draft")}
+                >
+                  {setStatus.isPending ? "Reopening…" : "Reopen to draft"}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate("filed")}
+                >
+                  {setStatus.isPending ? "Marking…" : "Mark as filed"}
+                </Button>
+              )
+            ) : null}
           </div>
+
+          {isFiled ? (
+            <div className="rounded-card border border-success/40 bg-success-bg px-3.5 py-2.5 text-[12.5px] text-content">
+              <span className="font-semibold">Filed.</span> These figures are now the{" "}
+              <em>authoritative</em> percentage-tax numbers on this client&apos;s tax view.
+              {filedAt ? (
+                <span className="mt-0.5 block font-mono text-[11px] text-content-secondary">
+                  Filed {new Date(filedAt).toLocaleString()}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
 
           {!isNew && existing.data && existing.data.exports.length > 0 ? (
             <Card>

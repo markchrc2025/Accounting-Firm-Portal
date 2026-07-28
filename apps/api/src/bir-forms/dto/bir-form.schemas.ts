@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-/** `GET /bir-forms?clientId=` — optional firm-scoped client filter. */
+/** `GET /bir-forms?clientId=&status=` — optional firm-scoped client/status filter. */
 export const ListBirFormsQuerySchema = z.object({
   clientId: z.string().uuid().optional(),
+  status: z.enum(["draft", "filed"]).optional(),
 });
 export type ListBirFormsQuery = z.infer<typeof ListBirFormsQuerySchema>;
 
