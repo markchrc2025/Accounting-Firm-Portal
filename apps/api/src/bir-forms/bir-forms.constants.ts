@@ -30,7 +30,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "VAT",
     description: "VAT-registered taxpayers — output/input VAT for the quarter.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "1701Q",
