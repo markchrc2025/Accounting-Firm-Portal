@@ -80,6 +80,16 @@ export class StorageService {
     return `avatars/${userId}`;
   }
 
+  /** Object key for a generated BIR form export: `bir-forms/<firmId>/<id>/<file>`. */
+  birFormExportKey(firmId: string, birFormId: string, filename: string): string {
+    return `bir-forms/${firmId}/${birFormId}/${filename}`;
+  }
+
+  /** Store an arbitrary object (used by the BIR Forms module's exports). */
+  async putObject(key: string, body: Uint8Array, contentType: string): Promise<void> {
+    await this.putCor(key, body, contentType);
+  }
+
   private require(): S3Client {
     if (!this.client) {
       throw new ServiceUnavailableException("COR storage not configured");
