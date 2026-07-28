@@ -192,6 +192,9 @@ export function AppShell() {
                           { to: "/chart-of-accounts", label: "Chart of Accounts", end: true },
                         ]
                       : []),
+                    ...(hasPermission("BIRForms:Read")
+                      ? [{ to: "/bir-forms", label: "BIR Forms", end: true }]
+                      : []),
                     ...(hasPermission("Users:Read") || hasPermission("Clients:Read")
                       ? [{ to: "/settings", label: "Settings", end: false }]
                       : []),
