@@ -629,11 +629,13 @@ model BirForm {
   firmId    String   @db.Uuid
   clientId  String   @db.Uuid
   form      String // e.g. "2551Q"
-  status    String   @default("draft") // "draft" | "filed"
-  period    String   @default("") // "2026" or "2026-Q1"
-  dataJson  Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status    String    @default("draft") // "draft" | "filed"
+  period    String    @default("") // "2026" or "2026-Q1"
+  dataJson  Json      @default("{}")
+  /// Set when the form is marked filed; cleared when reopened to draft.
+  filedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   firm    Firm            @relation(fields: [firmId], references: [id], onDelete: Cascade)
   client  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)

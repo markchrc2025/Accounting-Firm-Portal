@@ -43,7 +43,17 @@ export class BirFormsController {
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(ListBirFormsQuerySchema)) query: ListBirFormsQuery,
   ) {
-    return this.birForms.list(user, query.clientId);
+    return this.birForms.list(user, query.clientId, query.status);
+  }
+
+  /** Filed forms + their authoritative key figures (for the client tax view). */
+  @Get("filed")
+  @RequirePermissions("BIRForms:Read")
+  filed(
+    @CurrentUser() user: AuthUser,
+    @Query(new ZodValidationPipe(ListBirFormsQuerySchema)) query: ListBirFormsQuery,
+  ) {
+    return this.birForms.listFiled(user, query.clientId);
   }
 
   @Post()

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchBirFormCatalog, fetchBirForms } from "../lib/api";
@@ -8,11 +9,19 @@ import {
   CardHeader,
   CardTitle,
   Chip,
+  cn,
   EmptyState,
   ErrorState,
   PageHeader,
   Skeleton,
 } from "../components/ui";
+
+type StatusFilter = "all" | "draft" | "filed";
+const STATUS_TABS: { key: StatusFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "draft", label: "Drafts" },
+  { key: "filed", label: "Filed" },
+];
 
 /**
  * BIR Forms — the internal Generator's home (Phase 0: shell + catalog).
@@ -21,8 +30,12 @@ import {
  */
 export default function BirFormsPage() {
   const navigate = useNavigate();
+  const [status, setStatus] = useState<StatusFilter>("all");
   const catalog = useQuery({ queryKey: ["bir-form-catalog"], queryFn: fetchBirFormCatalog });
-  const forms = useQuery({ queryKey: ["bir-forms", "all"], queryFn: () => fetchBirForms() });
+  const forms = useQuery({
+    queryKey: ["bir-forms", status],
+    queryFn: () => fetchBirForms(status === "all" ? undefined : { status }),
+  });
 
   return (
     <div className="animate-fade-rise">
@@ -47,8 +60,25 @@ export default function BirFormsPage() {
       <div className="space-y-6">
         {/* Saved forms */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
             <CardTitle>Saved forms</CardTitle>
+            <div className="flex items-center gap-1 rounded-full border border-line bg-sidebar p-0.5">
+              {STATUS_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setStatus(t.key)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
+                    status === t.key
+                      ? "bg-navy text-white shadow-sm"
+                      : "text-content-secondary hover:text-content",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {forms.isPending && (
@@ -62,8 +92,18 @@ export default function BirFormsPage() {
             )}
             {forms.data && forms.data.length === 0 && (
               <EmptyState
-                title="No forms yet"
-                description="Once form authoring is enabled, drafts and filed forms will appear here."
+                title={
+                  status === "filed"
+                    ? "No filed forms"
+                    : status === "draft"
+                      ? "No drafts"
+                      : "No forms yet"
+                }
+                description={
+                  status === "filed"
+                    ? "Mark a form filed from its editor and it will appear here."
+                    : "Start a new 2551Q to author, compute, and file a BIR form."
+                }
               />
             )}
             {forms.data && forms.data.length > 0 && (

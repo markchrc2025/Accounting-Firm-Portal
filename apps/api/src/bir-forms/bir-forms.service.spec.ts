@@ -120,4 +120,49 @@ describe("BirFormsService", () => {
     (storage.isEnabled as jest.Mock).mockReturnValue(false);
     await expect(svc.exportForm(actor, "bf1")).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it("lists filed forms with their authoritative key figures", async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: "bf1",
+        firmId: "f1",
+        clientId: "c1",
+        client: { businessName: "Acme" },
+        form: "2551Q",
+        status: "filed",
+        period: "2026-Q1",
+        filedAt: new Date("2026-07-05T00:00:00Z"),
+        dataJson: { rows: [{ atc: "PT010", taxable: "1000000", rate: "3" }] },
+        createdAt: new Date("2026-07-01T00:00:00Z"),
+        updatedAt: new Date("2026-07-02T00:00:00Z"),
+      },
+    ]);
+    const { svc, birForm } = build({ findMany });
+    const rows = (await svc.listFiled(actor, "c1")) as Array<{
+      status: string;
+      filedAt: string | null;
+      figures: { totalTaxDue: number; totalPayable: number } | null;
+    }>;
+    expect(birForm.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: "filed", clientId: "c1" }) }),
+    );
+    expect(rows[0]?.figures).toEqual({ totalTaxDue: 30000, totalPayable: 30000 });
+    expect(rows[0]?.filedAt).toBe("2026-07-05T00:00:00.000Z");
+  });
+
+  it("stamps filedAt when a form is marked filed", async () => {
+    const { svc, birForm } = build();
+    await svc.update(actor, "bf1", { status: "filed" });
+    const data = (birForm.update as jest.Mock).mock.calls[0][0].data;
+    expect(data.status).toBe("filed");
+    expect(data.filedAt).toBeInstanceOf(Date);
+  });
+
+  it("clears filedAt when a form is reopened to draft", async () => {
+    const { svc, birForm } = build();
+    await svc.update(actor, "bf1", { status: "draft" });
+    const data = (birForm.update as jest.Mock).mock.calls[0][0].data;
+    expect(data.status).toBe("draft");
+    expect(data.filedAt).toBeNull();
+  });
 });

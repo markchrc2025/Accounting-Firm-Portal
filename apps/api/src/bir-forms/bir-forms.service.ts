@@ -38,11 +38,12 @@ export class BirFormsService {
     return BIR_FORM_CATALOG;
   }
 
-  /** Saved BIR forms for the actor's firm, optionally narrowed to one client. */
-  async list(user: AuthUser, clientId?: string) {
+  /** Saved BIR forms for the actor's firm, optionally narrowed by client/status. */
+  async list(user: AuthUser, clientId?: string, status?: string) {
     const where: Prisma.BirFormWhereInput = {
       firmId: user.firmId,
       ...(clientId ? { clientId } : {}),
+      ...(status ? { status } : {}),
     };
     const rows = await this.prisma.birForm.findMany({
       where,
@@ -50,6 +51,23 @@ export class BirFormsService {
       include: { client: { select: { businessName: true } } },
     });
     return rows.map((f) => this.toSummary(f));
+  }
+
+  /**
+   * Filed forms for a client, with their authoritative key figures — this is
+   * what the client's tax view surfaces so the *filed* number supersedes the
+   * bookkeeping estimate (guardrail #1).
+   */
+  async listFiled(user: AuthUser, clientId?: string) {
+    const rows = await this.prisma.birForm.findMany({
+      where: { firmId: user.firmId, status: "filed", ...(clientId ? { clientId } : {}) },
+      orderBy: { filedAt: "desc" },
+      include: { client: { select: { businessName: true } } },
+    });
+    return rows.map((f) => ({
+      ...this.toSummary(f),
+      figures: this.keyFigures(f.form, (f.dataJson ?? {}) as unknown as FilingData),
+    }));
   }
 
   async create(user: AuthUser, input: CreateBirFormInput) {
@@ -99,6 +117,13 @@ export class BirFormsService {
       data: {
         ...(input.period !== undefined ? { period: input.period } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
+        // Filing lifecycle: stamp filedAt when a form is marked filed, clear it
+        // when it's reopened to draft. This is what the client tax view keys on.
+        ...(input.status === "filed"
+          ? { filedAt: new Date() }
+          : input.status === "draft"
+            ? { filedAt: null }
+            : {}),
         ...(input.data !== undefined ? { dataJson: input.data as Prisma.InputJsonValue } : {}),
       },
     });
@@ -189,6 +214,19 @@ export class BirFormsService {
     throw new BadRequestException(`Form ${form} is not available yet.`);
   }
 
+  /**
+   * The handful of authoritative figures the client tax view surfaces for a
+   * filed form. Kept deliberately small — the full compute lives in getOne.
+   * Returns null for forms without a ported engine.
+   */
+  private keyFigures(form: string, data: FilingData): { totalTaxDue: number; totalPayable: number } | null {
+    if (form === "2551Q") {
+      const c = compute2551Q(data);
+      return { totalTaxDue: c.i14, totalPayable: c.i24 };
+    }
+    return null;
+  }
+
   private async loadOwned(firmId: string, id: string) {
     const f = await this.prisma.birForm.findFirst({
       where: { id, firmId },
@@ -205,6 +243,7 @@ export class BirFormsService {
     form: string;
     status: string;
     period: string;
+    filedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -215,6 +254,7 @@ export class BirFormsService {
       form: f.form,
       status: f.status,
       period: f.period,
+      filedAt: f.filedAt ? f.filedAt.toISOString() : null,
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
     };
