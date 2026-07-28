@@ -34,6 +34,8 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
   FinancialStatements: ["Manage"], // standalone FS Creator; reads open to all authenticated
 
   Billing: ["Create", "Read", "Send"],
+  // BIR Forms module (internal Generator): draft/compute/export/file BIR forms.
+  BIRForms: ["Read", "Create", "Update", "Delete", "File"],
   EmailTemplates: ["Read", "Configure"],
   Invitations: ["Create", "Read", "Revoke"],
   Reports: ["Read", "Export"],
@@ -123,6 +125,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
         "Expenses",
         "TaxComputation",
         "Billing",
+        "BIRForms",
         "Invitations",
         "Reports",
         "BIRFiling",
@@ -143,6 +146,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       "ChartOfAccounts",
       "FinancialStatements",
       "Billing",
+      "BIRForms",
       "Invitations",
       "Reports",
       "BIRFiling",

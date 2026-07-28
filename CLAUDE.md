@@ -45,9 +45,15 @@ and a machine-to-machine **integration with an external BIR Form Generator**.
 
 ## Guardrails (do NOT violate)
 
-1. **The Portal never computes authoritative BIR tax.** The BIR Form Generator owns that.
-   The Portal's tax computation is a *management estimate*; the *filed* figures come from
-   the Generator's push-back.
+1. **Authoritative BIR tax lives only in the internal BIR Forms module.** The BIR Form
+   Generator (ported from the Sentire BIR Form Generator into `apps/api/src/bir-forms` +
+   its web UI) is the single source of truth for the *filed* figures on a BIR form. The
+   bookkeeping side (`tax-estimate`, `vat-summary`, and the transaction aggregates) is a
+   *management estimate* and must **never override** a figure computed by a generated form.
+   The wall between "estimate" and "authoritative" still stands — it now runs *inside* the
+   Portal. (Historically the Generator was an external service reached over the OAuth2
+   client-credentials contract; those `@portal/shared` shapes are retained as the module's
+   seam so a standalone Generator can still integrate.)
 2. **Tax-classification enums are frozen** and defined once in `packages/shared`
    (`@portal/shared`): `VatClass`, `InputVATCategory`, `InputTaxAttribution`. Import them;
    never retype them.

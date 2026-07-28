@@ -6,6 +6,7 @@ import AuditPage from "./pages/AuditPage";
 import SettingsPage from "./pages/SettingsPage";
 import SsoCallbackPage from "./pages/SsoCallbackPage";
 import BillingPage from "./pages/BillingPage";
+import BirFormsPage from "./pages/BirFormsPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
 import FinancialStatementsPage from "./pages/FinancialStatementsPage";
@@ -89,6 +90,7 @@ export default function App() {
         <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
         {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
         <Route path="/billing" element={<BillingPage />} />
+        <Route path="/bir-forms" element={<BirFormsPage />} />
         <Route
           path="/clients/:clientId/billing"
           element={<Navigate to="/billing" replace />}

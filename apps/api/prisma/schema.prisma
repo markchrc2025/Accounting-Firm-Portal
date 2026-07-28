@@ -87,6 +87,7 @@ model Firm {
   services           Service[]
   invoices           Invoice[]
   invitations        Invitation[]
+  birForms           BirForm[]
 
   @@map("firms")
 }
@@ -166,6 +167,7 @@ model Client {
   incomeTransactions   IncomeTransaction[]
   purchaseTransactions PurchaseTransaction[]
   birFilings           BIRFiling[]
+  birForms             BirForm[]
   inputTaxAssets       InputTaxAsset[]
   taxRule              TaxRule?
   invoices             Invoice[]
@@ -616,6 +618,45 @@ model BIRFiling {
   @@unique([clientId, form, periodStart, periodEnd])
   @@index([clientId])
   @@map("bir_filings")
+}
+
+/// A working BIR form authored inside the portal's internal BIR Forms module
+/// (ported from the Sentire BIR Form Generator's `filings` table). This is the
+/// authoring/draft record — distinct from `BIRFiling`, which stores the
+/// finalized, exported artifact. `dataJson` holds the raw field values.
+model BirForm {
+  id        String   @id @default(uuid()) @db.Uuid
+  firmId    String   @db.Uuid
+  clientId  String   @db.Uuid
+  form      String // e.g. "2551Q"
+  status    String   @default("draft") // "draft" | "filed"
+  period    String   @default("") // "2026" or "2026-Q1"
+  dataJson  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  firm    Firm            @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  client  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  exports BirFormExport[]
+
+  @@index([firmId])
+  @@index([clientId])
+  @@map("bir_forms")
+}
+
+/// A generated artifact (PDF or BIR XML) for a BirForm, stored in object storage.
+model BirFormExport {
+  id         String   @id @default(uuid()) @db.Uuid
+  birFormId  String   @db.Uuid
+  kind       String // "pdf" | "xml"
+  storageKey String // S3 object key
+  filename   String
+  createdAt  DateTime @default(now())
+
+  birForm BirForm @relation(fields: [birFormId], references: [id], onDelete: Cascade)
+
+  @@index([birFormId])
+  @@map("bir_form_exports")
 }
 
 /// The carried-forward creditable input VAT the Generator books back as an asset.

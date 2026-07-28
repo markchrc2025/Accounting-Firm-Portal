@@ -706,6 +706,32 @@ export function deleteRole(id: string): Promise<{ deleted: true }> {
   return apiFetch(`/roles/${id}`, { method: "DELETE" });
 }
 
+// --- BIR Forms (internal Generator) ---------------------------------------------
+export interface BirFormCatalogItem {
+  code: string;
+  title: string;
+  frequency: string;
+  category: string;
+  description: string;
+  status: "available" | "planned";
+}
+export interface BirFormSummary {
+  id: string;
+  clientId: string;
+  clientName: string;
+  form: string;
+  status: string;
+  period: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
+  return apiFetch<BirFormCatalogItem[]>("/bir-forms/catalog");
+}
+export function fetchBirForms(clientId?: string): Promise<BirFormSummary[]> {
+  return apiFetch<BirFormSummary[]>(`/bir-forms${clientId ? `?clientId=${clientId}` : ""}`);
+}
+
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------
 export type SsoProvider = "google" | "microsoft";
 export interface SsoProviders {
