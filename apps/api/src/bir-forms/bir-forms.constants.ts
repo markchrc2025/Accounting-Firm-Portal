@@ -22,7 +22,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "Percentage Tax",
     description: "Non-VAT taxpayers — percentage tax on gross receipts/sales.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "2550Q",

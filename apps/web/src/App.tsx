@@ -7,6 +7,7 @@ import SettingsPage from "./pages/SettingsPage";
 import SsoCallbackPage from "./pages/SsoCallbackPage";
 import BillingPage from "./pages/BillingPage";
 import BirFormsPage from "./pages/BirFormsPage";
+import BirFormEditorPage from "./pages/BirFormEditorPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
 import FinancialStatementsPage from "./pages/FinancialStatementsPage";
@@ -91,6 +92,8 @@ export default function App() {
         {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/bir-forms" element={<BirFormsPage />} />
+        <Route path="/bir-forms/new" element={<BirFormEditorPage />} />
+        <Route path="/bir-forms/:id" element={<BirFormEditorPage />} />
         <Route
           path="/clients/:clientId/billing"
           element={<Navigate to="/billing" replace />}

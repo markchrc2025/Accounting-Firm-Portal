@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchBirFormCatalog, fetchBirForms } from "../lib/api";
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -18,6 +20,7 @@ import {
  * supported forms and any saved drafts for the firm.
  */
 export default function BirFormsPage() {
+  const navigate = useNavigate();
   const catalog = useQuery({ queryKey: ["bir-form-catalog"], queryFn: fetchBirFormCatalog });
   const forms = useQuery({ queryKey: ["bir-forms", "all"], queryFn: () => fetchBirForms() });
 
@@ -27,6 +30,11 @@ export default function BirFormsPage() {
         title="BIR Forms"
         eyebrow="Firm admin"
         description="Generate and file BIR tax forms from your bookkeeping data."
+        actions={
+          <Button size="sm" onClick={() => navigate("/bir-forms/new")}>
+            New 2551Q
+          </Button>
+        }
       />
 
       <div className="mb-6 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
@@ -71,8 +79,16 @@ export default function BirFormsPage() {
                   </thead>
                   <tbody className="divide-y divide-line-divider">
                     {forms.data.map((f) => (
-                      <tr key={f.id} className="text-[13px]">
-                        <td className="px-6 py-3 font-mono font-semibold text-navy">{f.form}</td>
+                      <tr
+                        key={f.id}
+                        className="cursor-pointer text-[13px] transition-colors hover:bg-rowhover"
+                        onClick={() => navigate(`/bir-forms/${f.id}`)}
+                      >
+                        <td className="px-6 py-3 font-mono font-semibold text-navy">
+                          <Link to={`/bir-forms/${f.id}`} onClick={(e) => e.stopPropagation()}>
+                            {f.form}
+                          </Link>
+                        </td>
                         <td className="px-6 py-3 text-content">{f.clientName || "—"}</td>
                         <td className="px-6 py-3 font-mono text-[12px] text-content-secondary">
                           {f.period || "—"}

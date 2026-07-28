@@ -731,6 +731,59 @@ export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
 export function fetchBirForms(clientId?: string): Promise<BirFormSummary[]> {
   return apiFetch<BirFormSummary[]>(`/bir-forms${clientId ? `?clientId=${clientId}` : ""}`);
 }
+export interface BirForm2551QComputed {
+  rows: { due: number }[];
+  i14: number;
+  i15: number;
+  i16: number;
+  i17: number;
+  i18: number;
+  i19: number;
+  i20: number;
+  i21: number;
+  i22: number;
+  i23: number;
+  i24: number;
+}
+export interface BirFormExportRef {
+  id: string;
+  kind: string;
+  filename: string;
+  createdAt: string;
+}
+export interface BirFormDetail extends BirFormSummary {
+  data: Record<string, unknown>;
+  computed: BirForm2551QComputed | null;
+  exports: BirFormExportRef[];
+}
+export function fetchBirForm(id: string): Promise<BirFormDetail> {
+  return apiFetch<BirFormDetail>(`/bir-forms/${id}`);
+}
+export function createBirForm(body: {
+  clientId: string;
+  form: string;
+  period: string;
+  data: Record<string, unknown>;
+}): Promise<BirFormDetail> {
+  return apiFetch("/bir-forms", { method: "POST", body: JSON.stringify(body) });
+}
+export function updateBirForm(
+  id: string,
+  body: { period?: string; status?: "draft" | "filed"; data?: Record<string, unknown> },
+): Promise<BirFormDetail> {
+  return apiFetch(`/bir-forms/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function computeBirForm(
+  form: string,
+  data: Record<string, unknown>,
+): Promise<BirForm2551QComputed> {
+  return apiFetch("/bir-forms/compute", { method: "POST", body: JSON.stringify({ form, data }) });
+}
+export function exportBirForm(
+  id: string,
+): Promise<{ id: string; kind: string; filename: string; url: string }> {
+  return apiFetch(`/bir-forms/${id}/export`, { method: "POST" });
+}
 
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------
 export type SsoProvider = "google" | "microsoft";
