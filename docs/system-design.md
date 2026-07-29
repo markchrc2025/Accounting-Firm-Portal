@@ -1,6 +1,6 @@
 ---
 title: "Accounting Firm Portal — System Design Document"
-subtitle: "Multi-tenant client, financial & tax platform with BIR Form Generator integration"
+subtitle: "Multi-tenant client, financial & tax platform with a built-in BIR Form Generator"
 version: "2.0"
 date: "July 6, 2026"
 status: "Draft for Review"
@@ -10,9 +10,15 @@ status: "Draft for Review"
 
 **Version 2.0 · July 6, 2026 · Draft for Review**
 
-> **What changed in v2.** This edition folds the **BIR Form Generator integration** into the core design
-> (context, requirements, actors, RBAC, use cases, domain model, activity flows, import templates, and a
-> dedicated integration section) and adds a full **Technology Stack** (§5).
+> **What changed in v2.** This edition folds the **BIR Form Generator** into the core design (context,
+> requirements, actors, RBAC, use cases, domain model, activity flows, import templates, and a dedicated
+> integration section) and adds a full **Technology Stack** (§5).
+>
+> **What changed in v2.1.** The Generator is no longer an external system — it was **built into the Portal**
+> (§1.4). Sections describing it as a separate service were revised, and §11 is now explicitly a *retained
+> contract* for a possible standalone **Sentire Tax** rather than a live dependency. The stack section was
+> corrected to as-deployed reality: Docker on **Sliplane**, self-hosted **Postal** email, and shipped
+> **Google / Microsoft OIDC SSO**.
 
 ---
 
@@ -47,19 +53,19 @@ The platform combines five capabilities in one system:
 - **Role-Based Access Control (RBAC)** — configurable roles for both firm staff and client staff.
 - **Communications** — send billing/invoices and portal invitations by email from inside the app.
 - **Financial processing** — import/export (CSV & XLSX), manual entry, and a configurable tax-computation engine.
-- **BIR Form Generator integration** — classify transactions for Philippine tax at capture, serve
-  aggregated figures to the **BIR Form Generator**, and record the finished BIR filings it pushes back.
+- **BIR Forms** — classify transactions for Philippine tax at capture, then author, compute and export
+  the official BIR forms (eBIRForms XML) in the built-in **BIR Form Generator** module.
 
 ### 1.2 Scope
 
 **In scope:** client profiles and per-client data isolation; firm and client users with RBAC; sales/income
 and expense records (manual + CSV/XLSX import/export); email (billing + invitations); a configurable tax
-framework; the Client Portal; and the **BIR Form Generator integration** — capture-time tax classification,
-aggregation endpoints, and receipt of pushed-back filings and the Input Tax Asset.
+framework; the Client Portal; and the **BIR Forms module** — capture-time tax classification, authoritative
+per-form computation, **eBIRForms XML export**, and the filing lifecycle that publishes filed figures onto
+the client's tax view.
 
-**Out of scope:** producing BIR form layouts / eBIRForms XML and doing the authoritative BIR tax math
-(**owned by the BIR Form Generator**); direct e-filing to the BIR; payment processing; and a full
-double-entry general ledger.
+**Out of scope:** direct e-filing to the BIR (the XML is uploaded through eBIRForms); payment processing;
+and a full double-entry general ledger.
 
 ### 1.3 Key Concepts & Tenancy Model
 
@@ -70,23 +76,27 @@ double-entry general ledger.
 | **Client** | A business/organization served by the firm. Each client is an isolated data tenant. |
 | **Client User** | A member of a client's staff who accesses the Client Portal (minimum **3 seats** per client). |
 | **Financial Record** | A sales/income or expense transaction belonging to exactly one client, **classified for tax at capture**. |
-| **BIR Form Generator** | An external, complementary system that produces official BIR forms and eBIRForms XML from data pulled out of this Portal. |
+| **BIR Form Generator** | A **module of this Portal** (`apps/api/src/bir-forms` + its Firm Admin UI) that produces official BIR forms and eBIRForms XML from the Portal's own classified transactions. |
 
-### 1.4 How the Portal Relates to the BIR Form Generator
+### 1.4 The BIR Form Generator Module
 
-The two systems are complementary and must not duplicate authority:
+The Generator is **built into the Portal** — Firm Admin → **BIR Forms**. There is no second system to
+deploy, no cross-service call, and no credential exchange in normal operation. Authority is still split,
+but the line now runs *inside* the app:
 
-- The **Portal** is the **system of record** for clients and their **per-transaction** data. It classifies
-  each transaction for tax at capture and exposes **aggregation endpoints** that roll transactions into the
-  shapes BIR forms need.
-- The **BIR Form Generator** is the **specialist producer** of BIR forms. It owns taxpayer registration
-  (tax types, percentage-tax ATC & rate from the COR), period carry-overs, form rules, and the eBIRForms
-  XML/PDF. It **pulls** figures from the Portal to pre-fill a filing and **pushes** the finished filing —
-  plus an **Input Tax Asset** figure — back.
+- The **bookkeeping side** is the system of record for clients and their **per-transaction** data. It
+  classifies each transaction for tax at capture and rolls those transactions up into the shapes BIR forms
+  need. Its tax page (§10) is a **management estimate**.
+- The **BIR Forms module** is the **authoritative producer** of a filing. It owns the form rules, the BIR
+  math (TRAIN tables, 8%, MCIT, OSD, NOLCO, VAT/percentage), the period carry-overs, and the eBIRForms
+  XML. A form marked **filed** publishes its figures back to the client's tax view.
 
-A single rule prevents conflict: **the Portal *summarizes*, the Generator *computes the filing*.** The
-Portal's tax framework (§10) is a management estimate; the **filed** numbers shown on a client come from the
-Generator's push-back (§11).
+A single rule prevents conflict: **the bookkeeping side *summarizes*, the BIR Forms module *computes the
+filing*.** An estimate never overrides a figure computed by a generated form.
+
+> **Scope note.** This Portal is built for the firm's **own use**. A standalone product — *Sentire Tax* —
+> may be built later; if it is, it integrates over the **retained OAuth2 contract** in §11, which is kept
+> precisely as that seam. Nothing in §11 is required for the Portal to file forms today.
 
 ### 1.5 High-Level System Context
 
@@ -104,6 +114,7 @@ flowchart TB
         IMP["Import / Export Engine"]
         AGG["Aggregation Service<br/>(tax-classified roll-ups)"]
         TAX["Tax Computation Engine<br/>(management estimate)"]
+        BIRGEN["BIR Forms Module<br/>(authoritative compute + eBIRForms XML)"]
         NOTE["Notification / Email Service"]
         WORK["Background Workers<br/>(async imports, email)"]
     end
@@ -115,8 +126,8 @@ flowchart TB
     end
 
     subgraph External["External Systems"]
-        MAIL["Email Provider<br/>(SES / SendGrid)"]
-        BIRGEN["BIR Form Generator<br/>(via portal-sync connector)"]
+        MAIL["Email Provider<br/>(Postal)"]
+        IDP["Google / Microsoft<br/>OIDC SSO"]
     end
 
     FU --> WEB
@@ -135,7 +146,10 @@ flowchart TB
     WORK --> DB
     IMP --> OBJ
     NOTE --> MAIL
-    BIRGEN -->|"OAuth2 bearer<br/>import + push-back"| API
+    AUTH --> IDP
+    API --> BIRGEN
+    BIRGEN --> AGG
+    BIRGEN --> OBJ
     API --> OBJ
 ```
 
@@ -153,6 +167,7 @@ how well it must do it.
 | ID | Requirement |
 |---|---|
 | FR-01 | The system shall authenticate users via email + password, with support for Multi-Factor Authentication (MFA). |
+| FR-01a | The system shall support **Google and Microsoft OIDC SSO** as an alternative sign-in for *existing* accounts, matched by verified email. SSO shall not self-provision new users. |
 | FR-02 | The system shall implement Role-Based Access Control (RBAC) with configurable roles and granular permissions. |
 | FR-03 | Firm administrators shall be able to create, update, deactivate, and delete portal users. |
 | FR-04 | The system shall support inviting users by email with a secure, single-use, expiring activation link. |
@@ -264,12 +279,12 @@ how well it must do it.
 
 | Actor | Role in the System |
 |---|---|
-| **BIR Form Generator** | External REST/JSON client that **pulls** classified aggregates and **pushes back** finished BIR filings + the Input Tax Asset (via its `portal-sync` connector, authenticated with OAuth2). |
-| **Email Provider** | Delivers billing and invitation emails (SES / SendGrid / Postmark). |
+| **BIR Forms Module** | Internal service that authors a form, computes its authoritative figures, exports the eBIRForms XML, and publishes filed figures onto the client's tax view. |
+| **Email Provider** | Delivers billing and invitation emails (self-hosted **Postal**). |
 | **Import / Export Engine** | Parses & validates CSV/XLSX on import; generates export files. |
 | **Aggregation Service** | Rolls classified transactions into VAT / percentage-tax / income-tax summary shapes. |
 | **Tax Computation Engine** | Produces the Portal's management estimate. |
-| **Identity Provider** | Authenticates users (email + password, MFA); optional SSO. |
+| **Identity Provider** | Authenticates users (email + password, TOTP MFA). **Google / Microsoft OIDC SSO** signs in existing accounts, matched by email. |
 | **Object Storage** | Stores uploaded files, generated exports, and BIR XML/PDF artifacts. |
 | **Background Workers / Scheduler** | Run async imports, send email, and refresh cached aggregates. |
 
@@ -379,7 +394,7 @@ see `docs/DEPLOY-SLIPLANE.md`.
 | **Object storage** | S3-compatible (any provider; configured via `S3_ENDPOINT`/`S3_BUCKET`) | Uploaded files, exports, and BIR XML/PDF artifacts. |
 | **Auth (users)** | Email + password with **argon2**, JWT sessions, **TOTP MFA** | Built in. Google / Microsoft **OIDC SSO** signs in existing accounts (matched by email). |
 | **Auth (integration)** | **OAuth2 client-credentials** server (scoped tokens) | Dedicated token endpoint for the BIR Generator connector. |
-| **Email** | Provider (SES / SendGrid / Postmark) + **MJML** templates + Handlebars | Responsive billing/invitation emails; delivery-status logging. |
+| **Email** | Self-hosted **Postal** (provider-agnostic sender, selected by `MAIL_PROVIDER`) | Responsive billing/invitation emails; delivery-status logging. |
 | **Validation (shared)** | Zod schemas in a shared TS package | One source of truth for enums/fields across frontend + backend. |
 | **Observability** | Pino (structured logs), Sentry (errors), OpenTelemetry → Grafana/Datadog | Traceability and alerting. |
 | **Testing** | Vitest/Jest (unit), Supertest (API), Playwright (E2E) | Aligns with the BIR Generator's Vitest suite. |
@@ -416,8 +431,8 @@ flowchart TB
     end
 
     subgraph Ext["External"]
-        MAILP["Email Provider (SES/SendGrid)"]
-        BIRG["BIR Form Generator<br/>portal-sync connector"]
+        MAILP["Email Provider (Postal)"]
+        IDP["Google / Microsoft OIDC SSO"]
         OTEL["Sentry / OTel backend"]
     end
 
@@ -432,7 +447,7 @@ flowchart TB
     BULL --> PG
     BULL --> RD
     BULL --> MAILP
-    BIRG -->|OAuth2 bearer| APIGW
+    NEST --> IDP
     NEST -.-> OTEL
     BULL -.-> OTEL
 ```
@@ -1076,10 +1091,16 @@ Taxable income = 500,000 − 200,000 = **₱300,000** → Bracket 2 → tax = (3
 
 ---
 
-## 11. BIR Form Generator Integration
+## 11. BIR Form Generator Integration Contract
 
-This section details the connection between the Portal and the external **BIR Form Generator**. It implements
-the Generator's §7 build contract from the Portal side.
+> **Status — retained seam, not a live dependency.** The Generator ships **inside** this Portal (§1.4), so
+> nothing below runs in normal operation: the Portal authors, computes and exports BIR forms by itself.
+> This section is kept because it is a stable, tested contract — the OAuth2 client-credentials endpoint,
+> the scoped aggregation reads and the idempotent write receivers all exist and are covered by tests. If a
+> **standalone Sentire Tax** is built later, it integrates here without redesign.
+
+The responsibility split below describes that contract. Inside the Portal today the same split holds, with
+the *bookkeeping side* playing "Portal" and the *BIR Forms module* playing "Generator".
 
 ### 11.1 Responsibility Split
 
