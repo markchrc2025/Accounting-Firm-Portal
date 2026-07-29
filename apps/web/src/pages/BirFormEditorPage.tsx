@@ -7,6 +7,8 @@ import BirForm2550QEditor from "./BirForm2550QEditor";
 import BirForm1701QEditor from "./BirForm1701QEditor";
 import BirForm1701AEditor from "./BirForm1701AEditor";
 import BirForm1701Editor from "./BirForm1701Editor";
+import BirForm1702QEditor from "./BirForm1702QEditor";
+import BirForm1702RTEditor from "./BirForm1702RTEditor";
 
 /**
  * BIR form editor router. New forms take their code from `?form=` (default
@@ -43,5 +45,7 @@ export default function BirFormEditorPage() {
   if (form === "1701Q") return <BirForm1701QEditor />;
   if (form === "1701A") return <BirForm1701AEditor />;
   if (form === "1701") return <BirForm1701Editor />;
+  if (form === "1702Q") return <BirForm1702QEditor />;
+  if (form === "1702RT") return <BirForm1702RTEditor />;
   return <BirForm2551QEditor />;
 }

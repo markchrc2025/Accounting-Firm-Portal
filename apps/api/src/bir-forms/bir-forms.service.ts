@@ -11,16 +11,22 @@ import {
   build1701,
   build1701A,
   build1701Q,
+  build1702Q,
+  build1702RT,
   build2550Q,
   build2551Q,
   compute1701,
   compute1701A,
   compute1701Q,
+  compute1702Q,
+  compute1702RT,
   compute2550Q,
   compute2551Q,
   fileName1701,
   fileName1701A,
   fileName1701Q,
+  fileName1702Q,
+  fileName1702RT,
   fileName2550Q,
   fileName2551Q,
   type Filing,
@@ -31,7 +37,15 @@ import {
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
 /** Forms whose compute + XML have been ported and are usable end-to-end. */
-export const AVAILABLE_FORMS = new Set(["2551Q", "2550Q", "1701Q", "1701A", "1701"]);
+export const AVAILABLE_FORMS = new Set([
+  "2551Q",
+  "2550Q",
+  "1701Q",
+  "1701A",
+  "1701",
+  "1702Q",
+  "1702RT",
+]);
 
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
@@ -227,6 +241,8 @@ export class BirFormsService {
     if (form === "1701Q") return compute1701Q(data);
     if (form === "1701A") return compute1701A(data);
     if (form === "1701") return compute1701(data);
+    if (form === "1702Q") return compute1702Q(data);
+    if (form === "1702RT") return compute1702RT(data);
     throw new BadRequestException(`Form ${form} is not available yet.`);
   }
 
@@ -252,6 +268,14 @@ export class BirFormsService {
     if (filing.form === "1701") {
       const comp = compute1701(data);
       return { xml: build1701(filing, taxpayer, comp), filename: fileName1701(filing, taxpayer) };
+    }
+    if (filing.form === "1702Q") {
+      const comp = compute1702Q(data);
+      return { xml: build1702Q(filing, taxpayer, comp), filename: fileName1702Q(filing, taxpayer) };
+    }
+    if (filing.form === "1702RT") {
+      const comp = compute1702RT(data);
+      return { xml: build1702RT(filing, taxpayer, comp), filename: fileName1702RT(filing, taxpayer) };
     }
     throw new BadRequestException(`Form ${filing.form} is not available yet.`);
   }
@@ -284,6 +308,16 @@ export class BirFormsService {
     if (form === "1701") {
       const c = compute1701(data);
       return { totalTaxDue: c.A.taxDue + c.B.taxDue, totalPayable: c.aggregate };
+    }
+    if (form === "1702Q") {
+      const c = compute1702Q(data);
+      // i18 = aggregate income tax due; i25 = total amount payable.
+      return { totalTaxDue: c.i18, totalPayable: c.i25 };
+    }
+    if (form === "1702RT") {
+      const c = compute1702RT(data);
+      // i43 = tax due (higher of normal vs MCIT); i21 = total amount payable.
+      return { totalTaxDue: c.i43, totalPayable: c.i21 };
     }
     return null;
   }

@@ -62,7 +62,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "Income Tax",
     description: "Corporations / partnerships — quarterly income tax.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "1702RT",
@@ -70,7 +70,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Income Tax",
     description: "Corporations subject to the regular income-tax rate.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "2307",

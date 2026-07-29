@@ -15,4 +15,8 @@ export { compute1701A, type Comp1701A, type Side1701A } from "./compute1701A";
 export { build1701A, fileName1701A } from "./build1701A";
 export { compute1701, type Comp1701, type Side1701 } from "./compute1701";
 export { build1701, fileName1701 } from "./build1701";
+export { compute1702Q, type Comp1702Q } from "./compute1702Q";
+export { build1702Q, fileName1702Q } from "./build1702Q";
+export { compute1702RT, type Comp1702RT } from "./compute1702RT";
+export { build1702RT, fileName1702RT } from "./build1702RT";
 export { graduatedTax } from "./taxTables";
