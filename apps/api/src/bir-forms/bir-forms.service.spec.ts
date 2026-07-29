@@ -108,6 +108,27 @@ describe("BirFormsService", () => {
     expect(c.aggregate).toBe(20000);
   });
 
+  it("computes the annual individual returns (1701A + 1701)", () => {
+    const { svc } = build();
+    const a = svc.computePreview("1701A", {
+      taxRate: "graduated",
+      year: "2024",
+      i36A: "1000000",
+    }) as { A: { taxDue: number }; i30: number };
+    expect(a.A.taxDue).toBe(62500); // ₱1M less 40% OSD → ₱600k graduated
+    expect(a.i30).toBe(62500);
+
+    const full = svc.computePreview("1701", {
+      year: "2024",
+      compA: "500000",
+      salesA: "1000000",
+      methodA: "osd",
+      rateA: "graduated",
+    }) as { A: { taxDue: number }; aggregate: number };
+    expect(full.A.taxDue).toBe(177500); // graduated on comp + net business
+    expect(full.aggregate).toBe(177500);
+  });
+
   it("rejects a form that isn't ported yet", () => {
     expect(() => build().svc.computePreview("1702Q", {})).toThrow(BadRequestException);
   });

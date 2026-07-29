@@ -20,6 +20,27 @@ export function amt(n: unknown): string {
 /** Radio/checkbox boolean → "true"/"false". */
 export const rb = (cond: boolean): string => (cond ? "true" : "false");
 
+/** ISO birthdate (yyyy-mm-dd) → the eBIRForms "mm/dd/yyyy" form. */
+export function dob(iso?: string): string {
+  if (!iso) return "";
+  const p = String(iso).split("-");
+  if (p.length === 3) return p[1] + "/" + p[2] + "/" + p[0];
+  return iso;
+}
+
+/**
+ * Split a stored year into the month/year the annual forms print. Accepts a
+ * plain year ("2025" → 12/2025) or an explicit "mm/yyyy" fiscal end.
+ */
+export function parseYear(y: unknown): { mm: string; yyyy: string } {
+  const s = String(y || "");
+  if (s.includes("/")) {
+    const [m, yr] = s.split("/");
+    return { mm: (m || "12").padStart(2, "0"), yyyy: yr || "" };
+  }
+  return { mm: "12", yyyy: s.slice(0, 4) };
+}
+
 export interface TinParts {
   t1: string;
   t2: string;

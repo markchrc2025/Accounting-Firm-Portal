@@ -807,6 +807,61 @@ export interface BirForm1701QComputed {
   B: BirForm1701QSide;
   aggregate: number;
 }
+/** One column (filer or spouse) of the computed 1701A figures (item-numbered). */
+export interface BirForm1701ASide {
+  i38: number;
+  i39: number;
+  i40: number;
+  i44: number;
+  i45: number;
+  i46: number;
+  i49: number;
+  i53: number;
+  i54: number;
+  i55: number;
+  i56: number;
+  taxDue: number;
+  i64: number;
+  i65: number;
+  i22: number;
+  i28: number;
+  i29: number;
+}
+/** Computed 1701A (Annual ITR, 8%/OSD) figures — A = filer, B = spouse. */
+export interface BirForm1701AComputed {
+  A: BirForm1701ASide;
+  B: BirForm1701ASide;
+  /** Item 30 — aggregate amount payable. */
+  i30: number;
+}
+
+/** One column (filer or spouse) of the computed 1701 figures. */
+export interface BirForm1701Side {
+  comp: number;
+  netSales: number;
+  gross: number;
+  deductions: number;
+  netBiz: number;
+  netBizTotal: number;
+  taxable8: number;
+  tax8biz: number;
+  taxableTotal: number;
+  taxDueRegular: number;
+  taxDue: number;
+  credits: number;
+  payable: number;
+  installment: number;
+  afterInstall: number;
+  penalties: number;
+  totalPayable: number;
+}
+/** Computed 1701 (Annual ITR, mixed income) figures — A = filer, B = spouse. */
+export interface BirForm1701Computed {
+  A: BirForm1701Side;
+  B: BirForm1701Side;
+  aggregate: number;
+}
+
 export interface BirFormExportRef {
   id: string;
   kind: string;
@@ -815,7 +870,13 @@ export interface BirFormExportRef {
 }
 export interface BirFormDetail extends BirFormSummary {
   data: Record<string, unknown>;
-  computed: BirForm2551QComputed | BirForm2550QComputed | BirForm1701QComputed | null;
+  computed:
+    | BirForm2551QComputed
+    | BirForm2550QComputed
+    | BirForm1701QComputed
+    | BirForm1701AComputed
+    | BirForm1701Computed
+    | null;
   exports: BirFormExportRef[];
 }
 export function fetchBirForm(id: string): Promise<BirFormDetail> {

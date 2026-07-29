@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchBirFormCatalog, fetchBirForms } from "../lib/api";
 import {
-  Button,
   Card,
   CardContent,
   CardHeader,
@@ -44,17 +43,24 @@ export default function BirFormsPage() {
         eyebrow="Firm admin"
         description="Generate and file BIR tax forms from your bookkeeping data."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => navigate("/bir-forms/new?form=1701Q")}>
-              New 1701Q
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/bir-forms/new?form=2550Q")}>
-              New 2550Q
-            </Button>
-            <Button size="sm" onClick={() => navigate("/bir-forms/new?form=2551Q")}>
-              New 2551Q
-            </Button>
-          </div>
+          // The available set grows form-by-form, so drive the picker off the
+          // catalog rather than hard-coding a button per form.
+          <select
+            className="input w-[190px] text-[13px]"
+            value=""
+            onChange={(e) => {
+              if (e.target.value) navigate(`/bir-forms/new?form=${e.target.value}`);
+            }}
+          >
+            <option value="">+ New form…</option>
+            {(catalog.data ?? [])
+              .filter((f) => f.status === "available")
+              .map((f) => (
+                <option key={f.code} value={f.code}>
+                  {f.code} — {f.title}
+                </option>
+              ))}
+          </select>
         }
       />
 
