@@ -862,6 +862,63 @@ export interface BirForm1701Computed {
   aggregate: number;
 }
 
+/** Computed 1702Q (Quarterly ITR, corporations) figures. MCIT-aware. */
+export interface BirForm1702QComputed {
+  rate: number;
+  /** Schedule 2 — regular/normal rate. */
+  s2_3: number;
+  s2_5: number;
+  s2_6: number;
+  s2_7: number;
+  s2_9: number;
+  s2_11: number;
+  /** MCIT — 2% of cumulative gross income. */
+  mcit: number;
+  /** Income tax due — higher of normal vs MCIT. */
+  s2_13: number;
+  mcitApplies: boolean;
+  /** Schedule 1 Item 13 — special/exempt-rate tax due. */
+  sch1_13: number;
+  /** Schedule 4 Item 7 — total tax credits/payments. */
+  sch4_7: number;
+  i14: number;
+  i16: number;
+  i17: number;
+  i18: number;
+  i19: number;
+  i20: number;
+  i24: number;
+  i25: number;
+}
+
+/** Computed 1702-RT (Annual ITR, corporations at the regular rate). MCIT-aware. */
+export interface BirForm1702RTComputed {
+  rate: number;
+  i29: number;
+  i31: number;
+  i33: number;
+  i34: number;
+  i35: number;
+  i36: number;
+  i37: number;
+  i38: number;
+  i39: number;
+  /** Income tax due at the normal rate. */
+  i41: number;
+  /** MCIT — 2% of gross income. */
+  i42: number;
+  /** Tax due — higher of normal vs MCIT. */
+  i43: number;
+  mcitApplies: boolean;
+  i55: number;
+  i56: number;
+  i16: number;
+  i20: number;
+  i21: number;
+  /** Schedule I Item 18 — total ordinary itemized deductions. */
+  sch1Total: number;
+}
+
 export interface BirFormExportRef {
   id: string;
   kind: string;
@@ -876,6 +933,8 @@ export interface BirFormDetail extends BirFormSummary {
     | BirForm1701QComputed
     | BirForm1701AComputed
     | BirForm1701Computed
+    | BirForm1702QComputed
+    | BirForm1702RTComputed
     | null;
   exports: BirFormExportRef[];
 }

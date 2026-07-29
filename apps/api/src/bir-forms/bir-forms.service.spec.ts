@@ -129,8 +129,32 @@ describe("BirFormsService", () => {
     expect(full.aggregate).toBe(177500);
   });
 
+  it("computes the corporate returns (1702Q + 1702RT), MCIT-aware", () => {
+    const { svc } = build();
+    const q = svc.computePreview("1702Q", {
+      s2_1: "2000000",
+      s2_2: "1000000",
+      method: "itemized",
+      s2_6: "200000",
+    }) as { s2_11: number; mcit: number; i14: number };
+    expect(q.s2_11).toBe(200000); // normal rate 25%
+    expect(q.mcit).toBe(20000); // MCIT 2% of gross
+    expect(q.i14).toBe(200000); // the higher of the two
+
+    const rt = svc.computePreview("1702RT", {
+      i27: "1000000",
+      i30: "0",
+      method: "itemized",
+      i34: "980000",
+    }) as { i41: number; i42: number; i43: number; mcitApplies: boolean };
+    expect(rt.i41).toBe(5000); // normal rate on the small taxable base
+    expect(rt.i42).toBe(20000); // MCIT 2% of gross
+    expect(rt.i43).toBe(20000); // MCIT wins
+    expect(rt.mcitApplies).toBe(true);
+  });
+
   it("rejects a form that isn't ported yet", () => {
-    expect(() => build().svc.computePreview("1702Q", {})).toThrow(BadRequestException);
+    expect(() => build().svc.computePreview("2307", {})).toThrow(BadRequestException);
   });
 
   it("creates a draft only for a same-firm client", async () => {
@@ -143,7 +167,7 @@ describe("BirFormsService", () => {
   it("won't create an unsupported form", async () => {
     const { svc } = build();
     await expect(
-      svc.create(actor, { clientId: "c1", form: "1702Q", period: "", data: {} }),
+      svc.create(actor, { clientId: "c1", form: "2307", period: "", data: {} }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
