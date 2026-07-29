@@ -8,10 +8,13 @@ import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
 import {
+  build1701Q,
   build2550Q,
   build2551Q,
+  compute1701Q,
   compute2550Q,
   compute2551Q,
+  fileName1701Q,
   fileName2550Q,
   fileName2551Q,
   type Filing,
@@ -22,7 +25,7 @@ import {
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
 /** Forms whose compute + XML have been ported and are usable end-to-end. */
-export const AVAILABLE_FORMS = new Set(["2551Q", "2550Q"]);
+export const AVAILABLE_FORMS = new Set(["2551Q", "2550Q", "1701Q"]);
 
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
@@ -211,10 +214,11 @@ export class BirFormsService {
     }
   }
 
-  /** Dispatch to the ported compute engine (2551Q + 2550Q). */
+  /** Dispatch to the ported compute engine (2551Q + 2550Q + 1701Q). */
   private compute(form: string, data: FilingData) {
     if (form === "2551Q") return compute2551Q(data);
     if (form === "2550Q") return compute2550Q(data);
+    if (form === "1701Q") return compute1701Q(data);
     throw new BadRequestException(`Form ${form} is not available yet.`);
   }
 
@@ -228,6 +232,10 @@ export class BirFormsService {
     if (filing.form === "2550Q") {
       const comp = compute2550Q(data);
       return { xml: build2550Q(filing, taxpayer, comp), filename: fileName2550Q(filing, taxpayer) };
+    }
+    if (filing.form === "1701Q") {
+      const comp = compute1701Q(data);
+      return { xml: build1701Q(filing, taxpayer, comp), filename: fileName1701Q(filing, taxpayer) };
     }
     throw new BadRequestException(`Form ${filing.form} is not available yet.`);
   }
@@ -246,6 +254,11 @@ export class BirFormsService {
       const c = compute2550Q(data);
       // i34b = total output tax due; i26 = total amount payable.
       return { totalTaxDue: c.i34b, totalPayable: c.i26 };
+    }
+    if (form === "1701Q") {
+      const c = compute1701Q(data);
+      // Sum both columns (filer + spouse); aggregate is the total payable.
+      return { totalTaxDue: c.A.taxDue + c.B.taxDue, totalPayable: c.aggregate };
     }
     return null;
   }

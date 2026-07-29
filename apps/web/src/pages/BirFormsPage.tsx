@@ -44,7 +44,10 @@ export default function BirFormsPage() {
         eyebrow="Firm admin"
         description="Generate and file BIR tax forms from your bookkeeping data."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/bir-forms/new?form=1701Q")}>
+              New 1701Q
+            </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/bir-forms/new?form=2550Q")}>
               New 2550Q
             </Button>

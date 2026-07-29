@@ -98,8 +98,18 @@ describe("BirFormsService", () => {
     expect(c.i26).toBe(70000); // total payable
   });
 
+  it("computes 1701Q authoritatively (preview)", () => {
+    const c = build().svc.computePreview("1701Q", {
+      year: "2024",
+      salesA: "500000",
+      rateA: "eight",
+    }) as { A: { taxDue: number }; aggregate: number };
+    expect(c.A.taxDue).toBe(20000); // (500k - 250k) * 8%
+    expect(c.aggregate).toBe(20000);
+  });
+
   it("rejects a form that isn't ported yet", () => {
-    expect(() => build().svc.computePreview("1701Q", {})).toThrow(BadRequestException);
+    expect(() => build().svc.computePreview("1702Q", {})).toThrow(BadRequestException);
   });
 
   it("creates a draft only for a same-firm client", async () => {
@@ -112,7 +122,7 @@ describe("BirFormsService", () => {
   it("won't create an unsupported form", async () => {
     const { svc } = build();
     await expect(
-      svc.create(actor, { clientId: "c1", form: "1701Q", period: "", data: {} }),
+      svc.create(actor, { clientId: "c1", form: "1702Q", period: "", data: {} }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
