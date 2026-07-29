@@ -1296,5 +1296,5 @@ export function buildExportModel(input: ModelInput): ExportModel {
 
 export function exportFileName(entityName: string, currentLabel: string): string {
   const entity = entityName.replace(/[^\w\- ]+/g, "").replace(/\s+/g, " ").trim() || "Financial Statements";
-  return `${entity} FS${currentLabel ? ` ${currentLabel.replace(/[^\w\-]+/g, "")}` : ""}.xlsx`;
+  return `${entity} FS${currentLabel ? ` ${currentLabel.replace(/[^\w-]+/g, "")}` : ""}.xlsx`;
 }
