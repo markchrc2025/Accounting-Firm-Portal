@@ -1,6 +1,12 @@
 import "reflect-metadata";
+// Sentry must initialise before Nest builds the app so its instrumentation can
+// hook in. No-ops entirely when SENTRY_DSN is unset.
+import { initSentry, sentryEnabled } from "./observability/sentry";
+initSentry();
+
 import { Logger } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
+import { HttpAdapterHost, NestFactory } from "@nestjs/core";
+import { SentryExceptionFilter } from "./observability/sentry-exception.filter";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 
@@ -16,6 +22,10 @@ async function bootstrap(): Promise<void> {
   // (e.g. the FS xlsx export) cross-origin.
   app.enableCors({ exposedHeaders: ["Content-Disposition", "X-Export-Warnings"] });
 
+  // Report 5xx to Sentry (no-op without a DSN) without changing the response.
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new SentryExceptionFilter(httpAdapter));
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Accounting Firm Portal API")
     .setDescription("REST/JSON API for the Accounting Firm Portal.")
@@ -30,6 +40,12 @@ async function bootstrap(): Promise<void> {
   await app.listen(port, "0.0.0.0");
   Logger.log(
     `API listening on http://0.0.0.0:${port}/${API_PREFIX} (docs at /${API_PREFIX}/docs)`,
+    "Bootstrap",
+  );
+  Logger.log(
+    sentryEnabled()
+      ? "Sentry error tracking + tracing enabled"
+      : "Sentry disabled (set SENTRY_DSN to enable)",
     "Bootstrap",
   );
 }
