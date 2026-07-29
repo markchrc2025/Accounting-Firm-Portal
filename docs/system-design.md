@@ -116,7 +116,7 @@ flowchart TB
 
     subgraph External["External Systems"]
         MAIL["Email Provider<br/>(SES / SendGrid)"]
-        BIRGEN["BIR Form Generator<br/>(via portal-sync Edge Function)"]
+        BIRGEN["BIR Form Generator<br/>(via portal-sync connector)"]
     end
 
     FU --> WEB
@@ -264,7 +264,7 @@ how well it must do it.
 
 | Actor | Role in the System |
 |---|---|
-| **BIR Form Generator** | External REST/JSON client that **pulls** classified aggregates and **pushes back** finished BIR filings + the Input Tax Asset (via its `portal-sync` Edge Function, authenticated with OAuth2). |
+| **BIR Form Generator** | External REST/JSON client that **pulls** classified aggregates and **pushes back** finished BIR filings + the Input Tax Asset (via its `portal-sync` connector, authenticated with OAuth2). |
 | **Email Provider** | Delivers billing and invitation emails (SES / SendGrid / Postmark). |
 | **Import / Export Engine** | Parses & validates CSV/XLSX on import; generates export files. |
 | **Aggregation Service** | Rolls classified transactions into VAT / percentage-tax / income-tax summary shapes. |
@@ -355,8 +355,10 @@ firm-scoped bearer token limited to the granted scopes and still enforces assign
 ## 5. Technology Stack
 
 The stack is chosen to satisfy the NFRs (security, scalability, maintainability, interoperability) and to
-**align cleanly with the BIR Form Generator** (which is React + TypeScript on Supabase), enabling shared
-types and a smooth OAuth2 integration. Choices below are recommendations; sensible alternatives are noted.
+**align cleanly with the BIR Form Generator**, whose React + TypeScript engine now lives inside this
+codebase (`apps/api/src/bir-forms` + its web UI) and shares these types directly. Choices below are
+recommendations; sensible alternatives are noted. The **as-deployed** stack is Docker on **Sliplane** —
+see `docs/DEPLOY-SLIPLANE.md`.
 
 ### 5.1 Stack Summary
 
@@ -374,15 +376,15 @@ types and a smooth OAuth2 integration. Choices below are recommendations; sensib
 | **Database** | **PostgreSQL** (multi-tenant; optional RLS) | Strong relational integrity for financial data; JSONB for `figures`/config; window functions for aggregation. |
 | **Cache & queue** | **Redis** + **BullMQ** | Async imports & email; cached aggregates; rate limiting. |
 | **Background workers** | Node worker processes (BullMQ consumers) | Large imports and email sending off the request path. |
-| **Object storage** | S3-compatible (AWS S3 / Supabase Storage / Cloudflare R2) | Uploaded files, exports, and BIR XML/PDF artifacts. |
-| **Auth (users)** | Email + password with **argon2**, JWT sessions, **TOTP MFA** | Or delegate to Supabase Auth / an OIDC IdP for SSO. |
+| **Object storage** | S3-compatible (any provider; configured via `S3_ENDPOINT`/`S3_BUCKET`) | Uploaded files, exports, and BIR XML/PDF artifacts. |
+| **Auth (users)** | Email + password with **argon2**, JWT sessions, **TOTP MFA** | Built in. Google / Microsoft **OIDC SSO** signs in existing accounts (matched by email). |
 | **Auth (integration)** | **OAuth2 client-credentials** server (scoped tokens) | Dedicated token endpoint for the BIR Generator connector. |
 | **Email** | Provider (SES / SendGrid / Postmark) + **MJML** templates + Handlebars | Responsive billing/invitation emails; delivery-status logging. |
 | **Validation (shared)** | Zod schemas in a shared TS package | One source of truth for enums/fields across frontend + backend. |
 | **Observability** | Pino (structured logs), Sentry (errors), OpenTelemetry → Grafana/Datadog | Traceability and alerting. |
 | **Testing** | Vitest/Jest (unit), Supertest (API), Playwright (E2E) | Aligns with the BIR Generator's Vitest suite. |
 | **CI/CD** | GitHub Actions (typecheck, test, build, deploy) | Gated pipeline to `main`. |
-| **Runtime / hosting** | Docker containers on AWS ECS/Fargate (or Render/Fly.io); frontend on Vercel/Netlify | Stateless API scales horizontally. |
+| **Runtime / hosting** | Docker containers on **Sliplane** (separate `web` + `api` services) | As deployed. Stateless API scales horizontally. |
 | **IaC (optional)** | Terraform | Reproducible infrastructure. |
 
 ### 5.2 Deployment / Component Architecture
@@ -394,7 +396,7 @@ flowchart TB
     end
 
     subgraph Edge["Edge / CDN"]
-        CDN["Static hosting + CDN<br/>(Vercel / Netlify)"]
+        CDN["Static web service<br/>(Sliplane, Docker)"]
     end
 
     subgraph AppTier["Application Tier (stateless, autoscaled)"]
@@ -415,7 +417,7 @@ flowchart TB
 
     subgraph Ext["External"]
         MAILP["Email Provider (SES/SendGrid)"]
-        BIRG["BIR Form Generator<br/>portal-sync Edge Function"]
+        BIRG["BIR Form Generator<br/>portal-sync connector"]
         OTEL["Sentry / OTel backend"]
     end
 
@@ -1101,7 +1103,7 @@ Function holds the OAuth client secret and calls the Portal's server-to-server A
 flowchart LR
     subgraph GEN["BIR Form Generator"]
         BROWSER["Browser SPA"]
-        EF["Edge Function 'portal-sync'<br/>(holds Portal secret)"]
+        EF["Connector 'portal-sync'<br/>(holds Portal secret)"]
     end
     subgraph PORTAL["Accounting Firm Portal"]
         OAUTH["OAuth2 Token Endpoint<br/>(client-credentials)"]
@@ -1244,7 +1246,7 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant EF as Generator Edge Function
+    participant EF as Generator connector
     participant OA as Portal OAuth
     participant API as Portal API
     participant AGG as Portal Aggregation
