@@ -169,7 +169,7 @@ function cleanName(s: string): string {
     .trim();
   // Digit/punct-only tokens are never part of a name — TIN remnants ("165~")
   // and numeric dates ("8/20", "11/18/2011") the pattern strips missed.
-  const toks = t.split(/\s+/).filter((tok) => tok && !/^[\d/.:~\-]+$/.test(tok));
+  const toks = t.split(/\s+/).filter((tok) => tok && !/^[\d/.:~-]+$/.test(tok));
   // Trailing junk: pure punctuation/O-run tokens AND a lone bare letter (a
   // column fragment — a real middle initial would print with its dot, "H.").
   const junkTok = /^[O0~_\-.,:;|©®[\]{}!'"‘’“”]+$/i;
