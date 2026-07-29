@@ -786,6 +786,27 @@ export interface BirForm2550QComputed {
   i25: number;
   i26: number;
 }
+/** One column (filer or spouse) of the computed 1701Q figures. */
+export interface BirForm1701QSide {
+  gross: number;
+  deductions: number;
+  netIncome: number;
+  taxableCum: number;
+  gradTax: number;
+  taxable8: number;
+  tax8: number;
+  taxDue: number;
+  credits: number;
+  payable: number;
+  penalties: number;
+  totalPayable: number;
+}
+/** Computed 1701Q (Quarterly ITR) figures — A = filer, B = spouse. */
+export interface BirForm1701QComputed {
+  A: BirForm1701QSide;
+  B: BirForm1701QSide;
+  aggregate: number;
+}
 export interface BirFormExportRef {
   id: string;
   kind: string;
@@ -794,7 +815,7 @@ export interface BirFormExportRef {
 }
 export interface BirFormDetail extends BirFormSummary {
   data: Record<string, unknown>;
-  computed: BirForm2551QComputed | BirForm2550QComputed | null;
+  computed: BirForm2551QComputed | BirForm2550QComputed | BirForm1701QComputed | null;
   exports: BirFormExportRef[];
 }
 export function fetchBirForm(id: string): Promise<BirFormDetail> {

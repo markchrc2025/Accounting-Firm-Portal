@@ -38,7 +38,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "Income Tax",
     description: "Self-employed individuals / professionals — quarterly income tax.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "1701",
