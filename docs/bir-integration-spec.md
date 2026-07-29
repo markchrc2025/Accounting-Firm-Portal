@@ -79,17 +79,25 @@ are the ones the Generator pushed back.
 
 ## 2. Integration Architecture & Trust Boundary
 
-The Generator is a browser SPA, so **Portal credentials must never live in client code**. All Portal calls
-route through a small **server-side connector** (a Supabase Edge Function, `portal-sync`) that holds the
-Portal OAuth client secret and enforces the trust boundary. From the Portal's side, this means the Portal
-exposes a **server-to-server REST API** authenticated with **OAuth2 client-credentials** — it never talks to
-the browser directly.
+> **Status — historical.** The Generator now lives *inside* the Portal
+> (`apps/api/src/bir-forms` + its web UI); there is no external service and no
+> cross-service connector in the deployed system. The contract below is retained
+> because it remains the module's seam: the `@portal/shared` shapes and the
+> OAuth2 client-credentials endpoint still exist, so a **standalone** Generator
+> could integrate over them. Nothing here describes a live Supabase dependency —
+> the Portal runs on Sliplane (see `docs/DEPLOY-SLIPLANE.md`).
+
+An externally-hosted Generator would be a browser SPA, so **Portal credentials must never live in client
+code**. All Portal calls would route through a small **server-side connector** (`portal-sync`) that holds
+the Portal OAuth client secret and enforces the trust boundary. From the Portal's side, this means the
+Portal exposes a **server-to-server REST API** authenticated with **OAuth2 client-credentials** — it never
+talks to the browser directly.
 
 ```mermaid
 flowchart LR
     subgraph GEN["BIR Form Generator"]
         BROWSER["Browser SPA"]
-        EF["Edge Function 'portal-sync'<br/>(holds Portal client secret)"]
+        EF["Server-side connector 'portal-sync'<br/>(holds Portal client secret)"]
     end
 
     subgraph PORTAL["Accounting Firm Portal (this system)"]
@@ -449,7 +457,7 @@ flowchart TD
 
 ## 6. APIs the Portal Must Expose (Portal → Generator)
 
-Base: `{PORTAL_BASE}/api/v1`. All calls arrive via the Generator's `portal-sync` Edge Function carrying an
+Base: `{PORTAL_BASE}/api/v1`. All calls arrive via the Generator's `portal-sync` connector carrying an
 **OAuth2 bearer token**; the Portal enforces per-client RBAC on every request.
 
 | Method & Path | Purpose | Scope |
@@ -632,7 +640,7 @@ flowchart LR
 
 ### 9.1 Server-to-Server Auth
 
-The Portal exposes an **OAuth2 client-credentials** flow. The Generator's Edge Function exchanges its
+The Portal exposes an **OAuth2 client-credentials** flow. The Generator's connector exchanges its
 `client_id` + secret for a **firm-scoped bearer token**; the Portal validates the token and the requested
 scopes on each call, then applies the firm's **assigned-clients RBAC** to decide which clients are visible.
 
@@ -671,7 +679,7 @@ The integration adds a small **Integration/API** permission group to the roles d
 
 ```mermaid
 sequenceDiagram
-    participant EF as Generator Edge Function
+    participant EF as Generator connector
     participant OA as Portal OAuth
     participant API as Portal API
     participant AGG as Portal Aggregation
@@ -713,7 +721,7 @@ sequenceDiagram
 | **Reconciliation** | Return figures as data; expect the Generator to recompute — the Portal's numbers are inputs, not the filed truth. |
 | **Carry-over ownership** | Only **record** the Input Tax Asset handed back; do not compute carry-over or amortization. |
 | **Failure** | Return clear, retryable errors; the Generator marks the push pending and retries — remain consistent under retries (idempotency). |
-| **Auth expiry** | Reject expired tokens cleanly so the Edge Function can refresh via client-credentials. |
+| **Auth expiry** | Reject expired tokens cleanly so the connector can refresh via client-credentials. |
 | **Least privilege** | Honour scope boundaries; enforce per-client visibility regardless of token scope. |
 
 ---
