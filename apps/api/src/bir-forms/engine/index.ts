@@ -19,4 +19,6 @@ export { compute1702Q, type Comp1702Q } from "./compute1702Q";
 export { build1702Q, fileName1702Q } from "./build1702Q";
 export { compute1702RT, type Comp1702RT } from "./compute1702RT";
 export { build1702RT, fileName1702RT } from "./build1702RT";
+export { compute2307, type Comp2307, type Comp2307Row } from "./compute2307";
+export { compute2316, type Comp2316 } from "./compute2316";
 export { graduatedTax } from "./taxTables";

@@ -76,6 +76,8 @@ describe("BirFormsService", () => {
   it("marks 2551Q available in the catalog", () => {
     const cat = build().svc.catalog();
     expect(cat).toHaveLength(9);
+    expect(cat.every((f) => f.status === "available")).toBe(true);
+    expect(cat.filter((f) => !f.xmlExport).map((f) => f.code)).toEqual(["2307", "2316"]);
     expect(cat.find((f) => f.code === "2551Q")?.status).toBe("available");
   });
 
@@ -153,8 +155,43 @@ describe("BirFormsService", () => {
     expect(rt.mcitApplies).toBe(true);
   });
 
-  it("rejects a form that isn't ported yet", () => {
-    expect(() => build().svc.computePreview("2307", {})).toThrow(BadRequestException);
+  it("computes the withholding certificates (2307 + 2316)", () => {
+    const { svc } = build();
+    const c2307 = svc.computePreview("2307", {
+      rows: [{ atc: "WI010", m1: "100000", m2: "100000", m3: "100000", tax: "15000" }],
+    }) as { totalIncome: number; totalTax: number };
+    expect(c2307.totalIncome).toBe(300000);
+    expect(c2307.totalTax).toBe(15000);
+
+    const c2316 = svc.computePreview("2316", { year: "2024", i39: "500000" }) as {
+      i23: number;
+      i24: number;
+    };
+    expect(c2316.i23).toBe(500000);
+    expect(c2316.i24).toBe(42500); // graduated on gross taxable comp
+  });
+
+  it("rejects a form code the engine does not implement", () => {
+    expect(() => build().svc.computePreview("1702EX", {})).toThrow(BadRequestException);
+  });
+
+  it("refuses XML export for a certificate (2307 has no eBIRForms XML)", async () => {
+    const findFirst = jest.fn().mockResolvedValue({
+      id: "bf3",
+      firmId: "f1",
+      clientId: "c1",
+      client: { businessName: "Acme" },
+      form: "2307",
+      status: "draft",
+      period: "2026-Q1",
+      dataJson: { rows: [] },
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+      updatedAt: new Date("2026-07-02T00:00:00Z"),
+      exports: [],
+    });
+    const { svc, storage } = build({ findFirst });
+    await expect(svc.exportForm(actor, "bf3")).rejects.toBeInstanceOf(BadRequestException);
+    expect(storage.putObject).not.toHaveBeenCalled();
   });
 
   it("creates a draft only for a same-firm client", async () => {
@@ -167,7 +204,7 @@ describe("BirFormsService", () => {
   it("won't create an unsupported form", async () => {
     const { svc } = build();
     await expect(
-      svc.create(actor, { clientId: "c1", form: "2307", period: "", data: {} }),
+      svc.create(actor, { clientId: "c1", form: "1702EX", period: "", data: {} }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

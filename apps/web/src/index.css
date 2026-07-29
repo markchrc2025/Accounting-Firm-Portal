@@ -37,3 +37,83 @@
     @apply focus-visible:border-blue focus-visible:outline-none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   BIR certificate print sheets (2307 / 2316)
+   A pixel-faithful replica of the official printed form. Authored at A4 @96dpi
+   (794x1123 CSS px) so html2canvas captures it cleanly onto an A4 PDF page.
+   Deliberately plain black-on-white with hairline rules — it must look like the
+   BIR sheet, not like the portal's navy/gold UI.
+--------------------------------------------------------------------------- */
+.bir-sheet {
+  width: 794px;
+  min-height: 1123px;
+  padding: 34px 38px;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9.5px;
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+.bir-sheet .bir-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.bir-sheet .bir-sub {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.bir-sheet .bir-band {
+  background: #000;
+  color: #fff;
+  font-weight: 700;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+}
+.bir-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.bir-sheet th,
+.bir-sheet td {
+  border: 1px solid #000;
+  padding: 2px 4px;
+  vertical-align: top;
+}
+.bir-sheet th {
+  font-weight: 700;
+  font-size: 8.5px;
+  text-align: center;
+  background: #eee;
+}
+.bir-sheet .bir-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bir-sheet .bir-box {
+  border: 1px solid #000;
+  min-height: 15px;
+  padding: 2px 4px;
+}
+.bir-sheet .bir-lbl {
+  font-size: 7.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.bir-sheet .bir-item {
+  font-weight: 700;
+  font-size: 8.5px;
+}
+/* Keep the off-screen staging area out of the visual flow but still laid out,
+   so html2canvas can measure and capture it. */
+.bir-sheet-stage {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  pointer-events: none;
+}
