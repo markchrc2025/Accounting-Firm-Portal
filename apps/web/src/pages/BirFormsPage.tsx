@@ -65,10 +65,12 @@ export default function BirFormsPage() {
       />
 
       <div className="mb-6 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
-        <span className="font-semibold">Coming online in phases.</span> This is the portal&apos;s
+        <span className="font-semibold">All nine forms are live.</span> This is the portal&apos;s
         built-in BIR Form Generator. Forms compute their <em>authoritative</em> figures here —
-        your tax estimates remain a management guide and never override a generated form.{" "}
-        <span className="font-semibold">2551Q</span> is first.
+        your tax estimates remain a management guide and never override a generated form. The seven
+        returns export <span className="font-semibold">eBIRForms XML</span>; the 2307 and 2316
+        certificates are issued to a payee rather than e-filed, so they{" "}
+        <span className="font-semibold">print to PDF</span> instead.
       </div>
 
       <div className="space-y-6">
@@ -116,7 +118,7 @@ export default function BirFormsPage() {
                 description={
                   status === "filed"
                     ? "Mark a form filed from its editor and it will appear here."
-                    : "Start a new 2551Q to author, compute, and file a BIR form."
+                    : "Use “+ New form…” to author, compute, and file a BIR form."
                 }
               />
             )}
@@ -213,7 +215,7 @@ export default function BirFormsPage() {
                         {f.title}
                       </div>
                       <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[.1em] text-content-secondary">
-                        {f.category} · {f.frequency}
+                        {f.category} · {f.frequency} · {f.xmlExport ? "eBIRForms XML" : "Print to PDF"}
                       </div>
                       <p className="mt-2 text-[12.5px] text-content-secondary">{f.description}</p>
                       {available ? (

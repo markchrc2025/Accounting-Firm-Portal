@@ -20,6 +20,8 @@ import {
   compute1701Q,
   compute1702Q,
   compute1702RT,
+  compute2307,
+  compute2316,
   compute2550Q,
   compute2551Q,
   fileName1701,
@@ -36,8 +38,26 @@ import {
 } from "./engine";
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
-/** Forms whose compute + XML have been ported and are usable end-to-end. */
+/** Forms whose engine has been ported and are usable end-to-end. */
 export const AVAILABLE_FORMS = new Set([
+  "2551Q",
+  "2550Q",
+  "1701Q",
+  "1701A",
+  "1701",
+  "1702Q",
+  "1702RT",
+  "2307",
+  "2316",
+]);
+
+/**
+ * Forms that produce an eBIRForms XML artifact — i.e. the *returns* you e-file.
+ * 2307 and 2316 are deliberately absent: they are **certificates issued** to a
+ * payee / employee, not returns, so BIR defines no XML for them. Those are
+ * printed from the web UI as an A4 PDF of the faithful form sheet instead.
+ */
+export const XML_EXPORT_FORMS = new Set([
   "2551Q",
   "2550Q",
   "1701Q",
@@ -178,6 +198,12 @@ export class BirFormsService {
   async exportForm(user: AuthUser, id: string) {
     const f = await this.loadOwned(user.firmId, id);
     this.assertSupported(f.form);
+    if (!XML_EXPORT_FORMS.has(f.form)) {
+      throw new BadRequestException(
+        `Form ${f.form} is a certificate issued to a payee, not an e-filed return — ` +
+          "BIR defines no eBIRForms XML for it. Print it as a PDF from the form editor instead.",
+      );
+    }
     if (!this.storage.isEnabled()) {
       throw new BadRequestException("File storage is not configured — cannot export.");
     }
@@ -243,6 +269,8 @@ export class BirFormsService {
     if (form === "1701") return compute1701(data);
     if (form === "1702Q") return compute1702Q(data);
     if (form === "1702RT") return compute1702RT(data);
+    if (form === "2307") return compute2307(data);
+    if (form === "2316") return compute2316(data);
     throw new BadRequestException(`Form ${form} is not available yet.`);
   }
 

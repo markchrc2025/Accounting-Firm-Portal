@@ -714,6 +714,8 @@ export interface BirFormCatalogItem {
   category: string;
   description: string;
   status: "available" | "planned";
+  /** False for the 2307 / 2316 certificates, which print to PDF instead. */
+  xmlExport: boolean;
 }
 export interface BirFormSummary {
   id: string;
@@ -919,6 +921,35 @@ export interface BirForm1702RTComputed {
   sch1Total: number;
 }
 
+/** Computed 2307 (Certificate of Creditable Tax Withheld) figures. */
+export interface BirForm2307Computed {
+  rows: { total: number }[];
+  totalIncome: number;
+  totalTax: number;
+  tM1: number;
+  tM2: number;
+  tM3: number;
+}
+
+/** Computed 2316 (Certificate of Compensation Payment / Tax Withheld) figures. */
+export interface BirForm2316Computed {
+  i38: number;
+  reg: number;
+  supp: number;
+  i52: number;
+  i19: number;
+  i20: number;
+  i21: number;
+  i22: number;
+  i23: number;
+  i24: number;
+  i25A: number;
+  i25B: number;
+  i26: number;
+  i27: number;
+  i28: number;
+}
+
 export interface BirFormExportRef {
   id: string;
   kind: string;
@@ -935,6 +966,8 @@ export interface BirFormDetail extends BirFormSummary {
     | BirForm1701Computed
     | BirForm1702QComputed
     | BirForm1702RTComputed
+    | BirForm2307Computed
+    | BirForm2316Computed
     | null;
   exports: BirFormExportRef[];
 }

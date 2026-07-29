@@ -13,6 +13,12 @@ export interface BirFormCatalogItem {
   category: string;
   description: string;
   status: BirFormStatus;
+  /**
+   * Whether the form produces an eBIRForms XML artifact. The 2307 / 2316
+   * certificates are issued to a payee / employee rather than e-filed, so BIR
+   * defines no XML for them — they are printed as an A4 PDF instead.
+   */
+  xmlExport: boolean;
 }
 
 export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
@@ -22,6 +28,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "Percentage Tax",
     description: "Non-VAT taxpayers — percentage tax on gross receipts/sales.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -30,6 +37,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "VAT",
     description: "VAT-registered taxpayers — output/input VAT for the quarter.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -38,6 +46,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "Income Tax",
     description: "Self-employed individuals / professionals — quarterly income tax.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -46,6 +55,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Income Tax",
     description: "Individuals earning income from business/profession.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -54,6 +64,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Income Tax",
     description: "Individuals under the 8% flat rate or optional standard deduction.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -62,6 +73,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Quarterly",
     category: "Income Tax",
     description: "Corporations / partnerships — quarterly income tax.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -70,6 +82,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Income Tax",
     description: "Corporations subject to the regular income-tax rate.",
+    xmlExport: true,
     status: "available",
   },
   {
@@ -78,7 +91,8 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Per transaction",
     category: "Withholding",
     description: "Creditable withholding tax certificate issued to payees.",
-    status: "planned",
+    xmlExport: false,
+    status: "available",
   },
   {
     code: "2316",
@@ -86,6 +100,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Withholding",
     description: "Compensation and tax withheld certificate for employees.",
-    status: "planned",
+    xmlExport: false,
+    status: "available",
   },
 ];
