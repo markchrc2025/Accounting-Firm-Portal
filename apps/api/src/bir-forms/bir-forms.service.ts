@@ -8,12 +8,18 @@ import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
 import {
+  build1701,
+  build1701A,
   build1701Q,
   build2550Q,
   build2551Q,
+  compute1701,
+  compute1701A,
   compute1701Q,
   compute2550Q,
   compute2551Q,
+  fileName1701,
+  fileName1701A,
   fileName1701Q,
   fileName2550Q,
   fileName2551Q,
@@ -25,7 +31,7 @@ import {
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
 /** Forms whose compute + XML have been ported and are usable end-to-end. */
-export const AVAILABLE_FORMS = new Set(["2551Q", "2550Q", "1701Q"]);
+export const AVAILABLE_FORMS = new Set(["2551Q", "2550Q", "1701Q", "1701A", "1701"]);
 
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
@@ -214,11 +220,13 @@ export class BirFormsService {
     }
   }
 
-  /** Dispatch to the ported compute engine (2551Q + 2550Q + 1701Q). */
+  /** Dispatch to the ported compute engine. */
   private compute(form: string, data: FilingData) {
     if (form === "2551Q") return compute2551Q(data);
     if (form === "2550Q") return compute2550Q(data);
     if (form === "1701Q") return compute1701Q(data);
+    if (form === "1701A") return compute1701A(data);
+    if (form === "1701") return compute1701(data);
     throw new BadRequestException(`Form ${form} is not available yet.`);
   }
 
@@ -236,6 +244,14 @@ export class BirFormsService {
     if (filing.form === "1701Q") {
       const comp = compute1701Q(data);
       return { xml: build1701Q(filing, taxpayer, comp), filename: fileName1701Q(filing, taxpayer) };
+    }
+    if (filing.form === "1701A") {
+      const comp = compute1701A(data);
+      return { xml: build1701A(filing, taxpayer, comp), filename: fileName1701A(filing, taxpayer) };
+    }
+    if (filing.form === "1701") {
+      const comp = compute1701(data);
+      return { xml: build1701(filing, taxpayer, comp), filename: fileName1701(filing, taxpayer) };
     }
     throw new BadRequestException(`Form ${filing.form} is not available yet.`);
   }
@@ -258,6 +274,15 @@ export class BirFormsService {
     if (form === "1701Q") {
       const c = compute1701Q(data);
       // Sum both columns (filer + spouse); aggregate is the total payable.
+      return { totalTaxDue: c.A.taxDue + c.B.taxDue, totalPayable: c.aggregate };
+    }
+    if (form === "1701A") {
+      const c = compute1701A(data);
+      // i30 is the aggregate amount payable across both columns.
+      return { totalTaxDue: c.A.taxDue + c.B.taxDue, totalPayable: c.i30 };
+    }
+    if (form === "1701") {
+      const c = compute1701(data);
       return { totalTaxDue: c.A.taxDue + c.B.taxDue, totalPayable: c.aggregate };
     }
     return null;

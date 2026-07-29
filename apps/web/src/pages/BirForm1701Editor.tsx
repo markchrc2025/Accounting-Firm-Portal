@@ -9,8 +9,8 @@ import {
   fetchBirForm,
   fetchClients,
   updateBirForm,
-  type BirForm1701QComputed,
-  type BirForm1701QSide,
+  type BirForm1701Computed,
+  type BirForm1701Side,
   type ClientSummary,
 } from "../lib/api";
 import {
@@ -25,23 +25,19 @@ import {
   peso,
 } from "../components/ui";
 
-const QUARTERS = ["Q1", "Q2", "Q3"]; // 1701Q covers Q1-Q3 only
-
-/** The per-column (A filer / B spouse) money fields the editor captures. */
+/** Per-column (A filer / B spouse) money fields the 1701 editor captures. */
 const COLUMN_FIELDS = [
-  "sales", "cogs", "deduct", "prevTaxable", "nonOp", "gpp", "prev8",
-  "excess", "prevPaid", "cwtPrev", "cwt", "taxPaidPrev", "foreignCredits", "otherCredits",
-  "surcharge", "interest", "compromise",
+  "comp", "sales", "returns", "cogs", "deduct", "other", // income + deductions
+  "prevPaid", "cwt", "excess", "compCwt", // credits
+  "install", "surcharge", "interest", "compromise", // installment + penalties
+  "ix1", "ix2", "ix3", "ix4", "ix6", "ix7", "ix8", "ix9", // Part IX reconciliation
 ] as const;
 
-/** All stored keys: per-column money fields (suffixed A/B) + rate/method selectors. */
-const ALL_KEYS: string[] = [
-  ...(["A", "B"] as const).flatMap((s) => [
-    ...COLUMN_FIELDS.map((f) => f + s),
-    "rate" + s,
-    "method" + s,
-  ]),
-];
+const ALL_KEYS: string[] = (["A", "B"] as const).flatMap((s) => [
+  ...COLUMN_FIELDS.map((f) => f + s),
+  "rate" + s,
+  "method" + s,
+]);
 type Fields = Record<string, string>;
 const emptyFields = (): Fields => {
   const o: Fields = {};
@@ -53,8 +49,8 @@ const emptyFields = (): Fields => {
   return o;
 };
 
-/** 1701Q (Quarterly Income Tax, individuals) authoring — create or edit, export XML. */
-export default function BirForm1701QEditor() {
+/** 1701 (Annual ITR — mixed income) authoring: create or edit, then export XML. */
+export default function BirForm1701Editor() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id;
   const navigate = useNavigate();
@@ -67,10 +63,10 @@ export default function BirForm1701QEditor() {
   });
 
   const [clientId, setClientId] = useState("");
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [quarter, setQuarter] = useState("Q1");
+  const [year, setYear] = useState(String(new Date().getFullYear() - 1));
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [withSpouse, setWithSpouse] = useState(false);
+  const [showRecon, setShowRecon] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Hydrate from an existing form.
@@ -78,27 +74,23 @@ export default function BirForm1701QEditor() {
     const d = existing.data?.data as Record<string, unknown> | undefined;
     if (!d) return;
     setClientId(existing.data!.clientId);
-    const period = existing.data!.period || "";
-    const m = /^(\d{4})-(Q[1-3])$/.exec(period);
-    if (m) {
-      setYear(m[1]!);
-      setQuarter(m[2]!);
-    }
+    setYear((existing.data!.period || String(d.year ?? "")).slice(0, 4));
     setFields((prev) => {
       const next = { ...prev };
       for (const k of ALL_KEYS) if (d[k] != null) next[k] = String(d[k]);
       return next;
     });
-    // Reveal the spouse column if any B-column value was entered.
     if (COLUMN_FIELDS.some((f) => d[f + "B"] != null && String(d[f + "B"]) !== "")) {
       setWithSpouse(true);
+    }
+    if (["ix1A", "ix2A", "ix6A", "ix1B"].some((k) => d[k] != null && String(d[k]) !== "")) {
+      setShowRecon(true);
     }
   }, [existing.data]);
 
   const data = useMemo(() => {
-    const base: Record<string, string> = { year, amended: "no", filerType: "single" };
+    const base: Record<string, string> = { year, amended: "no", taxpayerType: "single" };
     for (const k of ALL_KEYS) {
-      // Drop B-column money entries when spouse is not included.
       if (!withSpouse && k.endsWith("B") && k !== "rateB" && k !== "methodB") continue;
       if (fields[k]) base[k] = fields[k]!;
     }
@@ -111,7 +103,6 @@ export default function BirForm1701QEditor() {
     }
     return base;
   }, [year, fields, withSpouse]);
-  const period = `${year}-${quarter}`;
 
   // Live authoritative totals (server compute — the browser never computes tax).
   const [debounced, setDebounced] = useState(data);
@@ -120,15 +111,15 @@ export default function BirForm1701QEditor() {
     return () => window.clearTimeout(t);
   }, [data]);
   const computed = useQuery({
-    queryKey: ["bir-compute-1701q", debounced],
-    queryFn: () => computeBirForm<BirForm1701QComputed>("1701Q", debounced),
+    queryKey: ["bir-compute-1701", debounced],
+    queryFn: () => computeBirForm<BirForm1701Computed>("1701", debounced),
     staleTime: Infinity,
   });
 
   const save = useMutation({
     mutationFn: async () => {
-      if (isNew) return createBirForm({ clientId, form: "1701Q", period, data });
-      return updateBirForm(id!, { period, data });
+      if (isNew) return createBirForm({ clientId, form: "1701", period: year, data });
+      return updateBirForm(id!, { period: year, data });
     },
     onSuccess: (form) => {
       setError(null);
@@ -148,7 +139,6 @@ export default function BirForm1701QEditor() {
     onError: (e) => setError(e instanceof ApiError ? e.message : "Could not export the XML."),
   });
 
-  // Filing lifecycle: mark filed (figures flow to the client tax view) / reopen.
   const setStatus = useMutation({
     mutationFn: (status: "draft" | "filed") => updateBirForm(id!, { status }),
     onSuccess: () => {
@@ -180,8 +170,8 @@ export default function BirForm1701QEditor() {
   return (
     <div className="animate-fade-rise">
       <PageHeader
-        title={isNew ? "New 1701Q" : "1701Q"}
-        eyebrow="BIR Forms · Quarterly Income Tax (Individuals)"
+        title={isNew ? "New 1701" : "1701"}
+        eyebrow="BIR Forms · Annual Income Tax (Mixed income)"
         actions={
           <Button variant="ghost" onClick={() => navigate("/bir-forms")}>
             Back
@@ -197,11 +187,10 @@ export default function BirForm1701QEditor() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
-          {/* Filer + period */}
           <Card>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
-                <label className="block">
+                <label className="block sm:col-span-2">
                   <span className="mb-1.5 block text-[13px] font-semibold text-content">Client</span>
                   <select
                     className="input w-full"
@@ -218,42 +207,57 @@ export default function BirForm1701QEditor() {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[13px] font-semibold text-content">Year</span>
+                  <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                    Taxable year
+                  </span>
                   <input
                     className="input w-full font-mono"
                     value={year}
                     onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   />
                 </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-[13px] font-semibold text-content">Quarter</span>
-                  <select className="input w-full" value={quarter} onChange={(e) => setQuarter(e.target.value)}>
-                    {QUARTERS.map((q) => (
-                      <option key={q} value={q}>
-                        {q}
-                      </option>
-                    ))}
-                  </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-[13px] text-content">
+                  <input
+                    type="checkbox"
+                    checked={withSpouse}
+                    onChange={(e) => setWithSpouse(e.target.checked)}
+                  />
+                  Include spouse column
+                </label>
+                <label className="flex items-center gap-2 text-[13px] text-content">
+                  <input
+                    type="checkbox"
+                    checked={showRecon}
+                    onChange={(e) => setShowRecon(e.target.checked)}
+                  />
+                  Part IX reconciliation
                 </label>
               </div>
-              <label className="flex items-center gap-2 text-[13px] text-content">
-                <input
-                  type="checkbox"
-                  checked={withSpouse}
-                  onChange={(e) => setWithSpouse(e.target.checked)}
-                />
-                Include spouse column (joint filing)
-              </label>
             </CardContent>
           </Card>
 
-          <Column suffix="A" label="Filer" fields={fields} set={set} side={c?.A} />
+          <Column
+            suffix="A"
+            label="Filer"
+            fields={fields}
+            set={set}
+            side={c?.A}
+            showRecon={showRecon}
+          />
           {withSpouse ? (
-            <Column suffix="B" label="Spouse" fields={fields} set={set} side={c?.B} />
+            <Column
+              suffix="B"
+              label="Spouse"
+              fields={fields}
+              set={set}
+              side={c?.B}
+              showRecon={showRecon}
+            />
           ) : null}
         </div>
 
-        {/* Totals + actions */}
         <div className="space-y-4">
           <Card>
             <CardContent className="space-y-2.5">
@@ -302,7 +306,7 @@ export default function BirForm1701QEditor() {
           {isFiled ? (
             <div className="rounded-card border border-success/40 bg-success-bg px-3.5 py-2.5 text-[12.5px] text-content">
               <span className="font-semibold">Filed.</span> These figures are now the{" "}
-              <em>authoritative</em> income-tax numbers on this client&apos;s tax view.
+              <em>authoritative</em> annual income-tax numbers on this client&apos;s tax view.
               {filedAt ? (
                 <span className="mt-0.5 block font-mono text-[11px] text-content-secondary">
                   Filed {new Date(filedAt).toLocaleString()}
@@ -331,19 +335,21 @@ export default function BirForm1701QEditor() {
   );
 }
 
-/** One filer/spouse column: rate toggle + the relevant schedule inputs + credits/penalties. */
+/** One filer/spouse column: compensation + business income, credits, penalties. */
 function Column({
   suffix,
   label,
   fields,
   set,
   side,
+  showRecon,
 }: {
   suffix: "A" | "B";
   label: string;
   fields: Fields;
   set: (k: string, v: string) => void;
-  side?: BirForm1701QSide;
+  side?: BirForm1701Side;
+  showRecon: boolean;
 }) {
   const s = suffix;
   const rate = fields["rate" + s] || "graduated";
@@ -355,8 +361,8 @@ function Column({
   return (
     <Card>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="eyebrow">{label} — income &amp; deductions</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="eyebrow">{label} — income</div>
           <SegPicker
             value={rate}
             onChange={(v) => set("rate" + s, v)}
@@ -367,47 +373,52 @@ function Column({
           />
         </div>
 
-        {is8 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Money label="Net sales / receipts (Item 47)" value={f("sales")} onChange={(v) => setF("sales", v)} />
-            <Money label="Non-operating income (Item 48)" value={f("nonOp")} onChange={(v) => setF("nonOp", v)} />
-            <Money label="Taxable from prev. quarters (Item 50)" value={f("prev8")} onChange={(v) => setF("prev8", v)} />
+        <Money label="Taxable compensation income" value={f("comp")} onChange={(v) => setF("comp", v)} />
+
+        {!is8 ? (
+          <div className="flex items-center justify-between">
+            <span className="text-[12.5px] text-content-secondary">Deduction method</span>
+            <SegPicker
+              value={method}
+              onChange={(v) => set("method" + s, v)}
+              options={[
+                ["osd", "OSD (40%)"],
+                ["itemized", "Itemized"],
+              ]}
+            />
           </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-[12.5px] text-content-secondary">Deduction method</span>
-              <SegPicker
-                value={method}
-                onChange={(v) => set("method" + s, v)}
-                options={[
-                  ["osd", "OSD (40%)"],
-                  ["itemized", "Itemized"],
-                ]}
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Money label="Net sales / receipts (Item 36)" value={f("sales")} onChange={(v) => setF("sales", v)} />
-              <Money label="Cost of sales / services (Item 37)" value={f("cogs")} onChange={(v) => setF("cogs", v)} />
+        ) : null}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Money label="Gross sales / receipts" value={f("sales")} onChange={(v) => setF("sales", v)} />
+          <Money label="Less: returns & discounts" value={f("returns")} onChange={(v) => setF("returns", v)} />
+          {!is8 ? (
+            <>
+              <Money label="Cost of sales / services" value={f("cogs")} onChange={(v) => setF("cogs", v)} />
               {method === "itemized" ? (
-                <Money label="Itemized deductions (Item 39)" value={f("deduct")} onChange={(v) => setF("deduct", v)} />
+                <Money label="Itemized deductions" value={f("deduct")} onChange={(v) => setF("deduct", v)} />
               ) : null}
-              <Money label="Taxable from prev. quarters (Item 42)" value={f("prevTaxable")} onChange={(v) => setF("prevTaxable", v)} />
-              <Money label="Non-operating income (Item 43)" value={f("nonOp")} onChange={(v) => setF("nonOp", v)} />
-              <Money label="Share in GPP income (Item 44)" value={f("gpp")} onChange={(v) => setF("gpp", v)} />
-            </div>
-          </>
-        )}
+            </>
+          ) : null}
+          <Money label="Other / non-operating income" value={f("other")} onChange={(v) => setF("other", v)} />
+        </div>
 
         <div className="rounded-input bg-sidebar px-3 py-2 text-[12.5px]">
-          <div className="flex items-center justify-between">
-            <span className="text-content-secondary">Taxable income to date</span>
-            <span className="font-mono font-semibold tabular-nums text-navy">
-              {peso(is8 ? side?.taxable8 ?? 0 : side?.taxableCum ?? 0)}
-            </span>
-          </div>
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-content-secondary">Tax due</span>
+          {is8 ? (
+            <>
+              <Line label="Taxable business income (less ₱250k)" value={side?.taxable8} />
+              <Line label="8% tax on business" value={side?.tax8biz} />
+            </>
+          ) : (
+            <>
+              <Line label="Gross income from business" value={side?.gross} />
+              <Line label="Less: deductions" value={side?.deductions} />
+              <Line label="Net business income" value={side?.netBizTotal} />
+            </>
+          )}
+          <Line label="Total taxable income" value={side?.taxableTotal} />
+          <div className="mt-1 flex items-center justify-between border-t border-line-divider pt-1">
+            <span className="font-semibold text-content">Total income tax due</span>
             <span className="font-mono font-semibold tabular-nums text-navy">{peso(side?.taxDue ?? 0)}</span>
           </div>
         </div>
@@ -415,31 +426,59 @@ function Column({
         <div>
           <div className="eyebrow mb-2">Tax credits / payments</div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Money label="Prior year's excess credits (Item 55)" value={f("excess")} onChange={(v) => setF("excess", v)} />
-            <Money label="Payments, prev. quarters (Item 56)" value={f("prevPaid")} onChange={(v) => setF("prevPaid", v)} />
-            <Money label="CWT, prev. quarters (Item 57)" value={f("cwtPrev")} onChange={(v) => setF("cwtPrev", v)} />
-            <Money label="CWT this quarter — 2307 (Item 58)" value={f("cwt")} onChange={(v) => setF("cwt", v)} />
-            <Money label="Tax paid, prior return (Item 59)" value={f("taxPaidPrev")} onChange={(v) => setF("taxPaidPrev", v)} />
-            <Money label="Foreign tax credits (Item 60)" value={f("foreignCredits")} onChange={(v) => setF("foreignCredits", v)} />
-            <Money label="Other credits (Item 61)" value={f("otherCredits")} onChange={(v) => setF("otherCredits", v)} />
+            <Money label="Prior year's excess credits" value={f("excess")} onChange={(v) => setF("excess", v)} />
+            <Money label="Quarterly payments (1701Q)" value={f("prevPaid")} onChange={(v) => setF("prevPaid", v)} />
+            <Money label="Creditable tax withheld (2307)" value={f("cwt")} onChange={(v) => setF("cwt", v)} />
+            <Money label="Tax withheld on compensation (2316)" value={f("compCwt")} onChange={(v) => setF("compCwt", v)} />
           </div>
         </div>
 
         <div>
-          <div className="eyebrow mb-2">Penalties</div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="eyebrow mb-2">Installment &amp; penalties</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Money label="Portion for 2nd installment" value={f("install")} onChange={(v) => setF("install", v)} />
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <Money label="Surcharge" value={f("surcharge")} onChange={(v) => setF("surcharge", v)} compact />
             <Money label="Interest" value={f("interest")} onChange={(v) => setF("interest", v)} compact />
             <Money label="Compromise" value={f("compromise")} onChange={(v) => setF("compromise", v)} compact />
           </div>
         </div>
+
+        {showRecon ? (
+          <div>
+            <div className="eyebrow mb-2">
+              Part IX — reconciliation of net income per books
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Money label="Net income per books (Item 1)" value={f("ix1")} onChange={(v) => setF("ix1", v)} />
+              <Money label="Add: non-deductible expense (Item 2)" value={f("ix2")} onChange={(v) => setF("ix2", v)} />
+              <Money label="Add (Item 3)" value={f("ix3")} onChange={(v) => setF("ix3", v)} />
+              <Money label="Add (Item 4)" value={f("ix4")} onChange={(v) => setF("ix4", v)} />
+              <Money label="Less: final-tax income (Item 6)" value={f("ix6")} onChange={(v) => setF("ix6", v)} />
+              <Money label="Less (Item 7)" value={f("ix7")} onChange={(v) => setF("ix7", v)} />
+              <Money label="Less: special deduction (Item 8)" value={f("ix8")} onChange={(v) => setF("ix8", v)} />
+              <Money label="Less (Item 9)" value={f("ix9")} onChange={(v) => setF("ix9", v)} />
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
+/** A read-only computed line inside a summary strip. */
+function Line({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-content-secondary">{label}</span>
+      <span className="font-mono tabular-nums text-content">{peso(value ?? 0)}</span>
+    </div>
+  );
+}
+
 /** Compact per-column totals for the sidebar. */
-function TotalsBlock({ label, side }: { label: string; side?: BirForm1701QSide }) {
+function TotalsBlock({ label, side }: { label: string; side?: BirForm1701Side }) {
   return (
     <div className="space-y-1.5">
       <div className="font-mono text-[10px] uppercase tracking-[.14em] text-content-muted">{label}</div>
@@ -447,6 +486,7 @@ function TotalsBlock({ label, side }: { label: string; side?: BirForm1701QSide }
         ["Tax due", side?.taxDue],
         ["Tax credits", side?.credits],
         ["Tax payable", side?.payable],
+        ["Less: 2nd installment", side?.installment],
         ["Penalties", side?.penalties],
         ["Total payable", side?.totalPayable],
       ].map(([l, v]) => (

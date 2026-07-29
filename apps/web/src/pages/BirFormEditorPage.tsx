@@ -5,6 +5,8 @@ import { ErrorState, Skeleton } from "../components/ui";
 import BirForm2551QEditor from "./BirForm2551QEditor";
 import BirForm2550QEditor from "./BirForm2550QEditor";
 import BirForm1701QEditor from "./BirForm1701QEditor";
+import BirForm1701AEditor from "./BirForm1701AEditor";
+import BirForm1701Editor from "./BirForm1701Editor";
 
 /**
  * BIR form editor router. New forms take their code from `?form=` (default
@@ -39,5 +41,7 @@ export default function BirFormEditorPage() {
 
   if (form === "2550Q") return <BirForm2550QEditor />;
   if (form === "1701Q") return <BirForm1701QEditor />;
+  if (form === "1701A") return <BirForm1701AEditor />;
+  if (form === "1701") return <BirForm1701Editor />;
   return <BirForm2551QEditor />;
 }

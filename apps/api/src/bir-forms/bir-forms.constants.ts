@@ -46,7 +46,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Income Tax",
     description: "Individuals earning income from business/profession.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "1701A",
@@ -54,7 +54,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     frequency: "Annual",
     category: "Income Tax",
     description: "Individuals under the 8% flat rate or optional standard deduction.",
-    status: "planned",
+    status: "available",
   },
   {
     code: "1702Q",

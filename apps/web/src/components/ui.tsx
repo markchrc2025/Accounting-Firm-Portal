@@ -206,3 +206,35 @@ export function ErrorState({
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("h-4 w-full animate-pulse rounded bg-line", className)} />;
 }
+
+/**
+ * A small segmented option picker — used by the BIR form editors to switch
+ * between mutually exclusive schedules (graduated vs 8%, OSD vs itemized).
+ */
+export function SegPicker({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: [value: string, label: string][];
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-line bg-sidebar p-0.5">
+      {options.map(([val, lbl]) => (
+        <button
+          key={val}
+          type="button"
+          onClick={() => onChange(val)}
+          className={cn(
+            "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
+            value === val ? "bg-navy text-white shadow-sm" : "text-content-secondary hover:text-content",
+          )}
+        >
+          {lbl}
+        </button>
+      ))}
+    </div>
+  );
+}
