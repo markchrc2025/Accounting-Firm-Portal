@@ -351,6 +351,16 @@ function InvoiceList({
     null,
   );
   const [exportError, setExportError] = useState<string | null>(null);
+  // Row click opens a read-only preview of the billing document.
+  const [previewing, setPreviewing] = useState<Invoice | null>(null);
+  useEffect(() => {
+    if (!previewing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreviewing(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewing]);
   const exportRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!exporting) return;
@@ -484,7 +494,17 @@ function InvoiceList({
               {invoicesQ.data.map((inv) => (
                 <tr
                   key={inv.id}
-                  className="text-[13px] transition-colors hover:bg-rowhover"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setPreviewing(inv)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setPreviewing(inv);
+                    }
+                  }}
+                  aria-label={`Preview billing ${inv.number}`}
+                  className="cursor-pointer text-[13px] transition-colors hover:bg-rowhover"
                 >
                   <td className="px-4 py-3 font-mono font-semibold text-navy">
                     {inv.number}
@@ -513,7 +533,7 @@ function InvoiceList({
                   <td className="px-4 py-3">
                     <Chip variant={statusVariant(inv.status)}>{inv.status}</Chip>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       {canCreate && isEditable(inv.status) ? (
                         <Button
@@ -601,6 +621,71 @@ function InvoiceList({
         </div>
       ) : null}
       {body}
+      {/* Read-only preview of a billing, opened by clicking its row. */}
+      {previewing ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(14,33,44,0.45)] p-4"
+          onClick={() => setPreviewing(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Billing ${previewing.number}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[92vh] w-full max-w-[860px] animate-fade-rise flex-col overflow-hidden rounded-modal bg-card shadow-modal"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-4">
+              <div>
+                <div className="eyebrow">Billing preview</div>
+                <h2 className="mt-0.5 font-serif text-[19px] font-medium text-navy">
+                  {previewing.number}
+                </h2>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {canCreate && isEditable(previewing.status) ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const inv = previewing;
+                      setPreviewing(null);
+                      onEdit(inv);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={exporting != null}
+                  onClick={() => setExporting({ inv: previewing, format: "pdf" })}
+                >
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={exporting != null}
+                  onClick={() => setExporting({ inv: previewing, format: "jpeg" })}
+                >
+                  JPEG
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setPreviewing(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+            {/* The same document the PDF/JPEG export renders, scaled to fit. */}
+            <div className="overflow-auto bg-sidebar p-6">
+              <div className="mx-auto w-[794px] max-w-full shadow-sm">
+                <BillingDocument invoice={previewing} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Off-screen render target for the PDF/JPEG capture. */}
       {exporting ? (
         <div aria-hidden style={{ position: "fixed", top: 0, left: -2000, zIndex: -1 }}>
