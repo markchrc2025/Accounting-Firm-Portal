@@ -132,12 +132,21 @@ function isSendable(status: string): boolean {
 }
 
 /**
- * Only DRAFT billings can be edited: once a billing has been sent to the client
- * its control number and figures are on record, so editing is locked to avoid
- * silently changing a statement the client already received.
+ * Draft, Sent and Overdue billings can be edited. Editing an *issued* billing
+ * (Sent/Overdue) reverts it to Draft server-side, so a statement the client
+ * already received never changes silently — the revert makes the edit explicit
+ * and forces an intentional re-send.
+ *
+ * Paid is excluded: reverting a settled billing would erase the record that it
+ * was paid. Mark it unpaid first if it genuinely needs revising.
  */
 function isEditable(status: string): boolean {
-  return status === "Draft";
+  return status === "Draft" || status === "Sent" || status === "Overdue";
+}
+
+/** True when saving this edit will send the billing back to Draft. */
+function editReverts(status: string): boolean {
+  return status === "Sent" || status === "Overdue";
 }
 
 const SearchIcon = () => (
@@ -582,6 +591,7 @@ function InvoiceCreate({
   onSaveDraft,
   onPreview,
   editing = false,
+  editStatus,
   editNumber,
   editClientName,
   onSaveEdit,
@@ -605,8 +615,10 @@ function InvoiceCreate({
   onCancel: () => void;
   onSaveDraft: () => void;
   onPreview: () => void;
-  /** Edit mode: editing an existing DRAFT billing rather than creating one. */
+  /** Edit mode: editing an existing billing rather than creating one. */
   editing?: boolean;
+  /** Status of the billing being edited (drives the revert-to-Draft notice). */
+  editStatus?: string;
   editNumber?: string;
   editClientName?: string;
   onSaveEdit?: () => void;
@@ -653,6 +665,13 @@ function InvoiceCreate({
           ) : (
             <BillToCombobox value={billTo} onSelect={onBillTo} />
           )}
+          {editing && editStatus && editReverts(editStatus) ? (
+            <p className="mt-2 rounded-btn border border-warn/40 bg-warn-bg-2 px-3 py-2 text-[12.5px] text-content">
+              <span className="font-semibold">This billing was already {editStatus.toLowerCase()}.</span>{" "}
+              Saving changes returns it to <span className="font-semibold">Draft</span> so the
+              revision is explicit — send it again once you&apos;re done.
+            </p>
+          ) : null}
           {!editing && billTo?.billingParentId ? (
             <p className="mt-2 rounded-btn border border-warn/40 bg-warn-bg-2 px-3 py-2 text-[12.5px] text-content">
               <span className="font-semibold">Sub-client:</span> this billing will be
@@ -1032,6 +1051,7 @@ export default function BillingPage() {
   // Edit mode: the id/number/payer of the DRAFT billing being edited (null = new).
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNumber, setEditNumber] = useState("");
+  const [editStatus, setEditStatus] = useState("");
   const [editClientName, setEditClientName] = useState("");
 
   const canCreate = hasPermission("Billing:Create");
@@ -1156,13 +1176,17 @@ export default function BillingPage() {
   }
 
   /**
-   * Open an existing DRAFT billing in the form for editing. The payer can't
-   * change (its control number is assigned), so Bill-to is locked; terms are set
-   * to "custom" so the stored due date is preserved as-is until the user changes it.
+   * Open an existing billing in the form for editing. The payer can't change
+   * (its control number is assigned), so Bill-to is locked; terms are set to
+   * "custom" so the stored due date is preserved as-is until the user changes it.
+   *
+   * A Sent/Overdue billing may be edited too — saving reverts it to Draft
+   * server-side, and the form shows a notice saying so before you commit.
    */
   function goEdit(inv: Invoice): void {
     setEditingId(inv.id);
     setEditNumber(inv.number);
+    setEditStatus(inv.status);
     setEditClientName(inv.clientName ?? "");
     setBillTo(null);
     setIssuedDate(inv.issuedDate);
@@ -1233,6 +1257,7 @@ export default function BillingPage() {
           }}
           onPreview={() => setView("preview")}
           editing={editingId != null}
+          editStatus={editStatus}
           editNumber={editNumber}
           editClientName={editClientName}
           onSaveEdit={() => saveEditMut.mutate()}
