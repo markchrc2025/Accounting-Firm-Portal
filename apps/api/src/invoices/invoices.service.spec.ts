@@ -236,6 +236,13 @@ describe("InvoicesService", () => {
       expect(data.status).toBe("Paid");
     });
 
+    it("can put a Paid billing back to Sent — the way out of the edit lock", async () => {
+      const { svc, invoice } = atStatus("Paid");
+      await svc.update(actor, "inv1", { status: "Sent" });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBe("Sent");
+    });
+
     it("records the revert in the audit trail", async () => {
       const { svc, audit } = atStatus("Sent");
       await svc.update(actor, "inv1", { description: "revised" });
