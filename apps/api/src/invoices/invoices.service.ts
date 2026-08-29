@@ -92,6 +92,12 @@ function toInvoiceDto(inv: InvoiceRow) {
  * belong to that firm (`ClientsService.assertInFirm`). The `vat` figure is a 12%
  * management estimate — NOT authoritative BIR tax (guardrail #1).
  */
+/**
+ * Statuses an edit may revert to Draft. "Paid" is intentionally absent: sending
+ * a settled billing back to Draft would erase the record that it was paid.
+ */
+const REVERTIBLE_STATUSES = new Set(["Sent", "Overdue"]);
+
 @Injectable()
 export class InvoicesService {
   private readonly logger = new Logger(InvoicesService.name);
@@ -181,13 +187,38 @@ export class InvoicesService {
     return toInvoiceDto(invoice);
   }
 
+  /**
+   * Fields whose change alters what the client was billed. Editing any of these
+   * on an already-issued billing reverts it to Draft (see `update`).
+   */
+  private static readonly CONTENT_FIELDS = [
+    "description",
+    "issuedDate",
+    "dueDate",
+    "lineItems",
+  ] as const;
+
   async update(user: AuthUser, id: string, input: UpdateInvoiceInput) {
-    await this.loadOwned(user.firmId, id);
+    const current = await this.loadOwned(user.firmId, id);
+
+    // Editing an issued billing sends it back to Draft. A Sent/Overdue statement
+    // the client has already received must not silently change underneath them:
+    // reverting makes the edit explicit and requires an intentional re-send.
+    // Paid is deliberately excluded — reverting it would erase the record that
+    // the billing was settled. An explicit `status` in the payload always wins,
+    // so callers can still set a status directly.
+    const editsContent = InvoicesService.CONTENT_FIELDS.some(
+      (f) => input[f] !== undefined,
+    );
+    const revertsToDraft =
+      editsContent && input.status === undefined && REVERTIBLE_STATUSES.has(current.status);
+
     const data: Prisma.InvoiceUpdateInput = {
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.issuedDate !== undefined ? { issuedDate: isoToDate(input.issuedDate) } : {}),
       ...(input.dueDate !== undefined ? { dueDate: isoToDate(input.dueDate) } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(revertsToDraft ? { status: "Draft" } : {}),
     };
 
     // Replacing line items must recompute totals atomically with the delete.
@@ -208,7 +239,10 @@ export class InvoicesService {
       action: "invoice.update",
       entityType: "Invoice",
       entityId: id,
-      metadata: { fields: Object.keys(input) },
+      metadata: {
+        fields: Object.keys(input),
+        ...(revertsToDraft ? { revertedToDraftFrom: current.status } : {}),
+      },
     });
     return toInvoiceDto(invoice);
   }

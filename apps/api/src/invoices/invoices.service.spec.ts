@@ -48,9 +48,13 @@ function build(invoiceOverrides: Record<string, unknown> = {}) {
     // The create path runs inside a transaction whose client carries the same
     // invoice delegate plus the atomic counter query ("nextSeq" 4 → seq 3).
     $queryRaw: jest.fn().mockResolvedValue([{ nextSeq: 4 }]),
-    $transaction: jest.fn(
-      async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn({ invoice, $queryRaw: jest.fn().mockResolvedValue([{ nextSeq: 4 }]) }),
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        invoice,
+        // The update path replaces line items inside the same transaction.
+        invoiceLineItem: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+        $queryRaw: jest.fn().mockResolvedValue([{ nextSeq: 4 }]),
+      }),
     ),
   } as unknown as PrismaService;
   const clients = {
@@ -81,6 +85,8 @@ function build(invoiceOverrides: Record<string, unknown> = {}) {
     prisma,
     clients,
     mail,
+    audit,
+    invoice,
   };
 }
 
@@ -177,5 +183,68 @@ describe("InvoicesService", () => {
       expect.objectContaining({ where: { id: "inv1" }, data: { status: "Sent" } }),
     );
     expect(res.status).toBe("Sent");
+  });
+
+  describe("editing an issued billing reverts it to Draft", () => {
+    /** Build a service whose loaded invoice sits at `status`. */
+    function atStatus(status: string) {
+      const findFirst = jest.fn().mockResolvedValue(makeRow({ status }));
+      return build({ findFirst });
+    }
+
+    it("reverts a Sent billing when its content is edited", async () => {
+      const { svc, invoice } = atStatus("Sent");
+      await svc.update(actor, "inv1", { description: "revised" });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBe("Draft");
+    });
+
+    it("reverts an Overdue billing when its line items are replaced", async () => {
+      const { svc, invoice } = atStatus("Overdue");
+      await svc.update(actor, "inv1", {
+        lineItems: [{ description: "Bookkeeping", qty: 1, rate: 2500, taxCode: "NONE" }],
+      });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBe("Draft");
+    });
+
+    it("leaves a Paid billing's status alone — reverting would erase the payment record", async () => {
+      const { svc, invoice } = atStatus("Paid");
+      await svc.update(actor, "inv1", { description: "revised" });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBeUndefined();
+    });
+
+    it("does not touch the status of a billing already in Draft", async () => {
+      const { svc, invoice } = atStatus("Draft");
+      await svc.update(actor, "inv1", { description: "revised" });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBeUndefined();
+    });
+
+    it("honours an explicit status over the automatic revert", async () => {
+      const { svc, invoice } = atStatus("Sent");
+      await svc.update(actor, "inv1", { description: "revised", status: "Paid" });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBe("Paid");
+    });
+
+    it("a status-only change never triggers a revert", async () => {
+      const { svc, invoice } = atStatus("Sent");
+      await svc.update(actor, "inv1", { status: "Paid" });
+      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.status).toBe("Paid");
+    });
+
+    it("records the revert in the audit trail", async () => {
+      const { svc, audit } = atStatus("Sent");
+      await svc.update(actor, "inv1", { description: "revised" });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "invoice.update",
+          metadata: expect.objectContaining({ revertedToDraftFrom: "Sent" }),
+        }),
+      );
+    });
   });
 });
