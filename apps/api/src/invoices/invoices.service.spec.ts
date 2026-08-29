@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import type { ConfigService } from "@nestjs/config";
 import { InvoicesService } from "./invoices.service";
 import type { AuditService } from "../audit/audit.service";
@@ -208,11 +208,32 @@ describe("InvoicesService", () => {
       expect(data.status).toBe("Draft");
     });
 
-    it("leaves a Paid billing's status alone — reverting would erase the payment record", async () => {
+    it("rejects any edit to a Paid billing — the status is terminal", async () => {
       const { svc, invoice } = atStatus("Paid");
+      await expect(svc.update(actor, "inv1", { description: "revised" })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(invoice.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses to un-pay a Paid billing", async () => {
+      const { svc, invoice } = atStatus("Paid");
+      await expect(svc.update(actor, "inv1", { status: "Sent" })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(invoice.update).not.toHaveBeenCalled();
+    });
+
+    it("never emails the client when a billing is edited or reverted", async () => {
+      const { svc, mail } = atStatus("Sent");
       await svc.update(actor, "inv1", { description: "revised" });
-      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
-      expect(data.status).toBeUndefined();
+      expect(mail.send).not.toHaveBeenCalled();
+    });
+
+    it("never emails the client when a billing is tagged Paid", async () => {
+      const { svc, mail } = atStatus("Sent");
+      await svc.update(actor, "inv1", { status: "Paid" });
+      expect(mail.send).not.toHaveBeenCalled();
     });
 
     it("does not touch the status of a billing already in Draft", async () => {
@@ -234,13 +255,6 @@ describe("InvoicesService", () => {
       await svc.update(actor, "inv1", { status: "Paid" });
       const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
       expect(data.status).toBe("Paid");
-    });
-
-    it("can put a Paid billing back to Sent — the way out of the edit lock", async () => {
-      const { svc, invoice } = atStatus("Paid");
-      await svc.update(actor, "inv1", { status: "Sent" });
-      const data = (invoice.update as jest.Mock).mock.calls[0][0].data;
-      expect(data.status).toBe("Sent");
     });
 
     it("records the revert in the audit trail", async () => {

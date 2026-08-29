@@ -137,8 +137,8 @@ function isSendable(status: string): boolean {
  * already received never changes silently — the revert makes the edit explicit
  * and forces an intentional re-send.
  *
- * Paid is excluded: reverting a settled billing would erase the record that it
- * was paid. Mark it unpaid first if it genuinely needs revising.
+ * Paid is excluded and terminal: a settled billing is a financial record and is
+ * frozen. Correct a mistake by raising a new billing, not by rewriting it.
  */
 function isEditable(status: string): boolean {
   return status === "Draft" || status === "Sent" || status === "Overdue";
@@ -157,14 +157,6 @@ function isPayable(status: string): boolean {
   return status === "Sent" || status === "Overdue";
 }
 
-/**
- * A Paid billing can be put back to Sent. Editing is locked while Paid (it would
- * erase the payment record), so without this a settled billing could never be
- * corrected — this is the way back.
- */
-function isReopenable(status: string): boolean {
-  return status === "Paid";
-}
 
 const SearchIcon = () => (
   <svg
@@ -336,11 +328,11 @@ function InvoiceList({
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["invoices"] }),
   });
-  // Tag settled / un-settle. Sent explicitly, so the server's edit-reverts-to-
-  // Draft rule does not fire: this changes only the status, not the billing.
+  // Tag a billing settled. Sent as an explicit status so the server's
+  // edit-reverts-to-Draft rule does not fire: this changes the status, not the
+  // billing. Paid is terminal — there is no inverse action by design.
   const statusMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "Paid" | "Sent" }) =>
-      updateInvoice(id, { status }),
+    mutationFn: (id: string) => updateInvoice(id, { status: "Paid" }),
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["invoices"] }),
   });
@@ -561,23 +553,13 @@ function InvoiceList({
                           variant="outline"
                           size="sm"
                           disabled={statusMut.isPending}
-                          onClick={() => statusMut.mutate({ id: inv.id, status: "Paid" })}
+                          onClick={() => statusMut.mutate(inv.id)}
                           aria-label={`Mark billing ${inv.number} paid`}
                         >
                           Paid
                         </Button>
                       ) : null}
-                      {canSend && isReopenable(inv.status) ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={statusMut.isPending}
-                          onClick={() => statusMut.mutate({ id: inv.id, status: "Sent" })}
-                          aria-label={`Mark billing ${inv.number} unpaid`}
-                        >
-                          Unpaid
-                        </Button>
-                      ) : null}
+
                       <Button
                         variant="outline"
                         size="sm"

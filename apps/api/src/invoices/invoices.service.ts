@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import { round2 } from "@portal/shared";
@@ -93,10 +93,19 @@ function toInvoiceDto(inv: InvoiceRow) {
  * management estimate — NOT authoritative BIR tax (guardrail #1).
  */
 /**
- * Statuses an edit may revert to Draft. "Paid" is intentionally absent: sending
- * a settled billing back to Draft would erase the record that it was paid.
+ * Statuses an edit may revert to Draft. "Paid" is absent because Paid is
+ * terminal — see TERMINAL_STATUS below.
  */
 const REVERTIBLE_STATUSES = new Set(["Sent", "Overdue"]);
+
+/**
+ * Paid is a permanent, terminal state. Once a billing is settled it is a
+ * financial record: it cannot be un-paid, re-opened, or have its figures
+ * changed. Enforced here rather than only in the UI so it also holds for the
+ * MCP tools and any direct API call. A mistake is corrected by raising a new
+ * billing, not by rewriting a settled one.
+ */
+const TERMINAL_STATUS = "Paid";
 
 @Injectable()
 export class InvoicesService {
@@ -201,12 +210,18 @@ export class InvoicesService {
   async update(user: AuthUser, id: string, input: UpdateInvoiceInput) {
     const current = await this.loadOwned(user.firmId, id);
 
+    // A settled billing is immutable — no status change, no figure change.
+    if (current.status === TERMINAL_STATUS) {
+      throw new BadRequestException(
+        "This billing is marked Paid and can no longer be changed. Raise a new billing instead.",
+      );
+    }
+
     // Editing an issued billing sends it back to Draft. A Sent/Overdue statement
     // the client has already received must not silently change underneath them:
     // reverting makes the edit explicit and requires an intentional re-send.
-    // Paid is deliberately excluded — reverting it would erase the record that
-    // the billing was settled. An explicit `status` in the payload always wins,
-    // so callers can still set a status directly.
+    // An explicit `status` in the payload always wins, so callers can still set
+    // a status directly.
     const editsContent = InvoicesService.CONTENT_FIELDS.some(
       (f) => input[f] !== undefined,
     );
