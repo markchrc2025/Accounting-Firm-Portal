@@ -92,3 +92,9 @@ jobs:
 
       - name: Seed RBAC catalog + bootstrap admin (idempotent)
         run: pnpm --filter api db:seed
+
+      # The hermetic `verify` job mocks Prisma throughout, so it would stay green
+      # with a wrong schema. This is the only job with a real database — run the
+      # persistence tests here, where a missing column actually fails.
+      - name: Test (database-backed)
+        run: pnpm --filter api test:db

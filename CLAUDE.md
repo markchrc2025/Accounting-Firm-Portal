@@ -112,6 +112,8 @@ local install). Copy `.env.example` → `.env` first.
 `typecheck`, `lint`, `test` (Vitest), `test:e2e` (Playwright; set `PW_EXECUTABLE_PATH` to
 use a pre-installed Chromium).
 
+Local database in a cloud VM: `bash scripts/local-db.sh` (see `docs/LOCAL-DB.md`).
+
 **Runtime notes (learned during Phase 0):**
 - `@portal/shared` is consumed as **source** (its `main` points at `src/index.ts`). The web
   app lets Vite transpile it; the API resolves it via a tsconfig `paths` alias and runs on

@@ -1,0 +1,16 @@
+{
+  "//": "Database-backed tests. Kept OUT of the hermetic suites on purpose: the unit config matches src/**/*.spec.ts and the e2e config matches test/**/*.e2e-spec.ts, so *.db-spec.ts is picked up by this config alone. These need a real PostgreSQL on DATABASE_URL — run `bash scripts/local-db.sh` first.",
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testMatch": ["<rootDir>/test/**/*.db-spec.ts"],
+  "moduleFileExtensions": ["ts", "js", "json"],
+  "transform": {
+    "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.json" }]
+  },
+  "moduleNameMapper": {
+    "^@portal/shared$": "<rootDir>/../../packages/shared/src/index.ts"
+  },
+  "transformIgnorePatterns": ["/node_modules/(?!(.pnpm/)?(zod)/)"],
+  "testTimeout": 30000,
+  "maxWorkers": 1
+}
