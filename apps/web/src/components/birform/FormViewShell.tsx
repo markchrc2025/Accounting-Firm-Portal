@@ -73,7 +73,10 @@ export function FormViewShell({
   debounceMs = 500,
   actions,
 }: FormViewShellProps) {
+  /** The CAPTURE copy: always off-screen at a fixed integer position. */
   const docRef = rootRef;
+  /** The VIEW copy: on screen in Form mode, zoomable, never rasterised. */
+  const viewRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -90,7 +93,7 @@ export function FormViewShell({
   /* ---- Fit-to-width: measure the stage and scale the sheet to it ---- */
   const measure = useCallback(() => {
     const stage = stageRef.current;
-    const sheet = docRef.current?.querySelector<HTMLElement>(".bir-sheet");
+    const sheet = viewRef.current?.querySelector<HTMLElement>(".bir-sheet");
     if (!stage || !sheet) return;
     const w = sheet.offsetWidth;
     const h = sheet.offsetHeight;
@@ -101,7 +104,7 @@ export function FormViewShell({
     }
     const avail = stage.clientWidth - 32; // the stage's own padding
     setScale(w > 0 && avail > 0 ? Math.min(1, avail / w) : 1);
-  }, [zoom, docRef]);
+  }, [zoom]);
 
   useLayoutEffect(() => {
     if (mode !== "form") return;
@@ -255,7 +258,8 @@ export function FormViewShell({
               >
                 <div
                   className="bir-doc"
-                  ref={docRef}
+                  ref={viewRef}
+                  data-sheet-copy="view"
                   {...({ inert: "" } as Record<string, string>)}
                 >
                   {sheets}
@@ -280,17 +284,20 @@ export function FormViewShell({
           </div>
         </div>
       ) : (
-        <>
-          {guided}
-          {/* In Guided mode the sheet is still mounted — off-screen but laid
-              out — so Print works from either mode without a re-render race. */}
-          <div className="bir-sheet-stage" aria-hidden="true">
-            <div className="bir-doc" ref={docRef}>
-              {sheets}
-            </div>
-          </div>
-        </>
+        guided
       )}
+
+      {/* The CAPTURE copy — the only one ever rasterised, in either mode.
+          Staged off-screen by .bir-sheet-stage (position: fixed; left:
+          -10000px; top: 0), so its page coordinates are integers and do not
+          depend on scroll, layout or zoom. Rasterising the on-screen copy
+          instead made the print depend on where the operator had scrolled:
+          a rule could land on one raster row or the next. */}
+      <div className="bir-sheet-stage" aria-hidden="true">
+        <div className="bir-doc" ref={docRef} data-sheet-copy="capture">
+          {sheets}
+        </div>
+      </div>
     </div>
   );
 }

@@ -54,16 +54,19 @@ export function peso(n: number | string | null | undefined): string {
 /**
  * The 14 digits the BIR's TIN boxes hold: nine-digit TIN + five-digit branch
  * code. A TIN already carrying its branch wins; otherwise the branch argument
- * is padded to five. Short/absent TINs come back as-is so the boxes simply run
- * out — a mandated form never invents a digit.
- * Ported from the Sentire generator (src/lib/taxpayer.ts tin14).
+ * is used. Short/absent TINs come back as-is so the boxes simply run out.
+ *
+ * A mandated form never invents a digit. Sentire's original padded a MISSING
+ * branch to "00000" (head office); that is a guess, so here a branch is padded
+ * only when some branch digits were actually given (an old-style three-digit
+ * "000" becomes "00000"), and with none the five branch boxes stay blank.
+ * Adapted from the Sentire generator (src/lib/taxpayer.ts tin14).
  */
 export function tin14(tin: string | null | undefined, branch?: string | null): string {
   const digits = String(tin ?? "").replace(/\D/g, "");
   if (digits.length < 9) return digits;
-  const fromTin = digits.slice(9, 14);
-  const br = (fromTin || String(branch ?? "").replace(/\D/g, "")).padStart(5, "0");
-  return digits.slice(0, 9) + br;
+  const given = digits.slice(9, 14) || String(branch ?? "").replace(/\D/g, "");
+  return digits.slice(0, 9) + (given ? given.padStart(5, "0") : "");
 }
 
 /**

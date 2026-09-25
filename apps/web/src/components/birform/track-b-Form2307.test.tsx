@@ -287,4 +287,31 @@ describe("T5 Form2307 renders its props and fetches nothing", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("never invents a branch code: a nine-digit TIN leaves the five branch boxes blank", () => {
+    const sheet = sheetOf({
+      ...SYNTHETIC,
+      payee: { ...SYNTHETIC.payee, tin: "987-654-321" },
+      payor: { ...SYNTHETIC.payor, tin: "123-456-789", branch: "" },
+    });
+    const groups = (root: HTMLElement, i: number) =>
+      Array.from(
+        root.querySelectorAll('[data-box-group="tin"]')[i]!.querySelectorAll(".grp"),
+      ).map((g) =>
+        Array.from(g.querySelectorAll(".bir-box"))
+          .map((b) => b.textContent || "□")
+          .join(""),
+      );
+    expect(groups(sheet, 0)).toEqual(["987", "654", "321", "□□□□□"]);
+    expect(groups(sheet, 1)).toEqual(["123", "456", "789", "□□□□□"]);
+    cleanup();
+
+    // A branch that WAS given, in the old three-digit style, is widened — not invented.
+    const old = sheetOf({
+      ...SYNTHETIC,
+      payor: { ...SYNTHETIC.payor, tin: "123-456-789", branch: "001" },
+    });
+    expect(groups(old, 1)).toEqual(["123", "456", "789", "00001"]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });

@@ -52,50 +52,116 @@
     { "text": "BIR Form No.", "count": 1 },
     { "text": "2307", "count": 1, "note": "the big form number in the header block" },
     { "text": "January 2018 (ENCS)", "count": 1 },
-    { "text": "2307 01/18ENCS", "count": 1, "note": "human-readable line under the barcode" },
+    {
+      "text": "2307 01/18ENCS",
+      "count": 1,
+      "note": "human-readable line under the barcode"
+    },
     { "text": "Republic of the Philippines", "count": 1, "bold": true },
     { "text": "Department of Finance", "count": 1, "bold": true },
     { "text": "Bureau of Internal Revenue", "count": 1, "bold": true },
-    { "text": "Certificate of Creditable Tax Withheld at Source", "count": 1, "bold": true, "note": "title, 20px / 15pt on paper" },
-    { "text": "Fill in all applicable spaces. Mark all appropriate boxes with an \"X\".", "count": 1 },
+    {
+      "text": "Certificate of Creditable Tax Withheld at Source",
+      "count": 1,
+      "bold": true,
+      "note": "title, 20px / 15pt on paper"
+    },
+    {
+      "text": "Fill in all applicable spaces. Mark all appropriate boxes with an \"X\".",
+      "count": 1
+    },
 
     { "text": "For the Period", "count": 1 },
     { "text": "From", "count": 1 },
     { "text": "To", "count": 1 },
-    { "text": "(MM/DD/YYYY)", "count": 6, "italic": true, "note": "item 1 From + To, then Date of Issue / Date of Expiry in both signature blocks" },
+    {
+      "text": "(MM/DD/YYYY)",
+      "count": 6,
+      "italic": true,
+      "note": "item 1 From + To, then Date of Issue / Date of Expiry in both signature blocks"
+    },
 
     { "text": "Part I – Payee Information", "count": 1, "bold": true },
-    { "text": "Taxpayer Identification Number (TIN)", "count": 2, "note": "items 2 and 6" },
-    { "text": "Payee’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)", "count": 1 },
+    {
+      "text": "Taxpayer Identification Number (TIN)",
+      "count": 2,
+      "note": "items 2 and 6"
+    },
+    {
+      "text": "Payee’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)",
+      "count": 1
+    },
     { "text": "Registered Address", "count": 2, "note": "items 4 and 8" },
     { "text": "ZIP Code", "count": 2, "note": "items 4A and 8A" },
-    { "text": "Foreign Address, if applicable", "count": 1, "note": "item 5. There is no item 9." },
+    {
+      "text": "Foreign Address, if applicable",
+      "count": 1,
+      "note": "item 5. There is no item 9."
+    },
 
     { "text": "Part II – Payor Information", "count": 1, "bold": true },
-    { "text": "Payor’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)", "count": 1 },
+    {
+      "text": "Payor’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)",
+      "count": 1
+    },
 
-    { "text": "Part III – Details of Monthly Income Payments and Taxes Withheld", "count": 1, "bold": true },
-    { "text": "Income Payments Subject to Expanded Withholding Tax", "count": 1, "bold": true },
+    {
+      "text": "Part III – Details of Monthly Income Payments and Taxes Withheld",
+      "count": 1,
+      "bold": true
+    },
+    {
+      "text": "Income Payments Subject to Expanded Withholding Tax",
+      "count": 1,
+      "bold": true
+    },
     { "text": "ATC", "count": 1, "bold": true },
-    { "text": "AMOUNT OF INCOME PAYMENTS", "count": 1, "bold": true, "note": "spans the three month columns" },
+    {
+      "text": "AMOUNT OF INCOME PAYMENTS",
+      "count": 1,
+      "bold": true,
+      "note": "spans the three month columns"
+    },
     { "text": "1st Month of the Quarter", "count": 1, "bold": true },
     { "text": "2nd Month of the Quarter", "count": 1, "bold": true },
     { "text": "3rd Month of the Quarter", "count": 1, "bold": true },
     { "text": "Tax Withheld for the Quarter", "count": 1, "bold": true },
-    { "text": "Money Payments Subject to Withholding of Business Tax (Government & Private)", "count": 1, "bold": true, "note": "block B description-column header" },
+    {
+      "text": "Money Payments Subject to Withholding of Business Tax (Government & Private)",
+      "count": 1,
+      "bold": true,
+      "note": "block B description-column header"
+    },
 
-    { "text": "We declare under the penalties of perjury that this certificate has been made in good faith, verified by us, and to the best of our knowledge and belief, is true and correct, pursuant to the provisions of the National Internal Revenue Code, as amended, and the regulations issued under authority thereof. Further, we give our consent to the processing of our information as contemplated under the *Data Privacy Act of 2012 (R.A. No. 10173) for legitimate and lawful purposes.", "count": 1 },
+    {
+      "text": "We declare under the penalties of perjury that this certificate has been made in good faith, verified by us, and to the best of our knowledge and belief, is true and correct, pursuant to the provisions of the National Internal Revenue Code, as amended, and the regulations issued under authority thereof. Further, we give our consent to the processing of our information as contemplated under the *Data Privacy Act of 2012 (R.A. No. 10173) for legitimate and lawful purposes.",
+      "count": 1
+    },
 
-    { "text": "Signature over Printed Name of Payor/Payor’s Authorized Representative/Tax Agent", "count": 1 },
-    { "text": "(Indicate Title/Designation and TIN)", "count": 2, "italic": true, "note": "payor block and payee block" },
+    {
+      "text": "Signature over Printed Name of Payor/Payor’s Authorized Representative/Tax Agent",
+      "count": 1
+    },
+    {
+      "text": "(Indicate Title/Designation and TIN)",
+      "count": 2,
+      "italic": true,
+      "note": "payor block and payee block"
+    },
     { "text": "Tax Agent Accreditation No./", "count": 2 },
     { "text": "Attorney’s Roll No. (if applicable)", "count": 2 },
     { "text": "Date of Issue", "count": 2 },
     { "text": "Date of Expiry", "count": 2 },
     { "text": "CONFORME:", "count": 1, "bold": true },
-    { "text": "Signature over Printed Name of Payee/Payee’s Authorized Representative/Tax Agent", "count": 1 },
+    {
+      "text": "Signature over Printed Name of Payee/Payee’s Authorized Representative/Tax Agent",
+      "count": 1
+    },
 
-    { "text": "*NOTE: The BIR Data Privacy is in the BIR website (www.bir.gov.ph)", "count": 1 }
+    {
+      "text": "*NOTE: The BIR Data Privacy is in the BIR website (www.bir.gov.ph)",
+      "count": 1
+    }
   ],
 
   "orderedSingletons": [
@@ -153,13 +219,32 @@
 
   "forbidden": {
     "$comment": "R4 and R9 — text the official form does not carry.",
-    "substrings": ["Page 1", "Common ATCs", "WI010", "WI011", "WC010", "WI515", "WC160", "WI158", "WI159"]
+    "substrings": [
+      "Page 1",
+      "Common ATCs",
+      "WI010",
+      "WI011",
+      "WC010",
+      "WI515",
+      "WC160",
+      "WI158",
+      "WI159"
+    ]
   },
 
   "blankByDesign": [
-    { "what": "For BIR Use Only / BCS/ / Item:", "reason": "the Bureau's own stamping box" },
-    { "what": "Barcode image", "reason": "the official barcode PNG was not supplied; the box is drawn at the official size and left empty" },
-    { "what": "Block B — all 10 rows and its Total", "reason": "R3: the firm issues no certificate for money payments subject to withholding of business tax today; wired when the ATC picker draws from the seeded table" },
+    {
+      "what": "For BIR Use Only / BCS/ / Item:",
+      "reason": "the Bureau's own stamping box"
+    },
+    {
+      "what": "Barcode image",
+      "reason": "the official barcode PNG was not supplied; the box is drawn at the official size and left empty"
+    },
+    {
+      "what": "Block B — all 10 rows and its Total",
+      "reason": "R3: the firm issues no certificate for money payments subject to withholding of business tax today; wired when the ATC picker draws from the seeded table"
+    },
     { "what": "Both signature lines themselves", "reason": "R6: wet ink" }
   ]
 }

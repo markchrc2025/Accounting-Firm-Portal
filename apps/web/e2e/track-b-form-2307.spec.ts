@@ -273,7 +273,9 @@ test.describe("2307 Form view (hermetic)", () => {
     // Switch from Guided to Form mode.
     await page.getByRole("button", { name: "Form", exact: true }).click();
 
-    const sheet = page.locator(".bir-doc .bir-sheet");
+    // The on-screen VIEW copy. (A second, CAPTURE copy is always staged
+    // off-screen; it is the one the PDF is rasterised from.)
+    const sheet = page.locator('[data-sheet-copy="view"] .bir-sheet');
     await expect(sheet).toHaveCount(1);
     await expect(sheet).toBeVisible();
 
@@ -382,8 +384,10 @@ test.describe("2307 Form view (hermetic)", () => {
     // With html2canvas's baseline probe broken by Tailwind's preflight, every
     // glyph is painted low and this digit sits on the box's bottom rule.
     await page.getByRole("button", { name: "Form", exact: true }).click();
-    const sheet = page.locator(".bir-doc .bir-sheet");
-    await expect(sheet).toBeVisible();
+    await expect(page.locator('[data-sheet-copy="view"] .bir-sheet')).toBeVisible();
+    // Box offsets come from the CAPTURE copy — the one the raster is made from.
+    const sheet = page.locator('[data-sheet-copy="capture"] .bir-sheet');
+    await expect(sheet).toHaveCount(1);
     const boxCss = await sheet.evaluate((root) => {
       const el = root.querySelector<HTMLElement>('[data-box-group="period"] .bir-box')!;
       let x = 0;
@@ -412,11 +416,26 @@ test.describe("2307 Form view (hermetic)", () => {
     expect(centre).toBeGreaterThan(0.25);
     expect(centre).toBeLessThan(0.75);
 
-    // (b) THE ZOOM CANNOT CHANGE THE PRINT. Print again from Form mode at the
-    // default Fit to width, where the on-screen sheet is inside a CSS
-    // `transform: scale(...)`. html2canvas measures inside that transform and
-    // paints outside it unless the capture strips it, which garbles the text.
-    // The two rasters must be identical to the byte.
+    // (b) NOTHING OUTSIDE THE SHEET CAN CHANGE THE PRINT. Print again from
+    // Form mode — where the on-screen copy sits inside a Fit-to-width
+    // `transform: scale(...)` — with the page root held part-way through a
+    // PAUSED animation whose keyframes scale and shift it. html2canvas cancels
+    // animations and transforms only on the captured element and its
+    // descendants, never its ancestors, and a running animation outranks an
+    // ordinary inline style. That is how the intermittent failure arrived: the
+    // root's own 300 ms fade-rise restarting inside html2canvas's cloned
+    // document. Holding a scaling animation on the root makes the hostile
+    // ancestor present on EVERY run (paused, so Playwright still sees a stable
+    // button to click). The two rasters must be identical to the byte.
+    await page.addStyleTag({
+      content: [
+        "@keyframes track-b-hostile-ancestor {",
+        "  from { transform: translateY(3.3px) scale(0.93); }",
+        "  to { transform: none; }",
+        "}",
+        ".animate-fade-rise { animation: track-b-hostile-ancestor 1s linear -0.37s infinite paused; }",
+      ].join("\n"),
+    });
     const [download2] = await Promise.all([
       page.waitForEvent("download", { timeout: 60_000 }),
       page.getByRole("button", { name: /Print certificate \(PDF\)/ }).click(),

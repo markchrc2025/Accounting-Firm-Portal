@@ -71,15 +71,23 @@ export async function sheetsToPdfBlob(
         // transform is showing.
         width: el.offsetWidth,
         height: el.offsetHeight,
-        // DEFECT FIX 2 — words collide and values drift out of their boxes
-        // when the on-screen sheet sits inside the Fit-to-width
-        // `transform: scale(...)`: html2canvas reads glyph positions in the
-        // transformed space and paints them in untransformed space. Strip every
-        // ancestor transform in the CLONE (the live page is untouched), so the
-        // sheet is captured at 1:1 whatever the zoom control shows.
+        // DEFECT FIX 2 — the print must not depend on anything outside the
+        // sheet. html2canvas cancels animations and transforms only on the
+        // element it captures and its descendants (html2canvas.esm.js:3792-3797),
+        // never on its ANCESTORS. In the cloned document every ancestor's CSS
+        // animation restarts from zero (the page root's `animate-fade-rise` is a
+        // 300 ms translateY), so the sheet was captured at a random sub-pixel
+        // offset and a rule could land on one raster row or the next; and a
+        // Fit-to-width `transform: scale(...)` garbled the text outright. In the
+        // CLONE only (the live page is untouched) cancel every ancestor's
+        // animation and transition, then its transform, at `important` priority.
+        // An ordinary inline `transform: none` is not enough: a running
+        // animation outranks it.
         onclone: (_doc, cloned) => {
           for (let n = cloned.parentElement; n; n = n.parentElement) {
-            n.style.transform = "none";
+            n.style.setProperty("animation", "none", "important");
+            n.style.setProperty("transition", "none", "important");
+            n.style.setProperty("transform", "none", "important");
           }
         },
       });
