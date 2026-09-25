@@ -21,15 +21,24 @@ function raw(data: FilingData | undefined, field: string): string {
   return v == null || typeof v !== "string" ? "" : v;
 }
 
-/** Boxed digits/letters (TIN, RDO, etc.). */
+/**
+ * What a run of digit boxes holds. Rendered onto the group as
+ * `data-box-group`, so a test can count the boxes the official form requires
+ * without reaching into the layout.
+ */
+export type BoxKind = "tin" | "period" | "zip" | "taxAgentDate" | "other";
+
+/** Boxed digits/letters (TIN, RDO, dates, ZIP). */
 export function BirBoxes({
   value,
   count,
   groups,
+  kind = "other",
 }: {
   value?: string;
   count: number;
   groups?: number[];
+  kind?: BoxKind;
 }) {
   const chars = String(value == null ? "" : value)
     .replace(/[^0-9A-Za-z]/g, "")
@@ -57,10 +66,14 @@ export function BirBoxes({
           </span>,
         );
     });
-    return <div className="bir-boxes">{out}</div>;
+    return (
+      <div className="bir-boxes" data-box-group={kind} data-box-count={count}>
+        {out}
+      </div>
+    );
   }
   return (
-    <div className="bir-boxes">
+    <div className="bir-boxes" data-box-group={kind} data-box-count={count}>
       {cells.map((c, i) => (
         <div className="bir-box" key={i}>
           {c}
@@ -100,6 +113,28 @@ export function BirAmt({
     );
   }
   return <AmtInput field={field} data={data} set={set} />;
+}
+
+/**
+ * A read-only amount printed as TEXT, for a print-faithful sheet.
+ *
+ * Differs from `<BirAmt ro>` in two ways that matter on a mandated form:
+ *  - an absent value renders as NOTHING, not "0" — a zero nobody entered is
+ *    content on the paper, and an unused row on the BIR's form is blank;
+ *  - it is a `<span>`, not an `<input>`, so the figure is a real text node:
+ *    selectable in the browser, found by a test, and rasterised as text.
+ */
+export function BirAmtVal({ value, bold }: { value?: number | null; bold?: boolean }) {
+  const empty = value == null || Number.isNaN(value);
+  return (
+    <span
+      className="bir-amt ro"
+      style={{ display: "block", fontWeight: bold ? 700 : undefined }}
+      data-amount={empty ? "" : String(value)}
+    >
+      {empty ? "" : fmtAmt(value)}
+    </span>
+  );
 }
 
 /** Editable amount input: comma-formatted when idle, raw while being typed. */
@@ -150,11 +185,35 @@ export function BirText({
 }
 
 /** Read-only profile value (auto-filled from the taxpayer record). */
-export function BirVal({ value, lower }: { value?: string | null; lower?: boolean }) {
+export function BirVal({
+  value,
+  lower,
+  fit,
+  blank,
+}: {
+  value?: string | null;
+  lower?: boolean;
+  /** Shrink the font stepwise for long values so the text fits its cell instead
+   *  of pushing neighbouring cells (matches how the official form's long
+   *  answers are simply written smaller). Ported from the Sentire generator. */
+  fit?: boolean;
+  /** Render an empty value as nothing at all, not as an em-dash placeholder.
+   *  Required on a print-faithful sheet: a blank box on a mandated form is
+   *  blank, and a placeholder glyph would be read as content. */
+  blank?: boolean;
+}) {
   const empty = value == null || value === "";
+  const len = empty ? 0 : String(value).length;
+  const fitStyle =
+    fit && len > 46
+      ? { fontSize: len > 88 ? 9 : len > 64 ? 10.5 : 12, letterSpacing: 0 }
+      : undefined;
   return (
-    <span className={"bir-val" + (lower ? " lower" : "") + (empty ? " empty" : "")}>
-      {empty ? "—" : value}
+    <span
+      className={"bir-val" + (lower ? " lower" : "") + (empty ? " empty" : "")}
+      style={fitStyle}
+    >
+      {empty ? (blank ? "" : "—") : value}
     </span>
   );
 }

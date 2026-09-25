@@ -1,4 +1,24 @@
-/* bir-form.css — pixel-faithful BIR paper-form styling (official look, folio 8.5"×13") */
+/* bir-form.css — pixel-faithful BIR paper-form styling.
+ *
+ * GEOMETRY (W2 pass 2, R1): LONG BOND, 8.5 x 13 in.
+ *   page    612 x 936 pt
+ *   sheet   816 x 1248 CSS px at 96 px/in, so 1 px = 0.75 pt on paper exactly,
+ *           with no scaling anywhere in the PDF path.
+ *   margins 24 px (0.25 in) all round -> content 711 x 1200 px, centred
+ *           horizontally at x = 52.5.
+ *   type    the workbook's 8 pt face is 10 px here and prints at 7.5 pt;
+ *           the 16 pt title is 20 px and prints at 15 pt;
+ *           the 7.5 pt tax-agent lines are 9.5 px and print at 7.125 pt.
+ *
+ * SCOPING: every rule below is scoped under `.bir-doc`, and every rule that
+ * targets something inside the sheet is scoped under `.bir-doc .bir-sheet`.
+ * That is load-bearing, not tidiness: `src/index.css` already owns the bare
+ * `.bir-sheet` class for the hand-written 2307/2316 certificate sheets at
+ * 794 x 1123 px, and several `.bir-sheet X` descendants besides. Scoping this
+ * file at one specificity step higher means nothing here can reach those
+ * sheets whatever order the two stylesheets load in. The 2316 regression test
+ * guards it.
+ */
 
 .bir-doc {
   --bk: #1a1a1a;           /* form ink (near-black) */
@@ -13,21 +33,32 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- page sheet (A4: 210 × 297 mm) ---- */
-/* ---- page sheet = full A4 page incl. 0.5in margin (WYSIWYG with PDF) ---- */
-.bir-sheet {
-  width: 1044px;          /* A4 width @ ~126dpi */
-  min-height: 1470px;     /* A4 height @ ~126dpi */
+/* ---- the page sheet: long bond 8.5 x 13 in at 96 px/in ---- */
+.bir-doc .bir-sheet {
+  width: 816px;
+  height: 1248px;
+  min-height: 1248px;
+  padding: 24px 52.5px;      /* 0.25in margins; content 711 x 1200 */
+  margin: 0 auto;
   background: #fff;
-  margin: 0 auto 26px;
-  box-shadow: 0 6px 26px rgba(40, 28, 18, 0.16);
-  position: relative;
+  color: var(--bk);
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 10px;           /* the 8 pt face -> 7.5 pt on paper */
+  line-height: 1.16;
   box-sizing: border-box;
-  padding: 63px;          /* 0.5in margin on all sides */
+  position: relative;
+  box-shadow: 0 6px 26px rgba(40, 28, 18, 0.16);
 }
-.bir-sheet * { box-sizing: border-box; }
+.bir-doc .bir-sheet * { box-sizing: border-box; }
 
-/* shared atoms */
+/* The sheet is a fixed-size document: it must never be reflowed by the
+   surrounding UI's font or colour scheme. */
+.bir-doc .bir-sheet input {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* ---- shared atoms ---- */
 .bir-doc .row { display: flex; }
 .bir-doc .col { display: flex; flex-direction: column; }
 .bir-doc .grow { flex: 1; }
@@ -39,166 +70,136 @@
 .bir-doc .bl { border-left: 1px solid var(--ln); }
 .bir-doc .br { border-right: 1px solid var(--ln); }
 
-/* header */
-.bir-formno {
-  width: 168px; flex: none; text-align: center; padding: 4px 5px 5px;
+/* ---- header ---- */
+.bir-doc .bir-sheet .bir-formno {
+  width: 168px; flex: none; text-align: center; padding: 3px 4px 4px;
   line-height: 1.2; display: flex; flex-direction: column; justify-content: center;
 }
-.bir-formno .lbl { font-size: 8.5px; }
-.bir-formno .no { font-family: Arial; font-weight: 700; font-size: 36px; letter-spacing: 0.5px; margin: 1px 0 0; }
-.bir-formno .date { font-size: 9px; }
-.bir-formno .page { font-size: 9px; font-weight: 700; }
-.bir-gov { padding: 5px 9px; line-height: 1.34; }
-.bir-gov .rep { font-size: 10.5px; }
-.bir-gov .dof { font-size: 10.5px; }
-.bir-gov .bureau { font-size: 11.5px; font-weight: 700; }
-.bir-title { text-align: center; padding: 3px 7px; }
-.bir-title .t { font-size: 21px; font-weight: 700; line-height: 1.07; }
-.bir-title .sub { font-size: 10.4px; line-height: 1.24; margin-top: 2px; }
-.bir-instr { font-size: 10px; font-style: italic; line-height: 1.22; padding: 2px 6px; }
-
-/* part band */
-.bir-part {
-  background: var(--shade); font-size: 11.6px; font-weight: 700;
-  padding: 2px 8px; letter-spacing: 0.2px; text-transform: none; text-align: center;
+.bir-doc .bir-sheet .bir-formno .lbl { font-size: 9px; }
+.bir-doc .bir-sheet .bir-formno .no {
+  font-family: Arial; font-weight: 700; font-size: 30px; letter-spacing: 0.5px; margin: 1px 0 0;
 }
-.bir-section { background: var(--shade2); font-size: 10.6px; font-weight: 700; padding: 2px 8px; }
+.bir-doc .bir-sheet .bir-formno .date { font-size: 9px; }
+.bir-doc .bir-sheet .bir-formno .page { font-size: 9px; font-weight: 700; }
+.bir-doc .bir-sheet .bir-gov { padding: 4px 8px; line-height: 1.3; }
+.bir-doc .bir-sheet .bir-gov .rep,
+.bir-doc .bir-sheet .bir-gov .dof { font-size: 10px; font-weight: 700; }
+.bir-doc .bir-sheet .bir-gov .bureau { font-size: 11px; font-weight: 700; }
+.bir-doc .bir-sheet .bir-title { text-align: center; padding: 2px 6px; letter-spacing: normal; }
+/* The 16 pt title -> 20 px -> 15 pt on paper. */
+.bir-doc .bir-sheet .bir-title .t { font-size: 20px; font-weight: 700; line-height: 1.06; }
+.bir-doc .bir-sheet .bir-title .sub { font-size: 10px; line-height: 1.2; margin-top: 1px; }
+.bir-doc .bir-sheet .bir-instr { font-size: 10px; font-style: italic; line-height: 1.2; padding: 2px 5px; }
 
-/* generic labelled cell */
-.bir-cell { padding: 1px 6px 2px; position: relative; min-height: 28px; }
-.bir-cell .ino { font-size: 11px; font-weight: 700; margin-right: 3px; }
-.bir-cell .cap { font-size: 10.6px; line-height: 1.2; display: block; }
-.bir-cell .capi { font-size: 10.4px; font-style: italic; }
-/* inline label+field cell (label and answer on one line) */
-.bir-cell.inline { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
-.bir-cell.inline > .lblgrp { flex: none; white-space: nowrap; }
-.bir-cell.inline > .fld { flex: 1; min-width: 0; display: flex; align-items: center; }
-.bir-cell.inline .bir-val { white-space: nowrap; }
+/* "For BIR Use Only" stamping box — blank by design. */
+.bir-doc .bir-sheet .bir-biruse { font-size: 8.5px; line-height: 1.3; padding: 2px 4px; }
+
+/* Barcode: drawn at the official size and left empty when no image is supplied. */
+.bir-doc .bir-sheet .bir-barcode {
+  width: 132px; height: 30px; margin: 0 auto 1px;
+  display: block; background: #fff;
+}
+.bir-doc .bir-sheet .bir-barcode-code {
+  font-size: 9px; text-align: center; letter-spacing: 0.4px; line-height: 1.1;
+}
+
+/* ---- part band ---- */
+.bir-doc .bir-sheet .bir-part {
+  background: var(--shade); font-size: 10px; font-weight: 700;
+  padding: 2px 7px; letter-spacing: 0.2px; text-align: center;
+}
+.bir-doc .bir-sheet .bir-section { background: var(--shade2); font-size: 10px; font-weight: 700; padding: 2px 7px; }
+
+/* ---- generic labelled cell ---- */
+.bir-doc .bir-sheet .bir-cell { padding: 1px 5px 2px; position: relative; min-height: 26px; }
+.bir-doc .bir-sheet .bir-cell.inline { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.bir-doc .bir-sheet .bir-cell.inline > .lblgrp { flex: none; white-space: nowrap; }
+.bir-doc .bir-sheet .bir-cell.inline > .fld { flex: 1; min-width: 0; display: flex; align-items: center; }
+.bir-doc .bir-sheet .bir-cell.inline .bir-val { white-space: nowrap; }
+/* A growing inline cell must clip its (nowrap) value rather than push the fixed
+   cells beside it — long answers shrink/clip inside their own border. */
+.bir-doc .bir-sheet .bir-cell.inline.grow { flex: 1 1 0; min-width: 0; overflow: hidden; }
+/* A stacked cell puts the caption above the answer, which is how the official
+   form sets items 3, 4, 5, 7 and 8. */
+.bir-doc .bir-sheet .bir-cell.stack { display: flex; flex-direction: column; gap: 1px; }
 
 /* item number chip + caption */
-.bir-ino { font-size: 11px; font-weight: 700; }
-.bir-cap { font-size: 10.6px; line-height: 1.18; }
-.bir-capi { font-size: 9.4px; font-style: italic; line-height: 1.16; color: #333; }
+.bir-doc .bir-sheet .bir-ino { font-size: 10px; font-weight: 700; }
+.bir-doc .bir-sheet .bir-cap { font-size: 10px; line-height: 1.16; }
+.bir-doc .bir-sheet .bir-capi { font-size: 10px; font-style: italic; line-height: 1.16; }
 
-/* editable text input */
-.bir-in {
-  border: 0; outline: 0; background: var(--field);
-  font-family: Arial, sans-serif; font-size: 15px; font-weight: 600;
-  color: #16263a; width: 100%; padding: 1px 5px; letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-.bir-in:focus { background: var(--field-focus); }
-.bir-in::placeholder { color: #b9b3a8; font-weight: 400; text-transform: none; font-style: italic; }
-.bir-in.lower { text-transform: none; }
-
-/* dropdown select inside form cells */
-.bir-select {
-  border: 0; outline: 0; background: var(--field);
-  font-family: Arial, sans-serif; font-size: 11px; font-weight: 600;
-  color: #16263a; width: 100%; padding: 3px 4px; cursor: pointer;
-}
-.bir-select:focus { background: var(--field-focus); }
-/* small centered rate input */
-.bir-rate {
-  border: 0; outline: 0; background: var(--field);
-  font-family: Arial, sans-serif; font-size: 12px; font-weight: 600;
-  color: #16263a; width: 38px; text-align: right; padding: 2px 2px;
-  font-variant-numeric: tabular-nums;
-}
-.bir-rate:focus { background: var(--field-focus); }
-
-/* amount input */
-.bir-amt {
-  border: 0; outline: 0; background: var(--field);
-  font-family: Arial, sans-serif; font-size: 15px; font-weight: 600;
-  text-align: right; width: 100%; padding: 0 7px; color: #16263a;
-  font-variant-numeric: tabular-nums;
-}
-.bir-amt:focus { background: var(--field-focus); }
-.bir-amt.ro { background: var(--ro); color: #2a2a2a; cursor: default; font-weight: 700; }
-.bir-amt.neg { color: #b23b3b; }
-
-/* read-only profile value */
-.bir-val {
-  font-size: 15px; font-weight: 600; color: #16263a; padding: 1px 5px;
-  text-transform: uppercase; letter-spacing: 0.3px; min-height: 16px;
+/* ---- read-only value (the whole print-faithful sheet is read-only) ---- */
+.bir-doc .bir-sheet .bir-val {
+  font-size: 10px; font-weight: 700; color: var(--bk); padding: 1px 3px;
+  text-transform: uppercase; letter-spacing: 0.2px; min-height: 12px;
   display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.bir-val.lower { text-transform: none; }
-.bir-val.empty { color: #c9c3b9; font-style: italic; font-weight: 400; text-transform: none; }
+.bir-doc .bir-sheet .bir-val.lower { text-transform: none; }
+.bir-doc .bir-sheet .bir-val.empty { color: var(--bk); font-style: normal; font-weight: 400; }
 
-/* digit boxes (TIN etc) */
-.bir-boxes { display: flex; align-items: center; gap: 0; }
-.bir-box {
-  width: 20px; height: 21px; border: 0.7px solid var(--ln); border-right: 0;
+/* ---- amounts ---- */
+.bir-doc .bir-sheet .bir-amt {
+  border: 0; outline: 0; background: transparent;
+  font-family: Arial, sans-serif; font-size: 10px; font-weight: 400;
+  text-align: right; width: 100%; padding: 0 4px; color: var(--bk);
+  font-variant-numeric: tabular-nums;
+}
+/* The printed form has no shaded cells — every amount box is white and the
+   computed totals are simply set in bold. */
+.bir-doc .bir-sheet .bir-amt.ro { background: transparent; font-weight: 400; cursor: default; }
+.bir-doc .bir-sheet .bir-amt.neg { color: var(--bk); }
+.bir-doc .bir-sheet .bir-totalrow .bir-amt.ro { font-weight: 700; }
+
+/* ---- digit boxes (TIN, dates, ZIP) ---- */
+.bir-doc .bir-sheet .bir-boxes { display: flex; align-items: center; gap: 0; }
+.bir-doc .bir-sheet .bir-box {
+  width: 13px; height: 14px; border: 0.7px solid var(--ln); border-right: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 700; color: #16263a; background: #fff;
+  font-size: 10px; font-weight: 400; color: var(--bk); background: #fff;
+  min-height: 0; padding: 0;
 }
-.bir-box:last-child { border-right: 0.7px solid var(--ln); }
-.bir-boxes .sep { padding: 0 3px; font-weight: 700; font-size: 15px; }
-.bir-boxes .grp { display: flex; }
-.bir-boxes .grp .bir-box:last-child { border-right: 0.7px solid var(--ln); }
+.bir-doc .bir-sheet .bir-box:last-child { border-right: 0.7px solid var(--ln); }
+.bir-doc .bir-sheet .bir-boxes .sep { padding: 0 2px; font-weight: 700; font-size: 10px; }
+.bir-doc .bir-sheet .bir-boxes .grp { display: flex; }
+.bir-doc .bir-sheet .bir-boxes .grp .bir-box:last-child { border-right: 0.7px solid var(--ln); }
 
-/* checkbox */
-.bir-ck {
-  width: 16px; height: 16px; border: 1px solid var(--ln); flex: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 800; line-height: 1; color: var(--bk);
-  background: #fff; cursor: pointer; user-select: none;
+/* ---- Part III table ---- */
+.bir-doc .bir-sheet .bir-p3head { background: var(--shade2); font-weight: 700; font-size: 10px; }
+.bir-doc .bir-sheet .bir-p3head .cell {
+  padding: 1px 3px; text-align: center; line-height: 1.12;
+  display: flex; align-items: center; justify-content: center;
 }
-.bir-ck.sel { cursor: pointer; }
-.bir-ck.on::after { content: "X"; }
-.bir-ckwrap { display: inline-flex; align-items: flex-start; gap: 6px; font-size: 10.8px; line-height: 1.2; }
-.bir-ckwrap .bir-ck { margin-top: 0.5px; }
-.bir-ckwrap.click { cursor: pointer; }
+.bir-doc .bir-sheet .bir-p3row { min-height: 18.65px; }
+.bir-doc .bir-sheet .bir-p3row > div { display: flex; align-items: center; }
+.bir-doc .bir-sheet .bir-p3headrow { min-height: 13px; }
+.bir-doc .bir-sheet .bir-blockb-head {
+  font-weight: 700; font-size: 10px; padding: 1px 4px; background: var(--shade2);
+}
+.bir-doc .bir-sheet .bir-totalrow { min-height: 18.65px; font-weight: 700; }
+.bir-doc .bir-sheet .bir-totalrow .lbl { padding: 1px 5px; font-weight: 700; font-size: 10px; }
 
-/* table-ish computation rows */
-.bir-line { display: flex; align-items: stretch; min-height: 19px; }
-.bir-line .num { width: 28px; flex: none; font-size: 12px; font-weight: 700; padding: 3px 2px 0 6px; }
-.bir-line .desc { flex: 1; font-size: 12px; line-height: 1.16; padding: 2px 6px; display: flex; align-items: center; }
-.bir-line .desc small { font-size: 10.4px; color: #444; }
+/* Part III column widths — shares of the 711 px content width (A2). The
+   description column is the flex remainder so the row sums exactly to 711. */
+.bir-doc .bir-sheet .c-desc { flex: 1 1 0; min-width: 0; }
+.bir-doc .bir-sheet .c-atc { width: 53px; flex: none; }
+.bir-doc .bir-sheet .c-m1 { width: 88.5px; flex: none; }
+.bir-doc .bir-sheet .c-m2 { width: 91px; flex: none; }
+.bir-doc .bir-sheet .c-m3 { width: 88.5px; flex: none; }
+.bir-doc .bir-sheet .c-tot { width: 88.5px; flex: none; }
+.bir-doc .bir-sheet .c-tax { width: 106px; flex: none; }
 
-/* 1701A page 1 leaves spare vertical space, so let its dense sections breathe:
-   taller Part II rows and a roomier, more legible declaration / signature. */
-.bir-1701a-p1 .bir-line { min-height: 25px; }
-.bir-1701a-p1 .bir-perjury { font-size: 10.6px; line-height: 1.45; padding: 7px 9px; }
-.bir-1701a-p1 .bir-sign { font-size: 10.6px; padding: 11px 8px 6px; }
-
-/* 1701 is a dense 4-page return. Pages 1-3 leave spare vertical space, so give
-   their rows extra height to fill the A4 sheet down to the bottom margin
-   (the official form's fields are roomy for handwriting anyway). Tuned per page
-   since each carries a different number of rows. */
-.bir-1701-p1 .bir-cell { min-height: 32px; }
-.bir-1701-p1 .bir-line { min-height: 26px; }
-.bir-1701-p2 .bir-line { min-height: 26px; }
-.bir-1701-p2 .bir-cell { min-height: 31px; }
-.bir-1701-p3 .bir-line { min-height: 23px; }
-
-/* The printed BIR form has no shaded data cells — every amount box is white,
-   computed totals are simply set in bold. The grey read-only tint is an
-   editing affordance that doesn't belong on the print-faithful sheet, so drop
-   it here (computed cells stay distinguishable by their bold weight). */
-.bir-1701a-p1 .bir-amt.ro,
-.bir-1701a-p2 .bir-amt.ro { background: #fff; }
-.bir-doc .amtcell { width: 188px; flex: none; }
-.bir-amthead { font-size: 11.6px; font-weight: 700; text-align: center; padding: 4px; line-height: 1.14; white-space: nowrap; }
-
-/* footer print meta */
-.bir-foot { font-size: 9.6px; line-height: 1.3; }
-.bir-perjury { font-size: 9.8px; line-height: 1.3; text-align: justify; padding: 4px 6px; }
-.bir-sign { font-size: 10.2px; text-align: center; line-height: 1.24; }
-
-/* tax table */
-.bir-taxtable { font-size: 9.6px; width: 100%; border-collapse: collapse; }
-.bir-taxtable td, .bir-taxtable th { border: 0.6px solid var(--ln); padding: 3px 5px; line-height: 1.18; }
-.bir-taxtable th { background: var(--shade2); font-weight: 700; text-align: center; }
-
-/* ATC choices — keep each on one line */
-.atc-grid .bir-ckwrap { font-size: 10px; }
-.atc-grid .bir-ckwrap span { white-space: nowrap; }
-
-/* The faithful Form view mirrors the PRINTED BIR form, which shows every
-   section at full strength — so no rate block (Part IV-A vs IV-B) is dimmed,
-   even when unused. (The data-rate attribute is kept for potential print logic.) */
-.bir-doc[data-rate="graduated"] .when-eight,
-.bir-doc[data-rate="eight"] .when-grad { opacity: 1; }
+/* ---- declaration + signature blocks ---- */
+.bir-doc .bir-sheet .bir-perjury {
+  font-size: 10px; line-height: 1.2; text-align: justify; padding: 3px 5px;
+  min-height: 50.4px;
+}
+.bir-doc .bir-sheet .bir-sign { font-size: 10px; text-align: center; line-height: 1.18; }
+/* The 7.5 pt tax-agent lines -> 9.5 px -> 7.125 pt on paper. */
+.bir-doc .bir-sheet .bir-agent { font-size: 9.5px; line-height: 1.16; }
+.bir-doc .bir-sheet .bir-agent .cap { font-size: 9.5px; }
+.bir-doc .bir-sheet .bir-signline {
+  border-top: 0.7px solid var(--ln); margin-top: 2px; padding-top: 2px;
+}
+.bir-doc .bir-sheet .bir-signspace { min-height: 22px; }
+.bir-doc .bir-sheet .bir-foot { font-size: 9.5px; line-height: 1.25; padding-top: 2px; }
+.bir-doc .bir-sheet .bir-conforme { font-weight: 700; font-size: 10px; padding: 1px 5px; }

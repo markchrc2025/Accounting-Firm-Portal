@@ -50,3 +50,31 @@ export function fmtAmt(
 export function peso(n: number | string | null | undefined): string {
   return "₱ " + fmtAmt(n);
 }
+
+/**
+ * The 14 digits the BIR's TIN boxes hold: nine-digit TIN + five-digit branch
+ * code. A TIN already carrying its branch wins; otherwise the branch argument
+ * is padded to five. Short/absent TINs come back as-is so the boxes simply run
+ * out — a mandated form never invents a digit.
+ * Ported from the Sentire generator (src/lib/taxpayer.ts tin14).
+ */
+export function tin14(tin: string | null | undefined, branch?: string | null): string {
+  const digits = String(tin ?? "").replace(/\D/g, "");
+  if (digits.length < 9) return digits;
+  const fromTin = digits.slice(9, 14);
+  const br = (fromTin || String(branch ?? "").replace(/\D/g, "")).padStart(5, "0");
+  return digits.slice(0, 9) + br;
+}
+
+/**
+ * The 8 digits an MM/DD/YYYY box row holds. Accepts "01/01/2026", "2026-01-01"
+ * or raw digits; anything that is not eight digits after normalising comes back
+ * as the digits it had, so the boxes are partly filled rather than wrong.
+ */
+export function mmddyyyy(value: string | null | undefined): string {
+  const s = String(value ?? "").trim();
+  if (s === "") return "";
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) return iso[2]! + iso[3]! + iso[1]!;
+  return s.replace(/\D/g, "").slice(0, 8);
+}
