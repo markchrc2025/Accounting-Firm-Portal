@@ -144,6 +144,12 @@ export default function BirFormsPage() {
                           <Link to={`/bir-forms/${f.id}`} onClick={(e) => e.stopPropagation()}>
                             {f.form}
                           </Link>
+                          {/* An amendment shows its sequence (W3 R2): 2 for the first. */}
+                          {(f.sequence ?? 1) > 1 ? (
+                            <span className="ml-2 align-middle">
+                              <Chip variant="gold">Amendment {f.sequence}</Chip>
+                            </span>
+                          ) : null}
                         </td>
                         <td className="px-6 py-3 text-content">{f.clientName || "—"}</td>
                         <td className="px-6 py-3 font-mono text-[12px] text-content-secondary">

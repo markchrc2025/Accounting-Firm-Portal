@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ApiError,
@@ -23,6 +23,9 @@ import {
   cn,
   peso,
 } from "../components/ui";
+import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
+import { printParty } from "../lib/birFiling";
 
 /** Non-taxable / exempt compensation lines (items 29-37 → 38). */
 const NON_TAXABLE: [key: string, label: string][] = [
@@ -84,6 +87,16 @@ export default function BirForm2316Editor() {
     queryFn: () => fetchBirForm(id!),
     enabled: !isNew,
   });
+  const amendment = useAmendmentHeading(existing.data);
+  // "Issue a corrected certificate" (W3 R2) opens a NEW certificate pre-filled
+  // from an issued one. Nothing links the two; the old one stays issued.
+  const [params] = useSearchParams();
+  const correctFrom = isNew ? params.get("correctFrom") : null;
+  const source = useQuery({
+    queryKey: ["bir-form", correctFrom],
+    queryFn: () => fetchBirForm(correctFrom!),
+    enabled: !!correctFrom,
+  });
 
   const [clientId, setClientId] = useState("");
   const [year, setYear] = useState(String(new Date().getFullYear() - 1));
@@ -94,17 +107,28 @@ export default function BirForm2316Editor() {
   const [empAddress, setEmpAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // The employer is the client. Once the certificate is issued with its filing
+  // snapshot, the print reads the employer from the snapshot (W3 R3) and the
+  // client record is not read.
+  const sealedSnapshot =
+    existing.data?.status === "filed" && !!existing.data.filedSnapshot;
   const clientQ = useQuery({
     queryKey: ["client", clientId],
     queryFn: () => fetchClient(clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && !sealedSnapshot,
   });
 
+  // Only an ISSUED certificate of the same form is corrected (R2).
+  const usableSource =
+    source.data?.form === "2316" && source.data.status === "filed"
+      ? source.data
+      : undefined;
+  const seed = existing.data ?? usableSource;
   useEffect(() => {
-    const d = existing.data?.data as Record<string, unknown> | undefined;
+    const d = seed?.data as Record<string, unknown> | undefined;
     if (!d) return;
-    setClientId(existing.data!.clientId);
-    setYear((existing.data!.period || String(d.year ?? "")).slice(0, 4));
+    setClientId(seed!.clientId);
+    setYear((seed!.period || String(d.year ?? "")).slice(0, 4));
     setFields((prev) => {
       const next = { ...prev };
       for (const k of ALL_KEYS) if (d[k] != null) next[k] = String(d[k]);
@@ -113,7 +137,7 @@ export default function BirForm2316Editor() {
     setEmpName(String(d.empName ?? ""));
     setEmpTin(String(d.empTin ?? ""));
     setEmpAddress(String(d.empAddress ?? ""));
-  }, [existing.data]);
+  }, [seed]);
 
   const data = useMemo(() => {
     const base: Record<string, string> = { year, empName, empTin, empAddress };
@@ -121,15 +145,20 @@ export default function BirForm2316Editor() {
     return base;
   }, [year, empName, empTin, empAddress, fields]);
 
-  const [debounced, setDebounced] = useState(data);
+  // An existing form is computed only once it is hydrated: its first, empty
+  // state is never sent, so a freshly mounted form (after Mark as filed, an
+  // Amend, Back) never flashes zero totals; the stored figures show until
+  // the live compute returns (W3).
+  const [debounced, setDebounced] = useState<typeof data | null>(isNew ? data : null);
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(data), 350);
     return () => window.clearTimeout(t);
   }, [data]);
   const computed = useQuery({
     queryKey: ["bir-compute-2316", debounced],
-    queryFn: () => computeBirForm<BirForm2316Computed>("2316", debounced),
+    queryFn: () => computeBirForm<BirForm2316Computed>("2316", debounced!),
     staleTime: Infinity,
+    enabled: debounced !== null,
   });
 
   const save = useMutation({
@@ -154,6 +183,7 @@ export default function BirForm2316Editor() {
     onError: (e) => setError(e instanceof ApiError ? e.message : "Could not update the form status."),
   });
 
+  const employer = printParty(existing.data, clientQ.data);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [printing, setPrinting] = useState(false);
   async function printPdf() {
@@ -162,7 +192,7 @@ export default function BirForm2316Editor() {
     setPrinting(true);
     setError(null);
     try {
-      await sheetsToPdf([node], certificateFileName("2316", year, clientQ.data?.tin));
+      await sheetsToPdf([node], certificateFileName("2316", year, employer.tin));
     } catch {
       setError("Could not produce the PDF — please retry.");
     } finally {
@@ -185,15 +215,18 @@ export default function BirForm2316Editor() {
   }
 
   const clients = clientsQ.data ?? [];
-  const c = computed.data;
+  const c =
+    computed.data ??
+    (existing.data?.computed as typeof computed.data | null | undefined) ??
+    undefined;
   const isFiled = existing.data?.status === "filed";
-  const employer = clientQ.data;
 
   return (
     <div className="animate-fade-rise">
       <PageHeader
         title={isNew ? "New 2316" : "2316"}
         eyebrow="BIR Forms · Certificate of Compensation Payment / Tax Withheld"
+        description={amendment}
         actions={
           <Button variant="ghost" onClick={() => navigate("/bir-forms")}>
             Back
@@ -207,6 +240,23 @@ export default function BirForm2316Editor() {
         of exporting XML.
       </div>
 
+      {correctFrom && !usableSource && (source.isError || source.data) ? (
+        <div
+          role="alert"
+          className="mb-6 rounded-input border border-danger/40 bg-danger-bg px-4 py-3 text-[12.5px] text-danger-ink"
+        >
+          The certificate to correct could not be loaded, so nothing is pre-filled. This
+          is a blank new certificate.
+        </div>
+      ) : null}
+      {correctFrom && usableSource ? (
+        <div className="mb-6 rounded-card border border-gold/50 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
+          <span className="font-semibold">A corrected certificate.</span> Pre-filled from
+          an issued certificate as a convenience. This is a new certificate; the issued
+          one stays as it is.
+        </div>
+      ) : null}
+
       {error ? (
         <div className="mb-5 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
           {error}
@@ -214,7 +264,7 @@ export default function BirForm2316Editor() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
+        <fieldset disabled={isFiled} className="min-w-0 space-y-6">
           <Card>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
@@ -225,7 +275,12 @@ export default function BirForm2316Editor() {
                   <select
                     className="input w-full"
                     value={clientId}
-                    disabled={!isNew}
+                    disabled={
+                      !isNew ||
+                      (!!correctFrom &&
+                        !source.isError &&
+                        !(source.data && !usableSource))
+                    }
                     onChange={(e) => setClientId(e.target.value)}
                   >
                     <option value="">Select client…</option>
@@ -291,7 +346,7 @@ export default function BirForm2316Editor() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </fieldset>
 
         <div className="space-y-4">
           <Card>
@@ -321,19 +376,30 @@ export default function BirForm2316Editor() {
           </Card>
 
           <div className="flex flex-col gap-2">
-            <Button disabled={!clientId || save.isPending} onClick={() => save.mutate()}>
-              {save.isPending ? "Saving…" : isNew ? "Save draft" : "Save changes"}
-            </Button>
-            <Button variant="outline" disabled={!clientId || printing} onClick={() => void printPdf()}>
+            {isFiled ? null : (
+              <Button
+                disabled={!clientId || save.isPending || setStatus.isPending}
+                onClick={() => save.mutate()}
+              >
+                {save.isPending ? "Saving…" : isNew ? "Save draft" : "Save changes"}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              disabled={!clientId || printing}
+              onClick={() => void printPdf()}
+            >
               {printing ? "Preparing PDF…" : "Print certificate (PDF)"}
             </Button>
             {!isNew ? (
-              isFiled ? (
-                <Button variant="ghost" disabled={setStatus.isPending} onClick={() => setStatus.mutate("draft")}>
-                  {setStatus.isPending ? "Reopening…" : "Reopen to draft"}
-                </Button>
+              isFiled && existing.data ? (
+                <FiledFormAction detail={existing.data} />
               ) : (
-                <Button variant="outline" disabled={setStatus.isPending} onClick={() => setStatus.mutate("filed")}>
+                <Button
+                  variant="outline"
+                  disabled={setStatus.isPending || save.isPending || existing.isFetching}
+                  onClick={() => setStatus.mutate("filed")}
+                >
                   {setStatus.isPending ? "Marking…" : "Mark as issued"}
                 </Button>
               )
@@ -341,10 +407,9 @@ export default function BirForm2316Editor() {
           </div>
 
           {isFiled ? (
-            <div className="rounded-card border border-success/40 bg-success-bg px-3.5 py-2.5 text-[12.5px] text-content">
-              <span className="font-semibold">Issued.</span> This certificate is recorded as handed to
-              the employee.
-            </div>
+            <FiledBanner form="2316" filedAt={existing.data?.filedAt}>
+              This certificate is recorded as handed to the employee.
+            </FiledBanner>
           ) : null}
         </div>
       </div>
@@ -354,9 +419,9 @@ export default function BirForm2316Editor() {
         <div ref={sheetRef} className="bir-sheet">
           <Sheet2316
             year={year}
-            employerName={employer?.businessName ?? ""}
-            employerTin={employer?.tin ?? ""}
-            employerAddress={[employer?.address, employer?.city].filter(Boolean).join(", ")}
+            employerName={employer.businessName}
+            employerTin={employer.tin}
+            employerAddress={[employer.address, employer.city].filter(Boolean).join(", ")}
             empName={empName}
             empTin={empTin}
             empAddress={empAddress}
