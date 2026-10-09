@@ -1,0 +1,250 @@
+{
+  "$comment": [
+    "BIR Form 2307, January 2018 (ENCS), page 1 — the structural inventory of the",
+    "official form, authored from the inventory supplied in W2 pass 2 (read cell by",
+    "cell from the BIR's own workbook by the technical partner).",
+    "",
+    "THIS FILE IS THE REFERENCE. track-b-Form2307.test.tsx reads its expectations",
+    "from here and nowhere else. Sentire's Form2307.tsx is a starting point for the",
+    "atoms, not a source of truth for what the form contains.",
+    "",
+    "The workbook itself was NOT attached to the session, so it is not committed",
+    "beside this file. When it arrives it lands here as",
+    "bir-2307-jan-2018-encs.xlsx and becomes the reference of record."
+  ],
+  "form": "2307",
+  "revision": "January 2018 (ENCS)",
+  "page": 1,
+
+  "geometry": {
+    "$comment": "R1 + A2. Long bond, 8.5 x 13 in. No scaling between sheet px and page pt.",
+    "paperInches": { "w": 8.5, "h": 13 },
+    "pagePt": { "w": 612, "h": 936 },
+    "sheetPx": { "w": 816, "h": 1248 },
+    "ptPerPx": 0.75,
+    "marginPx": 24,
+    "printablePx": { "w": 768, "h": 1200 },
+    "contentWorkbookPt": { "w": 572, "h": 965 },
+    "pxPerPt": 1.243523,
+    "contentPx": { "w": 711, "h": 1200 },
+    "contentOriginPx": { "x": 52.5, "y": 24 },
+    "rasterScale": 2,
+    "rasterPx": { "w": 1632, "h": 2496 },
+    "rasterDpi": 192,
+    "typePx": { "face": 10, "title": 20, "taxAgent": 9.5, "columnHeader": 10 },
+    "rowPx": { "data": 18.65, "header": 13, "declaration": 50.4 },
+    "partIIIColumnsPx": {
+      "description": 195.5,
+      "atc": 53,
+      "month1": 88.5,
+      "month2": 91,
+      "month3": 88.5,
+      "total": 88.5,
+      "taxWithheld": 106
+    }
+  },
+
+  "strings": [
+    { "text": "For BIR", "count": 1, "note": "header box, top-left; blank by design" },
+    { "text": "Use Only", "count": 1 },
+    { "text": "BCS/", "count": 1 },
+    { "text": "Item:", "count": 1 },
+    { "text": "BIR Form No.", "count": 1 },
+    { "text": "2307", "count": 1, "note": "the big form number in the header block" },
+    { "text": "January 2018 (ENCS)", "count": 1 },
+    {
+      "text": "2307 01/18ENCS",
+      "count": 1,
+      "note": "human-readable line under the barcode"
+    },
+    { "text": "Republic of the Philippines", "count": 1, "bold": true },
+    { "text": "Department of Finance", "count": 1, "bold": true },
+    { "text": "Bureau of Internal Revenue", "count": 1, "bold": true },
+    {
+      "text": "Certificate of Creditable Tax Withheld at Source",
+      "count": 1,
+      "bold": true,
+      "note": "title, 20px / 15pt on paper"
+    },
+    {
+      "text": "Fill in all applicable spaces. Mark all appropriate boxes with an \"X\".",
+      "count": 1
+    },
+
+    { "text": "For the Period", "count": 1 },
+    { "text": "From", "count": 1 },
+    { "text": "To", "count": 1 },
+    {
+      "text": "(MM/DD/YYYY)",
+      "count": 6,
+      "italic": true,
+      "note": "item 1 From + To, then Date of Issue / Date of Expiry in both signature blocks"
+    },
+
+    { "text": "Part I – Payee Information", "count": 1, "bold": true },
+    {
+      "text": "Taxpayer Identification Number (TIN)",
+      "count": 2,
+      "note": "items 2 and 6"
+    },
+    {
+      "text": "Payee’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)",
+      "count": 1
+    },
+    { "text": "Registered Address", "count": 2, "note": "items 4 and 8" },
+    { "text": "ZIP Code", "count": 2, "note": "items 4A and 8A" },
+    {
+      "text": "Foreign Address, if applicable",
+      "count": 1,
+      "note": "item 5. There is no item 9."
+    },
+
+    { "text": "Part II – Payor Information", "count": 1, "bold": true },
+    {
+      "text": "Payor’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)",
+      "count": 1
+    },
+
+    {
+      "text": "Part III – Details of Monthly Income Payments and Taxes Withheld",
+      "count": 1,
+      "bold": true
+    },
+    {
+      "text": "Income Payments Subject to Expanded Withholding Tax",
+      "count": 1,
+      "bold": true
+    },
+    { "text": "ATC", "count": 1, "bold": true },
+    {
+      "text": "AMOUNT OF INCOME PAYMENTS",
+      "count": 1,
+      "bold": true,
+      "note": "spans the three month columns"
+    },
+    { "text": "1st Month of the Quarter", "count": 1, "bold": true },
+    { "text": "2nd Month of the Quarter", "count": 1, "bold": true },
+    { "text": "3rd Month of the Quarter", "count": 1, "bold": true },
+    { "text": "Tax Withheld for the Quarter", "count": 1, "bold": true },
+    {
+      "text": "Money Payments Subject to Withholding of Business Tax (Government & Private)",
+      "count": 1,
+      "bold": true,
+      "note": "block B description-column header"
+    },
+
+    {
+      "text": "We declare under the penalties of perjury that this certificate has been made in good faith, verified by us, and to the best of our knowledge and belief, is true and correct, pursuant to the provisions of the National Internal Revenue Code, as amended, and the regulations issued under authority thereof. Further, we give our consent to the processing of our information as contemplated under the *Data Privacy Act of 2012 (R.A. No. 10173) for legitimate and lawful purposes.",
+      "count": 1
+    },
+
+    {
+      "text": "Signature over Printed Name of Payor/Payor’s Authorized Representative/Tax Agent",
+      "count": 1
+    },
+    {
+      "text": "(Indicate Title/Designation and TIN)",
+      "count": 2,
+      "italic": true,
+      "note": "payor block and payee block"
+    },
+    { "text": "Tax Agent Accreditation No./", "count": 2 },
+    { "text": "Attorney’s Roll No. (if applicable)", "count": 2 },
+    { "text": "Date of Issue", "count": 2 },
+    { "text": "Date of Expiry", "count": 2 },
+    { "text": "CONFORME:", "count": 1, "bold": true },
+    {
+      "text": "Signature over Printed Name of Payee/Payee’s Authorized Representative/Tax Agent",
+      "count": 1
+    },
+
+    {
+      "text": "*NOTE: The BIR Data Privacy is in the BIR website (www.bir.gov.ph)",
+      "count": 1
+    }
+  ],
+
+  "orderedSingletons": [
+    "BIR Form No.",
+    "January 2018 (ENCS)",
+    "Republic of the Philippines",
+    "Department of Finance",
+    "Bureau of Internal Revenue",
+    "Certificate of Creditable Tax Withheld at Source",
+    "Fill in all applicable spaces. Mark all appropriate boxes with an \"X\".",
+    "For the Period",
+    "Part I – Payee Information",
+    "Payee’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)",
+    "Foreign Address, if applicable",
+    "Part II – Payor Information",
+    "Payor’s Name (Last Name, First Name, Middle Name for Individual OR Registered Name for Non-Individual)",
+    "Part III – Details of Monthly Income Payments and Taxes Withheld",
+    "Income Payments Subject to Expanded Withholding Tax",
+    "AMOUNT OF INCOME PAYMENTS",
+    "1st Month of the Quarter",
+    "2nd Month of the Quarter",
+    "3rd Month of the Quarter",
+    "Tax Withheld for the Quarter",
+    "Money Payments Subject to Withholding of Business Tax (Government & Private)",
+    "Signature over Printed Name of Payor/Payor’s Authorized Representative/Tax Agent",
+    "CONFORME:",
+    "Signature over Printed Name of Payee/Payee’s Authorized Representative/Tax Agent",
+    "*NOTE: The BIR Data Privacy is in the BIR website (www.bir.gov.ph)"
+  ],
+
+  "boxCounts": {
+    "$comment": "Digit boxes, per R8. Counted by data-box-group on the rendered sheet.",
+    "tin": 28,
+    "tinGroups": 2,
+    "tinGrouping": [3, 3, 3, 5],
+    "period": 16,
+    "periodGroups": 2,
+    "taxAgentDate": 32,
+    "taxAgentDateGroups": 4,
+    "zip": 8,
+    "zipGroups": 2,
+    "total": 84
+  },
+
+  "rowCounts": {
+    "$comment": "Part III. Two blocks of ten data rows, each followed by one Total row.",
+    "blockADataRows": 10,
+    "blockBDataRows": 10,
+    "dataRows": 20,
+    "totalRows": 2,
+    "$comment2": "The STRING \"Total\" occurs three times on the sheet: once as a column header and once in each of the two Total rows. The inventory's \"Total x2\" is the row count, encoded here, not the string count."
+  },
+
+  "itemNumbers": ["1", "2", "3", "4", "4A", "5", "6", "7", "8", "8A"],
+
+  "forbidden": {
+    "$comment": "R4 and R9 — text the official form does not carry.",
+    "substrings": [
+      "Page 1",
+      "Common ATCs",
+      "WI010",
+      "WI011",
+      "WC010",
+      "WI515",
+      "WC160",
+      "WI158",
+      "WI159"
+    ]
+  },
+
+  "blankByDesign": [
+    {
+      "what": "For BIR Use Only / BCS/ / Item:",
+      "reason": "the Bureau's own stamping box"
+    },
+    {
+      "what": "Barcode image",
+      "reason": "the official barcode PNG was not supplied; the box is drawn at the official size and left empty"
+    },
+    {
+      "what": "Block B — all 10 rows and its Total",
+      "reason": "R3: the firm issues no certificate for money payments subject to withholding of business tax today; wired when the ATC picker draws from the seeded table"
+    },
+    { "what": "Both signature lines themselves", "reason": "R6: wet ink" }
+  ]
+}
