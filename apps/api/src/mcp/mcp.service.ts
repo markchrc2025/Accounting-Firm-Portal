@@ -510,7 +510,7 @@ export class McpService {
             }),
             this.prisma.purchaseTransaction.groupBy({
               by: ["categoryId"],
-              where: { clientId, ...txnFilter },
+              where: { clientId, ...txnFilter, status: "posted" }, // held imports excluded (U6, R7)
               _sum: { netAmount: true },
               _count: { _all: true },
             }),

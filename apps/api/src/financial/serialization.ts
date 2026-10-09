@@ -101,6 +101,17 @@ export function toPurchaseDto(t: PurchaseRow) {
     quantity: decToNum(t.quantity),
     unitPrice: decToNum(t.unitPrice),
     discount: decToNum(t.discount),
+    // Expenses import v2 (U6) — additive.
+    status: t.status,
+    needsReview: t.needsReview,
+    documentType: t.documentType ?? undefined,
+    sourceFile: t.sourceFile ?? undefined,
+    remarks: t.remarks ?? undefined,
+    vendorBranch: t.vendorBranch ?? undefined,
+    tradeName: t.tradeName ?? undefined,
+    province: t.province ?? undefined,
+    vatClaimable: t.vatClaimable ?? undefined,
+    importBatchId: t.importBatchId ?? undefined,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
