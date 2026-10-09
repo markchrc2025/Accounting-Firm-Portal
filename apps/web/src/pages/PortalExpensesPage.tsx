@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ReactNode } from "react";
 import {
+  fetchAllPurchases,
   fetchCategories,
   fetchPortalContext,
-  fetchPurchases,
-  type Paginated,
   type PurchaseTxn,
 } from "../lib/api";
+import { EXPENSE_LIST_LIMIT, isHeld, statusFilterParams } from "../lib/expenseStatus";
 import {
   Card,
   Chip,
@@ -38,9 +38,18 @@ export default function PortalExpensesPage() {
     queryFn: () => fetchCategories(clientId, "EXPENSE"),
     enabled: !!clientId,
   });
-  const list = useQuery<Paginated<PurchaseTxn>>({
-    queryKey: ["purchases", clientId],
-    queryFn: () => fetchPurchases(clientId),
+  // A held expense waits for the firm to post it; the client never sees it,
+  // not even in the count (W5 R3). Asked of the server with status=posted — a
+  // W5 proposal Track A has not confirmed — and enforced here on every page
+  // that comes back regardless, so the count is the posted records only.
+  const list = useQuery<{ rows: PurchaseTxn[]; total: number }>({
+    queryKey: ["purchases", clientId, "portal-posted"],
+    queryFn: async () => {
+      const posted = (
+        await fetchAllPurchases(clientId, statusFilterParams("posted"))
+      ).filter((t) => !isHeld(t));
+      return { rows: posted.slice(0, EXPENSE_LIST_LIMIT), total: posted.length };
+    },
     enabled: !!clientId,
   });
 
@@ -70,7 +79,7 @@ export default function PortalExpensesPage() {
     );
   }
 
-  const rows = list.data?.data ?? [];
+  const rows = list.data?.rows ?? [];
 
   return (
     <div className="animate-fade-rise">
