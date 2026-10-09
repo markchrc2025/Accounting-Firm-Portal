@@ -116,8 +116,8 @@ export default function SalesPage() {
       const all = await fetchAllIncome(clientId, filters);
       const rows = all.map((t) => ({
         "Date*": t.txnDate,
-        "Vendor TIN*": t.customerTin ?? "",
-        "Vendor Name*": t.customer ?? "",
+        "Customer TIN*": t.customerTin ?? "",
+        "Customer Name*": t.customer ?? "",
         "Vendor Lastname": "",
         "Vendor Firstname": "",
         "Vendor Middlename": "",

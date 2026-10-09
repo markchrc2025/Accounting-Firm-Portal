@@ -1,13 +1,7 @@
 import { useRef, useState } from "react";
-import { ExpenseImportRow, SalesImportRow } from "@portal/shared";
+import { SalesImportRow } from "@portal/shared";
+import { importIncome, type ImportResult } from "../lib/api";
 import {
-  importIncome,
-  importPurchases,
-  type ImportResult,
-} from "../lib/api";
-import {
-  EXPENSE_ALIASES,
-  EXPENSE_HEADERS,
   SALES_ALIASES,
   SALES_HEADERS,
   downloadSheet,
@@ -15,6 +9,7 @@ import {
   mapImportRows,
   parseSheet,
 } from "../lib/spreadsheet";
+import { ExpenseImportModal } from "./ExpenseImportModal";
 import { Button, cn, peso } from "./ui";
 
 type Kind = "income" | "expense";
@@ -29,13 +24,13 @@ interface Entry {
 
 /** Fill the domain-required fields the template treats as optional: a blank
  *  Category becomes "Uncategorized"; a blank Description falls back to the
- *  counterparty name (or a generic label). */
-function fillRequired(row: Record<string, unknown>, isIncome: boolean): Record<string, unknown> {
+ *  customer name (or a generic label). */
+function fillRequired(row: Record<string, unknown>): Record<string, unknown> {
   const r = { ...row };
   if (!String(r.Category ?? "").trim()) r.Category = "Uncategorized";
   if (!String(r.Description ?? "").trim()) {
-    const party = String((isIncome ? r.Customer : r.Vendor) ?? "").trim();
-    r.Description = party || (isIncome ? "Imported sale" : "Imported expense");
+    const party = String(r.Customer ?? "").trim();
+    r.Description = party || "Imported sale";
   }
   return r;
 }
@@ -48,6 +43,15 @@ function firstIssue(err: { issues: { path: (string | number)[]; message: string 
   return p ? `${p}: ${i.message}` : i.message;
 }
 
+/**
+ * The import dialog for the Sales and Expenses pages.
+ *
+ * The two imports no longer work the same way (W5, D31):
+ *  - Expenses: the browser reads nothing. The template comes from the API and
+ *    the filled file goes back to it — see ExpenseImportModal.
+ *  - Sales: unchanged — the browser reads the workbook, checks each row against
+ *    the shared schema and posts the rows as JSON.
+ */
 export function ImportModal({
   kind,
   clientId,
@@ -56,6 +60,30 @@ export function ImportModal({
   onImported,
 }: {
   kind: Kind;
+  clientId: string;
+  regime: Regime;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  return kind === "expense" ? (
+    <ExpenseImportModal clientId={clientId} onClose={onClose} onImported={onImported} />
+  ) : (
+    <SalesImportModal
+      clientId={clientId}
+      regime={regime}
+      onClose={onClose}
+      onImported={onImported}
+    />
+  );
+}
+
+/** The Sales import: the browser parses the workbook and posts JSON rows. */
+function SalesImportModal({
+  clientId,
+  regime,
+  onClose,
+  onImported,
+}: {
   clientId: string;
   regime: Regime;
   onClose: () => void;
@@ -70,10 +98,9 @@ export function ImportModal({
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const isIncome = kind === "income";
-  const schema = isIncome ? SalesImportRow : ExpenseImportRow;
-  const aliases = isIncome ? SALES_ALIASES : EXPENSE_ALIASES;
-  const headers = isIncome ? SALES_HEADERS : EXPENSE_HEADERS;
+  const schema = SalesImportRow;
+  const aliases = SALES_ALIASES;
+  const headers = SALES_HEADERS;
   // Amounts are tax-inclusive; the server derives net + VAT from the Tax Code /
   // Tax Type, so no VAT-class default is forced here.
   const defaults = {};
@@ -89,7 +116,7 @@ export function ImportModal({
       const raw = await parseSheet(file);
       const mapped = mapImportRows(raw, aliases, defaults)
         .filter((r) => !isBlankRow(r))
-        .map((r) => fillRequired(r, isIncome));
+        .map((r) => fillRequired(r));
       const list: Entry[] = mapped.map((data, i) => {
         const parsed = schema.safeParse(data);
         return parsed.success
@@ -111,9 +138,7 @@ export function ImportModal({
     setImporting(true);
     setError(null);
     try {
-      const res = isIncome
-        ? await importIncome(clientId, valid)
-        : await importPurchases(clientId, valid);
+      const res = await importIncome(clientId, valid);
       setResult(res);
       if (res.created > 0) onImported();
     } catch (e) {
@@ -124,12 +149,7 @@ export function ImportModal({
   }
 
   function downloadTemplate() {
-    void downloadSheet(
-      `${isIncome ? "sales" : "expenses"}-template.xlsx`,
-      isIncome ? "SALES" : "EXPENSES",
-      [],
-      headers,
-    );
+    void downloadSheet("sales-template.xlsx", "SALES", [], headers);
   }
 
   const validCount = entries?.filter((e) => e.ok).length ?? 0;
@@ -148,7 +168,7 @@ export function ImportModal({
       >
         <div className="flex items-center justify-between border-b border-line px-6 py-4">
           <div>
-            <div className="eyebrow">Import · {isIncome ? "Sales & Income" : "Expenses"}</div>
+            <div className="eyebrow">Import · Sales &amp; Income</div>
             <h2 className="mt-0.5 font-serif text-[19px] font-medium text-navy">
               Import from Excel / CSV
             </h2>
@@ -219,7 +239,7 @@ export function ImportModal({
                     <tr>
                       <th className="px-3 py-2 font-normal">#</th>
                       <th className="px-3 py-2 font-normal">Date</th>
-                      <th className="px-3 py-2 font-normal">{isIncome ? "Customer" : "Vendor"}</th>
+                      <th className="px-3 py-2 font-normal">Customer</th>
                       <th className="px-3 py-2 font-normal">Category</th>
                       <th className="px-3 py-2 text-right font-normal">Amount</th>
                       <th className="px-3 py-2 font-normal">Status</th>
@@ -235,7 +255,7 @@ export function ImportModal({
                             {String(e.data.Date ?? "—")}
                           </td>
                           <td className="px-3 py-1.5 text-content">
-                            {String((isIncome ? e.data.Customer : e.data.Vendor) ?? "—")}
+                            {String(e.data.Customer ?? "—")}
                           </td>
                           <td className="px-3 py-1.5 text-content-secondary">
                             {String(e.data.Category ?? "—")}

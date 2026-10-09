@@ -13,9 +13,18 @@ import {
   fetchClient,
   fetchPurchases,
   fetchPurchaseSummary,
-  type Paginated,
+  postPurchase,
   type PurchaseTxn,
 } from "../lib/api";
+import {
+  EXPENSE_LIST_LIMIT,
+  EXPENSE_STATUS_FILTERS,
+  expenseBadges,
+  isHeld,
+  matchesStatusFilter,
+  statusFilterParams,
+  type ExpenseStatusFilter,
+} from "../lib/expenseStatus";
 import { downloadSheet, EXPENSE_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
@@ -37,7 +46,7 @@ function isVatRegime(taxType?: string | null): boolean {
 
 export default function ExpensesPage() {
   const { clientId = "" } = useParams();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -45,6 +54,9 @@ export default function ExpensesPage() {
   const [editing, setEditing] = useState<PurchaseTxn | null>(null);
   const [exporting, setExporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ExpenseStatusFilter>("all");
+  const [posting, setPosting] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -54,9 +66,28 @@ export default function ExpensesPage() {
     queryKey: ["categories", clientId, "EXPENSE"],
     queryFn: () => fetchCategories(clientId, "EXPENSE"),
   });
-  const list = useQuery<Paginated<PurchaseTxn>>({
-    queryKey: ["purchases", clientId, filters],
-    queryFn: () => fetchPurchases(clientId, filters),
+  // The status filter is sent to the server AND applied to what comes back:
+  // the list parameters are a W5 proposal Track A has not confirmed, so a held
+  // row must never be shown under Posted even if the server ignores them.
+  // "All" shows the server's first page, as before. Any other status walks
+  // every page and filters here, because filtering one page would miss held
+  // rows on later pages; it then shows the first EXPENSE_LIST_LIMIT of them.
+  const listFilters = useMemo(
+    () => ({ ...filters, ...statusFilterParams(statusFilter) }),
+    [filters, statusFilter],
+  );
+  const list = useQuery<{ rows: PurchaseTxn[]; total: number }>({
+    queryKey: ["purchases", clientId, listFilters],
+    queryFn: async () => {
+      if (statusFilter === "all") {
+        const page = await fetchPurchases(clientId, listFilters);
+        return { rows: page.data, total: page.total };
+      }
+      const matched = (await fetchAllPurchases(clientId, listFilters)).filter((t) =>
+        matchesStatusFilter(t, statusFilter),
+      );
+      return { rows: matched.slice(0, EXPENSE_LIST_LIMIT), total: matched.length };
+    },
   });
   const summary = useQuery({
     queryKey: ["purchase-summary", clientId, filters],
@@ -78,6 +109,10 @@ export default function ExpensesPage() {
 
   const canWrite = hasPermission("Expenses:Create");
   const canDelete = hasPermission("Expenses:Delete");
+  // Posting a held record is the firm's decision. Client roles hold
+  // Expenses:Update too (permissions.constants.ts:189-192), so the permission
+  // alone is not enough; the server must enforce the same rule.
+  const canPost = user?.userType === "FIRM" && hasPermission("Expenses:Update");
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["purchases", clientId] });
@@ -89,6 +124,26 @@ export default function ExpensesPage() {
     setModalOpen(true);
   }
 
+  async function handlePost(t: PurchaseTxn) {
+    const what = [t.referenceNo, t.vendor].filter(Boolean).join(" · ") || "this record";
+    if (
+      !confirm(
+        `Post ${what}? It is held now and counts nowhere. Once posted it counts in the books.`,
+      )
+    )
+      return;
+    setPosting(t.id);
+    setActionError(null);
+    try {
+      await postPurchase(t.id);
+      refresh();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Could not post this record.");
+    } finally {
+      setPosting(null);
+    }
+  }
+
   async function handleDelete(id: string) {
     if (!confirm("Delete this record?")) return;
     await deletePurchase(clientId, id);
@@ -97,7 +152,11 @@ export default function ExpensesPage() {
   async function onExport() {
     setExporting(true);
     try {
-      const all = await fetchAllPurchases(clientId, filters);
+      // What the Status filter shows is what is exported, and every row says
+      // whether it is held: a held record counts nowhere until it is posted.
+      const all = (await fetchAllPurchases(clientId, listFilters)).filter((t) =>
+        matchesStatusFilter(t, statusFilter),
+      );
       const tax = (t: (typeof all)[number]) => t.taxAmount ?? t.inputVAT ?? 0;
       const out = all.map((t) => ({
         "Date*": t.txnDate,
@@ -117,9 +176,15 @@ export default function ExpensesPage() {
         // Amount is tax-inclusive (net + input VAT / tax).
         "Amount*": Math.round((t.netAmount + tax(t)) * 100) / 100,
         "COA Code*": t.account ?? "",
+        Status: isHeld(t) ? "Held" : "Posted",
+        "Needs review": t.needsReview === true ? "Yes" : "",
       }));
       const base = (client.data?.businessName ?? "client").replace(/[^\w.-]+/g, "_");
-      await downloadSheet(`${base}-expenses.xlsx`, "EXPENSES", out, EXPENSE_HEADERS);
+      await downloadSheet(`${base}-expenses.xlsx`, "EXPENSES", out, [
+        ...EXPENSE_HEADERS,
+        "Status",
+        "Needs review",
+      ]);
     } finally {
       setExporting(false);
     }
@@ -151,7 +216,7 @@ export default function ExpensesPage() {
     );
   }
 
-  const rows = list.data?.data ?? [];
+  const rows = list.data?.rows ?? [];
 
   return (
     <div className="animate-fade-rise">
@@ -199,6 +264,20 @@ export default function ExpensesPage() {
               onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
             />
           </label>
+          <label className="block">
+            <div className="mb-1 text-[13px] font-semibold text-content">Status</div>
+            <select
+              className="input"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as ExpenseStatusFilter)}
+            >
+              {EXPENSE_STATUS_FILTERS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
           {isVat && (
             <label className="block">
               <div className="mb-1 text-[13px] font-semibold text-content">
@@ -240,6 +319,15 @@ export default function ExpensesPage() {
         </div>
       </div>
 
+      {actionError ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-input border border-danger/30 bg-danger-bg px-3 py-2 text-[13px] text-danger-ink"
+        >
+          {actionError}
+        </p>
+      ) : null}
+
       {/* Table / states */}
       <Card className="overflow-hidden">
         {list.isError ? (
@@ -270,6 +358,7 @@ export default function ExpensesPage() {
                   <Th>Date</Th>
                   <Th>Ref</Th>
                   <Th>Supplier</Th>
+                  <Th>Status</Th>
                   <Th>Category</Th>
                   <Th>{isVat ? "Input VAT category" : "Type"}</Th>
                   <Th>Deduct.</Th>
@@ -279,13 +368,28 @@ export default function ExpensesPage() {
               </thead>
               <tbody className="divide-y divide-line-divider">
                 {rows.map((t) => (
-                  <tr key={t.id} className="text-[13px] transition-colors hover:bg-rowhover">
+                  <tr
+                    key={t.id}
+                    data-status={isHeld(t) ? "held" : "posted"}
+                    className="text-[13px] transition-colors hover:bg-rowhover"
+                  >
                     <Td className="font-mono text-[12px] text-content-secondary">
                       {t.txnDate}
                     </Td>
                     <Td className="font-mono text-[12px] text-blue">{t.referenceNo ?? "—"}</Td>
                     <Td className="text-content">{t.vendor ?? "—"}</Td>
-                    <Td className="text-content-secondary">{categoryName(t.categoryId)}</Td>
+                    <Td>
+                      <div className="flex flex-wrap gap-1">
+                        {expenseBadges(t).map((b) => (
+                          <Chip key={b.label} variant={b.variant}>
+                            {b.label}
+                          </Chip>
+                        ))}
+                      </div>
+                    </Td>
+                    <Td className="text-content-secondary">
+                      {categoryName(t.categoryId)}
+                    </Td>
                     <Td>
                       {isVat ? (
                         t.inputVATCategory ? (
@@ -307,7 +411,16 @@ export default function ExpensesPage() {
                     <Td className="text-right font-mono tabular-nums text-content">
                       {peso(t.netAmount)}
                     </Td>
-                    <Td className="text-right">
+                    <Td className="whitespace-nowrap text-right">
+                      {isHeld(t) && canPost ? (
+                        <button
+                          onClick={() => void handlePost(t)}
+                          disabled={posting === t.id}
+                          className="mr-3 font-semibold text-success underline-offset-2 hover:underline disabled:opacity-50"
+                        >
+                          {posting === t.id ? "Posting…" : "Post"}
+                        </button>
+                      ) : null}
                       <button
                         onClick={() => {
                           setEditing(t);
@@ -336,7 +449,13 @@ export default function ExpensesPage() {
 
       {list.data ? (
         <p className="mt-3 font-mono text-[11px] uppercase tracking-[.14em] text-content-secondary">
-          {list.data.total} record(s)
+          {statusFilter === "all"
+            ? `${list.data.total} record(s)`
+            : `${
+                rows.length < list.data.total
+                  ? `${rows.length} of ${list.data.total}`
+                  : list.data.total
+              } shown · ${EXPENSE_STATUS_FILTERS.find((f) => f.value === statusFilter)?.label}`}
         </p>
       ) : null}
 
