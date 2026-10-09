@@ -243,7 +243,8 @@ export class PurchaseTransactionsService {
    */
   async summary(user: AuthUser, clientId: string, query: PurchaseSummaryQuery) {
     await this.clients.assertInFirm(user.firmId, clientId);
-    const where = this.buildWhere(clientId, query);
+    // Held imports (U6, R7) are not part of any total until an accountant posts them.
+    const where = { ...this.buildWhere(clientId, query), status: "posted" };
     const [overall, byCategory, deductibleAgg] = await this.prisma.$transaction([
       this.prisma.purchaseTransaction.aggregate({
         where,

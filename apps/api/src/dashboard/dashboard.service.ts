@@ -147,7 +147,7 @@ export class DashboardService {
           _sum: { netAmount: true },
         }),
         this.prisma.purchaseTransaction.aggregate({
-          where: { client: { firmId } },
+          where: { client: { firmId }, status: "posted" }, // held imports excluded (U6, R7)
           _sum: { netAmount: true },
         }),
         this.prisma.bIRFiling.count({ where: { client: { firmId } } }),
@@ -156,7 +156,7 @@ export class DashboardService {
           select: { txnDate: true, netAmount: true },
         }),
         this.prisma.purchaseTransaction.findMany({
-          where: { client: { firmId }, txnDate: { gte: windowStart } },
+          where: { client: { firmId }, txnDate: { gte: windowStart }, status: "posted" },
           select: { txnDate: true, netAmount: true },
         }),
         this.prisma.auditLog.findMany({
