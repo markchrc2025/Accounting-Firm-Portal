@@ -474,6 +474,32 @@ model PurchaseTransaction {
   quantity                   Decimal? @db.Decimal(18, 4)
   unitPrice                  Decimal? @db.Decimal(18, 2)
   discount                   Decimal? @db.Decimal(18, 2)
+  // --- Expenses import v2 (U6, additive) ---------------------------------
+  /// "posted" | "held". A held record was imported but not yet accepted by an
+  /// accountant (a non-invoice document, or no account yet): it is excluded
+  /// from every aggregate and only leaves "held" through POST /:id/post. The
+  /// allowed values are enforced by CHECK "purchase_transactions_status_check"
+  /// in migration 20261009150138_expense_import_held_rows (Prisma cannot
+  /// express CHECK constraints).
+  status                     String   @default("posted")
+  /// Set by the encoder's Needs Review column or by the importer (no vendor
+  /// TIN). The record still posts; the flag stays on it (D27, D28).
+  needsReview                Boolean  @default(false)
+  documentType               String?
+  /// The receipt photo / scan the encoder worked from.
+  sourceFile                 String?
+  remarks                    String?
+  /// Five-digit BIR branch code of the vendor; vendorTin holds the nine digits.
+  vendorBranch               String?
+  tradeName                  String?
+  province                   String?
+  /// Stamped at import from the client's regime: true when the VAT on this
+  /// record is creditable input VAT, false when it is a cost (D23). Null on
+  /// records created before U6.
+  vatClaimable               Boolean?
+  /// Groups every record written by one upload; the batch audit row carries
+  /// the same id as its entityId.
+  importBatchId              String?  @db.Uuid
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 
@@ -483,6 +509,7 @@ model PurchaseTransaction {
   @@index([clientId, txnDate])
   @@index([clientId, inputVATCategory]) // sum-by-category aggregation (Phase 6 vat-summary)
   @@index([categoryId])
+  @@index([clientId, vendorTin, referenceNo]) // import duplicate check (R6 of U6)
   @@map("purchase_transactions")
 }
 

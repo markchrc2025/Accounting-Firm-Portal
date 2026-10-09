@@ -41,7 +41,7 @@ export class AggregationService {
         where: { clientId, txnDate: range },
       }),
       this.prisma.purchaseTransaction.findMany({
-        where: { clientId, txnDate: range },
+        where: { clientId, txnDate: range, status: "posted" }, // held imports excluded (U6, R7)
       }),
     ]);
 
