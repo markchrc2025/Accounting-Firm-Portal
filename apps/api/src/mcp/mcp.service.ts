@@ -437,16 +437,23 @@ export class McpService {
           to: isoDate.optional(),
           limit: z.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT),
           offset: z.number().int().min(0).default(0),
+          status: z
+            .enum(["posted", "held"])
+            .optional()
+            .describe("Only posted, or only held (imported, awaiting an accountant). Omit for both."),
+          needsReview: z.boolean().optional().describe("Only records flagged for review (true) or not (false)."),
         },
         annotations: READ_ONLY,
       },
-      async ({ clientId, from, to, limit, offset }) => {
+      async ({ clientId, from, to, limit, offset, status, needsReview }) => {
         try {
           const firmId = await this.firmId();
           await this.requireClient(firmId, clientId);
           const where: Prisma.PurchaseTransactionWhereInput = {
             clientId,
             ...(dateRange(from, to) ? { txnDate: dateRange(from, to) } : {}),
+            ...(status ? { status } : {}), // U6-A1 (R2)
+            ...(needsReview !== undefined ? { needsReview } : {}),
           };
           const [total, rows, categories] = await Promise.all([
             this.prisma.purchaseTransaction.count({ where }),

@@ -8,6 +8,7 @@ import {
   Query,
   Res,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -15,6 +16,7 @@ import { ApiConsumes, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import type { AuthUser } from "../../common/auth/auth-user";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { FirmUserGuard } from "../../common/guards/firm-user.guard";
 import { RequirePermissions } from "../../common/decorators/require-permissions.decorator";
 import { ZodValidationPipe } from "../../common/validation/zod-validation.pipe";
 import { MAX_UPLOAD_BYTES, XLSX_MIME } from "./expense-import.constants";
@@ -30,9 +32,15 @@ import {
  * Expenses import v2 (U6). Lives at /purchase-transactions (no :clientId route
  * param — the client comes as a query parameter per the contract with Track B),
  * so per-client assignment scope is enforced inside the service.
+ *
+ * Firm-only (U6-A1, R3): importing and posting are the firm's actions. Client-
+ * portal principals are refused at the controller by FirmUserGuard (the same
+ * guard the FS Creator and the files module use) and again inside the service,
+ * so a caller that bypasses the HTTP layer gets the same answer.
  */
 @ApiTags("purchase-transactions")
 @Controller("purchase-transactions")
+@UseGuards(FirmUserGuard)
 export class ExpenseImportController {
   constructor(private readonly imports: ExpenseImportService) {}
 

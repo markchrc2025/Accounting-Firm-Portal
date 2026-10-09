@@ -18,6 +18,9 @@ export const PurchaseListQuerySchema = z.object({
   isCapitalGood: zBoolParam.optional(),
   deductible: zBoolParam.optional(),
   source: TransactionSource.optional(),
+  // U6-A1 (R2): optional filters W5 sends; absent → every row, as before.
+  status: z.enum(["posted", "held"]).optional(),
+  needsReview: zBoolParam.optional(),
   search: z.string().optional(),
   sortBy: z.enum(["txnDate", "netAmount", "vendor"]).default("txnDate"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),

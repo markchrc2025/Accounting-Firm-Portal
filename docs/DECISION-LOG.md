@@ -77,3 +77,12 @@ Decision: a unit's Claude Code session opens the pull request for its branch and
 
 ## 2026-10-09 · C3 · Corrections to the record, from U6 pass 1
 U1 knew the import parser lived in apps/web and did not say the import straddled the track boundary set by D7; the Phase 3 divergence was framed as "synchronous, no queue" when the fact that decides ownership is that the API has no file endpoint. The Sales import template labels its customer columns "Vendor TIN" and "Vendor Name" (spreadsheet.ts:11-12); left for Track B.
+
+## 2026-10-10 · D33 · Backups before a migration deploys (interim)
+Decision (technical partner, interim until the domain owner names where the production backup is taken): a unit whose pull request carries a migration opens the pull request and waits for green checks, then stops before merging; the merge follows a confirmed backup. A unit without a migration merges itself (D32). U6's #127 merged with a migration and no confirmed backup; the migration was additive and nothing was lost.
+
+## 2026-10-10 · D34 · Expense list filters, firm-only import, server-owned fields
+Decision (technical partner): the expense list honours status and needsReview as optional filters; the import template, the import and posting a held row are firm actions, refused to client-side principals with 403; status, needsReview, vatClaimable, importBatchId and sourceFile are server-owned and no edit can set them. Source: Track B's W5 report (F21, F22, F24).
+
+## 2026-10-10 · C4 · Corrections to the record, from U6 pass 3 and W5 pass 2
+U6's M2 poll loop never parsed a response (a backslash inside an f-string) and exited 0 after twenty silent polls; the merge decision was taken on a later, correct fetch. The seed has no client, so U6's T6 "seeded client" was an invented client under the seeded firm. W5's adversarial review had one skeptic read origin/track-a against W5's R1; nothing from it was used.
