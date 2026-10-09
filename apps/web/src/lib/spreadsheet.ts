@@ -1,15 +1,20 @@
-// Lazy-loaded SheetJS wrapper for importing / exporting Sales & Expense data.
-// xlsx (~400 KB) loads only when a user actually exports or imports, keeping it
-// out of the main bundle. Export produces the canonical import headers below, so
-// an exported file re-imports cleanly (round-trip).
+// Lazy-loaded SheetJS wrapper for exporting Sales & Expense data and importing
+// Sales data. xlsx (~400 KB) loads only when a user actually exports or imports,
+// keeping it out of the main bundle. The Sales export produces the canonical
+// Sales import headers below, so an exported Sales file re-imports cleanly
+// (round-trip). The Expenses import goes through the API since W5, with the
+// API's own template; an Expenses export is NOT that template.
 
 // The firm's standard upload template columns (exact headers, incl. the "*"
 // required markers). These are what the blank template and export produce, and
 // what import recognises. `Amount` is the invoice amount AS-IS (tax-inclusive).
 export const SALES_HEADERS = [
   "Date*",
-  "Vendor TIN*",
-  "Vendor Name*",
+  // The counterparty on a sale is the CUSTOMER. Until W5 these two read
+  // "Vendor TIN*" / "Vendor Name*"; SALES_ALIASES still maps both spellings, so
+  // files made from the old template import unchanged.
+  "Customer TIN*",
+  "Customer Name*",
   "Vendor Lastname",
   "Vendor Firstname",
   "Vendor Middlename",
@@ -89,9 +94,9 @@ export const SALES_ALIASES: Record<string, string> = {
   invoicenumber: "ReferenceNo",
   customer: "Customer",
   customername: "Customer",
-  vendorname: "Customer", // the template labels the counterparty "Vendor Name"
+  vendorname: "Customer", // pre-W5 templates labelled the customer "Vendor Name"
   customertin: "CustomerTIN",
-  vendortin: "CustomerTIN", // party recognised by TIN (template column 2)
+  vendortin: "CustomerTIN", // …and "Vendor TIN"; party recognised by TIN (column 2)
   tin: "CustomerTIN",
   description: "Description",
   category: "Category",
@@ -118,41 +123,10 @@ export const SALES_ALIASES: Record<string, string> = {
   currency: "Currency",
 };
 
-/** normalised header → canonical field, for the Expenses/Purchases template. */
-export const EXPENSE_ALIASES: Record<string, string> = {
-  date: "Date",
-  referenceno: "ReferenceNo",
-  referencenumber: "ReferenceNo",
-  vendor: "Vendor",
-  vendorname: "Vendor",
-  vendortin: "VendorTIN", // party recognised by TIN (template column 2)
-  tin: "VendorTIN",
-  description: "Description",
-  category: "Category",
-  coacode: "Account",
-  account: "Account",
-  netamount: "NetAmount",
-  amount: "Amount", // invoice amount AS-IS (tax-inclusive)
-  taxtype: "TaxType",
-  inputvatcategory: "InputVATCategory",
-  inputvat: "InputVAT",
-  iscapitalgood: "IsCapitalGood",
-  capitalgoodacquisitioncost: "CapitalGoodAcquisitionCost",
-  estimatedusefullifemonths: "EstimatedUsefulLifeMonths",
-  inputtaxattribution: "InputTaxAttribution",
-  deductible: "Deductible",
-  atc: "ATC",
-  taxcode: "ATC",
-  taxamount: "TaxAmount",
-  duedate: "DueDate",
-  unit: "Unit",
-  qty: "Quantity",
-  quantity: "Quantity",
-  unitprice: "UnitPrice",
-  price: "UnitPrice",
-  discount: "Discount",
-  currency: "Currency",
-};
+// The Expenses template is no longer read in the browser: since W5 the API
+// builds it per client and parses the uploaded file (D31). Its alias map, which
+// lived here, went with that path. EXPENSE_HEADERS stays — the Expenses export
+// still writes its columns.
 
 /** Excel serial / JS Date / string → ISO yyyy-mm-dd (best effort; "" on fail). */
 export function toIsoDate(cell: unknown): string {

@@ -1173,7 +1173,22 @@ export interface PurchaseTxn {
   quantity?: number;
   unitPrice?: number;
   discount?: number;
+  // --- Added by the expenses import through the API (Track A U6, W5 R1). All
+  // optional: records written before U6 carry none of them and are posted.
+  /** "posted" counts in the books; "held" waits for a person to post it. */
+  status?: PurchaseStatus;
+  /** The import flagged this record for a person to look at. */
+  needsReview?: boolean;
+  documentType?: string;
+  sourceFile?: string;
+  remarks?: string;
+  vendorBranch?: string;
+  tradeName?: string;
+  province?: string;
+  vatClaimable?: boolean;
+  importBatchId?: string;
 }
+export type PurchaseStatus = "posted" | "held";
 export interface Paginated<T> {
   data: T[];
   page: number;
@@ -1219,13 +1234,125 @@ export function importIncome(
     body: JSON.stringify({ rows }),
   });
 }
-export function importPurchases(
+// --- Expenses import through the API (W5; contract: Track A U6, W5 R1) ------
+// The browser no longer reads the workbook. It downloads the per-client template
+// from the API, uploads the filled file as multipart/form-data, and shows what
+// the server says it did (or, on a dry run, would do) with each row.
+
+export type ExpenseImportOutcome = "posted" | "held" | "rejected";
+export interface ExpenseImportRecord {
+  id: string;
+  classification: string;
+  amount: number;
+  vatAmount: number;
+  vatClaimable: boolean;
+}
+export interface ExpenseImportResultRow {
+  rowNumber: number;
+  outcome: ExpenseImportOutcome;
+  needsReview: boolean;
+  messages: string[];
+  records: ExpenseImportRecord[];
+}
+export interface ExpenseImportResult {
+  templateVersion: string;
+  clientId: string;
+  periodFrom: string;
+  periodTo: string;
+  rows: ExpenseImportResultRow[];
+  totals: {
+    rows: number;
+    posted: number;
+    held: number;
+    rejected: number;
+    grossAmount: number;
+  };
+}
+
+/** Turn a non-2xx response into an ApiError carrying the server's own
+ *  `{ message }` verbatim — the import shows it to the user unchanged. */
+async function errorFrom(res: Response, fallback: string): Promise<ApiError> {
+  let message = `${fallback} (${res.status})`;
+  let body: unknown;
+  try {
+    const text = await res.text();
+    body = text ? JSON.parse(text) : undefined;
+    const m = (body as { message?: unknown } | undefined)?.message;
+    if (typeof m === "string" && m) message = m;
+    else if (Array.isArray(m) && m.length && m.every((x) => typeof x === "string")) {
+      message = m.join(" ");
+    }
+  } catch {
+    /* non-JSON error body — keep the generic message */
+  }
+  return new ApiError(res.status, message, body);
+}
+
+/** The filename a Content-Disposition header names, or `fallback`. Handles the
+ *  RFC 6266 forms: filename*=UTF-8''…, filename="…" and bare filename=…. */
+export function dispositionFilename(header: string | null, fallback: string): string {
+  const h = header ?? "";
+  const star = /filename\*\s*=\s*(?:UTF-8|utf-8)''([^;]+)/.exec(h);
+  if (star?.[1]) {
+    try {
+      return decodeURIComponent(star[1].trim());
+    } catch {
+      /* fall through to the plain forms */
+    }
+  }
+  const quoted = /filename\s*=\s*"([^"]+)"/.exec(h);
+  if (quoted?.[1]) return quoted[1];
+  const bare = /filename\s*=\s*([^;\s]+)/.exec(h);
+  return bare?.[1] ?? fallback;
+}
+
+/** GET the client's expenses import template — an .xlsx built by the API. */
+export async function downloadExpenseTemplate(
   clientId: string,
-  rows: Record<string, unknown>[],
-): Promise<ImportResult> {
-  return apiFetch(`/clients/${clientId}/purchase-transactions/import`, {
+): Promise<{ blob: Blob; filename: string }> {
+  const token = getToken();
+  const res = await fetch(
+    `${API_BASE_URL}/purchase-transactions/import/template?clientId=${encodeURIComponent(clientId)}`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok) throw await errorFrom(res, "Could not download the template");
+  return {
+    blob: await res.blob(),
+    filename: dispositionFilename(
+      res.headers.get("Content-Disposition"),
+      "expenses-template.xlsx",
+    ),
+  };
+}
+
+/**
+ * Upload a filled expenses template. `dryRun: true` asks the server what it
+ * WOULD do with every row and writes nothing; `dryRun: false` imports.
+ * multipart/form-data with the file under the field "file". No Content-Type
+ * header is set here: the browser writes it, with the multipart boundary.
+ */
+export async function importExpenseFile(
+  clientId: string,
+  file: File,
+  dryRun: boolean,
+): Promise<ExpenseImportResult> {
+  const token = getToken();
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const q = new URLSearchParams({ clientId, dryRun: String(dryRun) });
+  const res = await fetch(`${API_BASE_URL}/purchase-transactions/import?${q}`, {
     method: "POST",
-    body: JSON.stringify({ rows }),
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) throw await errorFrom(res, "The import failed");
+  return (await res.json()) as ExpenseImportResult;
+}
+
+/** Post a held expense record into the books. */
+export function postPurchase(id: string): Promise<unknown> {
+  return apiFetch(`/purchase-transactions/${encodeURIComponent(id)}/post`, {
+    method: "POST",
   });
 }
 export function createIncome(clientId: string, body: unknown): Promise<IncomeTxn> {
