@@ -212,6 +212,14 @@ export class ExpenseImportService {
    *  carry clientId as a query parameter, which PermissionsGuard does not scope
    *  on (it reads route params only), so the assignment check happens here. */
   private async requireClient(user: AuthUser, clientId: string) {
+    // U6-A1 (R3): the template, the import and posting are the firm's actions.
+    // A client-portal principal is refused whatever permissions its role holds
+    // (Client Owner carries Expenses:Create). Checked before any lookup.
+    if (user.userType !== "FIRM") {
+      throw new ForbiddenException(
+        "Importing expenses and posting held records belong to the firm; a client-portal account cannot do this.",
+      );
+    }
     const client = await this.clients.assertInFirm(user.firmId, clientId);
     const ok = await this.rbac.authorize(user, ["Expenses:Create"], clientId);
     if (!ok) throw new ForbiddenException("You are not assigned to this client.");
