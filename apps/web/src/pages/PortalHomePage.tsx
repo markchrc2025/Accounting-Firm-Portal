@@ -1,44 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext";
 import {
   fetchFilings,
   fetchIncomeSummary,
   fetchPortalContext,
   fetchPurchaseSummary,
+  fetchTaxEstimate,
 } from "../lib/api";
-import {
-  Card,
-  Chip,
-  cn,
-  EmptyState,
-  ErrorState,
-  peso,
-  Skeleton,
-} from "../components/ui";
-
-/**
- * TRAIN graduated income-tax brackets, as a management estimate only (the BIR
- * Generator owns the authoritative figure). Each tuple is
- * `[over, notOver, baseTax, ratePercent]`; tax = baseTax + (taxable − over) × rate%.
- */
-const TRAIN_BRACKETS: readonly [number, number | null, number, number][] = [
-  [0, 250000, 0, 0],
-  [250000, 400000, 0, 15],
-  [400000, 800000, 22500, 20],
-  [800000, 2000000, 102500, 25],
-  [2000000, 8000000, 402500, 30],
-  [8000000, null, 2202500, 35],
-];
-
-function estimateIncomeTax(taxable: number): number {
-  for (const [over, notOver, baseTax, rate] of TRAIN_BRACKETS) {
-    if (taxable > over && (notOver === null || taxable <= notOver)) {
-      return baseTax + (taxable - over) * (rate / 100);
-    }
-  }
-  return 0;
-}
+import { lastEndedQuarter } from "../lib/taxPeriod";
+import { Card, Chip, cn, EmptyState, ErrorState, peso, Skeleton } from "../components/ui";
 
 /** Format an ISO date as a short, readable day. */
 function fmtDate(iso: string): string {
@@ -70,6 +41,16 @@ export default function PortalHomePage() {
   const purchase = useQuery({
     queryKey: ["purchase-summary", clientId],
     queryFn: () => fetchPurchaseSummary(clientId),
+    enabled: !!clientId,
+  });
+  // The estimated tax is the API's management estimate (U10 R1, W11 R1) for the
+  // most recent quarter that has ended in Manila — what the Tax Estimate page
+  // opens on. The BIR Generator owns the authoritative figure.
+  const [estimatePeriod] = useState(() => lastEndedQuarter());
+  const estimate = useQuery({
+    queryKey: ["tax-estimate", clientId, estimatePeriod.year, estimatePeriod.quarter],
+    queryFn: () =>
+      fetchTaxEstimate(clientId, estimatePeriod.year, estimatePeriod.quarter),
     enabled: !!clientId,
   });
   const filings = useQuery({
@@ -105,13 +86,8 @@ export default function PortalHomePage() {
     );
   }
 
-  const summariesPending = income.isPending || purchase.isPending;
-  const summariesError = income.isError || purchase.isError;
-  const taxable = Math.max(
-    0,
-    (income.data?.totalNet ?? 0) - (purchase.data?.deductibleNet ?? 0),
-  );
-  const estimatedTax = estimateIncomeTax(taxable);
+  const summariesPending = income.isPending || purchase.isPending || estimate.isPending;
+  const summariesError = income.isError || purchase.isError || estimate.isError;
 
   return (
     <div className="animate-fade-rise space-y-6">
@@ -129,6 +105,7 @@ export default function PortalHomePage() {
             onRetry={() => {
               void income.refetch();
               void purchase.refetch();
+              void estimate.refetch();
             }}
           />
         </Card>
@@ -156,13 +133,14 @@ export default function PortalHomePage() {
           />
           <StatCard
             navy
+            data-estimated-tax
             label="Estimated tax"
-            caption="PREPARED BY YOUR MCRC TEAM"
+            caption={`Q${estimatePeriod.quarter} ${estimatePeriod.year} · PREPARED BY YOUR MCRC TEAM`}
             value={
               summariesPending ? (
                 <Skeleton className="h-8 w-28" />
               ) : (
-                peso(estimatedTax)
+                peso(estimate.data?.incomeTax.due ?? 0)
               )
             }
           />
@@ -231,14 +209,18 @@ function StatCard({
   value,
   caption,
   navy = false,
+  ...rest
 }: {
   label: string;
   value: ReactNode;
   caption?: string;
   navy?: boolean;
+  /** A data-* hook for tests, e.g. `data-estimated-tax`. */
+  [data: `data-${string}`]: unknown;
 }) {
   return (
     <div
+      {...rest}
       className={cn(
         "rounded-card border p-5",
         navy ? "border-navy bg-navy text-white" : "border-line-strong bg-card",

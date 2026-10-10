@@ -463,6 +463,44 @@ test.describe("T2 the expense lists filter on the server (hermetic)", () => {
 // ---------------------------------------------------------------------------
 
 /** No page an exempt client is on may read "percentage tax" or "not set". */
+/** W11: U10's estimate for an exempt client — no business tax, in the API's words. */
+const EXEMPT_SENTENCE = "No business tax: this client is exempt from business tax.";
+const EXEMPT_ESTIMATE: Entry = [
+  "GET",
+  /^\/api\/v1\/clients\/[^/]+\/tax-estimate$/,
+  (r) =>
+    json(r, {
+      basis: "management-estimate",
+      notice: "Management estimate, not the filed figure.",
+      client: {
+        id: EXEMPT_CLIENT.id,
+        businessName: EXEMPT_CLIENT.businessName,
+        regime: "EXEMPT",
+      },
+      period: {
+        year: 2026,
+        quarter: 3,
+        label: "Q3 2026",
+        incomeTaxFrom: "2026-01-01",
+        incomeTaxTo: "2026-09-30",
+        businessTaxFrom: "2026-07-01",
+        businessTaxTo: "2026-09-30",
+      },
+      method: { name: "graduated", source: "default", rate: null },
+      incomeTax: { grossIncome: 0, deductibleExpenses: 0, taxableIncome: 0, due: 0 },
+      businessTax: {
+        kind: "none",
+        grossReceipts: 0,
+        outputVAT: 0,
+        inputVAT: 0,
+        rate: null,
+        due: 0,
+      },
+      assumptions: ["Figures come from posted records only.", EXEMPT_SENTENCE],
+      filedForms: [],
+    }),
+];
+
 async function expectNoWrongRegime(page: Page) {
   const text = await screenText(page);
   expect(text, "an exempt client is never 'percentage tax'").not.toMatch(
@@ -564,8 +602,9 @@ test.describe("T1 an exempt client is labelled right everywhere (hermetic)", () 
   test("T1 the tax estimate shows no business tax for an exempt client", async ({
     page,
   }) => {
-    const filed: Entry = ["GET", /^\/api\/v1\/bir-forms\/filed$/, (r) => json(r, [])];
-    const { unmocked } = await mockApi(page, { extra: [filed] });
+    // W11: the page reads the API's estimate; its business-tax card carries the
+    // API's own sentence (U10 R3) where the browser used to write one.
+    const { unmocked } = await mockApi(page, { extra: [EXEMPT_ESTIMATE] });
     await page.goto(`/clients/${EXEMPT_CLIENT.id}/tax`);
     const main = page.locator("main");
     await expect(
@@ -575,8 +614,8 @@ test.describe("T1 an exempt client is labelled right everywhere (hermetic)", () 
       main.getByText("Exempt from business tax", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("None — exempt from business tax", { exact: true }),
-    ).toBeVisible();
+      main.locator("[data-business-tax=none] [data-business-tax-note]"),
+    ).toHaveText(EXEMPT_SENTENCE);
     await expectNoWrongRegime(page);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
@@ -584,7 +623,7 @@ test.describe("T1 an exempt client is labelled right everywhere (hermetic)", () 
   test("T1 the portal's tax estimate shows no business tax for an exempt client", async ({
     page,
   }) => {
-    const { unmocked } = await mockApi(page, { me: PORTAL_ME });
+    const { unmocked } = await mockApi(page, { me: PORTAL_ME, extra: [EXEMPT_ESTIMATE] });
     await page.goto("/portal/tax");
     const main = page.locator("main");
     await expect(
@@ -593,6 +632,9 @@ test.describe("T1 an exempt client is labelled right everywhere (hermetic)", () 
     await expect(
       main.getByText("Exempt from business tax", { exact: true }),
     ).toBeVisible();
+    await expect(
+      main.locator("[data-business-tax=none] [data-business-tax-note]"),
+    ).toHaveText(EXEMPT_SENTENCE);
     await expectNoWrongRegime(page);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
