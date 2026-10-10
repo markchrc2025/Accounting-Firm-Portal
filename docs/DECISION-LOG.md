@@ -182,3 +182,6 @@ Decision (technical partner): GET /clients/:clientId/tax-estimate computes the m
 
 ## 2026-10-10 · D48 · The estimate's percentage rule and its readers
 Decision (technical partner): a saved Tax Rule of "percentage" describes a business tax, so the estimate computes that client's income tax on the graduated TRAIN rates, says why, and leaves the saved rate unused; U5 rebuilds Tax Rules as elections. Anyone who may read a client's tax estimate, client principals and Auditors included, sees that client's filed returns and their key figures beside it. Built in U10-A1.
+
+## 2026-10-10 · D49 · AI reads receipts overnight; code checks; people approve
+Decision (domain owner and technical partner): receipt photos are read by Claude through Anthropic's Message Batches API, at half price, with results usually within the hour and at most 24 hours. The model reports only what is printed and what it doubts; code derives the VAT split, maps the answer to the 27 template columns and runs the import's own rules, and nothing reaches the books until a person approves (U12). The firm's AI budget is US$25 a month (owner, 2026-10-10), enforced by the Portal before every pile is sent and by the Console's workspace spend limit. The API key lives only in the API service's environment and is never logged, returned, committed or sent to a browser. Built in U11.
