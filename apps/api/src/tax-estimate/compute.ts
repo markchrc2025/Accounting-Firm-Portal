@@ -9,8 +9,10 @@ import type { TaxBracket, TaxRuleInput } from "../tax-rules/dto/tax-rule.schemas
 import {
   EIGHT_PERCENT_RATE,
   EIGHT_PERCENT_REDUCTION,
+  PERCENTAGE_TAX_CREATE_NOTE,
   PERCENTAGE_TAX_RATE,
   graduatedTax,
+  pesos,
 } from "./statute";
 
 /** Round to centavos. */
@@ -58,8 +60,10 @@ export function incomeTax(
       taxableIncome = Math.max(0, grossIncome - EIGHT_PERCENT_REDUCTION);
       due = (taxableIncome * EIGHT_PERCENT_RATE) / 100;
       assumptions.push(
-        `8% income tax on gross receipts less ₱250,000; expenses are not deducted. This ` +
-          "assumes no compensation income; a mixed-income earner gets no ₱250,000 reduction.",
+        `${EIGHT_PERCENT_RATE}% income tax on gross receipts less ` +
+          `${pesos(EIGHT_PERCENT_REDUCTION)}; expenses are not deducted. This assumes no ` +
+          "compensation income; a mixed-income earner gets no " +
+          `${pesos(EIGHT_PERCENT_REDUCTION)} reduction.`,
       );
       break;
     }
@@ -100,6 +104,15 @@ export function incomeTax(
           "Graduated rates from the brackets saved on this client's Tax Rules, on gross " +
             "income less deductible expenses, never below zero.",
         );
+        const covered = rule.brackets.some(
+          (b) => net > b.over && (b.notOver === null || net <= b.notOver),
+        );
+        if (net > 0 && !covered) {
+          assumptions.push(
+            `No saved bracket covers taxable income of ${pesos(round2(net))}, so 0 is used. ` +
+              "Check the brackets on this client's Tax Rules.",
+          );
+        }
       }
       break;
     }
@@ -150,6 +163,7 @@ export function businessTax(
       assumptions: [
         "VAT payable is output VAT less input VAT for the period" +
           (due < 0 ? "; a negative figure is excess input VAT to carry over." : "."),
+        "Output VAT is taken as recorded on each sale; a sale saved without it counts as none.",
       ],
     };
   }
@@ -160,7 +174,9 @@ export function businessTax(
         ...base,
         rate: null,
         due: 0,
-        assumptions: ["No percentage tax: the 8% option is in lieu of percentage tax."],
+        assumptions: [
+          `No percentage tax: the ${EIGHT_PERCENT_RATE}% option is in lieu of percentage tax.`,
+        ],
       };
     }
     return {
@@ -169,8 +185,8 @@ export function businessTax(
       rate: PERCENTAGE_TAX_RATE,
       due: round2((grossReceipts * PERCENTAGE_TAX_RATE) / 100),
       assumptions: [
-        `Percentage tax at ${PERCENTAGE_TAX_RATE}% of gross receipts (TRAIN). The 1% rate of ` +
-          "1 July 2020 to 30 June 2023 is not applied.",
+        `Percentage tax at ${PERCENTAGE_TAX_RATE}% of gross receipts (TRAIN). ` +
+          PERCENTAGE_TAX_CREATE_NOTE,
       ],
     };
   }

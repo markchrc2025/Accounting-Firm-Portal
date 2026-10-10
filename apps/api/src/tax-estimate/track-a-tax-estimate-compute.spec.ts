@@ -96,6 +96,30 @@ describe("U10 T2 · each method, as published (centavos)", () => {
     );
   });
 
+  it.each([5, null, 12])(
+    "simplified8 uses the statutory 8%%, whatever rate is saved (%s)",
+    (saved) => {
+      // 8% × (1,000,000 − 250,000) = 60,000.
+      expect(incomeTax(rule("simplified8", saved), "saved", 2026, 1000000, 0).due).toBe(
+        60000,
+      );
+    },
+  );
+
+  it("a saved graduated rule with no bracket covering the income gives 0 and says so", () => {
+    const out = incomeTax(
+      { method: "graduated", flatRate: null, brackets: [] },
+      "saved",
+      2026,
+      500000,
+      0,
+    );
+    expect(out.due).toBe(0);
+    expect(out.assumptions).toContain(
+      "No saved bracket covers taxable income of ₱500,000, so 0 is used. Check the brackets on this client's Tax Rules.",
+    );
+  });
+
   it("flat and percentage with no saved rate use 0% and say so", () => {
     for (const m of ["flat", "percentage"] as const) {
       const out = incomeTax(rule(m, null), "saved", 2026, 500000, 0);
@@ -127,6 +151,9 @@ describe("U10 T2 · business tax by regime", () => {
     const excess = businessTax("VAT", "graduated", 0, 10000, 24000);
     expect(excess.due).toBe(-14000);
     expect(excess.assumptions[0]).toContain("excess input VAT to carry over");
+    expect(excess.assumptions).toContain(
+      "Output VAT is taken as recorded on each sale; a sale saved without it counts as none.",
+    );
   });
 
   it("exempt (no regime): no business tax", () => {

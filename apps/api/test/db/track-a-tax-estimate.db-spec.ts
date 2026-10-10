@@ -199,7 +199,10 @@ describe("U10 · the tax estimate is computed once, for a period, from the clien
         rate: 3,
         due: 30000,
       });
-      expect(res.body.assumptions.length).toBeGreaterThan(0);
+      expect(res.body.assumptions).toContain(
+        "Figures come from posted records only; held imports are left out.",
+      );
+      expect(res.body.method.rate).toBeNull();
     });
 
     it("quarter=3: income tax January to September, business tax July to September only", async () => {
@@ -284,6 +287,11 @@ describe("U10 · the tax estimate is computed once, for a period, from the clien
       inputVAT: 24000,
       due: 36000,
     });
+    // A held purchase's input VAT changes nothing either.
+    await cost("delta", "2026-06-03", 100000, { inputVAT: 12000, status: "held" });
+    const again = await estimate(ids.delta!, "?year=2026");
+    expect(again.body.businessTax).toMatchObject({ inputVAT: 24000, due: 36000 });
+    expect(again.body.incomeTax.taxableIncome).toBe(300000);
   });
 
   it("T1 · flat and percentage rules use the saved rate", async () => {
@@ -298,35 +306,45 @@ describe("U10 · the tax estimate is computed once, for a period, from the clien
   });
 
   it("T1 · filed returns that cover the period come with the estimate, with their key figures (R4)", async () => {
-    const filed = (period: string) =>
+    const filed = (key: string, form: string, period: string, amendsId?: string) =>
       writer.birForm.create({
         data: {
           firmId,
-          clientId: ids.alpha!,
-          form: "2551Q",
+          clientId: ids[key]!,
+          form,
           period,
           status: "filed",
           filedAt: new Date("2026-07-20T02:00:00.000Z"),
-          dataJson: {},
+          dataJson: { i13: "1000" },
+          ...(amendsId ? { amendsId, sequence: 2 } : {}),
         },
       });
-    const q2 = (await filed("2026-Q2")).id;
-    const q4 = (await filed("2026-Q4")).id;
-    const lastYear = (await filed("2025-Q4")).id;
+    const pctQ2 = (await filed("alpha", "2551Q", "2026-Q2")).id;
+    const pctQ3 = (await filed("alpha", "2551Q", "2026-Q3")).id;
+    const pctQ3Amended = (await filed("alpha", "2551Q", "2026-Q3", pctQ3)).id;
+    const itQ2 = (await filed("alpha", "1701Q", "2026-Q2")).id;
+    const pctQ4 = (await filed("alpha", "2551Q", "2026-Q4")).id;
+    const lastYear = (await filed("alpha", "2551Q", "2025-Q4")).id;
+    await filed("delta", "2551Q", "2026-Q3"); // another client's return
+    type Filed = { id: string; superseded: boolean; figures: unknown };
     const forms = (res: request.Response) =>
-      (res.body.filedForms as Array<{ id: string; figures: unknown }>).map((f) => f.id);
-    // Q3 2026 covers January to September: the Q2 return, not Q4, not 2025's.
+      (res.body.filedForms as Filed[]).map((f) => f.id).sort();
+    // Q3 2026: business tax covers July–September alone, so the Q3 2551Q (and its
+    // amendment) but not Q2's; income tax runs from 1 January, so Q2's 1701Q.
+    // Never Q4, never 2025, never another client's.
     const q3 = await estimate(ids.alpha!, "?year=2026&quarter=3");
-    expect(forms(q3)).toEqual([q2]);
-    expect(q3.body.filedForms[0]).toMatchObject({
+    expect(forms(q3)).toEqual([pctQ3, pctQ3Amended, itQ2].sort());
+    const byId = new Map((q3.body.filedForms as Filed[]).map((f) => [f.id, f]));
+    expect(byId.get(pctQ3)!.superseded).toBe(true);
+    expect(byId.get(pctQ3Amended)!.superseded).toBe(false);
+    expect(byId.get(pctQ3)).toMatchObject({
       form: "2551Q",
-      period: "2026-Q2",
+      period: "2026-Q3",
       figures: { totalTaxDue: expect.any(Number), totalPayable: expect.any(Number) },
     });
-    expect(q3.body.notice).toContain("not the filed figure");
-    // The 2026 year view lists both of 2026's returns.
-    expect(forms(await estimate(ids.alpha!, "?year=2026")).sort()).toEqual(
-      [q2, q4].sort(),
+    // The 2026 year view lists every 2026 return; 2025 lists 2025's.
+    expect(forms(await estimate(ids.alpha!, "?year=2026"))).toEqual(
+      [pctQ2, pctQ3, pctQ3Amended, itQ2, pctQ4].sort(),
     );
     expect(forms(await estimate(ids.alpha!, "?year=2025"))).toEqual([lastYear]);
   });

@@ -26,3 +26,12 @@ export const EIGHT_PERCENT_RATE = 8;
 
 /** The 8% option's reduction from gross receipts, pesos (TRAIN, from 1 January 2018). */
 export const EIGHT_PERCENT_REDUCTION = 250_000;
+
+/** What the estimate says about RA 11534 (CREATE)'s 1% window until U5 dates it. */
+export const PERCENTAGE_TAX_CREATE_NOTE =
+  "The 1% rate of 1 July 2020 to 30 June 2023 (CREATE, RA 11534) is not applied.";
+
+/** A peso amount in words, e.g. ₱250,000. */
+export function pesos(n: number): string {
+  return `₱${n.toLocaleString("en-US")}`;
+}

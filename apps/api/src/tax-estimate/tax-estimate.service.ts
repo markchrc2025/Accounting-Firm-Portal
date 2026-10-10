@@ -12,6 +12,9 @@ import { estimatePeriod } from "./period";
 import { EIGHT_PERCENT_RATE } from "./statute";
 
 /** What every estimate tells the reader first (guardrail 1). */
+/** Business-tax returns cover their own quarter alone; income-tax returns run from 1 January. */
+const BUSINESS_TAX_FORMS = new Set(["2550Q", "2551Q"]);
+
 export const TAX_ESTIMATE_NOTICE =
   "Management estimate, not the filed figure. A filed BIR return for the period, " +
   "listed under filedForms, is the figure that counts.";
@@ -71,14 +74,23 @@ export class TaxEstimateService {
       forBusinessTax.inputVAT,
     );
 
-    const filedForms = (await this.birForms.filedForClient(user.firmId, clientId)).filter(
-      (f) => {
+    // R4: the filed returns that cover the period. A business-tax return covers its
+    // quarter alone; a quarterly income-tax return runs from 1 January to its
+    // quarter's end; an annual return covers the year. An amended original is
+    // flagged as superseded by the amendment that names it.
+    const allFiled = await this.birForms.filedForClient(user.firmId, clientId);
+    const amended = new Set(allFiled.map((f) => f.amendsId).filter(Boolean));
+    const filedForms = allFiled
+      .filter((f) => {
         const p = parsePeriod(f.period);
         if (Number(p.year) !== period.year) return false;
         if (!period.quarter || !p.quarter) return true;
-        return Number(p.quarter.slice(1)) <= period.quarter;
-      },
-    );
+        const q = Number(p.quarter.slice(1));
+        return BUSINESS_TAX_FORMS.has(f.form)
+          ? q === period.quarter
+          : q <= period.quarter;
+      })
+      .map((f) => ({ ...f, superseded: amended.has(f.id) }));
 
     return {
       basis: "management-estimate" as const,
@@ -121,6 +133,8 @@ export class TaxEstimateService {
           ? [
               "Income tax is cumulative from 1 January to the quarter's end, as a quarterly " +
                 "income-tax return is; business tax covers the quarter alone.",
+              "The income tax shown is the total from 1 January, before subtracting what " +
+                "earlier quarterly returns paid.",
             ]
           : []),
         ...it.assumptions,
