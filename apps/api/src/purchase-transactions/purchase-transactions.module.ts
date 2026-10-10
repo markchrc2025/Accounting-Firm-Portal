@@ -11,6 +11,8 @@ import { PurchaseTransactionsService } from "./purchase-transactions.service";
   imports: [ClientsModule, CategoriesModule, FinancialModule],
   controllers: [PurchaseTransactionsController, ExpenseImportController],
   providers: [PurchaseTransactionsService, ExpenseImportService],
-  exports: [PurchaseTransactionsService], // used by the MCP write tools
+  // PurchaseTransactionsService: the MCP write tools. ExpenseImportService: the AI
+  // receipt reader runs the import's own row rules (U11 R8).
+  exports: [PurchaseTransactionsService, ExpenseImportService],
 })
 export class PurchaseTransactionsModule {}

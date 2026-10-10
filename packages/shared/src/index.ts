@@ -8,3 +8,4 @@ export * from "./money";
 export * from "./transactions";
 export * from "./import";
 export * from "./integration";
+export * from "./receipt-scan";
