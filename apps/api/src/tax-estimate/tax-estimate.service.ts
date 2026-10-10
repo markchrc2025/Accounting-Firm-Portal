@@ -40,12 +40,9 @@ export class TaxEstimateService {
     if (!client) throw new NotFoundException("Client not found");
 
     const period = estimatePeriod(query.year, query.quarter);
-    // R2: the saved rule, or the TRAIN default TaxRulesService serves when none is saved.
-    const rule = await this.taxRules.get(user, clientId);
-    const saved = await this.prisma.taxRule.findUnique({
-      where: { clientId },
-      select: { id: true },
-    });
+    // R2: the saved rule, or the TRAIN default TaxRulesService serves when none is
+    // saved. U10-A1 R2: ONE read decides both the rule and its "saved" label.
+    const { rule, saved } = await this.taxRules.getWithSource(user, clientId);
     const source: RuleSource = saved ? "saved" : "default";
 
     const forIncomeTax = await this.sums(
@@ -107,9 +104,9 @@ export class TaxEstimateService {
         rate:
           rule.method === "simplified8"
             ? EIGHT_PERCENT_RATE
-            : rule.method === "graduated"
-              ? null
-              : (rule.flatRate ?? 0),
+            : rule.method === "flat"
+              ? (rule.flatRate ?? 0)
+              : null, // graduated; and "percentage", whose saved rate is unused (U10-A1 R1)
       },
       incomeTax: {
         grossIncome: it.grossIncome,

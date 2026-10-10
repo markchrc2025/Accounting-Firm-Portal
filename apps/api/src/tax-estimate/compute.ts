@@ -20,6 +20,15 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * U10-A1 R1 (D48): what the estimate says when a client's saved rule is
+ * "percentage" — a business tax, not an income-tax method.
+ */
+export const PERCENTAGE_RULE_NOTE =
+  "This client's saved rule is 'Percentage', which describes percentage tax (a business " +
+  "tax), not an income-tax method; income tax is shown on the graduated TRAIN rates. " +
+  "Choose the income-tax method on Tax Rules.";
+
 /** Where the client's rule came from: saved on Tax Rules, or the TRAIN default. */
 export type RuleSource = "saved" | "default";
 
@@ -78,15 +87,16 @@ export function incomeTax(
       break;
     }
     case "percentage": {
-      taxableIncome = Math.max(0, grossIncome);
-      due = (taxableIncome * rate) / 100;
+      // U10-A1 R1: "percentage" is percentage tax (business tax, by regime). Income
+      // tax falls back to the graduated TRAIN table for the year; the saved rate is
+      // not used.
+      taxableIncome = net;
+      due = graduatedTax(net, year);
       assumptions.push(
-        `${rate}% of gross receipts. The Tax Rules page describes this method as ` +
-          '"Percentage tax on gross receipts, in lieu of VAT"; the estimate applies the ' +
-          "saved rate to gross receipts as the income-tax figure.",
+        PERCENTAGE_RULE_NOTE,
+        `Graduated TRAIN rates for ${year}, on gross income less deductible expenses, ` +
+          "never below zero.",
       );
-      if (rule.flatRate === null)
-        assumptions.push("No rate is saved for this rule; 0% is used.");
       break;
     }
     case "graduated":
