@@ -333,25 +333,6 @@ test.describe("T4 the capture fix on the legacy print paths (hermetic)", () => {
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
-  test("T4 the legacy 2307 print puts its text inside its boxes", async ({ page }) => {
-    const unmocked = await mockApi(page);
-    await page.setViewportSize({ width: 1400, height: 1000 });
-    await page.goto("/bir-forms/new?form=2307");
-    await page.getByLabel("Withholding agent (client)").selectOption(CLIENT.id);
-    await page.getByLabel("Year").fill("2026");
-    const sheet = ".bir-sheet-stage > .bir-sheet";
-    // Item 1 "For the Period From": its value line, 01/01/2026.
-    const box = await rasterBox(page, sheet, "table td:first-child > div");
-    expect(box.text).toBe("01/01/2026");
-    await checkPath(
-      page,
-      "2307-legacy",
-      () => page.getByRole("button", { name: "Print (legacy)" }).click(),
-      box,
-    );
-    expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
-  });
-
   test("T4 the billing PDF export puts its text inside its boxes", async ({ page }) => {
     const unmocked = await mockApi(page);
     await page.setViewportSize({ width: 1600, height: 1100 });

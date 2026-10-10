@@ -147,6 +147,10 @@ const PROFILE = {
 const CLIENT = {
   id: "33333333-3333-4333-8333-333333333333",
   businessName: "NORTHWIND SUPPLY TRADING CORPORATION",
+  // Item 7 prints the registered name (W7 R6); the same words, so the print
+  // is the one this file has always measured.
+  kind: "non-individual",
+  regName: "NORTHWIND SUPPLY TRADING CORPORATION",
   tin: "123-456-789-00000",
   branch: "00000",
   taxType: "VAT",
@@ -330,13 +334,34 @@ test.describe("2307 Form view (hermetic)", () => {
     const unmocked = await mockApi(page);
     await page.setViewportSize({ width: 1600, height: 1200 });
 
-    await page.goto("/bir-forms/new?form=2307");
-
-    // A client must be selected: the payor block and the filename's TIN come
-    // from it, and Print is disabled without one.
-    await page.getByLabel("Withholding agent (client)").selectOption(CLIENT.id);
-    await page.getByLabel("Year").fill("2026");
-    await page.getByLabel("Quarter").selectOption("Q1");
+    // Only a SAVED certificate prints (W7 R6): open one — its client, year and
+    // quarter are the ones this test used to pick on a new certificate.
+    const SAVED_ID = "f2307000-0000-4000-8000-0000000000a2";
+    await page.route(`**/api/v1/bir-forms/${SAVED_ID}`, (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: SAVED_ID,
+          clientId: CLIENT.id,
+          clientName: CLIENT.businessName,
+          form: "2307",
+          status: "draft",
+          period: PERIOD,
+          filedAt: null,
+          createdAt: "2026-04-10T01:00:00.000Z",
+          updatedAt: "2026-04-10T01:00:00.000Z",
+          data: { year: "2026", quarter: "1" },
+          computed: COMPUTED_2307,
+          exports: [],
+          amendsId: null,
+          sequence: 1,
+          filedSnapshot: null,
+        }),
+      }),
+    );
+    await page.goto(`/bir-forms/${SAVED_ID}`);
+    await expect(page.getByLabel("Year")).toHaveValue("2026");
 
     const download = await Promise.all([
       page.waitForEvent("download", { timeout: 60_000 }),

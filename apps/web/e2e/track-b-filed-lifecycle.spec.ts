@@ -60,6 +60,9 @@ const PROFILE = {
 const CLIENT = {
   id: "44444444-4444-4444-8444-444444444444",
   businessName: "INVENTED RENAMED HOLDINGS INC",
+  // The 2307's Item 7 prints the registered name, never businessName (W7 R6).
+  kind: "non-individual",
+  regName: "INVENTED RENAMED HOLDINGS CORPORATION",
   // Every printed field differs from SNAPSHOT, so a print shows which it read.
   // Nine-digit TINs: the branch is the separate field, and it differs too.
   tin: "555-666-777",
@@ -78,6 +81,8 @@ const CLIENT = {
 /** What the client looked like when the forms below were filed (U3 R3). */
 const SNAPSHOT = {
   businessName: "INVENTED ORIGINAL TRADING",
+  kind: "non-individual",
+  regName: "INVENTED ORIGINAL TRADING CORPORATION",
   tin: "111-222-333",
   branch: "00000",
   address: "1 FILING-DAY ROAD, BARANGAY THEN",
@@ -1016,8 +1021,8 @@ async function payorNameBox(page: Page) {
 }
 
 for (const [label, snapshot, expectedName] of [
-  ["its filing snapshot", SNAPSHOT, SNAPSHOT.businessName],
-  ["the client record when the snapshot is null", null, CLIENT.businessName],
+  ["its filing snapshot", SNAPSHOT, SNAPSHOT.regName],
+  ["the client record when the snapshot is null", null, CLIENT.regName],
 ] as const) {
   test(`T3 a filed 2307 prints the payor from ${label}`, async ({ page }) => {
     const { seen, unmocked } = await mockApi(page, [
@@ -1035,7 +1040,7 @@ for (const [label, snapshot, expectedName] of [
     // In the Form view DOM: the view copy and the capture copy both show it.
     const view = page.locator('[data-sheet-copy="view"] .bir-sheet');
     await expect(view).toContainText(expectedName);
-    const other = snapshot ? CLIENT.businessName : SNAPSHOT.businessName;
+    const other = snapshot ? CLIENT.regName : SNAPSHOT.regName;
     await expect(view).not.toContainText(other);
     const name = await payorNameBox(page);
     expect(name.text).toBe(expectedName);
@@ -1063,11 +1068,6 @@ for (const [label, snapshot, expectedName] of [
     expect(download.suggestedFilename()).toBe(
       certificateFileName("2307", "2026-Q1", src.tin),
     );
-    // The legacy sheet ("Print (legacy)") reads the same source.
-    const legacy = page.locator(".bir-sheet-stage > .bir-sheet");
-    await expect(legacy).toContainText(expectedName);
-    await expect(legacy).toContainText(src.tin);
-    await expect(legacy).not.toContainText(other);
     const raster = pdfRaster(readFileSync((await download.path())!));
     const box = {
       x: name.box.x * 2 + 1,

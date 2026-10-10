@@ -7,6 +7,7 @@ import TransactionEntryModal, {
   type Regime,
 } from "../components/TransactionEntryModal";
 import { useAuth } from "../auth/AuthContext";
+import { permittedFor } from "../lib/permissions";
 import { isVatRegistered } from "../lib/regime";
 import {
   createCategory,
@@ -63,7 +64,7 @@ function initials(name: string): string {
 
 export default function ClientDetailPage() {
   const { clientId = "" } = useParams();
-  const { user, hasPermission } = useAuth();
+  const { user, permissions, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const [kind, setKind] = useState<Kind>("income");
@@ -115,9 +116,16 @@ export default function ClientDetailPage() {
   const canWrite = hasPermission(kind === "income" ? "Sales:Create" : "Expenses:Create");
   const canDelete = hasPermission(kind === "income" ? "Sales:Delete" : "Expenses:Delete");
   const canManageCategories = hasPermission("Categories:Create");
-  // Posting a held expense is the firm's decision, as on the Expenses page
-  // (W5): client roles hold Expenses:Update too.
-  const canPost = user?.userType === "FIRM" && hasPermission("Expenses:Update");
+  // W7 R5: Edit and Post are offered only where the server would allow them
+  // on THIS client. Editing needs the kind's Update permission; posting a held
+  // expense is the firm's, with Expenses:Create (the import controller's gate).
+  const canEdit = permittedFor(
+    permissions,
+    kind === "income" ? "Sales:Update" : "Expenses:Update",
+    clientId,
+  );
+  const canPost =
+    user?.userType === "FIRM" && permittedFor(permissions, "Expenses:Create", clientId);
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: [kind, clientId] });
@@ -530,15 +538,17 @@ export default function ClientDetailPage() {
                           {posting === t.id ? "Posting…" : "Post"}
                         </button>
                       ) : null}
-                      <button
-                        onClick={() => {
-                          setEditing(t);
-                          setModalOpen(true);
-                        }}
-                        className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
-                      >
-                        Edit
-                      </button>
+                      {canEdit ? (
+                        <button
+                          onClick={() => {
+                            setEditing(t);
+                            setModalOpen(true);
+                          }}
+                          className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(t.id)}

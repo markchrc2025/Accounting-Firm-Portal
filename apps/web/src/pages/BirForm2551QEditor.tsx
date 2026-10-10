@@ -23,6 +23,7 @@ import {
 } from "../components/ui";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
+import { formRegimeWarning } from "../lib/regime";
 
 /** Schedule-1 ATC codes the eBIRForms 2551Q supports (index order). */
 const ATC_CODES = ["PT010", "PT040", "PT041", "PT060", "PT070", "PT090", "PT120", "PT130"];
@@ -178,6 +179,11 @@ export default function BirForm2551QEditor() {
     !!existing.data?.amendsId &&
     (existing.data.data as { amended?: unknown }).amended !== "yes";
   const filedAt = existing.data?.filedAt ?? null;
+  // W7 R2: warn, never block, when the client's regime does not match the
+  // return. Saving and filing stay allowed; a filed form shows no warning.
+  const filer = clients.find((cl: ClientSummary) => cl.id === clientId);
+  const regimeWarning =
+    !isFiled && filer ? formRegimeWarning("2551Q", filer.taxType) : null;
 
   return (
     <div className="animate-fade-rise">
@@ -191,6 +197,15 @@ export default function BirForm2551QEditor() {
           </Button>
         }
       />
+
+      {regimeWarning ? (
+        <div
+          role="status"
+          className="mb-5 rounded-input border border-gold/50 bg-warn-bg-2 px-3.5 py-2.5 text-[13px] text-content"
+        >
+          {regimeWarning}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mb-5 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">

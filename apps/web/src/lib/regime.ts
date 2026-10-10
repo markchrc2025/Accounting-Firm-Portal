@@ -34,3 +34,48 @@ export function isVatRegistered(taxType: string | null | undefined): boolean {
   const t = (taxType ?? "").toUpperCase();
   return t.includes("VAT") && !t.includes("NON");
 }
+
+/** A regime the COR's tax types point to (W7 R1). "EXEMPT" is the exempt
+ *  regime, stored as no regime. */
+export type RegimeProposal = "VAT" | "PERCENTAGE" | "EXEMPT";
+
+/**
+ * The regime a COR's tax types propose, as the COR reader names them
+ * ("Value-Added Tax", "Percentage Tax", "Income Tax", …): Value-Added Tax
+ * proposes VAT-registered, Percentage Tax proposes percentage tax, and income
+ * tax with neither proposes exempt from business tax. Anything ambiguous — both
+ * business taxes, or no income tax and no business tax — proposes nothing. A
+ * proposal is never a choice: the person confirms it before saving.
+ */
+export function proposeRegime(taxTypes: readonly string[]): RegimeProposal | null {
+  const types = new Set(taxTypes.map((t) => t.trim().toLowerCase()));
+  const vat = types.has("value-added tax");
+  const pct = types.has("percentage tax");
+  if (vat && !pct) return "VAT";
+  if (pct && !vat) return "PERCENTAGE";
+  if (!vat && !pct && types.has("income tax")) return "EXEMPT";
+  return null;
+}
+
+/**
+ * The warning a business-tax return shows when the client's regime does not
+ * match it (W7 R2). A warning only: saving and filing stay allowed. Null when
+ * the regime matches, or when the form is not one of the two.
+ */
+export function formRegimeWarning(
+  form: "2550Q" | "2551Q",
+  taxType: string | null | undefined,
+): string | null {
+  if (form === "2550Q") {
+    return isVatRegistered(taxType)
+      ? null
+      : "This client is not VAT-registered. A 2550Q is normally filed only by VAT-registered taxpayers.";
+  }
+  if (isExempt(taxType)) {
+    return "This client is exempt from business tax. A 2551Q is not normally filed for it.";
+  }
+  if (isVatRegistered(taxType)) {
+    return "This client is VAT-registered. A 2551Q is normally filed by taxpayers under percentage tax.";
+  }
+  return null;
+}
