@@ -245,9 +245,10 @@ export class ReceiptScanService {
         id: randomUUID(),
         sha: sha256(bytes),
       });
+      // Refused as soon as it is too large, not after every file is held.
+      const tooLarge = pileTooLarge(prepared.map((f) => f.prepared.body.length));
+      if (tooLarge) throw new BadRequestException(tooLarge);
     }
-    const tooLarge = pileTooLarge(prepared.map((p) => p.prepared.body.length));
-    if (tooLarge) throw new BadRequestException(tooLarge);
 
     const instructions = await this.instructions();
     const instr = instructionTokens(instructions);

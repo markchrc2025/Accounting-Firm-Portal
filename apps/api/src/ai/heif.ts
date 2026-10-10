@@ -6,6 +6,9 @@
  *    and the first in the file is not always the primary.
  *  - libheif applies the rotation and mirror (irot/imir) as it decodes, so the
  *    pixels come out upright.
+ *  - The decode is called directly, inside try/catch: libheif-js's own display()
+ *    decodes in a timer, where an error (a WASM abort) would escape every caller.
+ *    An instance that threw is never used again.
  *  - One WASM instance serves a run of files (a pile), then is let go after
  *    IDLE_MS with nothing to decode: WASM memory never shrinks, so the instance's
  *    memory goes with it between piles. A fresh instance per file was measured
@@ -17,7 +20,11 @@ import libheif from "libheif-js/libheif-wasm/libheif-bundle.js";
 /** How long the WASM instance is kept with nothing to decode. */
 export const IDLE_MS = 10_000;
 
-type Instance = { lib: ReturnType<typeof libheif>; users: number; idle?: NodeJS.Timeout };
+type Instance = {
+  lib: ReturnType<typeof libheif>;
+  users: number;
+  idle?: NodeJS.Timeout;
+};
 let current: Instance | null = null;
 
 function acquire(): Instance {
@@ -59,19 +66,30 @@ export async function decodeHeif(
     const width = primary.get_width();
     const height = primary.get_height();
     if (width < 1 || height < 1 || width * height > maxPixels) return null;
-    const shown = await new Promise<{ data: Uint8ClampedArray } | null>((done) =>
-      primary.display(
-        { data: new Uint8ClampedArray(width * height * 4), width, height },
-        done,
-      ),
+    const decoded = lib.heif_js_decode_image2(
+      primary.handle,
+      lib.heif_colorspace.heif_colorspace_RGB,
+      lib.heif_chroma.heif_chroma_interleaved_RGBA,
     );
-    if (!shown) return null;
-    return {
-      width,
-      height,
-      channels: 4,
-      data: Buffer.from(shown.data.buffer, shown.data.byteOffset, shown.data.byteLength),
-    };
+    if (!decoded || decoded.code || !decoded.channels) return null;
+    try {
+      const plane = decoded.channels.find(
+        (c) => c.id == lib.heif_channel.heif_channel_interleaved, // embind enum values
+      );
+      if (!plane || plane.width < 1 || plane.height < 1) return null;
+      // Copy row by row out of WASM memory, dropping any stride padding.
+      const row = plane.width * 4;
+      const data = Buffer.alloc(row * plane.height);
+      for (let y = 0; y < plane.height; y++)
+        data.set(plane.data.subarray(y * plane.stride, y * plane.stride + row), y * row);
+      return { width: plane.width, height: plane.height, channels: 4, data };
+    } finally {
+      lib.heif_image_release(decoded.image);
+    }
+  } catch {
+    // A WASM abort leaves the instance unusable: the next file gets a fresh one.
+    if (current === instance) current = null;
+    return null;
   } finally {
     for (const i of images) i.free();
     if (decoder?.decoder) lib.heif_context_free(decoder.decoder);

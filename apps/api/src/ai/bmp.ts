@@ -18,7 +18,8 @@ const BI_ALPHABITFIELDS = 6;
 export function looksLikeBmp(b: Uint8Array): boolean {
   if (b.length < 26 || b[0] !== 0x42 || b[1] !== 0x4d) return false;
   const header = b[14]! | (b[15]! << 8) | (b[16]! << 16) | (b[17]! << 24);
-  return [12, 40, 52, 56, 64, 108, 124].includes(header);
+  // 64 (OS/2 2.x) is left out: there compression 3 means Huffman, not bit fields.
+  return [12, 40, 52, 56, 108, 124].includes(header);
 }
 
 /** One channel's value scaled to 0–255 by its bit mask. */
@@ -37,7 +38,8 @@ export function decodeBmp(bytes: Uint8Array, maxPixels: number): RawPixels | nul
     const header = b.readUInt32LE(14);
     const core = header === 12;
     const width = core ? b.readUInt16LE(18) : b.readInt32LE(18);
-    const rawHeight = core ? b.readInt16LE(20) : b.readInt32LE(22);
+    // A core header's height is unsigned; a later header's sign marks top-down rows.
+    const rawHeight = core ? b.readUInt16LE(20) : b.readInt32LE(22);
     const bpp = core ? b.readUInt16LE(24) : b.readUInt16LE(28);
     const compression = core ? BI_RGB : b.readUInt32LE(30);
     const used = core ? 0 : b.readUInt32LE(46);
@@ -60,20 +62,25 @@ export function decodeBmp(bytes: Uint8Array, maxPixels: number): RawPixels | nul
       masks[3] = b.readUInt32LE(66);
     }
 
-    // The palette follows the header (and any bit masks after a 40-byte header).
-    const palette: number[][] = [];
+    const rowSize = Math.floor((bpp * width + 31) / 32) * 4;
+    if (dataOffset + rowSize * height > b.length) return null;
+
+    // The palette follows the header (and any bit masks after a 40-byte header):
+    // never more entries than the bit depth can index, and all inside the file.
+    const palette = new Uint8Array(256 * 3);
     if (bpp <= 8) {
       const entry = core ? 3 : 4;
       const start = 14 + header + (header === 40 && compression !== BI_RGB ? 12 : 0);
-      const count = used || 1 << bpp;
+      const count = Math.min(used || 1 << bpp, 1 << bpp);
+      if (start + count * entry > b.length) return null;
       for (let i = 0; i < count; i++) {
         const at = start + i * entry;
-        palette.push([b[at + 2]!, b[at + 1]!, b[at]!]);
+        palette[i * 3] = b[at + 2]!;
+        palette[i * 3 + 1] = b[at + 1]!;
+        palette[i * 3 + 2] = b[at]!;
       }
     }
 
-    const rowSize = Math.floor((bpp * width + 31) / 32) * 4;
-    if (dataOffset + rowSize * height > b.length) return null;
     const alpha = masks[3] !== 0;
     const channels = alpha ? 4 : 3;
     const out = Buffer.alloc(width * height * channels);
@@ -81,32 +88,29 @@ export function decodeBmp(bytes: Uint8Array, maxPixels: number): RawPixels | nul
     for (let y = 0; y < height; y++) {
       const row = dataOffset + (topDown ? y : height - 1 - y) * rowSize;
       for (let x = 0; x < width; x++) {
-        let rgba: number[];
+        const o = (y * width + x) * channels;
         if (bpp <= 8) {
           const bit = x * bpp;
           const byte = b[row + (bit >> 3)]!;
           const index = (byte >> (8 - bpp - (bit & 7))) & ((1 << bpp) - 1);
-          rgba = [...(palette[index] ?? [0, 0, 0]), 255];
+          out[o] = palette[index * 3]!;
+          out[o + 1] = palette[index * 3 + 1]!;
+          out[o + 2] = palette[index * 3 + 2]!;
         } else if (bpp === 24) {
           const at = row + x * 3;
-          rgba = [b[at + 2]!, b[at + 1]!, b[at]!, 255];
+          out[o] = b[at + 2]!;
+          out[o + 1] = b[at + 1]!;
+          out[o + 2] = b[at]!;
         } else {
           const v =
             bpp === 16 ? b.readUInt16LE(row + x * 2) : b.readUInt32LE(row + x * 4);
-          rgba = [
-            channel(v, masks[0]!),
-            channel(v, masks[1]!),
-            channel(v, masks[2]!),
-            alpha ? channel(v, masks[3]!) : 255,
-          ];
-        }
-        const o = (y * width + x) * channels;
-        out[o] = rgba[0]!;
-        out[o + 1] = rgba[1]!;
-        out[o + 2] = rgba[2]!;
-        if (alpha) {
-          out[o + 3] = rgba[3]!;
-          if (rgba[3]) anyAlpha = true;
+          out[o] = channel(v, masks[0]!);
+          out[o + 1] = channel(v, masks[1]!);
+          out[o + 2] = channel(v, masks[2]!);
+          if (alpha) {
+            out[o + 3] = channel(v, masks[3]!);
+            if (out[o + 3]) anyAlpha = true;
+          }
         }
       }
     }

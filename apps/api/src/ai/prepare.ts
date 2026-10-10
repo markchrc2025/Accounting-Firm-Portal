@@ -26,8 +26,10 @@ import { decodeHeif, type RawPixels } from "./heif";
 export type SniffedType =
   "jpeg" | "png" | "webp" | "gif" | "tiff" | "bmp" | "avif" | "heic" | "pdf";
 
-/** sharp's own default ceiling on input pixels, applied to every decoder. */
-export const MAX_INPUT_PIXELS = 0x3fff * 0x3fff;
+/** The ceiling on a HEIC's or BMP's pixels. Those decoders hold the whole picture
+ *  in memory (4 bytes a pixel for HEIC), unlike sharp, which streams; 64 MP takes
+ *  an iPhone's 48 MP photo (8064 × 6048) with room to spare. */
+export const MAX_DECODE_PIXELS = 64_000_000;
 
 /** HEIF brands of HEVC-coded images and image sequences (an iPhone writes heic). */
 const HEIF_BRANDS = ["heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"];
@@ -168,8 +170,8 @@ async function open(
   bytes: Buffer,
 ): Promise<ReturnType<typeof sharp> | null> {
   let raw: RawPixels | null = null;
-  if (type === "heic") raw = await decodeHeif(bytes, MAX_INPUT_PIXELS);
-  else if (type === "bmp") raw = decodeBmp(bytes, MAX_INPUT_PIXELS);
+  if (type === "heic") raw = await decodeHeif(bytes, MAX_DECODE_PIXELS);
+  else if (type === "bmp") raw = decodeBmp(bytes, MAX_DECODE_PIXELS);
   else return sharp(bytes); // the first frame or page
   if (!raw) return null;
   const { width, height, channels, data } = raw;

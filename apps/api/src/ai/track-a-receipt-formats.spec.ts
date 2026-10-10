@@ -3,11 +3,25 @@
  * content; what a refused file looks like; the BMP decoder. Every file is a
  * fixture generated in a VM (test/fixtures/receipts) or built here from bytes.
  */
-import { readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { decodeBmp } from "./bmp";
-import { MAX_INPUT_PIXELS, looksLike, prepareUpload, sniff } from "./prepare";
+import { decodeBmp, looksLikeBmp } from "./bmp";
+import { decodeHeif } from "./heif";
+import {
+  SCAN_UPLOAD_DIR,
+  STALE_UPLOAD_MS,
+  sweepStaleUploads,
+} from "./scan-upload.interceptor";
+import { MAX_DECODE_PIXELS, looksLike, prepareUpload, sniff } from "./prepare";
 
 const fixture = (name: string) =>
   readFileSync(join(__dirname, "../../test/fixtures/receipts", name));
@@ -55,7 +69,7 @@ function bmp(o: {
   dib.writeUInt32LE(header, 0);
   if (header === 12) {
     dib.writeUInt16LE(o.width, 4);
-    dib.writeInt16LE(o.height, 6);
+    dib.writeUInt16LE(o.height, 6);
     dib.writeUInt16LE(1, 8);
     dib.writeUInt16LE(o.bpp, 10);
   } else {
@@ -219,7 +233,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
   it("24 bits, an odd width (row padding), the pixels where the header says", () => {
     const d = decodeBmp(
       bmp({ width: 5, height: 3, bpp: 24, pixel: corner }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect([d.width, d.height, d.channels]).toEqual([5, 3, 3]);
     expect(px(d, 0, 0)).toEqual([220, 30, 30]);
@@ -229,7 +243,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
   it("24 bits under the old 12-byte core header", () => {
     const d = decodeBmp(
       bmp({ width: 3, height: 2, bpp: 24, header: 12, pixel: corner }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect(px(d, 0, 0)).toEqual([220, 30, 30]);
     expect(px(d, 2, 1)).toEqual([30, 60, 220]);
@@ -246,7 +260,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
         masks: [0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000],
         pixel: (x) => (x === 0 ? 0xffdc1e1e : 0x00000000),
       }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect(d.channels).toBe(4);
     expect(px(d, 0, 0)).toEqual([220, 30, 30, 255]);
@@ -264,7 +278,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
         masks: [0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000],
         pixel: () => 0x001e3cdc,
       }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect(px(d, 1, 0)).toEqual([30, 60, 220, 255]);
   });
@@ -279,7 +293,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
         masks: [0xf800, 0x07e0, 0x001f],
         pixel: (x) => (x === 0 ? 0xf800 : 0x07ff),
       }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect(px(d, 0, 0)).toEqual([255, 0, 0]);
     expect(px(d, 1, 0)).toEqual([0, 255, 255]);
@@ -298,7 +312,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
         ],
         pixel: (x, y) => (x === 0 && y === 0 ? 0 : 1),
       }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect(px(eight, 0, 0)).toEqual([220, 30, 30]);
     expect(px(eight, 2, 1)).toEqual([30, 60, 220]);
@@ -313,7 +327,7 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
         ],
         pixel: (x) => x % 2,
       }),
-      MAX_INPUT_PIXELS,
+      MAX_DECODE_PIXELS,
     )!;
     expect([px(one, 0, 0), px(one, 9, 0)]).toEqual([
       [0, 0, 0],
@@ -330,10 +344,10 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
       palette: [[0, 0, 0]],
       pixel: () => 0,
     });
-    expect(decodeBmp(rle, MAX_INPUT_PIXELS)).toBeNull();
+    expect(decodeBmp(rle, MAX_DECODE_PIXELS)).toBeNull();
     const ok = bmp({ width: 4, height: 4, bpp: 24, pixel: corner });
     expect(decodeBmp(ok, 15)).toBeNull();
-    expect(decodeBmp(ok.subarray(0, ok.length - 5), MAX_INPUT_PIXELS)).toBeNull();
+    expect(decodeBmp(ok.subarray(0, ok.length - 5), MAX_DECODE_PIXELS)).toBeNull();
   });
 
   it("a BMP with transparency is prepared as a JPEG on white", async () => {
@@ -354,5 +368,77 @@ describe("U11-A1 · the BMP decoder (sharp's libvips has no BMP loader)", () => 
     ];
     expect(at(5)[0]).toBeGreaterThan(180);
     expect(Math.min(...at(35))).toBeGreaterThan(240);
+  });
+});
+
+describe("U11-A1 review follow-up · hostile and broken files", () => {
+  it("a palette count of 4 billion does not run the API out of memory: capped, and it must fit in the file", () => {
+    const bomb = bmp({ width: 1, height: 1, bpp: 8, pixel: () => 0 });
+    bomb.writeUInt32LE(0xffffffff, 46); // biClrUsed
+    const t = Date.now();
+    expect(decodeBmp(bomb, MAX_DECODE_PIXELS)).toBeNull(); // no palette in the file
+    expect(Date.now() - t).toBeLessThan(1000);
+    // With a full 256-entry palette present, the same count is read as 256.
+    const full = bmp({
+      width: 1,
+      height: 1,
+      bpp: 8,
+      palette: Array.from(
+        { length: 256 },
+        (_, i) => [i, 0, 0] as [number, number, number],
+      ),
+      pixel: () => 200,
+    });
+    full.writeUInt32LE(0xffffffff, 46);
+    expect(px(decodeBmp(full, MAX_DECODE_PIXELS)!, 0, 0)).toEqual([200, 0, 0]);
+  });
+
+  it("a core-header BMP taller than 32,767 rows is read upright (its height is unsigned)", () => {
+    const tall = bmp({
+      width: 1,
+      height: 40_000,
+      bpp: 24,
+      header: 12,
+      pixel: (_x, y) => (y === 0 ? [220, 30, 30, 255] : [30, 60, 220, 255]),
+    });
+    const d = decodeBmp(tall, MAX_DECODE_PIXELS)!;
+    expect([d.width, d.height]).toEqual([1, 40_000]);
+    expect(px(d, 0, 0)).toEqual([220, 30, 30]);
+  });
+
+  it("an OS/2 2.x bitmap (64-byte header, Huffman) is not taken for a BMP", () => {
+    const os2 = bmp({ width: 2, height: 2, bpp: 24, pixel: () => [1, 2, 3, 255] });
+    os2.writeUInt32LE(64, 14);
+    expect(looksLikeBmp(os2)).toBe(false);
+  });
+
+  it("HEIC: a picture over the pixel ceiling is not decoded; a cut-off file is refused and the next file still decodes", async () => {
+    const plain = fixture("heic-plain.heic");
+    expect(await decodeHeif(plain, 320 * 240 - 1)).toBeNull();
+    expect(
+      await decodeHeif(plain.subarray(0, plain.length - 200), MAX_DECODE_PIXELS),
+    ).toBeNull();
+    expect(
+      await prepareUpload("cut.heic", plain.subarray(0, plain.length - 200)),
+    ).toEqual({
+      ok: false,
+      message: "cut.heic could not be read as an image.",
+    });
+    const next = await decodeHeif(plain, MAX_DECODE_PIXELS);
+    expect([next?.width, next?.height]).toEqual([320, 240]);
+  });
+
+  it("an upload cut off mid-file is swept after an hour; a fresh one is left alone", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "u11a1-sweep-"));
+    writeFileSync(join(dir, "partial"), "half a photo");
+    writeFileSync(join(dir, "in-flight"), "a photo being uploaded now");
+    const old = (Date.now() - STALE_UPLOAD_MS - 60_000) / 1000;
+    utimesSync(join(dir, "partial"), old, old);
+    expect(await sweepStaleUploads(dir)).toBe(1);
+    expect(readdirSync(dir)).toEqual(["in-flight"]);
+  });
+
+  it("the upload folder is the API user's alone (0700)", () => {
+    expect(statSync(SCAN_UPLOAD_DIR).mode & 0o777).toBe(0o700);
   });
 });
