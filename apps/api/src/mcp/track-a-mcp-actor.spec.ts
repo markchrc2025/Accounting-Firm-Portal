@@ -117,15 +117,28 @@ function prismaStub(users: FixtureUser[], rotations: Rotation[] = []) {
       ),
     },
     auditLog: {
-      findFirst: jest.fn(async ({ where }: { where: Record<string, unknown> }) => {
-        only(where, ["action", "entityType", "entityId"], "auditLog");
-        if (where.action !== "mcp.connector.rotate") return null;
-        if (where.entityType !== "Firm" || where.entityId !== FIRM_ID) return null;
-        const newest = [...rotations].sort(
-          (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
-        )[0];
-        return newest ? { userId: newest.userId } : null;
-      }),
+      findFirst: jest.fn(
+        async ({
+          where,
+          orderBy,
+        }: {
+          where: Record<string, unknown>;
+          orderBy?: { timestamp?: "asc" | "desc" };
+        }) => {
+          only(where, ["action", "entityType", "entityId"], "auditLog");
+          if (where.action !== "mcp.connector.rotate") return null;
+          if (where.entityType !== "Firm" || where.entityId !== FIRM_ID) return null;
+          // Like the database: rows come back in the order asked for, and in
+          // insertion order (oldest first here) when no order is asked for.
+          const rows = [...rotations];
+          if (orderBy?.timestamp) {
+            const sign = orderBy.timestamp === "desc" ? -1 : 1;
+            rows.sort((a, b) => sign * (a.timestamp.getTime() - b.timestamp.getTime()));
+          }
+          const first = rows[0];
+          return first ? { userId: first.userId } : null;
+        },
+      ),
     },
     client: {
       findFirst: jest.fn(async ({ where }: { where: { id: string } }) =>

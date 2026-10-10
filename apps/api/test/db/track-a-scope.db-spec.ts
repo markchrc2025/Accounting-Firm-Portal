@@ -129,7 +129,24 @@ describe("U4 T1 · billings and BIR forms for assigned clients only (real app ov
       ],
     });
 
-    // A client-portal user of A (CLIENT principals stay refused on both resources).
+    // A client-portal user of A who HOLDS Billing:Read and BIRForms:Read (an invented
+    // role), so only the CLIENT-principal refusal can stop it.
+    const perm = (resource: string, action: string) =>
+      writer.permission.findUniqueOrThrow({
+        where: { resource_action: { resource, action } },
+      });
+    const portalRole = await writer.role.create({
+      data: {
+        name: `${TAG} portal reader`,
+        scope: "CLIENT",
+        rolePermissions: {
+          create: [
+            { permissionId: (await perm("Billing", "Read")).id },
+            { permissionId: (await perm("BIRForms", "Read")).id },
+          ],
+        },
+      },
+    });
     const portalUser = await writer.user.create({
       data: {
         firmId: firm.id,
@@ -137,6 +154,8 @@ describe("U4 T1 · billings and BIR forms for assigned clients only (real app ov
         fullName: `${TAG} portal user`,
         email: `${TAG}-portal@example.com`,
         status: "ACTIVE",
+        // Unscoped, as POST /users/:id/roles can grant it (A5): only the CLIENT check stops it.
+        userRoles: { create: { roleId: portalRole.id } },
       },
     });
     tok.portal = tokens.signAccess({
@@ -672,7 +691,7 @@ describe("U4 T3 (db cross-check) · MCP writes run as the Super Admin", () => {
     expect(await lastInvoiceAuthor()).toBe(users.admin1);
   });
 
-  it("a second Super Admin and no rotation: refused, nothing written; after the second rotates the key: the second", async () => {
+  it("a second Super Admin and no rotation: refused, nothing written; the newest rotation decides: the second, then the first after it rotates again", async () => {
     const superAdmin = await writer.role.findUniqueOrThrow({
       where: { name_scope: { name: "Super Admin", scope: "FIRM" } },
     });
@@ -708,6 +727,22 @@ describe("U4 T3 (db cross-check) · MCP writes run as the Super Admin", () => {
     const res = await createInvoice();
     expect(res.isError).toBeUndefined();
     expect(await lastInvoiceAuthor()).toBe(users.admin2);
+
+    // Two rotation rows now: the NEWEST decides. admin-1 rotates after admin-2.
+    await new Promise((r) => setTimeout(r, 20));
+    await mcp.rotateConnector({
+      id: users.admin1,
+      firmId,
+      userType: "FIRM",
+      email: `${TAG}-mcp-admin-1@example.com`,
+    });
+    expect(
+      await writer.auditLog.count({
+        where: { action: "mcp.connector.rotate", entityId: firmId },
+      }),
+    ).toBe(2);
+    expect((await createInvoice()).isError).toBeUndefined();
+    expect(await lastInvoiceAuthor()).toBe(users.admin1);
   });
 
   it("every Super Admin deactivated: the first refusal", async () => {
