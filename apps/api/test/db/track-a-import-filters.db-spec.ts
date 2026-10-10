@@ -16,6 +16,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { PrismaClient } from "@prisma/client";
+import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { PrismaService } from "../../src/prisma/prisma.service";
 import { ZodValidationPipe } from "../../src/common/validation/zod-validation.pipe";
@@ -40,6 +41,12 @@ loadRootEnv();
 const TAG = `track-a-filters-${randomUUID().slice(0, 8)}`;
 const BATCH = randomUUID();
 const LIST: PurchaseListQuery = { sortBy: "txnDate", sortDir: "desc", page: 1, pageSize: 200 };
+
+// U3 R12: start from a truncated database. These fixtures are built once in the
+// describe's beforeAll and read across its tests, so the truncation runs once per
+// file (a per-test one would delete them), and the helper puts back only the seeded
+// reference data this file reads: the FIRM role "Super Admin" with its grants.
+truncateOncePerFile({ firmRoles: ["Super Admin"] });
 
 describe("expense list filters and server-owned fields (db)", () => {
   let app: INestApplication;

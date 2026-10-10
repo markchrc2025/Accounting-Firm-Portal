@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { PrismaClient } from "@prisma/client";
+import { truncateOncePerFile } from "./helpers/truncate";
 import * as ExcelJS from "exceljs";
 import { AppModule } from "../../src/app.module";
 import { PrismaService } from "../../src/prisma/prisma.service";
@@ -89,6 +90,13 @@ const PLAIN_INVOICE: RowInput = {
   Description: "Aircon cleaning",
   "COA Code": "5999001",
 };
+
+// U3 R12: start from a truncated database. These fixtures are built once in the
+// describe's beforeAll and read across its tests, so the truncation runs once per
+// file (a per-test one would delete them), and the helper puts back only the seeded
+// reference data this file reads: the FIRM role "Super Admin" with its grants
+// (the importer authorises through RBAC) and the seeded Chart of Accounts (T6 reads it).
+truncateOncePerFile({ firmRoles: ["Super Admin"], chartOfAccounts: true });
 
 describe("expenses import v2 (db)", () => {
   let app: INestApplication;

@@ -27,6 +27,7 @@ import {
   restoreDatabase,
 } from "../../src/backup/pg-dump";
 import { readServerVersionNum } from "../../src/backup/server-version";
+import { truncateBeforeEach } from "./helpers/truncate";
 
 function loadRootEnv(): void {
   if (process.env.DATABASE_URL) return;
@@ -82,6 +83,68 @@ async function migrationRows(db: PrismaClient): Promise<MigrationRow[]> {
     `SELECT migration_name, checksum FROM "_prisma_migrations" ORDER BY migration_name`,
   );
 }
+
+/**
+ * U3 R12: the database is truncated before every test, so the drill seeds its own
+ * rows before it dumps — a restore of nothing proves nothing. Six tables get rows,
+ * including a FILED BIR form and the draft that amends it, so the drill also proves
+ * a sealed row and the seal itself (the trigger) survive a dump and a restore.
+ */
+async function seedDrillRows(db: PrismaClient): Promise<{ filedFormId: string }> {
+  const firm = await db.firm.create({ data: { name: "restore-drill firm" } });
+  const user = await db.user.create({
+    data: {
+      firmId: firm.id,
+      userType: "FIRM",
+      fullName: "restore-drill user",
+      email: "restore-drill@example.com",
+      status: "ACTIVE",
+    },
+  });
+  await db.role.create({ data: { name: "restore-drill role", scope: "FIRM" } });
+  const client = await db.client.create({
+    data: {
+      firmId: firm.id,
+      businessName: "restore-drill client",
+      tin: "000111222",
+      taxType: "PERCENTAGE",
+    },
+  });
+  const filed = await db.birForm.create({
+    data: {
+      firmId: firm.id,
+      clientId: client.id,
+      form: "2551Q",
+      period: "2026-Q2",
+      status: "filed",
+      filedAt: new Date("2026-07-20T02:00:00.000Z"),
+      dataJson: { rows: [{ atc: "PT010", taxable: "100000" }] },
+      filedSnapshotJson: { businessName: "restore-drill client", tin: "000111222" },
+    },
+  });
+  await db.birForm.create({
+    data: {
+      firmId: firm.id,
+      clientId: client.id,
+      form: "2551Q",
+      period: "2026-Q2",
+      status: "draft",
+      sequence: 2,
+      amendsId: filed.id,
+    },
+  });
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "restore-drill",
+      entityType: "Firm",
+      entityId: firm.id,
+    },
+  });
+  return { filedFormId: filed.id };
+}
+
+truncateBeforeEach();
 
 describe("restore drill: dump() → pg_restore into a scratch database → same database", () => {
   let databaseUrl = "";
@@ -169,6 +232,7 @@ describe("restore drill: dump() → pg_restore into a scratch database → same 
   });
 
   it("dump() writes a custom-format, compressed archive of the live database", async () => {
+    await seedDrillRows(source);
     const result = await dumpDatabase({ databaseUrl, outFile: dumpFile });
     const size = statSync(dumpFile).size;
     expect(result.bytes).toBe(size);
@@ -179,6 +243,10 @@ describe("restore drill: dump() → pg_restore into a scratch database → same 
   });
 
   it("pg_restore into a fresh database reproduces every table, every row count and the migration history", async () => {
+    // Seed and dump here, in this test: the truncation before it emptied the database,
+    // so the archive the previous test wrote is not of this database's rows.
+    const { filedFormId } = await seedDrillRows(source);
+    await dumpDatabase({ databaseUrl, outFile: dumpFile });
     await source.$executeRawUnsafe(`CREATE DATABASE ${quoteIdent(SCRATCH_DB)}`);
     await restoreDatabase({
       databaseUrl: withDatabase(databaseUrl, SCRATCH_DB),
@@ -194,6 +262,12 @@ describe("restore drill: dump() → pg_restore into a scratch database → same 
     expect(before.size).toBeGreaterThanOrEqual(36);
     expect(after.has("_prisma_migrations")).toBe(true);
 
+    // Not a restore of nothing: at least five tables carry rows on both sides.
+    const nonEmpty = [...before.entries()]
+      .filter(([t, n]) => t !== "_prisma_migrations" && n > 0)
+      .map(([t]) => t);
+    expect(nonEmpty.length).toBeGreaterThanOrEqual(5);
+
     // Same number of rows in every table — not just overall.
     const mismatches = [...before.entries()]
       .filter(([table, n]) => after.get(table) !== n)
@@ -206,5 +280,13 @@ describe("restore drill: dump() → pg_restore into a scratch database → same 
     const dstMigrations = await migrationRows(restored);
     expect(srcMigrations.length).toBeGreaterThanOrEqual(33);
     expect(dstMigrations).toEqual(srcMigrations);
+
+    // U3: the filed form came across filed, and the seal came across with it.
+    await expect(
+      restored.$executeRawUnsafe(
+        `UPDATE bir_forms SET "dataJson" = '{}'::jsonb WHERE id = $1::uuid`,
+        filedFormId,
+      ),
+    ).rejects.toThrow(/BIR_FORM_SEALED/);
   });
 });

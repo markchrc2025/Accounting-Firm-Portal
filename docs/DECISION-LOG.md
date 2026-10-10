@@ -104,3 +104,42 @@ D33 asked the domain owner where the production backup lived; the hosting consol
 
 ## 2026-10-10 · C6 · Corrections to the record, from U7
 U7 installed postgresql-client-17 on R4's rule ("newest available") while the production server, read off the Sliplane console after the merge, is Managed PostgreSQL 18; pg_dump 17 cannot dump it. Fixed in U7-A1 with client 18 and a server-version check before every dump. U7's F2 ("point-in-time recovery at the platform level") is Sliplane's description of its managed product and was not verified for this database; the bucket dumps do not depend on it. The Sliplane build of #132 succeeded, which proves U7's T6 after the fact.
+
+## 2026-09-25 · D11 · What "filed" seals
+Decision: marking a BIR form filed seals the form and only the form. Transactions are untouched; there is no period lock. A filed form is never modified — figures, status or filedAt. For the seven returns, correction is an amendment: a new draft BirForm copying the original's data, amendsId pointing at the original, sequence = original + 1; the original stays as filed. For 2307 and 2316, see D20. Enforced by a database trigger (U3).
+
+## 2026-09-25 · D12 · A filed form reproduces from a snapshot
+Decision: at filing, the taxpayer block that exports and certificates draw from the Client row is copied into BirForm.filedSnapshotJson (keys include businessName, tin, branch, address, city, zip, rdo); every later export or print reads the copy. Forms filed before U3 have no snapshot; their exports read the live client and the audit row says so.
+
+## 2026-09-25 · D13 · Statutory rates on 2551Q and 1702RT
+Decision: the engine owns the rate — from the ATC and the period date — and the form shows it read-only. Built in U5; authority and effective dates from the domain owner.
+
+## 2026-09-25 · D14 · Billing and BIR-form scope
+Decision: billings are visible and editable for assigned clients only. BIR forms follow the same rule (technical partner's reading; domain owner may reverse). Built in U4.
+
+## 2026-09-25 · D15 · The MCP principal
+Decision: MCP acts as the seeded Super Admin, selected by holding the Super Admin FIRM role, never by creation order; none → MCP refuses. Built in U4.
+
+## 2026-09-25 · D16 · The 1701 fixture and the repositories
+Decision: the person in the 1701 fixture is real. Both repositories were public; the domain owner made them private on 2026-09-25. The working copy is scrubbed in U3 with invented data. Git history still carries the data; a history rewrite is a separate decision, taken when both tracks are merged and quiet.
+
+## 2026-09-25 · D17 · apps/portal
+Decision (technical partner; domain owner deferred): a design prototype. Frozen, excluded from every root gate in U3, deleted only by a later decision.
+
+## 2026-09-25 · D18 · BIR Form 2307, reference of record
+Decision: the BIR's own workbook of the January 2018 ENCS form; Track B holds its inventory as a fixture. Paper: long bond 8.5 × 13 in. Part III block B is rendered empty by design until the ATC picker draws from the seeded table. Page 1 only is printed. Signatory lines are typed per certificate. Boxes 4A and 5 are optional fields (technical partner's ruling). Certificates issued before the replica — mis-numbered Part II, no 4A, 5, 8A or block B — are left as issued.
+
+## 2026-09-25 · D19 · Release condition for the seal
+Decision: U3 reaches main only together with Track B's W3, which replaces "Reopen to draft" with Amend and makes filed editors read-only. U3's pull request is merged first, W3's in the same sitting. Under D32 the sessions merge their own pull requests; U3's merges only while W3's is open and green.
+
+## 2026-09-25 · D20 · Correcting a certificate
+Decision: a mistaken 2307 or 2316 is corrected by issuing a plain new certificate. No amendment, no link to the old one; the old one stays as issued.
+
+## 2026-09-25 · D21 · Branch code on certificates
+Decision: required for payor and payee. 00000 (head office) is offered and confirmed by the accountant, never assumed. The Portal prints what was confirmed; a blank branch is not a certificate.
+
+## 2026-09-25 · D22 · Where a human verifies
+Decision: on the live portal, with a dummy client named so nobody mistakes it, by the domain owner, before staff are told. There is no staging server.
+
+## 2026-09-25 · C2 · Corrections to the record, from U2, W1, W2 and U3 pass 1
+U1's "no database in this VM" was wrong: PostgreSQL 16 was installed and stopped. U2's "all 23 other tables" and "35 tables" were 24 and 36. U2's claim that scripts/local-db.sh is the whole after-restart procedure was wrong: it needed pnpm install first; fixed in U3. docs/BUILD-PLAN.md: lib/sheetPdf.ts is live code on the certificate path; "40 pages" is 40 routes — 34 pages and 6 redirects. Sentire's 2307 replica omits item 5, Part III block B and the signature-block lines, and adds an ATC list the official face does not carry. docs/BUILD-PLAN.md:402 had a real TIN replaced in U3; docs/BUILD-PLAN.pdf was removed for the same reason. The domain owner confirmed on paper on 2026-09-25 that certificates issued from the Portal print their text on or through the form's lines (W2 F10).

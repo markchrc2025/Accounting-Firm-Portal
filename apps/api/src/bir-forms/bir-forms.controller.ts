@@ -19,6 +19,8 @@ import { BirFormsService } from "./bir-forms.service";
 /**
  * Internal BIR Forms module endpoints. Firm-scoped; reads need BIRForms:Read,
  * writes BIRForms:Create/Update, and generating the fileable XML BIRForms:File.
+ * A filed form is sealed (U3): PATCH answers 409; a return is corrected by
+ * POST :id/amend (BIRForms:Create, 201), a certificate by issuing a new one.
  */
 @ApiTags("bir-forms")
 @Controller("bir-forms")
@@ -79,6 +81,17 @@ export class BirFormsController {
     @Body(new ZodValidationPipe(UpdateBirFormSchema)) body: UpdateBirFormInput,
   ) {
     return this.birForms.update(user, id, body);
+  }
+
+  /**
+   * U3: open a new draft that amends a filed return (D11). Returns
+   * { id, status: "draft", sequence, amendsId } with Nest's default 201 for a POST.
+   * A certificate (2307, 2316) or an unfiled form answers 400.
+   */
+  @Post(":id/amend")
+  @RequirePermissions("BIRForms:Create")
+  amend(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.birForms.amend(user, id);
   }
 
   @Post(":id/export")
