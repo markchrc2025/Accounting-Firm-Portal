@@ -6,6 +6,7 @@ import type { ClientsService } from "../clients/clients.service";
 import type { MailService } from "../mail/mail.service";
 import type { EmailSettingsService } from "../settings/email-settings.service";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { RbacService } from "../rbac/rbac.service";
 import type { AuthUser } from "../common/auth/auth-user";
 
 const actor: AuthUser = { id: "u1", firmId: "f1", userType: "FIRM", email: "a@f.test" };
@@ -80,8 +81,15 @@ function build(invoiceOverrides: Record<string, unknown> = {}) {
     }),
   } as unknown as EmailSettingsService;
   const config = { get: jest.fn((_k: string, def?: string) => def) } as unknown as ConfigService;
+  // U4: these tests are not about client scope (track-a-scope.db-spec.ts is):
+  // the caller is authorized for every client.
+  const rbac = {
+    assertClient: jest.fn().mockResolvedValue(undefined),
+    assertAnyClient: jest.fn().mockResolvedValue(undefined),
+    authorizedClients: jest.fn().mockResolvedValue("all"),
+  } as unknown as RbacService;
   return {
-    svc: new InvoicesService(prisma, clients, audit, mail, emailSettings, config),
+    svc: new InvoicesService(prisma, clients, audit, mail, emailSettings, config, rbac),
     prisma,
     clients,
     mail,

@@ -8,8 +8,8 @@
 // same convention as the read tools and the OAuth integration caller). It is
 // NEVER a tool input, and every lookup is firm-scoped.
 //
-// Attribution: service-layer audit rows are attributed to the firm's earliest
-// active staff user (the seeded Super Admin); each write ALSO records an
+// Attribution: service-layer audit rows are attributed to the firm's Super
+// Admin, chosen by role (U4 R3, D41; see McpService.getActor); each write ALSO records an
 // `mcp.<tool>` audit row with `metadata.actor = "Claude (MCP)"` so the trail
 // shows the change came through the MCP connector.
 
@@ -49,8 +49,10 @@ export interface McpWriteDeps {
   income: IncomeTransactionsService;
   purchases: PurchaseTransactionsService;
   invoices: InvoicesService;
-  /** Firm-scoped actor the writes run as (earliest active firm user). */
+  /** Firm-scoped actor the writes run as: the firm's Super Admin (U4 R3, D41). */
   getActor: () => Promise<AuthUser>;
+  /** The MCP's firm, for the read tools here: they must not need the write principal. */
+  getFirmId: () => Promise<string>;
 }
 
 /** VAT rate for the invoice estimate and VATABLE_12 sales — 12% (PH). The
@@ -222,7 +224,7 @@ const INVOICE_TRANSITIONS: Record<string, string[]> = {
 // ---------------------------------------------------------------------------
 
 export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void {
-  const { prisma, audit, clients, income, purchases, invoices, getActor } = deps;
+  const { prisma, audit, clients, income, purchases, invoices, getActor, getFirmId } = deps;
 
   /** One extra audit row per MCP write, so the trail shows the connector. */
   async function recordMcpWrite(
@@ -273,7 +275,7 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
       return {
         error:
           `TIN "${tin}" is not valid — expected exactly 9 digits (separators allowed), ` +
-          'e.g. "234-968-660". The head-office branch code (e.g. "00000") goes in the ' +
+          'e.g. "000-000-000". The head-office branch code (e.g. "00000") goes in the ' +
           "separate `branch` field, not in the TIN.",
       };
     }
@@ -354,10 +356,10 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
           .string()
           .min(1)
           .max(200)
-          .describe('Canonical display name, e.g. "HEBREWS 13-8 MILKTEA SHOP"'),
+          .describe('Canonical display name, e.g. "SAMPLE TRADING CO"'),
         tin: z
           .string()
-          .describe('9-digit BIR TIN, separators allowed, e.g. "234-968-660" (stored as digits)'),
+          .describe('9-digit BIR TIN, separators allowed, e.g. "000-000-000" (stored as digits)'),
         ...clientProfileFields,
       },
       annotations: WRITE_CREATE,
@@ -405,7 +407,7 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
         tin: z
           .string()
           .optional()
-          .describe('New 9-digit TIN, separators allowed, e.g. "234-968-660"'),
+          .describe('New 9-digit TIN, separators allowed, e.g. "000-000-000"'),
         ...clientProfileFields,
       },
       annotations: WRITE_MUTATE,
@@ -772,8 +774,7 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
     },
     async ({ clientId }) => {
       try {
-        const actor = await getActor();
-        const client = await findClient(actor.firmId, clientId);
+        const client = await findClient(await getFirmId(), clientId);
         if (!client) return fail(CLIENT_NOT_FOUND(clientId));
         const [categories, accounts] = await Promise.all([
           prisma.category.findMany({

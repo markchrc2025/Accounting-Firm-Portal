@@ -25,6 +25,12 @@ function fakePrisma(opts: {
     firmClientAssignment: {
       findMany: async () => (opts.assignments ?? []).map((clientId) => ({ clientId })),
     },
+    // U4 R4: authorize() first confirms the client is of the caller's firm; both
+    // clients here belong to firm f1, the firm of every user in this file.
+    client: {
+      findFirst: async ({ where }: { where: { id: string; firmId: string } }) =>
+        where.firmId === "f1" ? { id: where.id } : null,
+    },
   } as unknown as ConstructorParameters<typeof RbacService>[0];
 }
 

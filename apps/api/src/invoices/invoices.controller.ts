@@ -12,7 +12,7 @@ import {
   UpdateInvoiceInput,
   UpdateInvoiceSchema,
 } from "./dto/invoice.schemas";
-import { InvoicesService } from "./invoices.service";
+import { BILLING_PERMISSION, InvoicesService } from "./invoices.service";
 
 @ApiTags("invoices")
 @Controller("invoices")
@@ -20,7 +20,7 @@ export class InvoicesController {
   constructor(private readonly invoices: InvoicesService) {}
 
   @Get()
-  @RequirePermissions("Billing:Read")
+  @RequirePermissions(BILLING_PERMISSION.read)
   list(
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(ListInvoicesQuerySchema)) query: ListInvoicesQuery,
@@ -29,7 +29,7 @@ export class InvoicesController {
   }
 
   @Post()
-  @RequirePermissions("Billing:Create")
+  @RequirePermissions(BILLING_PERMISSION.create)
   create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(CreateInvoiceSchema)) body: CreateInvoiceInput,
@@ -38,13 +38,13 @@ export class InvoicesController {
   }
 
   @Get(":id")
-  @RequirePermissions("Billing:Read")
+  @RequirePermissions(BILLING_PERMISSION.read)
   get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.invoices.get(user, id);
   }
 
   @Patch(":id")
-  @RequirePermissions("Billing:Create")
+  @RequirePermissions(BILLING_PERMISSION.create)
   update(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,
@@ -54,7 +54,7 @@ export class InvoicesController {
   }
 
   @Post(":id/send")
-  @RequirePermissions("Billing:Send")
+  @RequirePermissions(BILLING_PERMISSION.send)
   send(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.invoices.send(user, id);
   }

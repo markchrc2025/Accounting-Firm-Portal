@@ -3,6 +3,7 @@ import { BirFormsService } from "./bir-forms.service";
 import type { AuditService } from "../audit/audit.service";
 import type { ClientsService } from "../clients/clients.service";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { RbacService } from "../rbac/rbac.service";
 import type { StorageService } from "../storage/storage.service";
 import type { AuthUser } from "../common/auth/auth-user";
 
@@ -69,7 +70,14 @@ function build(over: Record<string, unknown> = {}) {
     signedGetUrl: jest.fn().mockResolvedValue("https://signed/url"),
   } as unknown as StorageService;
   const audit = { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-  return { svc: new BirFormsService(prisma, clients, storage, audit), prisma, clients, storage, birForm };
+  // U4: these tests are not about client scope (track-a-scope.db-spec.ts is):
+  // the caller is authorized for every client.
+  const rbac = {
+    assertClient: jest.fn().mockResolvedValue(undefined),
+    assertAnyClient: jest.fn().mockResolvedValue(undefined),
+    authorizedClients: jest.fn().mockResolvedValue("all"),
+  } as unknown as RbacService;
+  return { svc: new BirFormsService(prisma, clients, storage, audit, rbac), prisma, clients, storage, birForm };
 }
 
 describe("BirFormsService", () => {

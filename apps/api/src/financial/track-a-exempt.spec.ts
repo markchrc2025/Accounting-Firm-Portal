@@ -484,6 +484,8 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
       firm: { findFirst: jest.fn(async () => ({ id: "f1", createdAt: new Date() })) },
       user: {
         findFirst: jest.fn(async () => ({ id: "u-mcp", email: "admin@example.com" })),
+        // U4 (D41): MCP writes run as the firm's one active Super Admin.
+        findMany: jest.fn(async () => [{ id: "u-mcp", email: "admin@example.com" }]),
       },
       client: {
         findFirst: jest.fn(async () => client),

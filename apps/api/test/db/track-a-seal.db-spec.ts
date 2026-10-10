@@ -23,7 +23,12 @@ import { PrismaClient } from "@prisma/client";
 import { AppModule } from "../../src/app.module";
 import { BirFormsService } from "../../src/bir-forms/bir-forms.service";
 import type { AuthUser } from "../../src/common/auth/auth-user";
-import { tablesToTruncate, truncateAll, truncateBeforeEach } from "./helpers/truncate";
+import {
+  ensureFirmRole,
+  tablesToTruncate,
+  truncateAll,
+  truncateBeforeEach,
+} from "./helpers/truncate";
 
 const SEALED = /BIR_FORM_SEALED/;
 const TAG = "track-a-seal";
@@ -474,6 +479,12 @@ describe("U3 · the service against the real database (far end)", () => {
 
   beforeEach(async () => {
     const firm = await writer.firm.create({ data: { name: `${TAG} firm` } });
+    // U4 (R2): BirFormsService authorizes every operation against the form's
+    // client, so the actor holds a role; the Super Admin reaches every client.
+    await ensureFirmRole("Super Admin", writer);
+    const superAdmin = await writer.role.findUniqueOrThrow({
+      where: { name_scope: { name: "Super Admin", scope: "FIRM" } },
+    });
     const user = await writer.user.create({
       data: {
         firmId: firm.id,
@@ -481,6 +492,7 @@ describe("U3 · the service against the real database (far end)", () => {
         fullName: `${TAG} accountant`,
         email: `${TAG}@example.com`,
         status: "ACTIVE",
+        userRoles: { create: { roleId: superAdmin.id } },
       },
     });
     actor = { id: user.id, firmId: firm.id, userType: "FIRM", email: user.email };
