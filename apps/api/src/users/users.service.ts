@@ -199,6 +199,11 @@ export class UsersService {
     if (before.userType === "CLIENT" && !clientId) {
       throw new BadRequestException("This portal user belongs to no client.");
     }
+    // A client-scoped grant is written only by someone who may assign roles for
+    // that client (D14 assignment, as for the portal user's other routes).
+    if (before.userType === "CLIENT" && clientId) {
+      await this.rbac.assertClient(actor, ["Roles:Assign"], clientId);
+    }
     await this.prisma.$transaction(
       before.userType === "FIRM"
         ? [

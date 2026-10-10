@@ -34,10 +34,10 @@ const CLIENTS = [
   },
 ];
 
-function service() {
+function service(clients: unknown[] = CLIENTS) {
   const zero = { _sum: { netAmount: new Prisma.Decimal(0) } };
   const prisma = {
-    client: { findMany: jest.fn().mockResolvedValue(CLIENTS) },
+    client: { findMany: jest.fn().mockResolvedValue(clients) },
     incomeTransaction: {
       aggregate: jest.fn().mockResolvedValue(zero),
       findMany: jest.fn().mockResolvedValue([]),
@@ -78,11 +78,25 @@ describe("U9 T6 · the dashboard shows what is due next", () => {
     const d =
       (jest.setSystemTime(new Date("2026-10-25T15:59:00.000Z")),
       await service().firmOverview("f1", "all"));
-    expect(
-      d.upcomingFilings.every(
-        (f) => f.period.startsWith("Q3 2026") && f.due === "DUE OCT 25",
-      ),
-    ).toBe(true);
+    expect(d.upcomingFilings.map((f) => [f.form, f.period, f.due])).toEqual([
+      ["2551Q", "Q3 2026 · Percentage return", "DUE OCT 25"],
+      ["2550Q", "Q3 2026 · VAT return", "DUE OCT 25"],
+    ]);
+  });
+
+  it("shows six rows at most, the first six client names in order", async () => {
+    const many = [8, 3, 7, 1, 6, 2, 5, 4].map((n) => ({
+      id: `c-${n}`,
+      businessName: `Invented Client 0${n}`,
+      taxType: "VAT",
+      status: "ACTIVE",
+    }));
+    const d =
+      (jest.setSystemTime(new Date("2026-10-10T02:00:00.000Z")),
+      await service(many).firmOverview("f1", "all"));
+    expect(d.upcomingFilings.map((f) => f.client)).toEqual(
+      [1, 2, 3, 4, 5, 6].map((n) => `Invented Client 0${n}`),
+    );
   });
 
   it("at 2026-10-25T16:30Z (00:30 on 26 October in Manila) both show Q4 2026, due JAN 25", async () => {

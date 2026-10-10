@@ -265,6 +265,74 @@ describe("U9 · sign-in hardened; posted records for clients (real app over HTTP
         expect.objectContaining({ roleId: owner.id, clientScopeId: clientId }),
       ]);
     });
+
+    it("setRoles on a firm user replaces its firm-wide grants and keeps its client-scoped ones", async () => {
+      const scopedRole = await writer.role.create({
+        data: { name: `${TAG} per-client helper`, scope: "FIRM" },
+      });
+      const staff = await firmUser("firm-roles", await roleId("Manager"));
+      await writer.userRole.create({
+        data: { userId: staff.id, roleId: scopedRole.id, clientScopeId: clientId },
+      });
+      const res = await call("post", `/users/${staff.id}/roles`, saToken).send({
+        roleNames: ["Super Admin"],
+      });
+      expect(res.status).toBe(201);
+      const grants = await reader.userRole.findMany({
+        where: { userId: staff.id },
+        select: { roleId: true, clientScopeId: true },
+        orderBy: { clientScopeId: { sort: "asc", nulls: "first" } },
+      });
+      expect(grants).toEqual([
+        { roleId: await roleId("Super Admin"), clientScopeId: null },
+        { roleId: scopedRole.id, clientScopeId: clientId },
+      ]);
+    });
+
+    it("setRoles on a portal user needs Roles:Assign for that user's client: an unassigned assigner gets 403", async () => {
+      await writer.role.upsert({
+        where: { name_scope: { name: "Client Owner", scope: "CLIENT" } },
+        update: {},
+        create: { name: "Client Owner", scope: "CLIENT", isSystem: true },
+      });
+      const assignerRole = await writer.role.create({
+        data: {
+          name: `${TAG} assigner`,
+          scope: "FIRM",
+          rolePermissions: { create: [{ permissionId: await perm("Roles", "Assign") }] },
+        },
+      });
+      const assigner = await firmUser("assigner", assignerRole.id);
+      const portal = await writer.user.create({
+        data: {
+          firmId,
+          userType: "CLIENT",
+          fullName: `${TAG} portal user two`,
+          email: `${TAG}-portal-roles-2@example.com`,
+          status: "ACTIVE",
+          clientProfile: { create: { clientId, clientRole: "OWNER" } },
+        },
+      });
+      const denied = await call("post", `/users/${portal.id}/roles`, assigner.token).send(
+        {
+          roleNames: ["Client Owner"],
+        },
+      );
+      expect(denied.status).toBe(403);
+      expect(denied.body.message).toBe(
+        `Missing permission(s): Roles:Assign for client ${clientId}`,
+      );
+      expect(await reader.userRole.count({ where: { userId: portal.id } })).toBe(0);
+      // Once assigned to the client, the same assigner may.
+      await writer.firmClientAssignment.create({
+        data: { firmUserId: assigner.id, clientId },
+      });
+      const ok = await call("post", `/users/${portal.id}/roles`, assigner.token).send({
+        roleNames: ["Client Owner"],
+      });
+      expect(ok.status).toBe(201);
+      expect(await reader.userRole.count({ where: { userId: portal.id } })).toBe(1);
+    });
   });
 
   // --- T4 -------------------------------------------------------------------------

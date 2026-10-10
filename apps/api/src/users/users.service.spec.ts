@@ -17,6 +17,7 @@ function userWith(roleName: string) {
     email: "staff@f.test",
     fullName: "Staff Member",
     status: "ACTIVE",
+    userType: "FIRM",
     userRoles: [{ role: { name: roleName }, clientScopeId: null }],
   };
 }
@@ -28,7 +29,7 @@ function build(beforeRole: string, afterRole: string) {
     .mockResolvedValueOnce(userWith(afterRole)); // setRoles: after
   const prisma = {
     user: { findFirst },
-    role: { findMany: jest.fn().mockResolvedValue([{ id: "r-after", name: afterRole }]) },
+    role: { findMany: jest.fn().mockResolvedValue([{ id: "r-after", name: afterRole, scope: "FIRM" }]) },
     userRole: {
       deleteMany: jest.fn().mockReturnValue({}),
       createMany: jest.fn().mockReturnValue({}),
