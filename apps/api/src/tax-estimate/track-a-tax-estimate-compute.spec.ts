@@ -8,8 +8,15 @@
  * (0.01 × 15% = 0.0015). So each edge is checked twice: raw, where the bracket
  * shows, and as published.
  */
+import { Prisma } from "@prisma/client";
+import type { AuditService } from "../audit/audit.service";
+import type { BirFormsService } from "../bir-forms/bir-forms.service";
+import type { ClientsService } from "../clients/clients.service";
+import type { PrismaService } from "../prisma/prisma.service";
 import { DEFAULT_TAX_RULE, type TaxRuleInput } from "../tax-rules/dto/tax-rule.schemas";
-import { businessTax, incomeTax, savedBracketTax } from "./compute";
+import { TaxRulesService } from "../tax-rules/tax-rules.service";
+import { TaxEstimateService } from "./tax-estimate.service";
+import { PERCENTAGE_RULE_NOTE, businessTax, incomeTax, savedBracketTax } from "./compute";
 import { graduatedTax } from "./statute";
 
 const rule = (method: TaxRuleInput["method"], flatRate: number | null): TaxRuleInput => ({
@@ -46,11 +53,12 @@ describe("U10 T2 · each method, as published (centavos)", () => {
     ["flat", 25, 2026, 250000.01, 62500],
     ["flat", 25, 2026, 400000, 100000],
     ["flat", 25, 2026, 8000000.01, 2000000],
-    // percentage 1%: gross × 1%
-    ["percentage", 1, 2026, 250000, 2500],
-    ["percentage", 1, 2026, 250000.01, 2500],
-    ["percentage", 1, 2026, 400000, 4000],
-    ["percentage", 1, 2026, 8000000.01, 80000],
+    // a saved "percentage" rule (1%): U10-A1 R1 — graduated TRAIN income tax for the
+    // year, the saved 1% unused (Table 2, as the graduated rows above)
+    ["percentage", 1, 2026, 250000, 0],
+    ["percentage", 1, 2026, 250000.01, 0],
+    ["percentage", 1, 2026, 400000, 22500],
+    ["percentage", 1, 2026, 8000000.01, 2202500],
     // simplified8: 8% × (gross − 250,000)
     ["simplified8", 8, 2026, 250000, 0],
     ["simplified8", 8, 2026, 250000.01, 0], // 0.01 × 8% = 0.0008 → ₱0.00
@@ -120,13 +128,28 @@ describe("U10 T2 · each method, as published (centavos)", () => {
     );
   });
 
-  it("flat and percentage with no saved rate use 0% and say so", () => {
-    for (const m of ["flat", "percentage"] as const) {
-      const out = incomeTax(rule(m, null), "saved", 2026, 500000, 0);
-      expect(out.due).toBe(0);
-      expect(out.assumptions).toContain("No rate is saved for this rule; 0% is used.");
-    }
+  it("flat with no saved rate uses 0% and says so", () => {
+    const out = incomeTax(rule("flat", null), "saved", 2026, 500000, 0);
+    expect(out.due).toBe(0);
+    expect(out.assumptions).toContain("No rate is saved for this rule; 0% is used.");
   });
+
+  it.each([1, null, 12])(
+    'U10-A1 R1: a saved "percentage" rule (rate %s) gives graduated income tax for the year and says why',
+    (saved) => {
+      // 2026: taxable 500,000 − 0 → Table 2: 22,500 + 20% × 100,000 = 42,500.
+      const y26 = incomeTax(rule("percentage", saved), "saved", 2026, 600000, 100000);
+      expect(y26).toMatchObject({ taxableIncome: 500000, due: 42500 });
+      expect(y26.assumptions).toContain(PERCENTAGE_RULE_NOTE);
+      expect(y26.assumptions).not.toContain(
+        "No rate is saved for this rule; 0% is used.",
+      );
+      // 2022: the same 500,000 on Table 1: 30,000 + 25% × 100,000 = 55,000.
+      expect(
+        incomeTax(rule("percentage", saved), "saved", 2022, 600000, 100000).due,
+      ).toBe(55000);
+    },
+  );
 });
 
 describe("U10 T2 · business tax by regime", () => {
@@ -161,5 +184,77 @@ describe("U10 T2 · business tax by regime", () => {
       kind: "none",
       due: 0,
     });
+  });
+});
+
+describe("U10-A1 T2 · one read of the rule decides both the label and the brackets", () => {
+  const user = {
+    id: "u1",
+    firmId: "f1",
+    userType: "FIRM" as const,
+    email: "u@example.com",
+  };
+  const savedRow = {
+    id: "r1",
+    clientId: "c1",
+    method: "graduated",
+    flatRate: null,
+    // A saved schedule unlike TRAIN: 10% on everything over 0.
+    bracketsJson: [{ over: 0, notOver: null, baseTax: 0, rate: 10 }],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  it("getWithSource reads once: a rule deleted after that read is still labelled and used as saved", async () => {
+    // The first read finds the saved rule; any later read would find none.
+    const findUnique = jest.fn().mockResolvedValueOnce(savedRow).mockResolvedValue(null);
+    const service = new TaxRulesService(
+      { taxRule: { findUnique } } as unknown as PrismaService,
+      {
+        assertInFirm: jest.fn().mockResolvedValue(undefined),
+      } as unknown as ClientsService,
+      {} as AuditService,
+    );
+    const { rule, saved } = await service.getWithSource(user, "c1");
+    expect(findUnique).toHaveBeenCalledTimes(1);
+    expect(saved).toBe(true);
+    expect(rule.brackets).toEqual([{ over: 0, notOver: null, baseTax: 0, rate: 10 }]);
+  });
+
+  it("the estimate takes the rule and its label from that one read, and reads no rule itself", async () => {
+    const getWithSource = jest.fn().mockResolvedValue({
+      rule: { method: "graduated", flatRate: null, brackets: savedRow.bracketsJson },
+      saved: true,
+    });
+    const agg = (sum: Record<string, number>) => ({
+      _sum: Object.fromEntries(
+        Object.entries(sum).map(([k, v]) => [k, new Prisma.Decimal(v)]),
+      ),
+    });
+    // No `taxRule` here: a second read of the rule would throw.
+    const prisma = {
+      client: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: "c1", businessName: "Invented Co", taxType: null }),
+      },
+      $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops)),
+      incomeTransaction: {
+        aggregate: jest.fn().mockResolvedValue(agg({ netAmount: 500000, outputVAT: 0 })),
+      },
+      purchaseTransaction: {
+        aggregate: jest.fn().mockResolvedValue(agg({ inputVAT: 0, netAmount: 0 })),
+      },
+    } as unknown as PrismaService;
+    const estimates = new TaxEstimateService(
+      prisma,
+      { getWithSource } as unknown as TaxRulesService,
+      { filedForClient: jest.fn().mockResolvedValue([]) } as unknown as BirFormsService,
+    );
+    const out = await estimates.estimate(user, "c1", { year: 2026 });
+    expect(getWithSource).toHaveBeenCalledTimes(1);
+    expect(out.method).toMatchObject({ name: "graduated", source: "saved" });
+    // The saved 10% schedule, not TRAIN: 500,000 × 10% = 50,000 (TRAIN would give 42,500).
+    expect(out.incomeTax.due).toBe(50000);
   });
 });
