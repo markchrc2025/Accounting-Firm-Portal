@@ -22,7 +22,7 @@ import {
   peso,
 } from "../components/ui";
 import { McrcMark } from "../components/McrcMark";
-import { EXEMPT_LABEL } from "../lib/regime";
+import { EXEMPT_LABEL, regimeLabel } from "../lib/regime";
 
 /** Time-of-day greeting from the local hour. */
 function greeting(hour: number): string {
@@ -185,7 +185,7 @@ function UpcomingRow({ item }: { item: DashboardUpcomingFiling }) {
 }
 
 /** Segmented horizontal regime-mix bar (VAT navy / Percentage gold / Exempt
- *  neutral). The exempt segment shows once the API sends regimeMix.exempt
+ *  neutral), its legend in the regime labels (W6, W9 R3). The exempt segment shows once the API sends regimeMix.exempt
  *  (Track A's U9, W8 R5); without it the bar has its two segments. */
 function RegimeMixBar({ mix }: { mix: DashboardData["regimeMix"] }) {
   const hasExempt = typeof mix.exempt === "number";
@@ -216,12 +216,12 @@ function RegimeMixBar({ mix }: { mix: DashboardData["regimeMix"] }) {
       >
         <span className="flex items-center gap-2" data-regime="vat">
           <span className="h-2.5 w-2.5 rounded-full bg-navy" aria-hidden="true" />
-          VAT
+          {regimeLabel("VAT")}
           <span className="font-mono text-content">{mix.vat}</span>
         </span>
         <span className="flex items-center gap-2" data-regime="percentage">
           <span className="h-2.5 w-2.5 rounded-full bg-gold" aria-hidden="true" />
-          Percentage
+          {regimeLabel("PERCENTAGE")}
           <span className="font-mono text-content">{mix.percentage}</span>
         </span>
         {hasExempt ? (
