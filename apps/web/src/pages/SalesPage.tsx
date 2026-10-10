@@ -8,6 +8,7 @@ import TransactionEntryModal, {
 import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
 import { ImportModal } from "../components/ImportModal";
 import { useAuth } from "../auth/AuthContext";
+import { useConfirmAction } from "../components/useConfirmAction";
 import {
   deleteIncome,
   fetchAllIncome,
@@ -38,6 +39,8 @@ const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
 export default function SalesPage() {
   const { clientId = "" } = useParams();
   const { permissions, hasPermission } = useAuth();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -108,10 +111,16 @@ export default function SalesPage() {
     setEditing(txn);
     setModalOpen(true);
   }
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this sales record?")) return;
-    await deleteIncome(clientId, id);
-    invalidate();
+  function handleDelete(id: string) {
+    ask({
+      question: "Delete this sales record?",
+      confirmLabel: "Delete",
+      failure: "Could not delete this sales record.",
+      action: async () => {
+        await deleteIncome(clientId, id);
+        invalidate();
+      },
+    });
   }
   async function onExport() {
     setExporting(true);
@@ -160,6 +169,7 @@ export default function SalesPage() {
 
   return (
     <div className="animate-fade-rise">
+      {confirmDialog}
       <ClientWorkspaceTabs clientId={clientId} />
 
       <PageHeader

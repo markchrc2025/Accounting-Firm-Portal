@@ -702,9 +702,11 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
       ],
     });
     await page.goto(`/clients/${PCT_CLIENT.id}/expenses`);
-    page.on("dialog", (d) => void d.accept());
     await page.getByRole("button", { name: "Post" }).click();
-    const alert = page.getByRole("alert");
+    // W10: the confirmation asks in the page, and the refusal shows in it.
+    const ask = page.getByRole("dialog", { name: /^Post / });
+    await ask.getByRole("button", { name: "Post", exact: true }).click();
+    const alert = ask.getByRole("alert");
     await expect(alert).toHaveText("Could not post this record (502)");
     await expect(alert).not.toContainText(/JSON|Unexpected token|<html/i);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);

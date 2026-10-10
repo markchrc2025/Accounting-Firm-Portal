@@ -47,7 +47,10 @@ export function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-sm overflow-hidden rounded-card border border-line bg-card shadow-xl"
       >
-        <p id={titleId} className="px-6 pb-2 pt-5 text-[14px] font-medium text-content">
+        <p
+          id={titleId}
+          className="whitespace-pre-line px-6 pb-2 pt-5 text-[14px] font-medium text-content"
+        >
           {question}
         </p>
         {error ? (

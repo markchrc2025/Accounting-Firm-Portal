@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import TransactionEntryModal, { type Regime } from "../components/TransactionEntryModal";
+import { useConfirmAction } from "../components/useConfirmAction";
 import { ClientWorkspaceTabs } from "../components/ClientWorkspaceTabs";
 import { ImportModal } from "../components/ImportModal";
 import { useAuth } from "../auth/AuthContext";
@@ -45,6 +46,8 @@ const NON_CLAIMABLE_VAT = "VAT (non-claimable)";
 export default function ExpensesPage() {
   const { clientId = "" } = useParams();
   const { user, permissions, hasPermission } = useAuth();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -126,30 +129,35 @@ export default function ExpensesPage() {
     setModalOpen(true);
   }
 
-  async function handlePost(t: PurchaseTxn) {
+  function handlePost(t: PurchaseTxn) {
     const what = [t.referenceNo, t.vendor].filter(Boolean).join(" · ") || "this record";
-    if (
-      !confirm(
-        `Post ${what}? It is held now and counts nowhere. Once posted it counts in the books.`,
-      )
-    )
-      return;
-    setPosting(t.id);
     setActionError(null);
-    try {
-      await postPurchase(t.id);
-      refresh();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Could not post this record.");
-    } finally {
-      setPosting(null);
-    }
+    ask({
+      question: `Post ${what}? It is held now and counts nowhere. Once posted it counts in the books.`,
+      confirmLabel: "Post",
+      failure: "Could not post this record.",
+      action: async () => {
+        setPosting(t.id);
+        try {
+          await postPurchase(t.id);
+          refresh();
+        } finally {
+          setPosting(null);
+        }
+      },
+    });
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this record?")) return;
-    await deletePurchase(clientId, id);
-    refresh();
+  function handleDelete(id: string) {
+    ask({
+      question: "Delete this record?",
+      confirmLabel: "Delete",
+      failure: "Could not delete this record.",
+      action: async () => {
+        await deletePurchase(clientId, id);
+        refresh();
+      },
+    });
   }
   async function onExport() {
     setExporting(true);
@@ -226,6 +234,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="animate-fade-rise">
+      {confirmDialog}
       <ClientWorkspaceTabs clientId={clientId} />
 
       <PageHeader
