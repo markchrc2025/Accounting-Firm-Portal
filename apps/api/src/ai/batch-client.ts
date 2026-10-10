@@ -66,10 +66,15 @@ export class AnthropicBatchClient implements AiBatchClient {
   }
 
   async createBatch(requests: BatchRequest[]): Promise<{ id: string }> {
-    const batch = await this.require().messages.batches.create({
-      requests:
-        requests as unknown as Anthropic.Messages.Batches.BatchCreateParams["requests"],
-    });
+    // Never retried: a retry after Anthropic accepted the first POST would create, and
+    // bill, a second batch. Reads (retrieve, results) keep the SDK's retries.
+    const batch = await this.require().messages.batches.create(
+      {
+        requests:
+          requests as unknown as Anthropic.Messages.Batches.BatchCreateParams["requests"],
+      },
+      { maxRetries: 0 },
+    );
     return { id: batch.id };
   }
 

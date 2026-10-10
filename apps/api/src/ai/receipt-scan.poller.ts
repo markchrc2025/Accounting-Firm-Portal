@@ -32,6 +32,9 @@ export const realPollerTimer: AiPollerTimer = {
 export class ReceiptScanPoller implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger("ReceiptScanPoller");
   private handle: unknown = null;
+  /** True while a tick collects: wake() then leaves the re-arming to the tick, so
+   *  there is never more than one chain of timers. */
+  private running = false;
   private stopped = false;
 
   constructor(
@@ -62,7 +65,7 @@ export class ReceiptScanPoller implements OnApplicationBootstrap, OnModuleDestro
 
   /** A pile was just sent: make sure a collection is coming. */
   wake(): void {
-    if (this.handle === null && !this.stopped) this.arm();
+    if (this.handle === null && !this.running && !this.stopped) this.arm();
   }
 
   private arm(): void {
@@ -71,15 +74,19 @@ export class ReceiptScanPoller implements OnApplicationBootstrap, OnModuleDestro
 
   private async tick(): Promise<void> {
     this.handle = null;
+    this.running = true;
     try {
       await this.scans.collectAll();
     } catch (err) {
       this.logger.error(`collecting threw (${(err as Error).name})`);
     }
+    let again = true;
     try {
-      if (!this.stopped && (await this.scans.anyReading())) this.arm();
+      again = await this.scans.anyReading();
     } catch {
-      if (!this.stopped) this.arm();
+      again = true;
     }
+    this.running = false;
+    if (again && !this.stopped && this.handle === null) this.arm();
   }
 }

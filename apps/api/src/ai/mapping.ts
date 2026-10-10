@@ -37,12 +37,15 @@ export interface MapContext {
 
 const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+/** The buyer printed on the receipt is the client when it is one of the client's
+ *  names, or contains one whole (e.g. "INVENTED TRADING CORP - MAIN BRANCH"). A
+ *  fragment such as "Cash" or "Corp" is not the client. */
 function soldToIsClient(soldTo: string, clientNames: string[]): boolean {
   const s = norm(soldTo);
   if (!s) return true;
   return clientNames.some((c) => {
     const n = norm(c);
-    return n.length > 0 && (n === s || n.includes(s) || s.includes(n));
+    return n.length >= 4 && (n === s || s.includes(n));
   });
 }
 
@@ -75,16 +78,25 @@ export function mapReceipt(
   }
 
   // Vendor TIN, exactly as printed, when it is in one of the four accepted forms.
+  // A branch the import would refuse is dropped on its own, keeping a good TIN.
   let tin: string | null = null;
   let branch: string | null = r.vendor.branch;
   if (r.vendor.tin !== null) {
-    if (normaliseTin(r.vendor.tin, r.vendor.branch).error) {
+    if (!normaliseTin(r.vendor.tin, r.vendor.branch).error) tin = r.vendor.tin;
+    else if (r.vendor.branch !== null && !normaliseTin(r.vendor.tin, null).error) {
+      tin = r.vendor.tin;
+      branch = null;
+      refuse("Vendor Branch", `Read "${r.vendor.branch}", which is not a branch code.`);
+    } else {
+      branch = null;
       refuse(
         "Vendor TIN",
         `Read "${r.vendor.tin}", which is not a TIN in one of the four accepted forms.`,
       );
-      branch = null;
-    } else tin = r.vendor.tin;
+    }
+  } else if (branch !== null) {
+    refuse("Vendor Branch", `Read branch "${branch}", but no TIN is printed with it.`);
+    branch = null;
   }
 
   // Reference number: text, at most 32 characters.
@@ -102,8 +114,9 @@ export function mapReceipt(
   let vatable = a.vatableSales;
   let vat = a.vat;
   let other: number | null = null;
+  // A breakdown is printed when one of its amounts is above zero (a row of 0.00s is not).
   const breakdown = [a.vatableSales, a.vat, a.vatExempt, a.zeroRated].some(
-    (v) => v !== null,
+    (v) => v !== null && v > 0,
   );
   if (!breakdown && a.total !== null) {
     if (r.sellerVatStatus === "VAT_REGISTERED") {

@@ -12,6 +12,7 @@
  * counted at the tier maximum plus 3,000.
  */
 import type { AiModel } from "@portal/shared";
+import { ANSWER_JSON_SCHEMA } from "./answer";
 import { BATCH_DISCOUNT, PRICES, round6 } from "./prices";
 
 /** The high-resolution tier the 5.5 models read on. */
@@ -23,6 +24,10 @@ export const MAX_PDF_PAGES = 5;
 export const PDF_PAGE_TEXT_TOKENS = 3000;
 /** The request's own text: the client's name and TIN, the period, the file name. */
 export const REQUEST_TEXT_TOKENS = 400;
+/** The answer schema, which structured outputs add to the prompt, and that
+ *  feature's own system text: counted as input on every request. */
+export const SCHEMA_TOKENS =
+  Math.ceil(JSON.stringify(ANSWER_JSON_SCHEMA).length / 3) + 500;
 /** max_tokens on every request: the answer can never be longer (R6). */
 export const MAX_OUTPUT_TOKENS = 4096;
 
@@ -47,10 +52,13 @@ export function fitToModel(
   return { width: w, height: h };
 }
 
-/** A pessimistic token count for the cached instructions (≥ 1 token per 3 chars). */
-export function instructionTokens(text: string): number {
+/** A pessimistic token count for text (≥ 1 token per 3 characters). */
+export function textTokens(text: string): number {
   return Math.ceil(text.length / 3);
 }
+
+/** The cached instructions' token count, by the same pessimistic rule. */
+export const instructionTokens = textTokens;
 
 /**
  * One file's upper bound, in US$: its content tokens and the request text at the
@@ -61,10 +69,11 @@ export function fileEstimateUsd(
   model: AiModel,
   contentTokens: number,
   instructions: number,
+  requestTokens: number = REQUEST_TEXT_TOKENS,
 ): number {
   const p = PRICES[model];
   const dollars =
-    ((contentTokens + REQUEST_TEXT_TOKENS) * p.input +
+    ((contentTokens + requestTokens + SCHEMA_TOKENS) * p.input +
       instructions * p.cacheWrite1h +
       MAX_OUTPUT_TOKENS * p.output) /
     1_000_000;

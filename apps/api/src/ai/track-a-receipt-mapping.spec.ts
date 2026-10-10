@@ -241,4 +241,70 @@ describe("U11 T9 · R7: one receipt → the template's 27 columns", () => {
       "Vendor Middlename": "Subok",
     });
   });
+
+  it("review: a breakdown of 0.00s is not a printed breakdown, so the VAT is backed out", () => {
+    const { cells } = mapReceipt(
+      base({
+        amounts: amounts({
+          vatableSales: 0,
+          vat: 0,
+          vatExempt: 0,
+          zeroRated: 0,
+          total: 112,
+        }),
+      }),
+      ctx,
+    );
+    expect(cells).toMatchObject({
+      "Vatable Amount": 100,
+      "VAT Amount": 12,
+      Remarks: VAT_BACKED_OUT,
+    });
+  });
+
+  it("review: a bad branch is dropped on its own; a good TIN is kept", () => {
+    const { cells, doubts } = mapReceipt(
+      base({
+        vendor: { ...base().vendor, tin: "000-111-222", branch: "BRANCH-X" },
+        amounts: amounts({ total: 112 }),
+      }),
+      ctx,
+    );
+    expect(cells["Vendor TIN"]).toBe("000-111-222");
+    expect(cells["Vendor Branch"]).toBeNull();
+    expect(doubts).toEqual([
+      { field: "Vendor Branch", reason: 'Read "BRANCH-X", which is not a branch code.' },
+    ]);
+  });
+
+  it("review: a branch with no TIN is dropped, with a doubt", () => {
+    const { cells, doubts } = mapReceipt(
+      base({
+        vendor: { ...base().vendor, tin: null, branch: "00001" },
+        amounts: amounts({ total: 112 }),
+      }),
+      ctx,
+    );
+    expect(cells["Vendor Branch"]).toBeNull();
+    expect(doubts[0]).toEqual({
+      field: "Vendor Branch",
+      reason: 'Read branch "00001", but no TIN is printed with it.',
+    });
+  });
+
+  it("review: a fragment of the client's name is not the client; the whole name inside a longer one is", () => {
+    for (const soldTo of ["Cash", "Corp", "Invented"]) {
+      expect(
+        mapReceipt(base({ soldTo, amounts: amounts({ total: 112 }) }), ctx).doubts,
+      ).toHaveLength(1);
+    }
+    const branch = mapReceipt(
+      base({
+        soldTo: "INVENTED TRADING CORP - MAIN BRANCH",
+        amounts: amounts({ total: 112 }),
+      }),
+      ctx,
+    );
+    expect(branch.doubts).toEqual([]);
+  });
 });

@@ -98,6 +98,16 @@ export const Answer = z.object({
 });
 export type Answer = z.infer<typeof Answer>;
 
+/** Strings with every NUL removed (PostgreSQL text and JSONB cannot hold one). */
+function withoutNul(v: unknown): unknown {
+  if (typeof v === "string") return v.replace(/\u0000/g, "");
+  if (Array.isArray(v)) return v.map(withoutNul);
+  if (v && typeof v === "object") {
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, withoutNul(x)]));
+  }
+  return v;
+}
+
 /** The answer from a succeeded result's text block, or null when it does not parse. */
 export function parseAnswer(
   content: Array<{ type: string; text?: string }>,
@@ -105,7 +115,7 @@ export function parseAnswer(
   const block = content.find((c) => c.type === "text" && typeof c.text === "string");
   if (!block?.text) return null;
   try {
-    const parsed = Answer.safeParse(JSON.parse(block.text));
+    const parsed = Answer.safeParse(withoutNul(JSON.parse(block.text)));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;

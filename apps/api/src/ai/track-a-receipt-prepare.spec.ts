@@ -11,14 +11,14 @@ import sharp from "sharp";
 import {
   MAX_IMAGE_TOKENS,
   MAX_LONG_EDGE_PX,
-  MAX_OUTPUT_TOKENS,
-  REQUEST_TEXT_TOKENS,
+  SCHEMA_TOKENS,
   fileEstimateUsd,
   fitToModel,
   imageTokens,
 } from "./estimate";
 import { HEIC_REFUSAL, prepareUpload, sniff } from "./prepare";
 import { BATCH_DISCOUNT, PRICES, costOfUsage } from "./prices";
+import { pileTooLarge, uploadName } from "./receipt-scan.service";
 
 /** True when an EXIF block carries a GPS IFD pointer (tag 0x8825, either byte order). */
 function hasGps(exif: Buffer | undefined): boolean {
@@ -181,18 +181,16 @@ describe("U11 · prices and the estimate", () => {
     ).toBe(0.3); // (0.10 + 0.50) × 0.5
   });
 
-  it("the estimate is an upper bound on any usage the request can produce", () => {
-    const instr = 4000;
-    const est = fileEstimateUsd("claude-sonnet-5-5", MAX_IMAGE_TOKENS, instr);
-    // The dearest billing of the same request: every input token at the input price,
-    // the instructions as a 1-hour cache write, and a full max_tokens answer.
-    const worst = costOfUsage("claude-sonnet-5-5", {
-      input_tokens: MAX_IMAGE_TOKENS + REQUEST_TEXT_TOKENS,
-      cache_creation_input_tokens: instr,
-      cache_read_input_tokens: 0,
-      output_tokens: MAX_OUTPUT_TOKENS,
-    });
-    expect(est).toBeGreaterThanOrEqual(worst);
+  it("the estimate, worked by hand, prices every input at the dearest rate", () => {
+    // Content 4,784 + request text 400 + schema 1,267 = 6,451 input tokens × $2;
+    // instructions 4,000 as a 1-hour cache write × $4; a full 4,096-token answer × $10.
+    // (12,902 + 16,000 + 40,960) ÷ 1,000,000 × 0.5 = 0.034931.
+    expect(SCHEMA_TOKENS).toBe(1267);
+    expect(fileEstimateUsd("claude-sonnet-5-5", MAX_IMAGE_TOKENS, 4000)).toBe(0.034931);
+    // The real request text is counted when it is longer: +600 tokens × $2 × 0.5.
+    expect(fileEstimateUsd("claude-sonnet-5-5", MAX_IMAGE_TOKENS, 4000, 1000)).toBe(
+      0.035531,
+    );
     expect(PRICES["claude-sonnet-5-5"]).toEqual({
       input: 2,
       cacheWrite5m: 2.5,
@@ -200,5 +198,19 @@ describe("U11 · prices and the estimate", () => {
       cacheRead: 0.1,
       output: 10,
     });
+  });
+
+  it("a UTF-8 file name survives multer's latin1", () => {
+    const sent = Buffer.from("Resibo ng Peña.jpg", "utf8").toString("latin1");
+    expect(uploadName(sent)).toBe("Resibo ng Peña.jpg");
+    expect(uploadName("plain.jpg")).toBe("plain.jpg");
+  });
+
+  it("a pile too large for one Message Batch is refused with a sentence", () => {
+    expect(pileTooLarge([1_000_000, 2_000_000])).toBeNull();
+    // 16 PDFs of 10 MB go out as about 214 MB of base64 (⌈10,000,000 ÷ 3⌉ × 4 × 16): over 200 MB.
+    expect(pileTooLarge(Array(16).fill(10_000_000))).toBe(
+      "This pile is too large to send at once: about 214 MB once prepared, and a pile can send at most 200 MB. Split it into smaller piles.",
+    );
   });
 });

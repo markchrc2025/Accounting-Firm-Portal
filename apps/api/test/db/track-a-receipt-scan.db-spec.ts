@@ -59,7 +59,10 @@ class FakeBatchClient {
     this.creates.push(requests);
     return { id: `msgbatch_fake_${this.creates.length}` };
   }
+  /** Review follow-up: results that cannot be collected at all. */
+  failRetrieve = false;
   async retrieveBatch(id: string) {
+    if (this.failRetrieve) throw new Error("results unavailable");
     return { id, processing_status: this.status };
   }
   async *batchResults(id: string): AsyncIterable<Line> {
@@ -192,6 +195,12 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
       });
     return r;
   };
+  /** Fire timers a test held back, so the poller is never left "armed" with a
+   *  timer nobody will fire; then give the tick a moment to finish. */
+  async function fire(parked: Array<{ fn: () => void }>) {
+    for (const t of parked) t.fn();
+    await new Promise((r) => setTimeout(r, 300));
+  }
   /** Fire every armed poller timer, then wait until the pile leaves "reading". */
   async function collect(scanId: string) {
     const due = timers.splice(0);
@@ -539,6 +548,15 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         expect(res.body.message).toBe(
           "AI reading isn't set up yet. The Super Admin adds the key to the API service.",
         );
+        // Review follow-up (R3): every AI route but the status answers 503 too.
+        for (const path of [
+          "/ai/estimate?images=1&pdfs=0",
+          "/receipt-scans",
+          `/receipt-scans/${randomUUID()}`,
+        ]) {
+          const r = await auth(http().get(`${API}${path}`));
+          expect([path, r.status]).toEqual([path, 503]);
+        }
         expect((await auth(http().get(`${API}/ai/status`))).body.configured).toBe(false);
       } finally {
         process.env.ANTHROPIC_API_KEY = FAKE_KEY;
@@ -763,7 +781,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         receipts: [],
       });
       const res = await pile([{ name: "l-once.jpg", body: await image([40, 41, 42]) }]);
-      timers.splice(0);
+      const parked = timers.splice(0);
       const scans = app.get(ReceiptScanService);
       const outcomes = await Promise.all([
         scans.collect(res.body.id),
@@ -779,6 +797,91 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         where: { action: "ai.receipt-scan.ready", entityId: res.body.id },
       });
       expect(audits).toBe(1);
+      await fire(parked);
+    });
+  });
+
+  // --- review follow-up -----------------------------------------------------------
+
+  describe("review follow-up", () => {
+    it("a file that was never read is no original: sent again, it is read", async () => {
+      // j-expire.jpg's only earlier copy ended "failed" (T6, expired).
+      const before = fake.creates.length;
+      fake.answers.set("j-expire.jpg", {
+        result: "not-a-receipt",
+        problem: "A photo of a wall.",
+        receipts: [],
+      });
+      const res = await pile([{ name: "j-expire.jpg", body: await image([20, 21, 22]) }]);
+      expect(res.status).toBe(201);
+      expect(fake.creates.length).toBe(before + 1);
+      const f = await writer.receiptScanFile.findFirstOrThrow({
+        where: { scanId: res.body.id },
+      });
+      expect(f.result).toBe("pending");
+      await collect(res.body.id);
+    });
+
+    it("a UTF-8 file name arrives intact, in the file and in Source File", async () => {
+      const name = "Resibo ng Peña.jpg";
+      fake.answers.set("Peña", {
+        result: "read",
+        problem: null,
+        receipts: [
+          receipt({
+            amounts: {
+              vatableSales: 100,
+              vat: 12,
+              vatExempt: null,
+              zeroRated: null,
+              total: 112,
+            },
+          }),
+        ],
+      });
+      const res = await pile([{ name, body: await image([140, 60, 200]) }]);
+      expect(res.status).toBe(201);
+      await collect(res.body.id);
+      const d = await auth(http().get(`${API}/receipt-scans/${res.body.id}`));
+      expect(d.body.files[0].name).toBe(name);
+      expect(d.body.files[0].rows[0].cells["Source File"]).toBe(name);
+    });
+
+    it("a pile whose results cannot be collected for 3 days ends as failed, its estimate counted as spent", async () => {
+      fake.answers.set("o-stuck.jpg", {
+        result: "not-a-receipt",
+        problem: "x",
+        receipts: [],
+      });
+      const res = await pile([{ name: "o-stuck.jpg", body: await image([60, 160, 60]) }]);
+      const parked = timers.splice(0);
+      const scans = app.get(ReceiptScanService);
+      fake.failRetrieve = true;
+      try {
+        await scans.collectAll(); // fails, but the pile is young: it stays reading
+        expect(
+          (await writer.receiptScan.findUniqueOrThrow({ where: { id: res.body.id } }))
+            .status,
+        ).toBe("reading");
+        clockNow = new Date(clockNow.getTime() + 4 * 24 * 60 * 60 * 1000);
+        await scans.collectAll();
+      } finally {
+        fake.failRetrieve = false;
+        clockNow = new Date("2026-10-10T02:00:00.000Z");
+        await fire(parked);
+      }
+      const s = await writer.receiptScan.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect(s.status).toBe("failed");
+      expect(s.problem).toBe(
+        "The AI's results for this pile could not be collected within 3 days, so its estimate is counted as spent. Send the receipts again.",
+      );
+      expect(Number(s.actualUsd)).toBe(Number(s.estimatedUsd));
+      const f = await writer.receiptScanFile.findFirstOrThrow({
+        where: { scanId: res.body.id },
+      });
+      expect(f.result).toBe("failed");
     });
   });
 
@@ -793,7 +896,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
     fake.status = "in_progress";
     const res = await pile([{ name: "m-restart.jpg", body: await image([50, 51, 52]) }]);
     expect(res.status).toBe(201);
-    timers.splice(0); // the first app's timer is never fired: it "stopped"
+    const parked = timers.splice(0); // the first app's timer is held back: it "stopped"
     const timers2: Array<{ fn: () => void; ms: number }> = [];
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(StorageService)
@@ -829,6 +932,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
     } finally {
       fake.status = "ended";
       await app2.close();
+      await fire(parked);
     }
   });
 

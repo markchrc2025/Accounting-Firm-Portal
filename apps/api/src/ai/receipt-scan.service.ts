@@ -57,6 +57,7 @@ import {
   fileEstimateUsd,
   instructionTokens,
   pdfTokens,
+  textTokens,
 } from "./estimate";
 import { RECEIPTS_PROMPT_VERSION, buildInstructions } from "./instructions";
 import { mapReceipt } from "./mapping";
@@ -75,6 +76,8 @@ export const STORE_FAILED =
   "The receipt files could not be stored just now. Nothing was sent; try again later.";
 export const BATCH_EXPIRED =
   "The AI service did not finish within 24 hours; unfinished files were not charged.";
+export const COLLECT_GAVE_UP =
+  "The AI's results for this pile could not be collected within 3 days, so its estimate is counted as spent. Send the receipts again.";
 export const NOT_SENT =
   "The pile was not sent to the AI service; nothing was charged. Send it again.";
 export const FILE_EXPIRED =
@@ -94,6 +97,8 @@ const COPY_EARLIER = (name: string, on: string) =>
 const MAX_FILES = 100;
 /** A collecting instance holds its lease this long before another may take over. */
 const LEASE_MS = 15 * 60 * 1000;
+/** A pile whose results cannot be collected for this long ends as failed. */
+const GIVE_UP_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 /** A pile still without a batch after this long was never sent. */
 const UNSENT_AFTER_MS = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -106,6 +111,42 @@ export interface UploadedScanFile {
 }
 
 class AlreadyCollected extends Error {}
+
+/** A Message Batch holds at most 256 MB (batch docs); a pile sends at most 200 MB
+ *  of base64 file data, leaving room for the instructions and the JSON. */
+export const MAX_PILE_PAYLOAD_BYTES = 200_000_000;
+
+/** The refusal for a pile whose files, base64-encoded as they are sent, would not
+ *  fit one Message Batch; null when they fit. */
+export function pileTooLarge(byteLengths: number[]): string | null {
+  const payload = byteLengths.reduce((a, n) => a + Math.ceil(n / 3) * 4, 0);
+  if (payload <= MAX_PILE_PAYLOAD_BYTES) return null;
+  return (
+    `This pile is too large to send at once: about ${Math.ceil(payload / 1_000_000)} MB once ` +
+    `prepared, and a pile can send at most ${MAX_PILE_PAYLOAD_BYTES / 1_000_000} MB. Split it into smaller piles.`
+  );
+}
+
+/** multer hands over the file name as latin1; a browser sends UTF-8. */
+export function uploadName(raw: string): string {
+  const utf8 = Buffer.from(raw, "latin1").toString("utf8");
+  return utf8.includes("\uFFFD") ? raw : utf8;
+}
+
+/** The request's own text: the client's name and TIN, the period, the file name. */
+export function requestText(ctx: {
+  buyer: string;
+  tin: string | null;
+  periodFrom: string;
+  periodTo: string;
+  fileName: string;
+}): string {
+  return (
+    `The client (the buyer, never the vendor): ${ctx.buyer}, TIN ${ctx.tin ?? "not on file"}.\n` +
+    `Period: ${ctx.periodFrom} to ${ctx.periodTo}.\n` +
+    `File name: ${ctx.fileName}`
+  );
+}
 
 @Injectable()
 export class ReceiptScanService {
@@ -136,7 +177,7 @@ export class ReceiptScanService {
   // ------------------------------------------------------------ estimate (route 2)
 
   async estimateRoute(user: AuthUser, images: number, pdfs: number) {
-    const s = await this.settings.settings(user.firmId);
+    const s = await this.requireAvailable(user.firmId);
     const instr = instructionTokens(await this.instructions());
     const estimated = round6(
       images * fileEstimateUsd(s.model, MAX_IMAGE_TOKENS, instr) +
@@ -182,58 +223,97 @@ export class ReceiptScanService {
       throw new BadRequestException(`A pile holds at most ${MAX_FILES} files.`);
 
     // Prepare every file in memory first; one refusal refuses the pile (R4).
-    const prepared = [];
+    const prepared: Array<{
+      upload: UploadedScanFile;
+      name: string;
+      prepared: Extract<Prepared, { ok: true }>;
+      id: string;
+      sha: string;
+    }> = [];
     for (const u of uploads) {
-      const p = await prepareUpload(u.originalname, u.buffer);
+      const name = uploadName(u.originalname);
+      const p = await prepareUpload(name, u.buffer);
       if (!p.ok) throw new BadRequestException(p.message);
-      prepared.push({ upload: u, prepared: p, id: randomUUID(), sha: sha256(u.buffer) });
+      prepared.push({
+        upload: u,
+        name,
+        prepared: p,
+        id: randomUUID(),
+        sha: sha256(u.buffer),
+      });
     }
-
-    // Exact copies: the same uploaded bytes as an earlier file of this client.
-    const earlier = await this.prisma.receiptScanFile.findMany({
-      where: { clientId, sha256: { in: prepared.map((p) => p.sha) } },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, sha256: true, name: true, createdAt: true },
-    });
-    const firstEarlier = new Map<string, (typeof earlier)[number]>();
-    for (const e of earlier)
-      if (!firstEarlier.has(e.sha256)) firstEarlier.set(e.sha256, e);
-    const firstInPile = new Map<string, { id: string; name: string }>();
+    const tooLarge = pileTooLarge(prepared.map((p) => p.prepared.body.length));
+    if (tooLarge) throw new BadRequestException(tooLarge);
 
     const instructions = await this.instructions();
     const instr = instructionTokens(instructions);
-    const files = prepared.map((p, position) => {
-      const prior = firstEarlier.get(p.sha);
-      const inPile = firstInPile.get(p.sha);
-      const copy = prior
-        ? {
-            of: prior.id,
-            problem: COPY_EARLIER(prior.name, prior.createdAt.toISOString().slice(0, 10)),
-          }
-        : inPile
-          ? { of: inPile.id, problem: COPY_IN_PILE(inPile.name) }
-          : null;
-      if (!copy) firstInPile.set(p.sha, { id: p.id, name: p.upload.originalname });
-      const ext = p.prepared.kind === "pdf" ? "pdf" : "jpg";
-      return {
-        ...p,
-        position,
-        copy,
-        key: copy ? null : `receipt-scans/${user.firmId}/__SCAN__/${p.id}.${ext}`,
-        estimate: copy
-          ? 0
-          : fileEstimateUsd(settings.model, p.prepared.contentTokens, instr),
-      };
-    });
-    const estimate = round6(files.reduce((a, f) => a + f.estimate, 0));
+    const textFor = (fileName: string) =>
+      requestText({
+        buyer: client.regName?.trim() || client.businessName,
+        tin: client.tin,
+        periodFrom,
+        periodTo,
+        fileName,
+      });
 
-    // R5: the budget, checked and reserved under a per-firm lock, before anything
-    // is stored or sent. A refusal stores nothing.
+    // R5: copies, the estimate and the budget are decided under a per-firm lock,
+    // before anything is stored or sent. A refusal stores nothing.
     const now = this.settings.now();
     const month = manilaMonth(now);
     const scanId = randomUUID();
-    await this.prisma.$transaction(async (tx) => {
+    const { files, estimate } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`ai-budget:${user.firmId}`}))) AS l`;
+
+      // Exact copies: the same uploaded bytes as an earlier file of this client that
+      // was read (or is being read). A file that was never read is no original: it
+      // may be sent again.
+      const earlier = await tx.receiptScanFile.findMany({
+        where: {
+          clientId,
+          sha256: { in: prepared.map((p) => p.sha) },
+          result: { in: ["pending", "read", "not-a-receipt", "unreadable"] },
+          scan: { status: { in: ["reading", "ready", "approved"] } },
+        },
+        orderBy: [{ createdAt: "asc" }, { position: "asc" }],
+        select: { id: true, sha256: true, name: true, createdAt: true },
+      });
+      const firstEarlier = new Map<string, (typeof earlier)[number]>();
+      for (const e of earlier)
+        if (!firstEarlier.has(e.sha256)) firstEarlier.set(e.sha256, e);
+      const firstInPile = new Map<string, { id: string; name: string }>();
+      const planned = prepared.map((p, position) => {
+        const prior = firstEarlier.get(p.sha);
+        const inPile = firstInPile.get(p.sha);
+        const copy = prior
+          ? {
+              of: prior.id,
+              problem: COPY_EARLIER(
+                prior.name,
+                prior.createdAt.toISOString().slice(0, 10),
+              ),
+            }
+          : inPile
+            ? { of: inPile.id, problem: COPY_IN_PILE(inPile.name) }
+            : null;
+        if (!copy) firstInPile.set(p.sha, { id: p.id, name: p.name });
+        const ext = p.prepared.kind === "pdf" ? "pdf" : "jpg";
+        return {
+          ...p,
+          position,
+          copy,
+          key: copy ? null : `receipt-scans/${user.firmId}/${scanId}/${p.id}.${ext}`,
+          estimate: copy
+            ? 0
+            : fileEstimateUsd(
+                settings.model,
+                p.prepared.contentTokens,
+                instr,
+                textTokens(textFor(p.name)),
+              ),
+        };
+      });
+      const total = round6(planned.reduce((a, f) => a + f.estimate, 0));
+
       const [spentAgg, reservedAgg] = await Promise.all([
         tx.receiptScan.aggregate({
           where: { firmId: user.firmId, month },
@@ -246,10 +326,10 @@ export class ReceiptScanService {
       ]);
       const used =
         Number(spentAgg._sum.actualUsd ?? 0) + Number(reservedAgg._sum.estimatedUsd ?? 0);
-      if (used + estimate > settings.budget + 1e-9) {
+      if (used + total > settings.budget + 1e-9) {
         const left = Math.max(0, settings.budget - used);
         throw new ConflictException(
-          `This pile would cost about ${money(estimate, settings.usdToPhp, "up")}, but only ` +
+          `This pile would cost about ${money(total, settings.usdToPhp, "up")}, but only ` +
             `${money(left, settings.usdToPhp, "down")} is left of this month's ` +
             `US$${settings.budget.toFixed(2)} AI budget. Nothing was sent.`,
         );
@@ -265,22 +345,22 @@ export class ReceiptScanService {
           model: settings.model,
           promptVersion: RECEIPTS_PROMPT_VERSION,
           month,
-          estimatedUsd: estimate,
+          estimatedUsd: total,
           createdById: user.id,
           createdAt: now,
         },
       });
       await tx.receiptScanFile.createMany({
-        data: files.map((f) => ({
+        data: planned.map((f) => ({
           id: f.id,
           scanId,
           clientId,
           position: f.position,
-          name: f.upload.originalname,
+          name: f.name,
           contentType: f.prepared.contentType,
           bytes: f.upload.size,
           sha256: f.sha,
-          storageKey: f.key?.replace("__SCAN__", scanId) ?? null,
+          storageKey: f.key,
           result: f.copy ? "copy-of-another-file" : "pending",
           problem: f.copy?.problem ?? null,
           copyOfFileId: f.copy?.of ?? null,
@@ -292,6 +372,7 @@ export class ReceiptScanService {
           createdAt: now,
         })),
       });
+      return { files: planned, estimate: total };
     });
 
     const toSend = files.filter((f) => !f.copy);
@@ -306,7 +387,7 @@ export class ReceiptScanService {
 
     try {
       for (const f of toSend) {
-        const key = f.key!.replace("__SCAN__", scanId);
+        const key = f.key!;
         await this.storage.putObject(key, f.prepared.body, f.prepared.contentType);
         stored.push(key);
       }
@@ -327,13 +408,12 @@ export class ReceiptScanService {
     } else {
       const requests: BatchRequest[] = toSend.map((f) => ({
         custom_id: f.id,
-        params: this.requestParams(settings.model, instructions, f.prepared, {
-          buyer: client.regName?.trim() || client.businessName,
-          tin: client.tin,
-          periodFrom,
-          periodTo,
-          fileName: f.upload.originalname,
-        }),
+        params: this.requestParams(
+          settings.model,
+          instructions,
+          f.prepared,
+          textFor(f.name),
+        ),
       }));
       let batchId: string;
       try {
@@ -372,13 +452,7 @@ export class ReceiptScanService {
     model: AiModel,
     instructions: string,
     p: Extract<Prepared, { ok: true }>,
-    ctx: {
-      buyer: string;
-      tin: string | null;
-      periodFrom: string;
-      periodTo: string;
-      fileName: string;
-    },
+    text: string,
   ): Record<string, unknown> {
     const data = p.body.toString("base64");
     const file =
@@ -405,10 +479,7 @@ export class ReceiptScanService {
             file,
             {
               type: "text",
-              text:
-                `The client (the buyer, never the vendor): ${ctx.buyer}, TIN ${ctx.tin ?? "not on file"}.\n` +
-                `Period: ${ctx.periodFrom} to ${ctx.periodTo}.\n` +
-                `File name: ${ctx.fileName}`,
+              text,
             },
           ],
         },
@@ -456,18 +527,48 @@ export class ReceiptScanService {
       this.logger.warn(`${unsent.count} pile(s) were never sent; marked failed`);
     const reading = await this.prisma.receiptScan.findMany({
       where: { status: "reading", batchId: { not: null } },
-      select: { id: true },
+      select: { id: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     });
     for (const s of reading) {
       try {
         await this.collect(s.id);
       } catch (err) {
-        this.logger.error(
-          `pile ${s.id}: collecting failed (${(err as Error).name}); will retry`,
-        );
+        if (now.getTime() - s.createdAt.getTime() > GIVE_UP_AFTER_MS) {
+          await this.giveUp(s.id);
+          this.logger.error(
+            `pile ${s.id}: collecting kept failing (${(err as Error).name}); gave up`,
+          );
+        } else {
+          this.logger.error(
+            `pile ${s.id}: collecting failed (${(err as Error).name}); will retry`,
+          );
+        }
       }
     }
+  }
+
+  /** R9: a pile never stays "reading" for ever. Its estimate (an upper bound) is
+   *  counted as spent, since the batch may have been billed. */
+  private async giveUp(scanId: string): Promise<void> {
+    const scan = await this.prisma.receiptScan.findUniqueOrThrow({
+      where: { id: scanId },
+    });
+    await this.prisma.$transaction([
+      this.prisma.receiptScan.updateMany({
+        where: { id: scanId, status: "reading" },
+        data: {
+          status: "failed",
+          problem: COLLECT_GAVE_UP,
+          actualUsd: scan.estimatedUsd,
+          collectingAt: null,
+        },
+      }),
+      this.prisma.receiptScanFile.updateMany({
+        where: { scanId, result: "pending" },
+        data: { result: "failed", problem: COLLECT_GAVE_UP },
+      }),
+    ]);
   }
 
   async anyReading(): Promise<boolean> {
@@ -708,6 +809,7 @@ export class ReceiptScanService {
   // ------------------------------------------------------------ reads (routes 4, 5)
 
   async list(user: AuthUser, clientId?: string): Promise<ReceiptScanSummary[]> {
+    await this.requireAvailable(user.firmId); // R3: every AI route but the status
     if (clientId !== undefined && !UUID.test(clientId))
       throw new BadRequestException("clientId is not a client id.");
     const scope = await this.rbac.authorizedClients(user, ["Expenses:Create"]);
@@ -728,6 +830,7 @@ export class ReceiptScanService {
   }
 
   async detail(user: AuthUser, id: string): Promise<ReceiptScanDetail> {
+    await this.requireAvailable(user.firmId); // R3: every AI route but the status
     if (!UUID.test(id)) throw new NotFoundException("Receipt scan not found");
     const scan = await this.prisma.receiptScan.findFirst({
       where: { id, firmId: user.firmId },
