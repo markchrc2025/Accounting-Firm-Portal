@@ -12,12 +12,16 @@ import type { Filing, Row2551Q, Taxpayer } from "./types";
 import type { Comp2551Q } from "./compute2551Q";
 import { amt, enc, rb, tinParts, type XmlRow } from "./xmlkit";
 import { parsePeriod } from "./period";
+import { num } from "./format";
+import { ExportRefusal } from "./export-refusal";
 
 const NS = "frm2551Qv2018:";
 
 /**
  * Schedule-1 ATC dropdown index map. The eBIRForms dropdown is 1-based and
- * follows the Guided2551Q ATC list order; an empty/unknown line is 0.
+ * follows the Guided2551Q ATC list order; an empty line is 0. An ATC missing here
+ * refuses the export (U13 F1): its dropdown position must come from a real
+ * eBIRForms export, never be guessed.
  */
 const ATC_INDEX: Record<string, number> = {
   PT010: 1,
@@ -47,6 +51,35 @@ function rate1(v: unknown): string {
   return n.toFixed(1);
 }
 
+/** The form's Schedule 1 has six rows. */
+const SCHEDULE_1_ROWS = 6;
+
+/**
+ * U13 F1: every Schedule 1 row the return counts (item 14 sums them all) must be
+ * carried by the export; one it cannot carry refuses the export, naming the row.
+ * A row is counted when it has an ATC or a taxable amount.
+ */
+function assertScheduleEncodable(rows: Row2551Q[]): void {
+  rows.forEach((r, i) => {
+    const code = (r.atc || "").trim();
+    if (!code && num(r.taxable) === 0) return;
+    const row = i + 1;
+    const fix = "Change the row's ATC or remove the row, then export again.";
+    if (!code)
+      throw new ExportRefusal(
+        `Schedule 1, row ${row} has an amount but no ATC. Choose its ATC or remove the row, then export again.`,
+      );
+    if (!(code in ATC_INDEX))
+      throw new ExportRefusal(
+        `Schedule 1, row ${row}: the ATC ${code} cannot be written into the eBIRForms export yet. ${fix}`,
+      );
+    if (row > SCHEDULE_1_ROWS)
+      throw new ExportRefusal(
+        `Schedule 1, row ${row}: the form has room for ${SCHEDULE_1_ROWS} rows. Move it into an empty row or remove it, then export again.`,
+      );
+  });
+}
+
 /** Build the authentic 2551Q eBIRForms XML string. */
 export function build2551Q(filing: Filing, tp: Taxpayer | null, comp: Comp2551Q): string {
   const d = filing.data || {};
@@ -55,6 +88,8 @@ export function build2551Q(filing: Filing, tp: Taxpayer | null, comp: Comp2551Q)
   const yyyy = year || String(d.year || "").slice(0, 4);
   // quarter is like "Q1"; fall back to the data.quarter ("1st".."4th") digit.
   const qn = (quarter || String(d.quarter || "")).replace(/\D/g, "") || "1";
+  const sched = (d.rows as Row2551Q[] | undefined) || [];
+  assertScheduleEncodable(sched);
 
   const rows: XmlRow[] = [];
   /** namespaced field, value emitted verbatim (pre-formatted). */
@@ -91,9 +126,13 @@ export function build2551Q(filing: Filing, tp: Taxpayer | null, comp: Comp2551Q)
   P("taxTreaty_1", rb(d.taxRelief === "yes"));
   P("taxTreaty_2", rb(d.taxRelief !== "yes"));
   P("txtTaxReliefSpecify", enc(d.taxReliefSpec) || "0");
+  // U13 F2: item 13 (graduated or 8%) is asked only of an individual, and only in
+  // the first quarter of the taxable year, as the form says on its face; any
+  // other return leaves both boxes unmarked.
   const itRate = (d.itRate as string) || "graduated";
-  P("taxRate1", rb(itRate !== "eight"));
-  P("taxRate2", rb(itRate === "eight"));
+  const asks13 = !!tp && tp.kind === "individual" && qn === "1";
+  P("taxRate1", rb(asks13 && itRate !== "eight"));
+  P("taxRate2", rb(asks13 && itRate === "eight"));
 
   // ---- Part II: Total Tax Payable (items 14-24) ----
   for (let i = 14; i <= 24; i++) {
@@ -127,8 +166,7 @@ export function build2551Q(filing: Filing, tp: Taxpayer | null, comp: Comp2551Q)
   P("txtPg2TaxpayerName", fullName(tp));
 
   // ---- Schedule 1: 6 ATC rows (GLOBAL fields, no namespace) ----
-  const sched = (d.rows as Row2551Q[] | undefined) || [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < SCHEDULE_1_ROWS; i++) {
     const r = sched[i] || {};
     const code = (r.atc || "").trim();
     const idx = ATC_INDEX[code] ?? 0;

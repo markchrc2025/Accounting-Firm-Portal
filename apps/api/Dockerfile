@@ -5,6 +5,9 @@
 #
 # The API is consumed with @portal/shared as TypeScript source, so it runs on
 # ts-node (as `pnpm --filter api start`) rather than a compiled dist bundle.
+# @portal/bir-pdf (the clear-copy print engine, U13) is consumed the same way and
+# reads its templates/, maps/ and fonts/ from its own folder at run time: step 2's
+# `COPY . .` carries them (nothing in .dockerignore excludes them).
 FROM node:22-bookworm-slim
 
 # Prisma needs openssl at runtime; certs for outbound TLS. pg_dump is for the
@@ -34,6 +37,7 @@ WORKDIR /app
 # 1) Install deps using only the manifests first (better layer caching).
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/shared/package.json packages/shared/
+COPY packages/bir-pdf/package.json packages/bir-pdf/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile

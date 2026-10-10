@@ -100,6 +100,18 @@ export class BirFormsController {
     return this.birForms.exportForm(user, id);
   }
 
+  /**
+   * U13 R1 (D50): the client's clear copy — the eBIRForms export printed on the
+   * BIR's own blank form. Same permission and checks as :id/export. 201 with
+   * { id, kind: "pdf", filename, createdAt }; download through :id/exports/:exportId/url.
+   * 409: a draft, a form with no print map yet, or a field the engine cannot print.
+   */
+  @Post(":id/clear-copy")
+  @RequirePermissions(BIR_FORMS_PERMISSION.file)
+  clearCopy(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.birForms.clearCopy(user, id);
+  }
+
   @Get(":id/exports/:exportId/url")
   @RequirePermissions(BIR_FORMS_PERMISSION.read)
   exportUrl(
