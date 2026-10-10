@@ -27,9 +27,22 @@ export class TaxRulesService {
 
   /** The client's rule, or the TRAIN graduated default when none exists. */
   async get(user: AuthUser, clientId: string): Promise<TaxRuleInput> {
+    return (await this.getWithSource(user, clientId)).rule;
+  }
+
+  /**
+   * U10-A1 R2: the rule AND whether it is saved, from one read, so the tax
+   * estimate can never label a default rule "saved" (or the reverse).
+   */
+  async getWithSource(
+    user: AuthUser,
+    clientId: string,
+  ): Promise<{ rule: TaxRuleInput; saved: boolean }> {
     await this.clients.assertInFirm(user.firmId, clientId);
     const row = await this.prisma.taxRule.findUnique({ where: { clientId } });
-    return row ? toTaxRuleDto(row) : DEFAULT_TAX_RULE;
+    return row
+      ? { rule: toTaxRuleDto(row), saved: true }
+      : { rule: DEFAULT_TAX_RULE, saved: false };
   }
 
   /** Validate + upsert (create or update by clientId); returns the saved rule. */

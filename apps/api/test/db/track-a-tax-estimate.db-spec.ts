@@ -24,6 +24,8 @@ truncateOncePerFile({ firmRoles: ["Super Admin"] });
 
 const TAG = `track-a-tax-estimate-${randomUUID().slice(0, 8)}`;
 const API = "/api/v1";
+const PERCENTAGE_RULE_SENTENCE =
+  "This client's saved rule is 'Percentage', which describes percentage tax (a business tax), not an income-tax method; income tax is shown on the graduated TRAIN rates. Choose the income-tax method on Tax Rules.";
 const SIMPLIFIED8_ASSUMPTION =
   "assumes no compensation income; a mixed-income earner gets no ₱250,000 reduction.";
 
@@ -294,15 +296,39 @@ describe("U10 · the tax estimate is computed once, for a period, from the clien
     expect(again.body.incomeTax.taxableIncome).toBe(300000);
   });
 
-  it("T1 · flat and percentage rules use the saved rate", async () => {
+  it("T1 · a flat rule uses the saved rate", async () => {
     // Flat 25%: taxable (600,000 − 100,000) × 25% = 125,000.
     const flat = await estimate(ids.echo!, "?year=2026");
     expect(flat.body.method).toMatchObject({ name: "flat", rate: 25 });
     expect(flat.body.incomeTax).toMatchObject({ taxableIncome: 500000, due: 125000 });
-    // "percentage" at 1%: gross receipts 600,000 × 1% = 6,000.
-    const pct = await estimate(ids.foxtrot!, "?year=2026");
-    expect(pct.body.method).toMatchObject({ name: "percentage", rate: 1 });
-    expect(pct.body.incomeTax).toMatchObject({ grossIncome: 600000, due: 6000 });
+    // (The saved "percentage" rule is no longer an income-tax rate: U10-A1 T1 below.)
+  });
+
+  it('U10-A1 T1 · a saved "percentage" rule: graduated income tax, 3% business tax, and why', async () => {
+    // Foxtrot: percentage-tax client, saved rule "percentage" at 1%, 2026 gross
+    // 600,000 and deductible expenses 100,000.
+    // Income tax on the graduated TRAIN table (2026 → Table 2): taxable 500,000,
+    // over 400,000 → 22,500 + 20% × 100,000 = 42,500. The saved 1% is not used.
+    // Business tax by regime: 3% × 600,000 = 18,000.
+    const res = await estimate(ids.foxtrot!, "?year=2026");
+    expect(res.status).toBe(200);
+    expect(res.body.incomeTax).toMatchObject({
+      grossIncome: 600000,
+      deductibleExpenses: 100000,
+      taxableIncome: 500000,
+      due: 42500,
+    });
+    expect(res.body.businessTax).toMatchObject({
+      kind: "percentage",
+      rate: 3,
+      due: 18000,
+    });
+    expect(res.body.assumptions).toContain(PERCENTAGE_RULE_SENTENCE);
+    expect(res.body.method).toMatchObject({
+      name: "percentage",
+      source: "saved",
+      rate: null,
+    });
   });
 
   it("T1 · filed returns that cover the period come with the estimate, with their key figures (R4)", async () => {

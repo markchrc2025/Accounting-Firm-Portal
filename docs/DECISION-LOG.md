@@ -179,3 +179,6 @@ apps/web's COR parser tests held the verbatim OCR text of the CORs of eleven rea
 
 ## 2026-10-10 · D47 · The tax estimate is computed once, for a period, from the client's rule
 Decision (technical partner): GET /clients/:clientId/tax-estimate computes the management estimate for a year or a quarter from posted records and the client's saved Tax Rule: graduated, 8% (in lieu of percentage tax, less ₱250,000, assuming no compensation income), flat or percentage. Business tax follows the regime: VAT payable, 3% percentage tax, or none for an exempt client. The rates live in one module until U5's statute table. Re-enrolling two-factor keeps the current secret until the new one is confirmed. Built in U10.
+
+## 2026-10-10 · D48 · The estimate's percentage rule and its readers
+Decision (technical partner): a saved Tax Rule of "percentage" describes a business tax, so the estimate computes that client's income tax on the graduated TRAIN rates, says why, and leaves the saved rate unused; U5 rebuilds Tax Rules as elections. Anyone who may read a client's tax estimate, client principals and Auditors included, sees that client's filed returns and their key figures beside it. Built in U10-A1.
