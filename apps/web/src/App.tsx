@@ -25,6 +25,8 @@ import PortalFilingsPage from "./pages/PortalFilingsPage";
 import PortalHomePage from "./pages/PortalHomePage";
 import PortalSalesPage from "./pages/PortalSalesPage";
 import PortalTaxPage from "./pages/PortalTaxPage";
+import ReceiptScanPage from "./pages/ReceiptScanPage";
+import ReceiptScansPage from "./pages/ReceiptScansPage";
 import PortalUsersPage from "./pages/PortalUsersPage";
 import ProfilePage from "./pages/ProfilePage";
 import SalesPage from "./pages/SalesPage";
@@ -89,6 +91,9 @@ export default function App() {
         <Route path="/clients/:clientId/tax" element={<TaxPage />} />
         <Route path="/clients/:clientId/tax-rules" element={<TaxRulesPage />} />
         <Route path="/clients/:clientId/filings" element={<FilingsPage />} />
+        {/* Scan receipts (W12): firm users who may add expenses. */}
+        <Route path="/receipt-scans" element={<ReceiptScansPage />} />
+        <Route path="/receipt-scans/:id" element={<ReceiptScanPage />} />
         {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/bir-forms" element={<BirFormsPage />} />
