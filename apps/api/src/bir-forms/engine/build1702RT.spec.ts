@@ -70,7 +70,9 @@ describe("build1702RT", () => {
   });
 
   it("encodes the registered name on page 1 but keeps it raw on pages 2-4", () => {
-    expect(has("frm1702RT:txtPg1Pt1I8Name1", "INVENTED%20TEST%20STEP%20CORP.")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I8Name1", "INVENTED%20TEST%20STEP%20CORP.")).toBe(
+      true,
+    );
     expect(has("frm1702RT:txtPg2RegisteredName", "INVENTED TEST STEP CORP.")).toBe(true);
     expect(has("frm1702RT:txtPg3RegisteredName", "INVENTED TEST STEP CORP.")).toBe(true);
     expect(has("frm1702RT:txtPg4RegisteredName", "INVENTED TEST STEP CORP.")).toBe(true);
