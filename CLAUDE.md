@@ -106,6 +106,7 @@ local install). Copy `.env.example` → `.env` first.
 | `prisma:generate` | Generate the Prisma client. |
 | `prisma:migrate` | `prisma migrate dev` (create/apply a dev migration; needs a DB). |
 | `prisma:deploy` | `prisma migrate deploy` (apply committed migrations). |
+| `migrate:with-backup` | The container's start step: in production, dump the database to the bucket (`backups/pre-migrate/`) when migrations are pending, then `prisma migrate deploy`; anywhere else, one skip line and the migrate (D38, `docs/BACKUPS.md`). |
 | `db:seed` | Seed the RBAC catalog (permissions + default roles) and a bootstrap Super Admin (`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`). Idempotent. |
 
 **Web (`apps/web`) — `pnpm --filter web <script>`:** `dev`, `build`, `preview`,

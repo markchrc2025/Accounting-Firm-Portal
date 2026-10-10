@@ -45,6 +45,8 @@ well, so the major version matches everywhere. The patch level and the base imag
 production version is not recorded anywhere in this repository.** Worth pinning down before
 anything depends on 16-specific behaviour.
 
+**Local never uploads.** The backup module (`docs/BACKUPS.md`) dumps to the bucket only when `NODE_ENV=production` and the four `S3_*` variables are set; in this VM it prints one skip line, schedules no nightly, and nothing leaves the machine — the restore drill in `test:db` dumps and restores locally only.
+
 **Redis is not required.** `RedisService` connects with `lazyConnect: true`
 (`apps/api/src/redis/redis.service.ts:19`), logs connection errors as warnings (`:25`) and
 returns `false` from `ping()` rather than throwing (`:30-40`). The app boots without it, and

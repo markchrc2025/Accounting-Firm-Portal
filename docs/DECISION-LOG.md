@@ -86,7 +86,7 @@ Decision (technical partner): the expense list honours status and needsReview as
 
 ## 2026-10-10 · C4 · Corrections to the record, from U6 pass 3 and W5 pass 2
 U6's M2 poll loop never parsed a response (a backslash inside an f-string) and exited 0 after twenty silent polls; the merge decision was taken on a later, correct fetch. The seed has no client, so U6's T6 "seeded client" was an invented client under the seeded firm. W5's adversarial review had one skeptic read origin/track-a against W5's R1; nothing from it was used.
-\n
+
 ## 2026-10-10 · D35 · Document type decides nothing (reverses D25)
 Decision: every row that passes the row rules posts, whatever its document type. Most clients do not receive formal invoices; what the team records is what it records. Document Type is an optional label on the row. A row is held only when it has no account (technical rule from U6). A row with no vendor TIN posts flagged for review (D27, D28). Built in U6-A2.
 
@@ -95,3 +95,9 @@ Decision: every receipt a client submits is a business receipt, filtered by the 
 
 ## 2026-10-10 · D37 · Reference number is optional
 Decision (technical partner): a row without a reference number posts; duplicates for such rows are detected on vendor TIN, date and gross (U6 R6). Nothing is flagged for a missing reference.
+
+## 2026-10-10 · D38 · Backups are automatic (replaces D33)
+Decision: the domain owner is never asked for a backup. Before every production migration the API's start sequence dumps the database to the firm's bucket (backups/pre-migrate/) and refuses to migrate if the dump fails; every night at 02:00 Manila it dumps to backups/daily/. The newest 30 daily dumps and a year of pre-migrate dumps are kept. Sliplane's point-in-time recovery is the platform's own copy; the bucket is the firm's. A unit with a migration merges itself (D32); D33's stop is withdrawn. Restore procedure: docs/BACKUPS.md. Built in U7.
+
+## 2026-10-10 · C5 · Corrections to the record, from U6 pass 3 to U7
+D33 asked the domain owner where the production backup lived; the hosting console (Sliplane: one managed PostgreSQL, one object-storage bucket already used by the files module) answered it, and the technical partner should have found that before asking. No migration was merged while D33 was in force.
