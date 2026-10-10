@@ -290,11 +290,14 @@ export default function TransactionEntryModal({
       vendorTin: partyTin || undefined,
       deductible: true,
       ...(wht > 0 ? { whtAmount: round2(wht) } : {}),
+      // A VAT client's purchase with VAT is a domestic purchase; one with no
+      // VAT is DOMESTIC_NO_INPUT_TAX, as the importer books it (W8 R4). Its
+      // input VAT is sent as 0, so an edit from 12% to none clears the old
+      // figure (the API refuses that category with any input VAT).
       ...(isVat
-        ? {
-            inputVATCategory: "DOMESTIC_PURCHASES",
-            ...(vat > 0 ? { inputVAT: vat, taxAmount: vat } : {}),
-          }
+        ? vat > 0
+          ? { inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: vat, taxAmount: vat }
+          : { inputVATCategory: "DOMESTIC_NO_INPUT_TAX", inputVAT: 0, taxAmount: 0 }
         : {}),
     };
   }

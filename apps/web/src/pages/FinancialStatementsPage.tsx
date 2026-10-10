@@ -199,7 +199,7 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
                 value={entityName}
                 onChange={(e) => setEntityName(e.target.value)}
                 required={!clientId}
-                placeholder="e.g. Workscale Resources Inc."
+                placeholder="Sample Company Inc."
                 className="input mt-1.5"
               />
             </label>

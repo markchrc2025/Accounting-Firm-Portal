@@ -645,9 +645,28 @@ export interface FirmUserSummary {
   firmProfile?: { title: string | null; employeeId: string | null } | null;
   lastLoginAt?: string | null;
   createdAt?: string | null;
+  /** "FIRM" for firm staff; GET /users lists firm users only. */
+  userType?: string;
+  /** How many clients the user is assigned to (U4-A1). */
+  assignedClientCount?: number;
 }
 export function fetchUsers(): Promise<FirmUserSummary[]> {
   return apiFetch<FirmUserSummary[]>("/users");
+}
+/** A firm user's assigned clients, sorted by name (U4-A1). */
+export interface UserClients {
+  userId: string;
+  clients: { id: string; businessName: string }[];
+}
+export function fetchUserClients(id: string): Promise<UserClients> {
+  return apiFetch<UserClients>(`/users/${id}/clients`);
+}
+/** Replace a firm user's assigned clients with exactly `clientIds` (U4-A1). */
+export function assignUserClients(id: string, clientIds: string[]): Promise<UserClients> {
+  return apiFetch(`/users/${id}/assign-clients`, {
+    method: "POST",
+    body: JSON.stringify({ clientIds }),
+  });
 }
 /** Update a firm user — e.g. flip status "ACTIVE" ⇄ "DISABLED" to (de)activate. */
 export function updateUser(
@@ -1752,7 +1771,8 @@ export interface DashboardData {
   incomeVsExpenses: DashboardMonthPoint[];
   recentActivity: DashboardActivity[];
   upcomingFilings: DashboardUpcomingFiling[];
-  regimeMix: { vat: number; percentage: number };
+  /** `exempt` arrives with Track A's U9; until then it is absent. */
+  regimeMix: { vat: number; percentage: number; exempt?: number };
 }
 export function fetchDashboard(): Promise<DashboardData> {
   return apiFetch<DashboardData>("/dashboard");
