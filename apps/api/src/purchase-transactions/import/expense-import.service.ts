@@ -182,6 +182,38 @@ export class ExpenseImportService {
     return result;
   }
 
+  /**
+   * U11 R8: the import's own verdict on rows that come from somewhere other than a
+   * workbook (the AI receipt reader). The same three steps importFile runs —
+   * planRow, the in-file duplicate check and the ledger duplicate check —
+   * against the given period, without parsing a file and without writing.
+   * Each result is exactly what the import would do with that row.
+   */
+  async checkRows(
+    clientId: string,
+    regime: Regime,
+    period: { from: string; to: string },
+    rows: ParsedRow[],
+  ): Promise<Array<{ rowNumber: number; outcome: RowOutcome; needsReview: boolean; messages: string[] }>> {
+    const accounts = await this.loadAccounts();
+    const byCode = new Map(accounts.map((a) => [a.code, a]));
+    const plans: RowPlan[] = [];
+    for (const row of rows) plans.push(await this.planRow(row, regime, period, byCode));
+    this.markFileDuplicates(plans);
+    await this.markLedgerDuplicates(clientId, plans);
+    return plans.map((p) => ({
+      rowNumber: p.rowNumber,
+      outcome: p.outcome,
+      needsReview: p.needsReview,
+      messages: p.messages,
+    }));
+  }
+
+  /** The chart accounts the template's COA sheet offers (U11: the AI's list too). */
+  async templateAccounts(): Promise<TemplateAccount[]> {
+    return this.loadAccounts();
+  }
+
   /** Post a held record. 409 unless it is held; 400 while it has no account. */
   async postHeld(user: AuthUser, id: string) {
     // U4-A1 (D42): another firm's record answers exactly like a missing one.
