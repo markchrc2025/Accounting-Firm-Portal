@@ -1,0 +1,35 @@
+{
+  "name": "@portal/bir-pdf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prints a filed eBIRForms return onto the BIR's own blank form PDF: deterministic field maps, pdf-lib, Liberation Sans Bold.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"tools/**/*.ts\"",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "proof": "tsx tools/proof.ts",
+    "fixtures": "tsx tools/make-fixtures.ts"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
+    "pdf-lib": "1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.10",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "pdfjs-dist": "6.1.200",
+    "tsx": "4.23.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

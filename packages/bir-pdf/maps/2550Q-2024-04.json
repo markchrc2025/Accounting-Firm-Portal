@@ -1,0 +1,2032 @@
+{
+  "form": "2550Q",
+  "version": "2024-04",
+  "template": "2550Q-2024-04.pdf",
+  "title": "BIR Form 2550Q - Quarterly Value-Added Tax (VAT) Return (April 2024 ENCS)",
+  "pages": [
+    {
+      "width": 612,
+      "height": 1008
+    },
+    {
+      "width": 612,
+      "height": 1008
+    }
+  ],
+  "size": 10,
+  "fields": [
+    {
+      "key": "frm2550qv2024:calendarNo1",
+      "item": "1 Calendar",
+      "kind": "mark",
+      "page": 1,
+      "box": [74.0, 885.5, 87.7, 897.7]
+    },
+    {
+      "key": "frm2550qv2024:fiscalNo1",
+      "item": "1 Fiscal",
+      "kind": "mark",
+      "page": 1,
+      "box": [141.2, 885.8, 154.8, 898.0]
+    },
+    {
+      "key": "frm2550qv2024:selectedMonthNo2",
+      "item": "2 MM",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 885.0,
+          "cells": [304.6, 318.85, 333.0]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:txtYearNo2",
+      "item": "2 YYYY",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 885.0,
+          "cells": [333.0, 347.25, 361.48, 375.98, 390.02]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:OptQuarter1",
+      "item": "3 Q1",
+      "kind": "mark",
+      "page": 1,
+      "box": [434.6, 886.0, 448.3, 898.2]
+    },
+    {
+      "key": "frm2550qv2024:OptQuarter2",
+      "item": "3 Q2",
+      "kind": "mark",
+      "page": 1,
+      "box": [470.4, 885.3, 484.1, 897.5]
+    },
+    {
+      "key": "frm2550qv2024:OptQuarter3",
+      "item": "3 Q3",
+      "kind": "mark",
+      "page": 1,
+      "box": [512.6, 885.9, 526.2, 898.1]
+    },
+    {
+      "key": "frm2550qv2024:OptQuarter4",
+      "item": "3 Q4",
+      "kind": "mark",
+      "page": 1,
+      "box": [554.3, 885.7, 567.9, 897.9]
+    },
+    {
+      "key": "frm2550qv2024:RtnPeriodFromNo4",
+      "item": "4 from",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 856.6,
+          "cells": [64.25, 78.43, 92.28]
+        },
+        {
+          "page": 1,
+          "y": 856.6,
+          "cells": [92.28, 106.53, 120.58]
+        },
+        {
+          "page": 1,
+          "y": 856.6,
+          "cells": [120.58, 134.63, 148.63, 162.63, 176.48]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:RtnPeriodToNo4",
+      "item": "4 to",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 856.6,
+          "cells": [204.68, 218.95, 233.1]
+        },
+        {
+          "page": 1,
+          "y": 856.6,
+          "cells": [233.1, 247.35, 261.5]
+        },
+        {
+          "page": 1,
+          "y": 856.6,
+          "cells": [261.5, 275.65, 289.85, 304.45, 318.6]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:amendedReturnYesNo5",
+      "item": "5 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [347.1, 856.3, 360.7, 868.5]
+    },
+    {
+      "key": "frm2550qv2024:amendedReturnNo5",
+      "item": "5 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [389.6, 856.9, 403.3, 869.1]
+    },
+    {
+      "key": "frm2550qv2024:OptShortPrd1",
+      "item": "6 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [475.8, 856.9, 489.5, 869.1]
+    },
+    {
+      "key": "frm2550qv2024:OptShortPrd2",
+      "item": "6 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [533.3, 856.5, 546.9, 868.7]
+    },
+    {
+      "key": "frm2550qv2024:txtTIN1",
+      "item": "7 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 824.0,
+          "cells": [233.1, 247.35, 261.55, 275.6]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:txtTIN2",
+      "item": "7 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 824.0,
+          "cells": [289.8, 304.45, 318.65, 332.8]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:txtTIN3",
+      "item": "7 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 824.0,
+          "cells": [347.0, 361.28, 375.78, 389.83]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:branchCode",
+      "kind": "none",
+      "reason": "the April 2024 form pre-prints branch code 00000 (VAT is filed by the head office)",
+      "expect": "^0*$"
+    },
+    {
+      "key": "frm2550qv2024:txtRDOCode",
+      "item": "8",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 824.0,
+          "cells": [546.85, 562.1, 576.3, 592.25]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:taxpayerName",
+      "item": "9",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 795.4,
+          "cells": [
+            22.05, 36.1, 50.2, 64.3, 78.43, 92.32, 106.53, 120.62, 134.63, 148.63, 162.63,
+            176.53, 190.63, 204.73, 218.95, 233.15, 247.35, 261.55, 275.65, 289.85,
+            304.45, 318.65, 332.85, 347.05, 361.28, 375.78, 389.87, 404.37, 418.87,
+            432.98, 447.18, 461.37, 475.58, 489.78, 504.0, 518.2, 532.4, 546.9, 562.1,
+            576.3, 592.25
+          ]
+        }
+      ]
+    },
+    {
+      "key": "frm2550qv2024:taxpayerAddress",
+      "item": "10",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 766.8,
+          "cells": [
+            22.05, 36.1, 50.2, 64.3, 78.43, 92.32, 106.53, 120.62, 134.63, 148.63, 162.63,
+            176.53, 190.63, 204.73, 218.95, 233.15, 247.35, 261.55, 275.65, 289.85,
+            304.45, 318.65, 332.85, 347.05, 361.28, 375.78, 389.87, 404.37, 418.87,
+            432.98, 447.18, 461.37, 475.58, 489.78, 504.0, 518.2, 532.4, 546.9, 562.1,
+            576.3, 592.25
+          ]
+        },
+        {
+          "page": 1,
+          "y": 748.5,
+          "cells": [
+            22.05, 36.1, 50.2, 64.3, 78.43, 92.32, 106.53, 120.62, 134.63, 148.63, 162.63,
+            176.53, 190.63, 204.73, 218.95, 233.15, 247.35, 261.55, 275.65, 289.85,
+            304.45, 318.65, 332.85, 347.05, 361.28, 375.78, 389.87, 404.37, 418.87,
+            432.98, 447.18, 461.33
+          ]
+        }
+      ],
+      "wrap": "words"
+    },
+    {
+      "key": "frm2550qv2024:taxpayerZip",
+      "item": "10A",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 748.5,
+          "cells": [532.35, 546.9, 562.1, 576.3, 592.25]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:taxpayerContactNumber",
+      "item": "11",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 719.9,
+          "cells": [
+            22.05, 36.1, 50.2, 64.3, 78.43, 92.32, 106.53, 120.62, 134.63, 148.63, 162.63,
+            176.53, 190.58, 204.68
+          ]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:taxpayerEmailAddress",
+      "item": "12",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 719.9,
+          "cells": [
+            204.68, 218.95, 233.15, 247.35, 261.55, 275.65, 289.85, 304.45, 318.65,
+            332.85, 347.05, 361.28, 375.78, 389.87, 404.37, 418.87, 432.98, 447.18,
+            461.37, 475.58, 489.78, 504.0, 518.2, 532.4, 546.9, 562.1, 576.3, 592.25
+          ]
+        }
+      ],
+      "case": "keep"
+    },
+    {
+      "key": "frm2550qv2024:taxPayerClassification1",
+      "item": "13 Micro",
+      "kind": "mark",
+      "page": 1,
+      "box": [161.5, 702.4, 174.9, 714.3]
+    },
+    {
+      "key": "frm2550qv2024:taxPayerClassification2",
+      "item": "13 Small",
+      "kind": "mark",
+      "page": 1,
+      "box": [231.8, 702.5, 245.2, 714.4]
+    },
+    {
+      "key": "frm2550qv2024:taxPayerClassification3",
+      "item": "13 Medium",
+      "kind": "mark",
+      "page": 1,
+      "box": [302.3, 702.5, 315.7, 714.4]
+    },
+    {
+      "key": "frm2550qv2024:taxPayerClassification4",
+      "item": "13 Large",
+      "kind": "mark",
+      "page": 1,
+      "box": [389.6, 701.5, 403.0, 713.4]
+    },
+    {
+      "key": "frm2550qv2024:internationalTreatyYn",
+      "item": "14 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [191.8, 682.7, 205.2, 694.6]
+    },
+    {
+      "key": "frm2550qv2024:internationalTreatyYn",
+      "item": "14 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [235.1, 682.7, 248.5, 694.6],
+      "when": "false",
+      "blankIf": [
+        {
+          "key": "frm2550qv2024:specialRateYn",
+          "equals": "true"
+        }
+      ]
+    },
+    {
+      "key": "frm2550qv2024:specialRateYn",
+      "item": "14 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [191.8, 682.7, 205.2, 694.6]
+    },
+    {
+      "key": "frm2550qv2024:specifyInternationalTreaty",
+      "item": "14A",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 681.1,
+          "cells": [
+            361.23, 375.78, 389.87, 404.37, 418.87, 432.98, 447.18, 461.37, 475.58,
+            489.78, 504.0, 518.2, 532.4, 546.9, 562.1, 576.3, 592.25
+          ]
+        }
+      ]
+    },
+    {
+      "key": "frm2550qv2024:excessInputTax",
+      "kind": "none",
+      "reason": "the builder's item 16 sub-line; the paper has no box for it and the builder always sends 0.00",
+      "expect": "^0\\.00$"
+    },
+    {
+      "key": "frm2550qv2024:creditableVat",
+      "item": "16",
+      "kind": "money",
+      "page": 1,
+      "y": 618.3,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:advVatPayment",
+      "item": "17",
+      "kind": "money",
+      "page": 1,
+      "y": 600.0,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:vatPaidReturn",
+      "item": "18",
+      "kind": "money",
+      "page": 1,
+      "y": 581.8,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:addSpecifyNo19",
+      "item": "19 specify",
+      "kind": "text",
+      "page": 1,
+      "y": 567.3,
+      "x0": 173.3,
+      "x1": 367.9,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm2550qv2024:otherCreditsNo19",
+      "item": "19",
+      "kind": "money",
+      "page": 1,
+      "y": 563.5,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:totalTaxCredits",
+      "item": "20",
+      "kind": "money",
+      "page": 1,
+      "y": 545.2,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:excessCredits",
+      "item": "21",
+      "kind": "money",
+      "page": 1,
+      "y": 527.0,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:surcharge",
+      "item": "22",
+      "kind": "money",
+      "page": 1,
+      "y": 508.8,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:interest",
+      "item": "23",
+      "kind": "money",
+      "page": 1,
+      "y": 490.5,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:compromise",
+      "item": "24",
+      "kind": "money",
+      "page": 1,
+      "y": 472.2,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:penalties",
+      "item": "25",
+      "kind": "money",
+      "page": 1,
+      "y": 454.0,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:totalPayable",
+      "item": "26",
+      "kind": "money",
+      "page": 1,
+      "y": 435.8,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "frm2550qv2024:txtPg2TIN1",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 903.3,
+          "cells": [22.05, 36.2, 50.3, 64.4]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:txtPg2TIN2",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 903.3,
+          "cells": [64.4, 78.53, 92.62, 106.62]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:txtPg2TIN3",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 903.3,
+          "cells": [106.62, 120.72, 134.83, 148.93]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm2550qv2024:txtPg2BranchCode",
+      "kind": "none",
+      "reason": "the April 2024 form pre-prints branch code 00000 on page 2 too",
+      "expect": "^0*$"
+    },
+    {
+      "key": "frm2550qv2024:Pg2TaxPayer",
+      "item": "p2 name",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 903.3,
+          "cells": [
+            219.6, 233.95, 248.15, 262.35, 276.45, 290.65, 305.05, 319.35, 333.55, 347.65,
+            361.87, 376.08, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48,
+            489.68, 503.9, 518.0, 532.2, 546.8, 561.5, 575.7, 589.85
+          ]
+        }
+      ]
+    },
+    {
+      "key": "frm2550qv2024:vatableSales",
+      "item": "31A",
+      "kind": "money",
+      "page": 2,
+      "y": 862.1,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:outputVatSales",
+      "item": "31B",
+      "kind": "money",
+      "page": 2,
+      "y": 862.1,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:zeroRatedSales",
+      "item": "32A",
+      "kind": "money",
+      "page": 2,
+      "y": 846.2,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:exemptSales",
+      "item": "33A",
+      "kind": "money",
+      "page": 2,
+      "y": 830.2,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:totalSales",
+      "item": "34A",
+      "kind": "money",
+      "page": 2,
+      "y": 812.5,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:outputTaxDue",
+      "item": "34B",
+      "kind": "money",
+      "page": 2,
+      "y": 812.5,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:lessOutputVat",
+      "item": "35B",
+      "kind": "money",
+      "page": 2,
+      "y": 796.6,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:addOutputVat",
+      "item": "36B",
+      "kind": "money",
+      "page": 2,
+      "y": 780.6,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:totalAdjOutput",
+      "item": "37B",
+      "kind": "money",
+      "page": 2,
+      "y": 764.7,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:inputTaxCarried",
+      "item": "38B",
+      "kind": "money",
+      "page": 2,
+      "y": 738.4,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:inputTaxDeferred",
+      "item": "39B",
+      "kind": "money",
+      "page": 2,
+      "y": 722.5,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:transitionalInputTax",
+      "item": "40B",
+      "kind": "money",
+      "page": 2,
+      "y": 706.5,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:presumptiveInputTax",
+      "item": "41B",
+      "kind": "money",
+      "page": 2,
+      "y": 690.6,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:addSpecifyNo42",
+      "item": "42 specify",
+      "kind": "text",
+      "page": 2,
+      "y": 677.3,
+      "x0": 109.3,
+      "x1": 364.6,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm2550qv2024:otherSpecify42",
+      "item": "42B",
+      "kind": "money",
+      "page": 2,
+      "y": 674.6,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:total43",
+      "item": "43B",
+      "kind": "money",
+      "page": 2,
+      "y": 658.7,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:domesticPurchase",
+      "item": "44A",
+      "kind": "money",
+      "page": 2,
+      "y": 628.4,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:domesticInputTax",
+      "item": "44B",
+      "kind": "money",
+      "page": 2,
+      "y": 628.4,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:servicesPurchase",
+      "item": "45A",
+      "kind": "money",
+      "page": 2,
+      "y": 612.5,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:serviceInputTax",
+      "item": "45B",
+      "kind": "money",
+      "page": 2,
+      "y": 612.5,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:importPurchase",
+      "item": "46A",
+      "kind": "money",
+      "page": 2,
+      "y": 596.5,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:importInputTax",
+      "item": "46B",
+      "kind": "money",
+      "page": 2,
+      "y": 596.5,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:addSpecifyNo47",
+      "item": "47 specify",
+      "kind": "text",
+      "page": 2,
+      "y": 583.3,
+      "x0": 99.0,
+      "x1": 161.4,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "frm2550qv2024:otherSpecify47",
+      "item": "47A",
+      "kind": "money",
+      "page": 2,
+      "y": 580.5,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "otherSpecify47B",
+      "item": "47B",
+      "kind": "money",
+      "page": 2,
+      "y": 580.5,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:domesticPurchaseNoTax",
+      "item": "48A",
+      "kind": "money",
+      "page": 2,
+      "y": 564.5,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:vatExemptImports",
+      "item": "49A",
+      "kind": "money",
+      "page": 2,
+      "y": 548.6,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:totalCurPurchase",
+      "item": "50A",
+      "kind": "money",
+      "page": 2,
+      "y": 530.4,
+      "cells": [
+        162.48, 176.63, 190.73, 204.93, 219.15, 233.35, 247.55, 261.75, 275.95, 290.15,
+        304.45, 318.75, 332.9
+      ],
+      "cents": [347.6, 361.87, 376.02]
+    },
+    {
+      "key": "frm2550qv2024:totalCurInputTax",
+      "item": "50B",
+      "kind": "money",
+      "page": 2,
+      "y": 530.4,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:totalAvailInputTax",
+      "item": "51B",
+      "kind": "money",
+      "page": 2,
+      "y": 514.4,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:importCapitalInputTax",
+      "item": "52B",
+      "kind": "money",
+      "page": 2,
+      "y": 487.0,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:inputTaxAttr",
+      "item": "53B",
+      "kind": "money",
+      "page": 2,
+      "y": 471.0,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:vatRefund",
+      "item": "54B",
+      "kind": "money",
+      "page": 2,
+      "y": 455.0,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:inputVatUnpaid",
+      "item": "55B",
+      "kind": "money",
+      "page": 2,
+      "y": 439.0,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:addSpecifyNo56",
+      "item": "56 specify",
+      "kind": "text",
+      "page": 2,
+      "y": 425.9,
+      "x0": 110.8,
+      "x1": 366.0,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm2550qv2024:otherSpecify56",
+      "item": "56B",
+      "kind": "money",
+      "page": 2,
+      "y": 423.1,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:totalDeductions",
+      "item": "57B",
+      "kind": "money",
+      "page": 2,
+      "y": 407.1,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:addInputVat",
+      "item": "58B",
+      "kind": "money",
+      "page": 2,
+      "y": 391.2,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:adjDeductions",
+      "item": "59B",
+      "kind": "money",
+      "page": 2,
+      "y": 375.2,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:totalAllowInputTax",
+      "item": "60B",
+      "kind": "money",
+      "page": 2,
+      "y": 359.4,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:netVatPayable",
+      "item": "61B",
+      "kind": "money",
+      "page": 2,
+      "y": 343.4,
+      "cells": [
+        376.02, 390.28, 404.48, 418.68, 432.87, 447.08, 461.28, 475.48, 489.68, 503.9,
+        518.0, 532.2, 546.75
+      ],
+      "cents": [561.45, 575.7, 589.85]
+    },
+    {
+      "key": "frm2550qv2024:netVatPayable",
+      "item": "15",
+      "kind": "money",
+      "page": 1,
+      "y": 647.4,
+      "cells": [
+        375.63, 389.87, 404.28, 418.78, 432.98, 447.18, 461.37, 475.58, 489.78, 504.0,
+        518.1, 532.3, 546.85
+      ],
+      "cents": [562.05, 576.2, 592.25]
+    },
+    {
+      "key": "txtDatePurchase10",
+      "item": "Sch1 r1 A",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 22.8,
+      "x1": 79.62,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "left"
+    },
+    {
+      "key": "txtSourceCode10",
+      "item": "Sch1 r1 B",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 79.62,
+      "x1": 112.62,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "center"
+    },
+    {
+      "key": "txtDescription10",
+      "item": "Sch1 r1 C",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 112.62,
+      "x1": 187.43,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "left"
+    },
+    {
+      "key": "txtAmountPurchase10",
+      "item": "Sch1 r1 D",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 187.43,
+      "x1": 270.05,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase10",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode10",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription10",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtInputTax10",
+      "item": "Sch1 r1 E",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 270.05,
+      "x1": 336.35,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase10",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode10",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription10",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtEstimatedLife10",
+      "item": "Sch1 r1 F",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 336.35,
+      "x1": 390.27,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase10",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode10",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription10",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtRecognizedLife10",
+      "item": "Sch1 r1 G",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 390.27,
+      "x1": 448.77,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase10",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode10",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription10",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtAllowedInputTax10",
+      "item": "Sch1 r1 H",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 448.77,
+      "x1": 517.9,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase10",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode10",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription10",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtBalanceInputTax10",
+      "item": "Sch1 r1 I",
+      "kind": "text",
+      "page": 2,
+      "y": 273.9,
+      "x0": 517.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase10",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode10",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription10",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtDatePurchase11",
+      "item": "Sch1 r2 A",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 22.8,
+      "x1": 79.62,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "left"
+    },
+    {
+      "key": "txtSourceCode11",
+      "item": "Sch1 r2 B",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 79.62,
+      "x1": 112.62,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "center"
+    },
+    {
+      "key": "txtDescription11",
+      "item": "Sch1 r2 C",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 112.62,
+      "x1": 187.43,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "left"
+    },
+    {
+      "key": "txtAmountPurchase11",
+      "item": "Sch1 r2 D",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 187.43,
+      "x1": 270.05,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase11",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode11",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription11",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtInputTax11",
+      "item": "Sch1 r2 E",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 270.05,
+      "x1": 336.35,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase11",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode11",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription11",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtEstimatedLife11",
+      "item": "Sch1 r2 F",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 336.35,
+      "x1": 390.27,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase11",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode11",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription11",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtRecognizedLife11",
+      "item": "Sch1 r2 G",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 390.27,
+      "x1": 448.77,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase11",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode11",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription11",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtAllowedInputTax11",
+      "item": "Sch1 r2 H",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 448.77,
+      "x1": 517.9,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase11",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode11",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription11",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtBalanceInputTax11",
+      "item": "Sch1 r2 I",
+      "kind": "text",
+      "page": 2,
+      "y": 265.4,
+      "x0": 517.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDatePurchase11",
+          "equals": ""
+        },
+        {
+          "key": "txtSourceCode11",
+          "equals": ""
+        },
+        {
+          "key": "txtDescription11",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "sched1TotalBalPrev",
+      "item": "Sch1 total E",
+      "kind": "text",
+      "page": 2,
+      "y": 256.5,
+      "x0": 270.05,
+      "x1": 336.35,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right"
+    },
+    {
+      "key": "sched1TotalBalNext",
+      "item": "Sch1 total I",
+      "kind": "text",
+      "page": 2,
+      "y": 256.5,
+      "x0": 517.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right"
+    },
+    {
+      "key": "frm2550qv2024:sched2InputTaxDirect",
+      "item": "Sch2 direct",
+      "kind": "text",
+      "page": 2,
+      "y": 226.8,
+      "x0": 448.77,
+      "x1": 589.7,
+      "size": 8,
+      "minSize": 5,
+      "align": "right"
+    },
+    {
+      "key": "frm2550qv2024:sched2VatExemptSale",
+      "item": "Sch2 exempt sale",
+      "kind": "text",
+      "page": 2,
+      "y": 208.2,
+      "x0": 112.9,
+      "x1": 187.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "center"
+    },
+    {
+      "key": "frm2550qv2024:sched2TotalSales",
+      "item": "Sch2 total sales",
+      "kind": "text",
+      "page": 2,
+      "y": 198.8,
+      "x0": 112.9,
+      "x1": 187.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "center"
+    },
+    {
+      "key": "frm2550qv2024:sched2AmountInputTax",
+      "item": "Sch2 not attributable",
+      "kind": "text",
+      "page": 2,
+      "y": 203.4,
+      "x0": 353.4,
+      "x1": 441.0,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "center"
+    },
+    {
+      "key": "frm2550qv2024:sched2TotalRatable",
+      "item": "Sch2 ratable",
+      "kind": "text",
+      "page": 2,
+      "y": 208.0,
+      "x0": 448.77,
+      "x1": 589.7,
+      "size": 8,
+      "minSize": 5,
+      "align": "right"
+    },
+    {
+      "key": "frm2550qv2024:sched2TotalAttr",
+      "item": "Sch2 total",
+      "kind": "text",
+      "page": 2,
+      "y": 189.3,
+      "x0": 448.77,
+      "x1": 589.7,
+      "size": 8,
+      "minSize": 5,
+      "align": "right"
+    },
+    {
+      "key": "txtDateCovered30",
+      "item": "Sch3 r1 A",
+      "kind": "text",
+      "page": 2,
+      "y": 158.4,
+      "x0": 22.8,
+      "x1": 106.83,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtDateCovered3To0",
+      "kind": "none",
+      "reason": "the paper's Period Covered is one cell; the builder always sends this empty",
+      "expect": "^$"
+    },
+    {
+      "key": "txtNameWithHoldingAgent30",
+      "item": "Sch3 r1 B",
+      "kind": "text",
+      "page": 2,
+      "y": 158.4,
+      "x0": 106.83,
+      "x1": 390.27,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtIncomePayment30",
+      "item": "Sch3 r1 C",
+      "kind": "text",
+      "page": 2,
+      "y": 158.4,
+      "x0": 390.27,
+      "x1": 502.9,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDateCovered30",
+          "equals": ""
+        },
+        {
+          "key": "txtNameWithHoldingAgent30",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtTotalTaxWithHeld30",
+      "item": "Sch3 r1 D",
+      "kind": "text",
+      "page": 2,
+      "y": 158.4,
+      "x0": 502.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDateCovered30",
+          "equals": ""
+        },
+        {
+          "key": "txtNameWithHoldingAgent30",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtDateCovered31",
+      "item": "Sch3 r2 A",
+      "kind": "text",
+      "page": 2,
+      "y": 149.2,
+      "x0": 22.8,
+      "x1": 106.83,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtDateCovered3To1",
+      "kind": "none",
+      "reason": "the paper's Period Covered is one cell; the builder always sends this empty",
+      "expect": "^$"
+    },
+    {
+      "key": "txtNameWithHoldingAgent31",
+      "item": "Sch3 r2 B",
+      "kind": "text",
+      "page": 2,
+      "y": 149.2,
+      "x0": 106.83,
+      "x1": 390.27,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtIncomePayment31",
+      "item": "Sch3 r2 C",
+      "kind": "text",
+      "page": 2,
+      "y": 149.2,
+      "x0": 390.27,
+      "x1": 502.9,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDateCovered31",
+          "equals": ""
+        },
+        {
+          "key": "txtNameWithHoldingAgent31",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtTotalTaxWithHeld31",
+      "item": "Sch3 r2 D",
+      "kind": "text",
+      "page": 2,
+      "y": 149.2,
+      "x0": 502.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDateCovered31",
+          "equals": ""
+        },
+        {
+          "key": "txtNameWithHoldingAgent31",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "sched3TotalIncome",
+      "item": "Sch3 total C",
+      "kind": "text",
+      "page": 2,
+      "y": 139.8,
+      "x0": 390.27,
+      "x1": 502.9,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right"
+    },
+    {
+      "key": "sched3TotalTax",
+      "item": "Sch3 total D",
+      "kind": "text",
+      "page": 2,
+      "y": 139.8,
+      "x0": 502.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right"
+    },
+    {
+      "key": "txtDate40",
+      "item": "Sch4 r1 A",
+      "kind": "text",
+      "page": 2,
+      "y": 110.0,
+      "x0": 22.8,
+      "x1": 106.83,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtDate4To0",
+      "kind": "none",
+      "reason": "the paper's Period Covered is one cell; the builder always sends this empty",
+      "expect": "^$"
+    },
+    {
+      "key": "txtNameOfMiller40",
+      "item": "Sch4 r1 B",
+      "kind": "text",
+      "page": 2,
+      "y": 110.0,
+      "x0": 106.83,
+      "x1": 255.25,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtNameOfTaxpayer40",
+      "item": "Sch4 r1 C",
+      "kind": "text",
+      "page": 2,
+      "y": 110.0,
+      "x0": 255.25,
+      "x1": 390.27,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtOfficialReceiptNumber40",
+      "item": "Sch4 r1 D",
+      "kind": "text",
+      "page": 2,
+      "y": 110.0,
+      "x0": 390.27,
+      "x1": 502.9,
+      "size": 7,
+      "minSize": 4.5,
+      "blankIf": [
+        {
+          "key": "txtDate40",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfMiller40",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfTaxpayer40",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtAmountPaid40",
+      "item": "Sch4 r1 E",
+      "kind": "text",
+      "page": 2,
+      "y": 110.0,
+      "x0": 502.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDate40",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfMiller40",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfTaxpayer40",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtDate41",
+      "item": "Sch4 r2 A",
+      "kind": "text",
+      "page": 2,
+      "y": 101.5,
+      "x0": 22.8,
+      "x1": 106.83,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtDate4To1",
+      "kind": "none",
+      "reason": "the paper's Period Covered is one cell; the builder always sends this empty",
+      "expect": "^$"
+    },
+    {
+      "key": "txtNameOfMiller41",
+      "item": "Sch4 r2 B",
+      "kind": "text",
+      "page": 2,
+      "y": 101.5,
+      "x0": 106.83,
+      "x1": 255.25,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtNameOfTaxpayer41",
+      "item": "Sch4 r2 C",
+      "kind": "text",
+      "page": 2,
+      "y": 101.5,
+      "x0": 255.25,
+      "x1": 390.27,
+      "size": 7,
+      "minSize": 4.5
+    },
+    {
+      "key": "txtOfficialReceiptNumber41",
+      "item": "Sch4 r2 D",
+      "kind": "text",
+      "page": 2,
+      "y": 101.5,
+      "x0": 390.27,
+      "x1": 502.9,
+      "size": 7,
+      "minSize": 4.5,
+      "blankIf": [
+        {
+          "key": "txtDate41",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfMiller41",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfTaxpayer41",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "txtAmountPaid41",
+      "item": "Sch4 r2 E",
+      "kind": "text",
+      "page": 2,
+      "y": 101.5,
+      "x0": 502.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right",
+      "blankIf": [
+        {
+          "key": "txtDate41",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfMiller41",
+          "equals": ""
+        },
+        {
+          "key": "txtNameOfTaxpayer41",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "sched4AmountPaid",
+      "item": "Sch4 total E",
+      "kind": "text",
+      "page": 2,
+      "y": 92.3,
+      "x0": 502.9,
+      "x1": 589.7,
+      "size": 7,
+      "minSize": 4.5,
+      "align": "right"
+    },
+    {
+      "key": "frm2550qv2024:txtCurrentPage",
+      "kind": "none",
+      "reason": "eBIRForms package page cursor, not printed"
+    },
+    {
+      "key": "frm2550qv2024:txtMaxPage",
+      "kind": "none",
+      "reason": "eBIRForms package page count, not printed"
+    },
+    {
+      "key": "resultOtherCreditsNo19",
+      "kind": "none",
+      "reason": "eBIRForms copy of item 19 (printed from otherCreditsNo19)"
+    },
+    {
+      "key": "resultOtherCreditsNo42",
+      "kind": "none",
+      "reason": "eBIRForms copy of item 42B (printed from otherSpecify42)"
+    },
+    {
+      "key": "resultOtherCreditsNo47",
+      "kind": "none",
+      "reason": "eBIRForms copy of item 47B (printed from otherSpecify47B)"
+    },
+    {
+      "key": "resultOtherCreditsNo56",
+      "kind": "none",
+      "reason": "eBIRForms copy of item 56B (printed from otherSpecify56)"
+    },
+    {
+      "key": "txtTotalAmountOfBalanceofInputTaxFromPrevious",
+      "kind": "none",
+      "reason": "eBIRForms copy of the Schedule 1 column E total (printed from sched1TotalBalPrev)"
+    },
+    {
+      "key": "txtTotalAmountOfBalanceofInputTaxToBeCarried",
+      "kind": "none",
+      "reason": "eBIRForms copy of the Schedule 1 column I total (printed from sched1TotalBalNext)"
+    },
+    {
+      "key": "txtTotalAmountofIncomePayment",
+      "kind": "none",
+      "reason": "eBIRForms copy of the Schedule 3 column C total (printed from sched3TotalIncome)"
+    },
+    {
+      "key": "txtTotalAmoungOfTaxWithHeld",
+      "kind": "none",
+      "reason": "eBIRForms copy of the Schedule 3 column D total (printed from sched3TotalTax)"
+    },
+    {
+      "key": "txtAmountPaidSched4",
+      "kind": "none",
+      "reason": "eBIRForms copy of the Schedule 4 column E total (printed from sched4AmountPaid)"
+    },
+    {
+      "key": "txtFinalFlag",
+      "kind": "none",
+      "reason": "eBIRForms package flag (1 = final copy), not printed on the return"
+    },
+    {
+      "key": "txtEnroll",
+      "kind": "none",
+      "reason": "eBIRForms package enrolment flag, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineConfirmUsername",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineUsername",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineSecret",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, never printed"
+    },
+    {
+      "key": "driveSelectTPExport",
+      "kind": "none",
+      "reason": "eBIRForms export-drive setting, not printed on the return"
+    },
+    {
+      "key": "txtEmail",
+      "kind": "none",
+      "reason": "global eBIRForms field the 2550Q builder sends empty; the email prints from taxpayerEmailAddress",
+      "expect": "^$"
+    },
+    {
+      "key": "dateFiled",
+      "kind": "none",
+      "reason": "the paper has no date-filed box"
+    }
+  ]
+}
