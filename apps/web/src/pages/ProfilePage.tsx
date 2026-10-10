@@ -510,7 +510,7 @@ function SecurityCard({ profile }: { profile: Profile }) {
       setSetup(r);
       reset("scan");
       setNotice(null);
-      // Until the new entry is confirmed the account's two-factor is off.
+      // Your current code keeps working until you confirm the new entry.
       await reload();
     },
     onError,
@@ -641,8 +641,12 @@ function SecurityCard({ profile }: { profile: Profile }) {
               <a href={setup.otpauthUrl} className="font-semibold text-blue underline">
                 open it in the app
               </a>
-              . Two-factor sign-in stays off until you confirm the entry&apos;s first
-              code.
+              .{" "}
+              {/* U10 R5: setting it up again leaves two-factor on until the new
+                  entry is confirmed; turning it on the first time, it is off. */}
+              {on
+                ? "Your current code keeps working until you confirm the new entry."
+                : "Two-factor sign-in stays off until you confirm the entry's first code."}
             </p>
             <code className="block break-all rounded-input bg-sidebar px-3 py-2 font-mono text-[13px] text-navy">
               {setup.secret}
