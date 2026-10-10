@@ -95,6 +95,19 @@ export function registeredName(src: NameFields): string {
 }
 
 /**
+ * The name a certificate's payor block prints (W8 R3, D12, D18). A draft prints
+ * the registered name (W7) and nothing else — "" makes the caller refuse to
+ * print. A FILED certificate reprints what was issued and is never refused: the
+ * registered name when its source (the snapshot, or the live client for a form
+ * filed before snapshots) carries the name fields, else that source's
+ * businessName.
+ */
+export function payorPrintName(party: PrintParty, filed: boolean): string {
+  if (party.registeredName) return party.registeredName;
+  return filed ? party.businessName : "";
+}
+
+/**
  * W3 R3: once a form is filed and carries its filing snapshot, every print
  * reads the payor / employer block from the snapshot and never from the client
  * query. A draft — and a form filed before U3, whose snapshot is null — reads

@@ -22,6 +22,7 @@ import {
   peso,
 } from "../components/ui";
 import { McrcMark } from "../components/McrcMark";
+import { EXEMPT_LABEL } from "../lib/regime";
 
 /** Time-of-day greeting from the local hour. */
 function greeting(hour: number): string {
@@ -183,28 +184,56 @@ function UpcomingRow({ item }: { item: DashboardUpcomingFiling }) {
   );
 }
 
-/** Segmented horizontal regime-mix bar (VAT navy / Percentage gold). */
+/** Segmented horizontal regime-mix bar (VAT navy / Percentage gold / Exempt
+ *  neutral). The exempt segment shows once the API sends regimeMix.exempt
+ *  (Track A's U9, W8 R5); without it the bar has its two segments. */
 function RegimeMixBar({ mix }: { mix: DashboardData["regimeMix"] }) {
-  const total = Math.max(mix.vat + mix.percentage, 1);
+  const hasExempt = typeof mix.exempt === "number";
+  const exempt = hasExempt ? (mix.exempt ?? 0) : 0;
+  const total = Math.max(mix.vat + mix.percentage + exempt, 1);
   const vatPct = (mix.vat / total) * 100;
   const pctPct = (mix.percentage / total) * 100;
+  const exemptPct = (exempt / total) * 100;
   return (
     <div>
-      <div className="flex h-3 w-full overflow-hidden rounded-chip bg-line">
+      <div
+        className="flex h-3 w-full overflow-hidden rounded-chip bg-line"
+        data-regime-bar
+      >
         <div className="bg-navy" style={{ width: `${vatPct}%` }} aria-hidden="true" />
         <div className="bg-gold" style={{ width: `${pctPct}%` }} aria-hidden="true" />
+        {hasExempt ? (
+          <div
+            className="bg-neutralchip"
+            style={{ width: `${exemptPct}%` }}
+            aria-hidden="true"
+          />
+        ) : null}
       </div>
-      <div className="mt-3 flex items-center gap-5 text-[12px] text-content-secondary">
-        <span className="flex items-center gap-2">
+      <div
+        className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-content-secondary"
+        data-regime-legend
+      >
+        <span className="flex items-center gap-2" data-regime="vat">
           <span className="h-2.5 w-2.5 rounded-full bg-navy" aria-hidden="true" />
           VAT
           <span className="font-mono text-content">{mix.vat}</span>
         </span>
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2" data-regime="percentage">
           <span className="h-2.5 w-2.5 rounded-full bg-gold" aria-hidden="true" />
           Percentage
           <span className="font-mono text-content">{mix.percentage}</span>
         </span>
+        {hasExempt ? (
+          <span className="flex items-center gap-2" data-regime="exempt">
+            <span
+              className="h-2.5 w-2.5 rounded-full bg-neutralchip"
+              aria-hidden="true"
+            />
+            {EXEMPT_LABEL}
+            <span className="font-mono text-content">{exempt}</span>
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -288,7 +317,8 @@ export default function DashboardPage() {
 
   const data = dashboard.data;
   const kpisAllZero = data.kpis.every((k) => k.value === 0);
-  const regimeEmpty = data.regimeMix.vat + data.regimeMix.percentage === 0;
+  const regimeEmpty =
+    data.regimeMix.vat + data.regimeMix.percentage + (data.regimeMix.exempt ?? 0) === 0;
   const isEmptyFirm = kpisAllZero && regimeEmpty;
 
   if (isEmptyFirm) {

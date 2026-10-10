@@ -1,6 +1,6 @@
 // Parser tests for the COR OCR extractor. The OCR engine itself isn't tested
 // here (it runs in the browser); these lock down parseCorText against the REAL
-// text the deployed app produces. NICHIEVAN and MCRC below are the verbatim
+// text the deployed app produces. SAMPLEVAN and MCRC below are the verbatim
 // Tesseract output of two scanned CORs put through the app's EXACT browser
 // pipeline — pdf.js rasterize at scale 2.4, the app's canvas binarize at
 // threshold 160, and the same standard "eng" model the browser loads from the
@@ -8,29 +8,29 @@
 //
 // These carry the brutal real-world cases: table cells whose type column was
 // entirely destroyed (leaving only "ANNUALLY"), a trade name whose LABEL failed
-// OCR (Nichievan — value on a bare line) and one whose VALUE failed OCR (MCRC —
+// OCR (Samplevan — value on a bare line) and one whose VALUE failed OCR (MCRC —
 // label + date only), plus form codes bleeding after due dates ("...15 0605").
 
 import { describe, expect, it } from "vitest";
 import { parseCorText } from "../parseCor";
 
-// Real browser-pipeline OCR — Nichievan Variety Store (the "TRADE NAME 1"
+// Real browser-pipeline OCR — Samplevan Variety Store (the "TRADE NAME 1"
 // label was lost; the value survives on its own line 31).
-const NICHIEVAN = `~~
+const SAMPLEVAN = `~~
 BIR FORM Iq SE
 2303 REPUBLIKA NG FILIPINAS
 KAGAINARANNES PAN PI
 REVISED: APRIL 2019 KAWAI “NG: [<0 RNAS
 REVENUE REGI! 078 ~EAST NCR
 REVENUE DISTRIC FFG] a - CAINTA-TAYTAY
-~~ OCN: 046RC20240000001287
+~~ OCN: 046RC20240000000101
 Date OCN Generated: February 7, 2024
 CERTIFICATE OF REGISTRATION }
 TIN & BRANCH CODE NAME OF TAXPAYER
-494-097-354-00000 GREGORIO, NICOLE REYES December 21, 2016
+000-111-222-00000 TESTORIO, NICOLA SAMPLE December 21, 2016
 | REGISTERINGOFFICE __ [X [HeadOfice | [Branch
 REGISTERED ADDRESS
-2 PASCO ST. COR. FELIX MANALO AVE. SAN ISIDRO 1900 CAINTA RIZAL PHILIPPINES oo
+2 SAMPLE ST. COR. TEST AVE. SAN ISIDRO 1900 CAINTA RIZAL PHILIPPINES oo
 TAX TYPES FORM FILING FILING FILING DUE DATE
 TYPES | START DATE FREQUENCY
 On or before April 15 of each 7]
@@ -46,7 +46,7 @@ FE GUARTERLY ssa | 2024 QUARTERLY the end of each taxable quarter.
 TAXPAYER TYPE/S SINGLE PROPRIETORSHIP ONLY (RESIDENT CITIZEN)
 BUSINESS INFORMATION DETAILS _
 _ CATEGORY REGISTRATION DATE
-NICHIEVAN VARIETY STORE
+SAMPLEVAN VARIETY STORE
 {PSIC) 47739-OTHER RETAIL SALE OF NEW
 GOODS IN SPECIALIZED STORES, N.E. .
 C. Primary
@@ -65,14 +65,14 @@ const MCRC = `BIR FORM - To
 2303 REPUBLIKA NG PILIPINAS
 REVISED: APRIL 2019 canadian NG. RENTAS MWERNAS
 REVENUE DISTRICT ICE NQi 045 - MARIKINA
-hid OCN: 045RC20230000007782
+hid OCN: 045RC20230000000202
 Date OCN Generated: June 13, 2023
 CERTIFICATE OF REGISTRATION
 TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE
-474-079-835-00000 CANLUBO, CHRISTIAN RIGOR August 25, 2015
+000-033-444-00000 TESTUBO, CHRISANTO EXAMPLO August 25, 2015
 REGISTERING OFFICE X | Head Office Branch
 REGISTERED ADDRESS
-#80 DRAGON ST. SAN ROQUE 1801 CITY OF MARIKINA NCR. SECOND DISTRICT PHILIPPINES
+#80 SAMPLE ST. SAN ROQUE 1801 CITY OF MARIKINA NCR. SECOND DISTRICT PHILIPPINES
 TAX TYPES FORM FILING FILING FILING DUE DATE
 TYPES | START DATE FREQUENCY
 On or before April 15 of each
@@ -98,30 +98,30 @@ AUDITING ACTIVITIES: TAX
 REMINDERS:
 1. An annual registration fee shall be paid using BIR Form No. 0605.`;
 
-describe("parseCorText — real browser pipeline, Nichievan Variety Store", () => {
-  const r = parseCorText(NICHIEVAN);
+describe("parseCorText — real browser pipeline, Samplevan Variety Store", () => {
+  const r = parseCorText(SAMPLEVAN);
 
   it("reads TIN, branch and RDO (RDO from the OCN — the header is seal-damaged)", () => {
-    expect(r.tin).toBe("494097354");
+    expect(r.tin).toBe("000111222");
     expect(r.branch).toBe("00000");
     expect(r.rdo).toBe("046");
   });
 
   it("splits the individual name into last / first / middle", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("GREGORIO");
-    expect(r.firstName).toBe("NICOLE");
-    expect(r.middleName).toBe("REYES");
+    expect(r.lastName).toBe("TESTORIO");
+    expect(r.firstName).toBe("NICOLA");
+    expect(r.middleName).toBe("SAMPLE");
   });
 
   it("reads the address, trims the trailing OCR junk ('oo'), extracts ZIP", () => {
-    expect(r.address).toContain("PASCO ST");
+    expect(r.address).toContain("SAMPLE ST");
     expect(r.address?.endsWith("PHILIPPINES")).toBe(true);
     expect(r.zip).toBe("1900");
   });
 
   it("recovers the trade name even though its LABEL failed OCR", () => {
-    expect(r.tradeName).toBe("NICHIEVAN VARIETY STORE");
+    expect(r.tradeName).toBe("SAMPLEVAN VARIETY STORE");
   });
 
   it("extracts all three tax-type rows despite wrapped/mangled cells", () => {
@@ -141,16 +141,16 @@ describe("parseCorText — real browser pipeline, MCRC (value-loss cases)", () =
   const r = parseCorText(MCRC);
 
   it("reads TIN, branch and RDO", () => {
-    expect(r.tin).toBe("474079835");
+    expect(r.tin).toBe("000033444");
     expect(r.branch).toBe("00000");
     expect(r.rdo).toBe("045");
   });
 
   it("splits the individual name into last / first / middle", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("CANLUBO");
-    expect(r.firstName).toBe("CHRISTIAN");
-    expect(r.middleName).toBe("RIGOR");
+    expect(r.lastName).toBe("TESTUBO");
+    expect(r.firstName).toBe("CHRISANTO");
+    expect(r.middleName).toBe("EXAMPLO");
   });
 
   it("leaves the trade name EMPTY when its value failed OCR (never grabs Line of Business)", () => {
@@ -166,24 +166,24 @@ describe("parseCorText — real browser pipeline, MCRC (value-loss cases)", () =
   });
 });
 
-// Real browser-pipeline OCR — NCV Rice Trading. The trade-name LABEL survives
-// ("TRADE NAME 1 | NCV RICE TRADING") but the CATEGORY|REGISTRATION-DATE header
+// Real browser-pipeline OCR — XYZ Rice Trading. The trade-name LABEL survives
+// ("TRADE NAME 1 | XYZ RICE TRADING") but the CATEGORY|REGISTRATION-DATE header
 // row above it OCR'd to caps garble ("TT camcoAv | recstRaToNDATE"), which a
 // positional scan would wrongly grab. Tier 1 (labelled value) must win.
-const NCV = `BIR FORM aN
+const XYZ = `BIR FORM aN
 2303 - renga dhe
 KAGAWARANNG PANANAL API
 REVISED: APRIL 2019 KAW AN NG RENTAS (INTERNAS
 - REVENUE oro EAST NCR
 REVENUE DISTRIC 0, 03k - CAINTA-TAYTAY
-hl OCN: 046RC20220000003363
+hl OCN: 046RC20220000000303
 Cate CCN Generated: May 27, 2022
 CERTIFICATE OF REGISTRATION
 TiN & BRANCH CODE NAME QF TAXPAYER TIN ISSUANCE DATE
-471-522-378-00000 MARTIN, VANITY ALLEN RODRIGUEZ July 6, 2015
+000-555-666-00000 TESTMAN, SAMPLE ANNE EXAMPLEZ July 6, 2015
 REGISTERING OFFICE [xT Head gtfice [ {Baer 7
 REGISTERED ADDRESS
-BLK 10 LOT 1 OPAL STREET FRANCESCA HOMES SAN ISIDRO 1900 CAINTA RIZAL PHILIPPINES |
+BLK 10 LOT 1 SAMPLE STREET TEST HOMES SAN ISIDRO 1900 CAINTA RIZAL PHILIPPINES |
 TAX TYPES FORM FILING FILING FILING DUE DATE
 TYPES | START DATE FREQUENCY
 On or before April 15 of each
@@ -198,30 +198,30 @@ REGISTRATION FEE EX Januan 1. ANNUALLY On or batars the fast day of
 TAXPAYER TYPE/S SINGLE PROPRIETORSHIP ONLY (RESIDENT CITIZEN
 BUSINESS INFORMATION DETAILS
 TT camcoAv | recstRaToNDATE
-TRADE NAME 1 | NCV RICE TRADING
+TRADE NAME 1 | XYZ RICE TRADING
 47216-RETAIL SALE OF RICE, CORN
 AND OTHER CEREALS Primary
 RICE TRADING
 REMINDERS:
 5. required to file quarterly percentage tax return (BIR Form No. 2551Q) QUARTERLY.`;
 
-describe("parseCorText — real browser pipeline, NCV Rice Trading", () => {
-  const r = parseCorText(NCV);
+describe("parseCorText — real browser pipeline, XYZ Rice Trading", () => {
+  const r = parseCorText(XYZ);
 
   it("reads TIN and RDO (RDO from the OCN — the header is garbled to '03k')", () => {
-    expect(r.tin).toBe("471522378");
+    expect(r.tin).toBe("000555666");
     expect(r.rdo).toBe("046");
   });
 
   it("splits the individual name into last / first / middle", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("MARTIN");
-    expect(r.firstName).toBe("VANITY ALLEN");
-    expect(r.middleName).toBe("RODRIGUEZ");
+    expect(r.lastName).toBe("TESTMAN");
+    expect(r.firstName).toBe("SAMPLE ANNE");
+    expect(r.middleName).toBe("EXAMPLEZ");
   });
 
   it("reads the trade name from the labelled line, not the garbled header row", () => {
-    expect(r.tradeName).toBe("NCV RICE TRADING");
+    expect(r.tradeName).toBe("XYZ RICE TRADING");
   });
 
   it("extracts the three tax-type rows", () => {
@@ -236,12 +236,12 @@ describe("parseCorText — real browser pipeline, NCV Rice Trading", () => {
 describe("parseCorText — synthetic clean scan", () => {
   const CLEAN = `
 REVENUE DISTRICT OFFICE NO. 045 - MARIKINA
-OCN: 045RC20230000007782
+OCN: 045RC20230000000202
 CERTIFICATE OF REGISTRATION
 TIN & BRANCH CODE   NAME OF TAXPAYER   TIN ISSUANCE DATE
-474-079-835-00000   CANLUBO, CHRISTIAN RIGOR   August 25, 2015
+000-033-444-00000   TESTUBO, CHRISANTO EXAMPLO   August 25, 2015
 REGISTERED ADDRESS
-#80 DRAGON ST. SAN ROQUE 1801 CITY OF MARIKINA NCR, SECOND DISTRICT PHILIPPINES
+#80 SAMPLE ST. SAN ROQUE 1801 CITY OF MARIKINA NCR, SECOND DISTRICT PHILIPPINES
 TAX TYPES   FORM TYPES   FILING START DATE   FILING FREQUENCY
 INDIVIDUAL INCOME TAX   1701/1701A   January 1, 2023   ANNUALLY
 INDIVIDUAL INCOME TAX   1701Q   February 3, 2022   QUARTERLY
@@ -333,30 +333,30 @@ describe("parseCorText — adversarial cases", () => {
     );
     expect(r.tradeName).toBe("PRIMARY CARE PHARMACY");
     const glued = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 NICHIE STORE Primary February 7, 2024\n47739-RETAIL",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 SAMPLIE STORE Primary February 7, 2024\n47739-RETAIL",
     );
-    expect(glued.tradeName).toBe("NICHIE STORE");
+    expect(glued.tradeName).toBe("SAMPLIE STORE");
   });
 
-  it("strips leading table-border junk from the trade name ('_| HEBREWS…')", () => {
+  it("strips leading table-border junk from the trade name ('_| TESTWAYS…')", () => {
     // Binarising a faint cell border prepends stray marks to the value.
     const r = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 _| HEBREWS 13-8 MILKTEA SHOP May 16, 2022\n56104-REFRESHMENT",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 _| TESTWAYS 13-8 MILKTEA SHOP May 16, 2022\n56104-REFRESHMENT",
     );
-    expect(r.tradeName).toBe("HEBREWS 13-8 MILKTEA SHOP");
+    expect(r.tradeName).toBe("TESTWAYS 13-8 MILKTEA SHOP");
   });
 
-  it("strips a bracketed border token glued before the trade name ('[_] NCV…')", () => {
+  it("strips a bracketed border token glued before the trade name ('[_] XYZ…')", () => {
     // An EMPTY neighbouring cell's border binarises into "[_]" (seen live on
-    // the NCV Rice Trading COR in the browser pipeline).
+    // the XYZ Rice Trading COR in the browser pipeline).
     const r = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 [_] | NCV RICE TRADING May 27, 2022\n47216-RETAIL",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 [_] | XYZ RICE TRADING May 27, 2022\n47216-RETAIL",
     );
-    expect(r.tradeName).toBe("NCV RICE TRADING");
+    expect(r.tradeName).toBe("XYZ RICE TRADING");
     const braced = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 {_] NCV RICE TRADING May 27, 2022\n47216-RETAIL",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 {_] XYZ RICE TRADING May 27, 2022\n47216-RETAIL",
     );
-    expect(braced.tradeName).toBe("NCV RICE TRADING");
+    expect(braced.tradeName).toBe("XYZ RICE TRADING");
   });
 
   it("treats an individual whose middle name is CO as an individual", () => {
@@ -368,33 +368,35 @@ describe("parseCorText — adversarial cases", () => {
   });
 
   it("still detects comma-less '& CO.' company names", () => {
-    const r = parseCorText("NAME OF TAXPAYER\n123-456-789-00000 SMITH BELL & CO. May 5, 2010");
+    const r = parseCorText(
+      "NAME OF TAXPAYER\n123-456-789-00000 TESTER SAMPLE & CO. May 5, 2010",
+    );
     expect(r.kind).toBe("non-individual");
-    expect(r.regName).toContain("SMITH BELL & CO.");
+    expect(r.regName).toContain("TESTER SAMPLE & CO.");
   });
 });
 
-// Real browser-pipeline OCR — Three M Residential Apartment Rental. The table
-// border binarises into junk GLUED to the values: "_190-784-550-00000" (an
+// Real browser-pipeline OCR — Test M Residential Apartment Rental. The table
+// border binarises into junk GLUED to the values: "_000-777-888-00000" (an
 // underscore is a word char, so a \b-anchored TIN regex silently fails),
-// "| _1-A GRANTS…" on the address, a vowel-less border-garble line
+// "| _1-A SAMPLE…" on the address, a vowel-less border-garble line
 // ("i — TTT TT ;") right under the address, and a lone letter glued after the
 // trade name ("…RENTAL a January 25. 2024").
-const THREE_M = `
+const TEST_M = `
 BIR FORM ’
 2 3 0 3 REPUBLIKA NG PILIFINAS
 " KAGAWARAN NG PANANALAPL
 RE'/ISED: APRIL 2019 KAWANIHAN NG RENTAS INTERNAS
 REVENYE REGION.NG. TA - QUEZON CITY
 REVENUE DISTRICT OFFICE NO. 038 - NORTH QUEZON CITY
-OCN: 038RC20240000000664
+OCN: 038RC20240000000404
 Date OCN Generated: January 25, 2024
 J — ee
 TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE '
-_190-784-550-00000 COMIA, MARJOR'E ALCARAZ December 2, 1999 oo
+_000-777-888-00000 TESTIA, SAMPL'E EXAMPLAZ December 2, 1999 oo
 | REGISTERING OFFICE __ headOffice | |Bramch ~~
 | REGISTERED ADDRESS
-| _1-A GRANTS STREET SANGANDAAN 1116 QUEZON CITY NCR, SECOND DISTRICT PHILIPPINES
+| _1-A SAMPLE STREET SANGANDAAN 1116 QUEZON CITY NCR, SECOND DISTRICT PHILIPPINES
 i — TTT TT ;
 TAX TYPES FORM FILING FILING FILING DUE DATE i
 TYPES | START DATE FREQUENCY |
@@ -412,7 +414,7 @@ TAX 2000 q
 _ TAXPAYER TYPE/S { SINGLE PROPRIETOR SHI TONY RSOENTOMZEN
 BUSINESS INFORMATION DETALS______ ~~~ ———— "1
 ~ eee oo __.___._ CATEGORY | REGISTRATION DATE ;
-TRADE NAME 1__ | THREE M RESIDENTAL APARTMENT RENTAL a January 25. 2024
+TRADE NAME 1__ | TEST M RESIDENTAL APARTMENT RENTAL a January 25. 2024
 (PSIC) 68190-OTHER REA. ESTATE ACTIVITIES
 - | WITH OWN OR LEASED PROPERTY Primary
 | _LineofBusiness [LESSOR ~~ i
@@ -420,31 +422,31 @@ TRADE NAME 1__ | THREE M RESIDENTAL APARTMENT RENTAL a January 25. 2024
 i 1. An annual registration fae shall be said ups» “egistration and every year thereafter on or before the last day
 : of January. using BIR Fo:m No. 0605.`;
 
-describe("parseCorText — real browser pipeline, Three M (border junk glued to values)", () => {
-  const r = parseCorText(THREE_M);
+describe("parseCorText — real browser pipeline, Test M (border junk glued to values)", () => {
+  const r = parseCorText(TEST_M);
 
-  it("reads the TIN despite the glued leading underscore ('_190-784-550-00000')", () => {
-    expect(r.tin).toBe("190784550");
+  it("reads the TIN despite the glued leading underscore ('_000-777-888-00000')", () => {
+    expect(r.tin).toBe("000777888");
     expect(r.branch).toBe("00000");
     expect(r.rdo).toBe("038");
   });
 
   it("splits the name and drops the border junk around it ('_ … oo')", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("COMIA");
-    expect(r.firstName).toBe("MARJOR'E"); // OCR misread of MARJORIE — user-corrected
-    expect(r.middleName).toBe("ALCARAZ");
+    expect(r.lastName).toBe("TESTIA");
+    expect(r.firstName).toBe("SAMPL'E"); // OCR misread of SAMPLIE — user-corrected
+    expect(r.middleName).toBe("EXAMPLAZ");
   });
 
   it("reads the address, strips the leading '| _' and stops at the border-garble line", () => {
     expect(r.address).toBe(
-      "1-A GRANTS STREET SANGANDAAN 1116 QUEZON CITY NCR, SECOND DISTRICT PHILIPPINES",
+      "1-A SAMPLE STREET SANGANDAAN 1116 QUEZON CITY NCR, SECOND DISTRICT PHILIPPINES",
     );
     expect(r.zip).toBe("1116");
   });
 
   it("reads the trade name and drops the lone glued letter ('…RENTAL a')", () => {
-    expect(r.tradeName).toBe("THREE M RESIDENTAL APARTMENT RENTAL");
+    expect(r.tradeName).toBe("TEST M RESIDENTAL APARTMENT RENTAL");
   });
 
   it("extracts all three tax-type rows via form fallbacks ('701A', '28510')", () => {
@@ -458,10 +460,12 @@ describe("parseCorText — real browser pipeline, Three M (border junk glued to 
 
 describe("parseCorText — fuzzy TIN (look-alike letters inside the digit groups)", () => {
   it("maps O/S/B/I misreads back to digits when no clean TIN exists", () => {
-    const r = parseCorText("NAME OF TAXPAYER\n474-O79-835-OOOOO CANLUBO, CHRISTIAN RIGOR");
-    expect(r.tin).toBe("474079835");
+    const r = parseCorText(
+      "NAME OF TAXPAYER\n000-O33-444-OOOOO TESTUBO, CHRISANTO EXAMPLO",
+    );
+    expect(r.tin).toBe("000033444");
     expect(r.branch).toBe("00000");
-    expect(r.lastName).toBe("CANLUBO");
+    expect(r.lastName).toBe("TESTUBO");
   });
 
   it("never fires without the printed dashes (prose stays prose)", () => {
@@ -470,21 +474,21 @@ describe("parseCorText — fuzzy TIN (look-alike letters inside the digit groups
   });
 });
 
-// Real browser-pipeline OCR — a PHONE PHOTO of a COR (Palisoc, dark/skewed
-// scan): the TIN's middle dash reads as a period ("306-344.911-00000"), the
+// Real browser-pipeline OCR — a PHONE PHOTO of a COR (Testisoc, dark/skewed
+// scan): the TIN's middle dash reads as a period ("000-999.111-00000"), the
 // "TAX TYPES" header is destroyed (only "FILING DUE DATE" survives), the
 // address label carries glued border garble ("_— Ea"), and stray ":" / lone
 // letters ride the name line.
-const PALISOC = `
+const TESTISOC = `
 ihm SEE s Re ees ss mess
 Emil Re eh me pT Po EA rg rE pret te EE CIS ES)
 22308 isn E by ERE EE SEE CEE
 on | SLIT RENE pe Ey ONS MARNONA $27 1 20 Tin, mini
 [Ta scHooes TNE or axparen - - TIN TESUANCE DATE HE]
-306-344.911-00000 PALISOC, MARIA EUNICA HAMA} November 12,2010 :
+000-999.111-00000 TESTISOC, SAMPLE EUNIA EXAMA} November 12,2010 :
 {REGSTERNGOFFICE |X, [HeadOMos ._ . | [Bani |
 REGISTERED ADDRESS _— Ea
-BUCS LOTS MONDELLO HOMES GUITHANG BAYAN {POB.) 1850 SAN MATED RIZAL PHILIPPINES
+BUCS LOTS SAMPLE HOMES GUITHANG BAYAN {POB.) 1850 SAN MATED RIZAL PHILIPPINES
 FoAm | Fina FILING. FILING DUE DATE |
 TYPES | START DATE FREQUENCY v
 On or before Apri 15 of each
@@ -496,7 +500,7 @@ batore November 15
 PERCENTAGE TAX - ust Wath
 ee cca
 LT caTecoRY |_AEGETRATONDATE | :
-{ TRADENAME( |WMAMMEUNCAMPALIOC | Apmawzer | :
+{ TRADENAME( |WSAMPEEUNTESTISOC | Apmawzer | :
 TECHNOLOGY AND COMPUTER EEN : =
 SERVICE ACTIVITIES Primary : SENEAN § z
 REMINDERS: pe : ETO TN
@@ -504,24 +508,24 @@ REMINDERS: pe : ETO TN
 of January, using BIR Form No. 0606.
 5. does not exceed P3,000,000 and who opted to avail of the 8% Income tax rate, the tax type Percentage Tax`;
 
-describe("parseCorText — real browser pipeline, phone-photo COR (Palisoc)", () => {
-  const r = parseCorText(PALISOC);
+describe("parseCorText — real browser pipeline, phone-photo COR (Testisoc)", () => {
+  const r = parseCorText(TESTISOC);
 
-  it("reads the TIN through a blurred dash ('306-344.911-00000')", () => {
-    expect(r.tin).toBe("306344911");
+  it("reads the TIN through a blurred dash ('000-999.111-00000')", () => {
+    expect(r.tin).toBe("000999111");
     expect(r.branch).toBe("00000");
   });
 
   it("splits the name and drops the stray ':' and border fragments", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("PALISOC");
-    expect(r.firstName).toBe("MARIA EUNICA");
-    expect(r.middleName).toBe("HAMA"); // OCR-clipped HAMAL — user-corrected
+    expect(r.lastName).toBe("TESTISOC");
+    expect(r.firstName).toBe("SAMPLE EUNIA");
+    expect(r.middleName).toBe("EXAMA"); // OCR-clipped EXAMAL — user-corrected
   });
 
   it("skips the address label's glued garble ('_— Ea') and reads the value line", () => {
     expect(r.address).toBe(
-      "BUCS LOTS MONDELLO HOMES GUITHANG BAYAN {POB.) 1850 SAN MATED RIZAL PHILIPPINES",
+      "BUCS LOTS SAMPLE HOMES GUITHANG BAYAN {POB.) 1850 SAN MATED RIZAL PHILIPPINES",
     );
     expect(r.zip).toBe("1850");
   });
@@ -546,20 +550,20 @@ describe("parseCorText — real browser pipeline, phone-photo COR (Palisoc)", ()
 });
 
 describe("parseCorText — photo-blur name and trade-name damage", () => {
-  it("splits an individual whose comma blurred into a period ('PALISOG. MARIA…')", () => {
-    const r = parseCorText("NAME OF TAXPAYER\nPALISOG. MARIA EUNICA HAMAL");
+  it("splits an individual whose comma blurred into a period ('TESTISOG. SAMPLE…')", () => {
+    const r = parseCorText("NAME OF TAXPAYER\nTESTISOG. SAMPLE EUNIA EXAMAL");
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("PALISOG");
-    expect(r.firstName).toBe("MARIA EUNICA");
-    expect(r.middleName).toBe("HAMAL");
+    expect(r.lastName).toBe("TESTISOG");
+    expect(r.firstName).toBe("SAMPLE EUNIA");
+    expect(r.middleName).toBe("EXAMAL");
   });
 
-  it("drops a short margin-noise token and glued brace before the surname ('IT {GABAYNO')", () => {
-    // Browser-pipeline shape from the Bantito CamScanner COR.
-    const r = parseCorText("NAME OF TAXPAYER\nIT {GABAYNO, TITO JR, FROGOSA");
-    expect(r.lastName).toBe("GABAYNO");
-    expect(r.firstName).toBe("TITO JR");
-    expect(r.middleName).toBe("FROGOSA");
+  it("drops a short margin-noise token and glued brace before the surname ('IT {TESTAYNO')", () => {
+    // Browser-pipeline shape from the Testito ScanApp COR.
+    const r = parseCorText("NAME OF TAXPAYER\nIT {TESTAYNO, TOTO JR, EXAMPOSA");
+    expect(r.lastName).toBe("TESTAYNO");
+    expect(r.firstName).toBe("TOTO JR");
+    expect(r.middleName).toBe("EXAMPOSA");
   });
 
   it("keeps particle surnames intact ('DE GUZMAN', 'DELA CRUZ')", () => {
@@ -571,10 +575,10 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
 
   it("strips quote junk from an address label tail ('\" 1 \"UNIT 85-B …')", () => {
     const r = parseCorText(
-      'REGISTERED ADDRESS " 1 "UNIT 85-B GIF PALAZZO BLDG, 85 PANGRAMA STREET\nTAX TYPES FORM',
+      'REGISTERED ADDRESS " 1 "UNIT 85-B GIF SAMPLEZZO BLDG, 85 TESTGRAMA STREET\nTAX TYPES FORM',
     );
     expect(r.address).not.toContain('"');
-    expect(r.address).toContain("UNIT 85-B GIF PALAZZO");
+    expect(r.address).toContain("UNIT 85-B GIF SAMPLEZZO");
   });
 
   it("keeps 'ST. JOSEPH TRADING' a business name (period rule needs ≥4 letters)", () => {
@@ -585,14 +589,14 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
 
   it("drops a garbled date-column mush token from the trade name ('ASPMWM20E5')", () => {
     const r = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | KRISHIA STORE | ASPMWM20E5 |\n47216-RETAIL",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | SAMPLIA STORE | ASPMWM20E5 |\n47216-RETAIL",
     );
-    expect(r.tradeName).toBe("KRISHIA STORE");
+    expect(r.tradeName).toBe("SAMPLIA STORE");
   });
 
   it("rejects an unbroken-mush trade name rather than displaying it", () => {
     const r = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | MARMEUNCARPALEOC I August 30, 2023\n62090-OTHER",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 | SAMPEUNTESTISOOC I August 30, 2023\n62090-OTHER",
     );
     expect(r.tradeName ?? "").toBe("");
   });
@@ -604,36 +608,36 @@ describe("parseCorText — photo-blur name and trade-name damage", () => {
     expect(r.tradeName).toBe("JUAN TRANSPORTATION SERVICES");
   });
 
-  it("keeps legitimate digit-bearing trade-name tokens ('HEBREWS 13-8', '7ELEVEN')", () => {
+  it("keeps legitimate digit-bearing trade-name tokens ('TESTWAYS 13-8', '7SAMPLE')", () => {
     const a = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 HEBREWS 13-8 MILKTEA SHOP May 16, 2022\n56104-REFRESHMENT",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 TESTWAYS 13-8 MILKTEA SHOP May 16, 2022\n56104-REFRESHMENT",
     );
-    expect(a.tradeName).toBe("HEBREWS 13-8 MILKTEA SHOP");
+    expect(a.tradeName).toBe("TESTWAYS 13-8 MILKTEA SHOP");
     const b = parseCorText(
-      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 7ELEVEN FRANCHISE May 16, 2022\n47110-RETAIL",
+      "BUSINESS INFORMATION DETAILS\nTRADE NAME 1 7SAMPLE FRANCHISE May 16, 2022\n47110-RETAIL",
     );
-    expect(b.tradeName).toBe("7ELEVEN FRANCHISE");
+    expect(b.tradeName).toBe("7SAMPLE FRANCHISE");
   });
 });
 
 // Real pipeline OCR — a dot-noise 2019 COR with the FULLEST tax table yet
-// (Rossan, 9 rows incl. two WHT-Compensation rows and form 1604C): the name
+// (Samsan, 9 rows incl. two WHT-Compensation rows and form 1604C): the name
 // cell carries lowercase dot-noise ("oi vit" — printed values are CAPS), the
 // table header garbles into text that would otherwise be joined onto the
 // address ("ees from | ne TT wef mews" / "TYPES START DATE"), and the
 // page-2 trade name is chased by a colon-terminated junk column ("11: tii").
-const ROSSAN = `
+const SAMSAN = `
 2303 rerio ras
 REVISED: APRIL 2019 KAWANRHAN, NG RENTAR IJVERNAS
 REVENUE DISTRICT OFFICE KO. 05¢.3) ATAJfGAS CITY, WEST BATANGAS
-~~ OCN: 058RC20220000007809
+~~ OCN: 058RC20220000000505
 . Date OCN Generated: September 14, 2022
 © [npn CERTIFICATE OF:REGISTRATION oo.
 TINS BRANCH GODE | | | NAME OF TAXPAYER ~ i "=. | TINISSUANCE DATE
-+ | 224:464-389-00000 .. "PABLO, ROSSAN BUNANIG oi vit |: June 8, 2008 + ©
++ | 000:222-333-00000 .. "TESTLO, SAMSAN EXAMPIG oi vit |: June 8, 2008 + ©
 [REGISTERING OFFICE: © < | X_ | Head Offige'~ ©. onto] pei] Brame ooo oo |
 [REGISTERED ADDRESS ©" "0 © i op SURI IT me st :
-[2102 ASL BUILDING | GALIGANTO 4200 BATANGAS CITY (CARLIAL) BATANGAS PHILIPRINES. . o-oo  -],
+[2102 TST BUILDING | GALIGANTO 4200 BATANGAS CITY (CARLIAL) BATANGAS PHILIPRINES. . o-oo  -],
 | ees from | ne TT wef mews |
 CET nan TYPES" | START DATE Gr EREQUENGY: tin fuss ciprana ns ne mma) ©
 i INDIVIDUAL INGOME: ATOLL. Co Januan chi SR ANNOAELYE 1 year coveringlincome forthe = 1
@@ -649,36 +653,36 @@ Hl WITHHOLDING TAX bafal: [| Sepa | 2 AMONTRLY 1 i month ollowing the month in. 
 ofr EAPANDEDIOTEIERS | ils wo BURR aa Bd Si owt Ws wifi which withholding was made... | 31
 TAXPAYER TYPE/S SINGLE PROPRIETORSHIP ONLY (RESIDENT CITIZEN)
 BUSINESS INFORMATION DETAILS, 2 521i. fo Sims pia fo Menniens rey
-i+ [4 TRADENAME 1: :[:ROSSAN AESTHETIC. AND WELLNESS SERVICES, 11: tii oC bh iSepteniber 14,2092. 1050 1h cite
+i+ [4 TRADENAME 1: :[:SAMSAN AESTHETIC. AND WELLNESS SERVICES, 11: tii oC bh iSepteniber 14,2092. 1050 1h cite
 i: [Line of Business; | AESTHETIC AND WELLNESS SERVICES alii tas mit) bt Grp
 REMINDERS:
 1. Filing of required tax return/s to conform with the above tax types.`;
 
-describe("parseCorText — dot-noise 2019 COR with the full WHT table (Rossan)", () => {
-  const r = parseCorText(ROSSAN);
+describe("parseCorText — dot-noise 2019 COR with the full WHT table (Samsan)", () => {
+  const r = parseCorText(SAMSAN);
 
   it("reads TIN (':' first separator) and the RDO from the OCN", () => {
-    expect(r.tin).toBe("224464389");
+    expect(r.tin).toBe("000222333");
     expect(r.branch).toBe("00000");
     expect(r.rdo).toBe("058");
   });
 
   it("drops lowercase dot-noise from the CAPS name ('oi vit')", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("PABLO");
-    expect(r.firstName).toBe("ROSSAN");
-    expect(r.middleName).toBe("BUNANIG");
+    expect(r.lastName).toBe("TESTLO");
+    expect(r.firstName).toBe("SAMSAN");
+    expect(r.middleName).toBe("EXAMPIG");
   });
 
   it("stops the address before the garbled table header and keeps ZIP 4200", () => {
     expect(r.address).toBe(
-      "2102 ASL BUILDING GALIGANTO 4200 BATANGAS CITY (CARLIAL) BATANGAS PHILIPRINES.",
+      "2102 TST BUILDING GALIGANTO 4200 BATANGAS CITY (CARLIAL) BATANGAS PHILIPRINES.",
     );
     expect(r.zip).toBe("4200");
   });
 
   it("cuts the page-2 trade name at the colon-terminated junk column", () => {
-    expect(r.tradeName).toBe("ROSSAN AESTHETIC. AND WELLNESS SERVICES");
+    expect(r.tradeName).toBe("SAMSAN AESTHETIC. AND WELLNESS SERVICES");
   });
 
   it("recovers 5 tax rows (incl. WHT-Compensation and 'INGOME' garble)", () => {
@@ -757,23 +761,23 @@ describe("parseCorText — alphanumeric RDO + house-number ZIP (invented taxpaye
   });
 });
 
-// Real pipeline OCR — a CamScanner COR (Bantito) whose compression fills every
+// Real pipeline OCR — a ScanApp COR (Testito) whose compression fills every
 // line with dot-noise and MARGIN columns ("To … Co" flanking each row): the
-// TIN's branch separator reads ":" ("628-201-853:00000"), curly quotes glue to
-// the surname ("‘| 'GABAYNO"), the issuance date uses ";" ("June 15;2023"),
+// TIN's branch separator reads ":" ("000-444-555:00000"), curly quotes glue to
+// the surname ("‘| 'TESTAYNO"), the issuance date uses ";" ("June 15;2023"),
 // the table header is destroyed except "START DATE", the WHT rows garble to
 // "THHOLDING"/"PANDEDIOTHERS", and the trade name is flanked by border junk
-// ('U". [ TRADENAMEI | BANTITO … +." =: © Jiro 15,2023').
-const BANTITO = `
+// ('U". [ TRADENAMEI | TESTITO … +." =: © Jiro 15,2023').
+const TESTITO = `
 BIR FORM 2303 REPUBLIKA NG BiLBINAS
 REVENUE DISTRICT OF CE Nf 045 - MARIKINA
-OCN: 045RC20230000007861 01, =
+OCN: 045RC20230000000606 01, =
 Date OCN Generated: Junie 15,2023. "©;
 TIN & BRANCH CODE "ii: © NAME OF TAXPAYER EE TINISSUANCE DATE "71 7}. 0
-To |._628-201-853:00000 © ii: ‘| 'GABAYNO,.TITO JR. FROGOSA June 15;2023 (i TL. Co
+To |._000-444-555:00000 © ii: ‘| 'TESTAYNO,.TOTO JR. EXAMPOSA June 15;2023 (i TL. Co
 © [REGISTERING OFFICE + |X Head Ofice TT {Bmnch  .  w oo
 : I" REGISTERED ADDRESS ™' © | Te : EERE So
-© 1TTUNIT 85-B GIF PALAZZO 1 BLDG: 85 PANORAMA STREET RANCHO ESTATE iit. CONCEPCION DOS 181. |
+© 1TTUNIT 85-B GIF SAMPLEZZO 1 BLDG: 85 TESTRAMA STREET TESTO ESTATE iit. CONCEPCION DOS 181. |
 I. |_CITV OF MARIKINA'NGR, SECOND DISTRICT PHILIPPINES 7+.» * leo niin, Bh oo)
 Cobo saci UBL TYPES START DATE | CPREQUENCY.. fcc tv id Si
 ; INDIVIDUAL INCOME: 1 HOWIT 1% darian | 7 CANNUALLY, "|" yoar covering Income for he: |.
@@ -790,35 +794,35 @@ Canin [EXPANDED/OTHERS fn 1604E e024 o fits rn ANNUALLY. 71]: subject to expande
 CH PAVER TYPES |-SINGLE PROPRIETORSHIP'ONLY.[RESIDENT CITIZEN) tn +» otf ini
 | BUSINESS INFORMATION DETAILS (i colori cir i nr © nt Co
 Co igo io © [7 CATEGORY | REGISTRATION DATE He
-U". [ TRADENAMEI | BANTITO CONSUMER GOODSTRADING +." =: © Jiro 15,2023: EE EE
+U". [ TRADENAMEI | TESTITO CONSUMER GOODSTRADING +." =: © Jiro 15,2023: EE EE
 co (PSIC) | || 47212-RETAICSALEOF EGGSAND:: 12. | 01 n o EE EE SE
 Line of Business _| RETAIL SALE.QF.FOOD PRODUCTS, N- |" toi | i ofr
-Scanned with CamScanner`;
+Scanned with ScanApp`;
 
-describe("parseCorText — CamScanner dot-noise COR (Bantito)", () => {
-  const r = parseCorText(BANTITO);
+describe("parseCorText — ScanApp dot-noise COR (Testito)", () => {
+  const r = parseCorText(TESTITO);
 
   it("reads the TIN through the ':' branch separator", () => {
-    expect(r.tin).toBe("628201853");
+    expect(r.tin).toBe("000444555");
     expect(r.branch).toBe("00000");
     expect(r.rdo).toBe("045");
   });
 
   it("slices the name between TIN and date, dropping margin garble and curly quotes", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("GABAYNO");
-    expect(r.firstName).toBe("TITO JR.");
-    expect(r.middleName).toBe("FROGOSA");
+    expect(r.lastName).toBe("TESTAYNO");
+    expect(r.firstName).toBe("TOTO JR.");
+    expect(r.middleName).toBe("EXAMPOSA");
   });
 
   it("skips the digit-less garbled label tail and reads the address lines", () => {
-    expect(r.address).toContain("85-B GIF PALAZZO");
+    expect(r.address).toContain("85-B GIF SAMPLEZZO");
     expect(r.address).toContain("SECOND DISTRICT PHILIPPINES");
     expect(r.address).not.toContain("EERE");
   });
 
   it("reads the trade name between the border junk ('U\". [ … +.\" =:')", () => {
-    expect(r.tradeName).toBe("BANTITO CONSUMER GOODSTRADING");
+    expect(r.tradeName).toBe("TESTITO CONSUMER GOODSTRADING");
   });
 
   it("recovers WHT + VAT rows from 'THHOLDING'/'PANDEDIOTHERS'/'ADDEDITAX' garble", () => {
@@ -832,15 +836,15 @@ describe("parseCorText — CamScanner dot-noise COR (Bantito)", () => {
   });
 });
 
-// 1997-revision layout (Gutierrez) — real browser-pipeline OCR of a typewriter
-// COR: TIN separator garbled to "~" ("165~502-880-000"), the RDO header reads
+// 1997-revision layout (Testierrez) — real browser-pipeline OCR of a typewriter
+// COR: TIN separator garbled to "~" ("000~666-777-000"), the RDO header reads
 // "REVENUL DISTRICT $04" (no OFFICE NO., "$" for the leading 0, OCN useless:
 // "ARCODOTATETTT"), the address has NO "PHILIPPINES" and runs into
 // "REGISTERED ACTIVITY(IES)", TAX TYPE lists bare type names (no form table),
 // TRADE NAME and LINE OF BUSINESS are SIDE-BY-SIDE column headers with the
 // value on the next line, and the boilerplate filing-calendar grid below
 // (with "PLRCENTAGE TAX" and "0605") must NOT leak into the tax types.
-const GUTIERREZ = `
+const TESTIERREZ = `
 REPUBLIKA NG PILIPINAS
 KAGAWARAN NG PANANALAPI
 KAWANTHAN NG RENTAS INTERNAS
@@ -851,9 +855,9 @@ Revised July 1997 OCN
 ' ARCODOTATETTT
 CERTIFICATE OF REGISTRATION
 TIN NAME REGISTRATION DATE
-165~502-880-000 | FRR MARLEN A 8/20
+000~666-777-000 | TST SAMPLO A 8/20
 REGISTERED ADDRESS
-PULO SAN ISIDRO
+TESTO SAN ISIDRO
 NUEVA ECIJA 3106
 REGISTERED ACTIVITY(IES)
 TAX TYPE
@@ -861,21 +865,21 @@ INCOME TAX . REGISTRATION FEE
 VALUE - ADDED TAX
 TRADE NAME 1 LINE OF BUSINESS / INDUSTRY
 }
-MS GUTIERREZ ART & CRAFTS | 7499 OTHER BUSINESS ACTIVITIES,
+MS TESTIERREZ ART & CRAFTS | 7499 OTHER BUSINESS ACTIVITIES,
 f N.E.C.
 PROPRIEYOR [Factnership/ Assodation PLRCENTAGE TAX RENCWAL DF ANNUAL NEG LSTRATION FEE ON OR
 [LZR { A" ST SL IaARY 38 US a 0 0605
 THEREBY CERTIFY THAT THE ABOVE NAMED PERSON IS REGISTERED AS
 INDICATED ABOVE. UNDER THE PROVISIONS OF THE NATIONAL INTERNAL
 REVENUE CODE, AS AMENDED.
-RDO DRY SEAL GIL B. VINLUAN, JR. a
+RDO DRY SEAL SAM B. TESTUAN, JR. a
 REVENUL DISTRICT OFFICER (signature over printed name)`;
 
-describe("parseCorText — 1997 revision layout (Gutierrez)", () => {
-  const r = parseCorText(GUTIERREZ);
+describe("parseCorText — 1997 revision layout (Testierrez)", () => {
+  const r = parseCorText(TESTIERREZ);
 
   it("reads the full TIN through the '~' separator (fuzzy sees the whole run)", () => {
-    expect(r.tin).toBe("165502880");
+    expect(r.tin).toBe("000666777");
     expect(r.branch).toBe("000");
   });
 
@@ -884,12 +888,12 @@ describe("parseCorText — 1997 revision layout (Gutierrez)", () => {
   });
 
   it("stops the address at REGISTERED ACTIVITY(IES) — no PHILIPPINES on this form", () => {
-    expect(r.address).toBe("PULO SAN ISIDRO NUEVA ECIJA 3106");
+    expect(r.address).toBe("TESTO SAN ISIDRO NUEVA ECIJA 3106");
     expect(r.zip).toBe("3106");
   });
 
   it("reads the trade name from the line BELOW the side-by-side headers", () => {
-    expect(r.tradeName).toBe("MS GUTIERREZ ART & CRAFTS");
+    expect(r.tradeName).toBe("MS TESTIERREZ ART & CRAFTS");
   });
 
   it("lists the bare TAX TYPE names without leaking the calendar grid", () => {
@@ -901,25 +905,25 @@ describe("parseCorText — 1997 revision layout (Gutierrez)", () => {
   });
 });
 
-// AUGUST-2024 revision layout (Flores): TAXPAYER TYPE/S moves up into the
+// AUGUST-2024 revision layout (Testres): TAXPAYER TYPE/S moves up into the
 // header block, an "AVAILED OF 8% INCOME TAX RATE OPTION?" row prints under
 // the table, the form cell wraps ("1701/17 01A/170 1MS"), the address STARTS
-// with a 4-digit house number (3723 — the ZIP 1400 comes later), and photo
+// with a 4-digit house number (5150 — the ZIP 1400 comes later), and photo
 // garble leaks TIN fragments in front of the surname.
-const FLORES = `BIR FORM
+const TESTRES = `BIR FORM
 2303 REPUBLIKA NG PILIPINAS
 REVISED: AUGUST 2024 KAWANIHAN NG RENTAS INTERNAS
 REVENUE REGION NO. 005 - CAMANAVA AND BULACAN
 REVENUE DISTRICT OFFICE NO. 027 - CALOOCAN CITY
-OCN: 027RC20260000001014
+OCN: 027RC20260000000707
 Date OCN Generated: January 30, 2026
 CERTIFICATE OF REGISTRATION
 TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE
-L852: 528-538-00000 FLORES, RONORA GRACE SEALANA June 25, 2024
+L00: 888-999-00000 TESTRES, SAMPLA JOY EXAMLANA June 25, 2024
 TAXPAYER TYPE/S PROFESSIONAL - IN GENERAL
 REGISTERING OFFICE X Head Office Branch
 REGISTERED ADDRESS
-COE 3723 DAHLIA STREET SAMPAGUITA SUBD BARANGAY 178 CAMARIN 1400 CITY OF CALOOCAN NCR,
+COE 5150 SAMPLE STREET TEST SUBD BARANGAY 178 CAMARIN 1400 CITY OF CALOOCAN NCR,
 THIRD DISTRICT PHILIPPINES
 TAX TYPES FORM TYPES FILING START DATE FILING FREQUENCY
 INDIVIDUAL INCOME TAX 1701Q January 30, 2026 QUARTERLY
@@ -928,25 +932,25 @@ PERCENTAGE TAX - QUARTERLY 2551Q January 30, 2026 QUARTERLY
 AVAILED OF 8% INCOME TAX RATE OPTION? Yes No
 BUSINESS INFORMATION DETAILS
 CATEGORY REGISTRATION DATE
-TRADE NAME 1 RONORA GRACE S. FLORES January 30, 2026
+TRADE NAME 1 SAMPLA JOY E. TESTRES January 30, 2026
 (PSIC) 82990-OTHER BUSINESS SUPPORT
 SERVICE ACTIVITIES, N.E.C. Primary
 Line of Business VIRTUAL ASSISTANT
 REMINDERS:
 1. Filing of required tax return/s to conform with the above tax types.`;
 
-describe("parseCorText — August-2024 revision layout (Flores)", () => {
-  const r = parseCorText(FLORES);
+describe("parseCorText — August-2024 revision layout (Testres)", () => {
+  const r = parseCorText(TESTRES);
 
-  it("drops leading TIN garble from the surname ('L852: … FLORES')", () => {
+  it("drops leading TIN garble from the surname ('L00: … TESTRES')", () => {
     expect(r.kind).toBe("individual");
-    expect(r.lastName).toBe("FLORES");
-    expect(r.firstName).toBe("RONORA GRACE");
-    expect(r.middleName).toBe("SEALANA");
+    expect(r.lastName).toBe("TESTRES");
+    expect(r.firstName).toBe("SAMPLA JOY");
+    expect(r.middleName).toBe("EXAMLANA");
   });
 
   it("takes the LAST 4-digit run as the ZIP, not the house number", () => {
-    expect(r.address).toContain("3723 DAHLIA STREET");
+    expect(r.address).toContain("5150 SAMPLE STREET");
     expect(r.address).toContain("1400 CITY OF CALOOCAN");
     expect(r.zip).toBe("1400");
   });
@@ -960,35 +964,35 @@ describe("parseCorText — August-2024 revision layout (Flores)", () => {
   });
 
   it("reads the trade name and RDO on the new layout", () => {
-    expect(r.tradeName).toBe("RONORA GRACE S. FLORES");
+    expect(r.tradeName).toBe("SAMPLA JOY E. TESTRES");
     expect(r.rdo).toBe("027");
   });
 
-  it("recovers the TIN through a blurred colon separator ('652: 528-538-00000')", () => {
-    const c = parseCorText("TIN & BRANCH CODE\n652: 528-538-00000 FLORES, RONORA");
-    expect(c.tin).toBe("652528538");
+  it("recovers the TIN through a blurred colon separator ('000: 888-999-00000')", () => {
+    const c = parseCorText("TIN & BRANCH CODE\n000: 888-999-00000 TESTRES, SAMPLA");
+    expect(c.tin).toBe("000888999");
     expect(c.branch).toBe("00000");
   });
 });
 
-// 2019-revision layout (SAGD Development OPC): the label prints as
+// 2019-revision layout (TSTD Development OPC): the label prints as
 // "REGISTERING ADDRESS" (not REGISTERED), the address wraps onto a second
 // line, and BIR fills blank address components with "N.A." segments.
-const SAGD = `BIR FORM
+const TSTD = `BIR FORM
 2303 REPUBLIKA NG PILIPINAS
 KAGAWARAN NG PANANALAPI
 REVISED: APRIL 2019
 KAWANIHAN NG RENTAS INTERNAS
 REVENUE REGION NO. 07A - QUEZON CITY
 REVENUE DISTRICT OFFICE NO. 038 - NORTH QUEZON CITY
-OCN: CRC2383874018
+OCN: CRC0000000808
 Date OCN Generated: August 10, 2023
 CERTIFICATE OF REGISTRATION
 TIN & BRANCH CODE NAME OF TAXPAYER TIN ISSUANCE DATE
-010-764-944-000 SAGD DEVELOPMENT OPC August 09, 2023
+000-123-456-000 TSTD DEVELOPMENT OPC August 09, 2023
 REGISTERING OFFICE X Head Office Branch
 REGISTERING ADDRESS
-N.A., N.A., 25, MANALO ST, N.A., DEL MONTE, N.A., 1105, QUEZON CITY, SECOND DISTRICT,
+N.A., N.A., 25, SAMPLE ST, N.A., DEL MONTE, N.A., 1105, QUEZON CITY, SECOND DISTRICT,
 PHILIPPINES
 TAX TYPES FORM FILING FILING FILING DUE DATE
 TYPES START DATE FREQUENCY
@@ -999,14 +1003,16 @@ FEE 2024
 `;
 
 describe("parseCorText — 2019 revision: REGISTERING ADDRESS, wrapped, N.A. segments", () => {
-  const r = parseCorText(SAGD);
+  const r = parseCorText(TSTD);
 
   it("reads the REGISTERING ADDRESS label (not just REGISTERED)", () => {
     expect(r.address).toBeTruthy();
   });
 
   it("joins the wrapped second line and drops every N.A. segment", () => {
-    expect(r.address).toBe("25, MANALO ST, DEL MONTE, 1105, QUEZON CITY, SECOND DISTRICT, PHILIPPINES");
+    expect(r.address).toBe(
+      "25, SAMPLE ST, DEL MONTE, 1105, QUEZON CITY, SECOND DISTRICT, PHILIPPINES",
+    );
     expect(r.address).not.toContain("N.A");
   });
 
@@ -1015,9 +1021,9 @@ describe("parseCorText — 2019 revision: REGISTERING ADDRESS, wrapped, N.A. seg
   });
 
   it("keeps the neighbouring fields intact", () => {
-    expect(r.tin).toBe("010764944");
+    expect(r.tin).toBe("000123456");
     expect(r.branch).toBe("000");
-    expect(r.regName).toBe("SAGD DEVELOPMENT OPC");
+    expect(r.regName).toBe("TSTD DEVELOPMENT OPC");
     expect(r.rdo).toBe("038");
   });
 });

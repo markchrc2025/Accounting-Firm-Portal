@@ -29,6 +29,9 @@ import {
 } from "../components/ui";
 import { SettingsTabs } from "../components/SettingsTabs";
 import { RolesManager } from "../components/RolesManager";
+import { UserClientsDialog } from "../components/UserClientsDialog";
+import { permittedFor } from "../lib/permissions";
+import { clientsLabel, isFirmUser, isSuperAdmin } from "../lib/userClients";
 
 /** Two-letter initials from a person's name (mirrors the dashboard mark). */
 function initials(name: string): string {
@@ -88,14 +91,23 @@ const CAPABILITY_MATRIX: CapabilityRow[] = [
 ];
 
 export default function UsersPage() {
-  const { hasPermission, user: me } = useAuth();
+  const { hasPermission, permissions, user: me } = useAuth();
   const queryClient = useQueryClient();
   const canInvite = hasPermission("Users:Create");
   const canManage = hasPermission("Users:Update");
   const canDelete = hasPermission("Users:Delete");
   const canAssignRoles = hasPermission("Roles:Assign");
   const canConfigureRoles = hasPermission("Roles:Configure");
-  const showActions = canManage || canDelete;
+  // W8 R1 (D42): giving a user their clients needs Roles:Assign AND
+  // Clients:ViewAll, both firm-wide — the server's gate on assign-clients.
+  const canAssignClients =
+    permittedFor(permissions, "Roles:Assign", null) &&
+    permittedFor(permissions, "Clients:ViewAll", null);
+  const showActions = canManage || canDelete || canAssignClients;
+  /** A Super Admin sees every client; portal users are never assigned any. */
+  const assignable = (u: FirmUserSummary) =>
+    canAssignClients && isFirmUser(u) && !isSuperAdmin(u);
+  const [clientsUser, setClientsUser] = useState<FirmUserSummary | null>(null);
   const users = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const [inviteOpen, setInviteOpen] = useState(false);
   const [profileUser, setProfileUser] = useState<FirmUserSummary | null>(null);
@@ -180,6 +192,7 @@ export default function UsersPage() {
                       <th className="px-6 py-2.5 font-semibold">User</th>
                       <th className="px-6 py-2.5 font-semibold">Email</th>
                       <th className="px-6 py-2.5 font-semibold">Role</th>
+                      <th className="px-6 py-2.5 font-semibold">Clients</th>
                       <th className="px-6 py-2.5 font-semibold">MFA</th>
                       <th className="px-6 py-2.5 font-semibold">Status</th>
                       {showActions ? (
@@ -250,6 +263,12 @@ export default function UsersPage() {
                               <span className="text-content-muted">—</span>
                             )}
                           </td>
+                          <td
+                            className="whitespace-nowrap px-6 py-3 text-content-secondary"
+                            data-col="clients"
+                          >
+                            {clientsLabel(u)}
+                          </td>
                           <td className="px-6 py-3">
                             {u.mfaEnabled ? (
                               <Chip variant="success">Enrolled</Chip>
@@ -266,56 +285,68 @@ export default function UsersPage() {
                           </td>
                           {showActions ? (
                             <td className="px-6 py-3">
-                              {u.id === me?.id ? (
-                                // No self-service deactivate/delete — that would lock
-                                // you out of your own firm. Manage yourself in Profile.
-                                <span className="block text-right text-[11px] uppercase tracking-wide text-content-muted">
-                                  You
-                                </span>
-                              ) : (
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {canManage ? (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={actionBusy}
-                                      onClick={() =>
-                                        setStatus.mutate({
-                                          id: u.id,
-                                          status:
-                                            u.status?.toUpperCase() === "ACTIVE"
-                                              ? "DISABLED"
-                                              : "ACTIVE",
-                                        })
-                                      }
-                                    >
-                                      {u.status?.toUpperCase() === "ACTIVE"
-                                        ? "Deactivate"
-                                        : "Reactivate"}
-                                    </Button>
-                                  ) : null}
-                                  {canDelete ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-danger hover:bg-danger-bg"
-                                      disabled={actionBusy}
-                                      onClick={() => {
-                                        setActionError(null);
-                                        if (
-                                          window.confirm(
-                                            `Delete ${u.fullName}? This permanently removes their account and cannot be undone.`,
-                                          )
-                                        ) {
-                                          removeUser.mutate(u.id);
+                              <div className="flex items-center justify-end gap-1.5">
+                                {assignable(u) ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setClientsUser(u)}
+                                    aria-haspopup="dialog"
+                                  >
+                                    Clients
+                                  </Button>
+                                ) : null}
+                                {u.id === me?.id ? (
+                                  // No self-service deactivate/delete — that would lock
+                                  // you out of your own firm. Manage yourself in Profile.
+                                  <span className="block text-right text-[11px] uppercase tracking-wide text-content-muted">
+                                    You
+                                  </span>
+                                ) : (
+                                  <>
+                                    {canManage ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={actionBusy}
+                                        onClick={() =>
+                                          setStatus.mutate({
+                                            id: u.id,
+                                            status:
+                                              u.status?.toUpperCase() === "ACTIVE"
+                                                ? "DISABLED"
+                                                : "ACTIVE",
+                                          })
                                         }
-                                      }}
-                                    >
-                                      Delete
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              )}
+                                      >
+                                        {u.status?.toUpperCase() === "ACTIVE"
+                                          ? "Deactivate"
+                                          : "Reactivate"}
+                                      </Button>
+                                    ) : null}
+                                    {canDelete ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-danger hover:bg-danger-bg"
+                                        disabled={actionBusy}
+                                        onClick={() => {
+                                          setActionError(null);
+                                          if (
+                                            window.confirm(
+                                              `Delete ${u.fullName}? This permanently removes their account and cannot be undone.`,
+                                            )
+                                          ) {
+                                            removeUser.mutate(u.id);
+                                          }
+                                        }}
+                                      >
+                                        Delete
+                                      </Button>
+                                    ) : null}
+                                  </>
+                                )}
+                              </div>
                             </td>
                           ) : null}
                         </tr>
@@ -378,6 +409,9 @@ export default function UsersPage() {
       </div>
 
       {inviteOpen && <InviteUserModal onClose={() => setInviteOpen(false)} />}
+      {clientsUser ? (
+        <UserClientsDialog user={clientsUser} onClose={() => setClientsUser(null)} />
+      ) : null}
       {profileUser && (
         <UserProfileModal user={profileUser} onClose={() => setProfileUser(null)} />
       )}

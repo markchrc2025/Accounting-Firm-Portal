@@ -105,7 +105,7 @@ const TIN_SRC = String.raw`\d{3}\s*[-–—]?\s*\d{3}\s*[-–—]?\s*\d{3}\s*(?:
 // never on prose — and the lookarounds keep it off longer runs like the OCN.
 const DIGITISH = String.raw`[0-9OQDILSBZG]`;
 // Blur/typewriter scans turn a dash into "." / "," / ":" / "~"
-// ("306-344.911-00000", "652: 528-538-00000", "165~502-880-000"), so the
+// ("000-999.111-00000", "000: 888-999-00000", "000~666-777-000"), so the
 // separator class admits them — but a candidate is only ACCEPTED when at
 // least one real dash survives (checked at the match site), so a plain
 // thousands number ("345,678,901") can never read as a TIN.
@@ -154,8 +154,8 @@ function valueAfter(lines: string[], labelRe: RegExp): string {
 }
 
 /** Strip TIN runs, dates and header words so a candidate string is just a name.
- *  Table borders binarise into junk glued to the name cell ("_190-… COMIA,
- *  MARJORIE ALCARAZ … oo"), so edge marks and O/0/underscore junk TOKENS are
+ *  Table borders binarise into junk glued to the name cell ("_000-… TESTIA,
+ *  SAMPL'E EXAMPLAZ … oo"), so edge marks and O/0/underscore junk TOKENS are
  *  dropped too — but only at the edges, and never a trailing "." (it belongs
  *  to a "JR." suffix). */
 function cleanName(s: string): string {
@@ -190,12 +190,12 @@ function cleanName(s: string): string {
 function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void {
   out.kind = "individual";
   // TIN garble the cleaners couldn't fully strip leaks in FRONT of the
-  // surname ("L852: 00 FLORES") — surnames never contain digits or colons,
+  // surname ("L00: 00 TESTRES") — surnames never contain digits or colons,
   // so leading tokens carrying them are junk.
   const lastToks = last.trim().split(/\s+/).filter(Boolean);
   while (lastToks.length > 1 && /[\d:]/.test(lastToks[0]!)) lastToks.shift();
   // Margin garble also lands as short letter tokens before the surname
-  // ("IT {GABAYNO"). Multi-token surnames always start with a particle
+  // ("IT {TESTAYNO"). Multi-token surnames always start with a particle
   // (DELA CRUZ, DE GUZMAN, SAN JUAN) — a non-particle <=2-char or
   // junk-bearing lead token is noise. Single-token surnames (GO, SY, UY)
   // are never touched.
@@ -207,7 +207,7 @@ function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void
   ) {
     lastToks.shift();
   }
-  // Scan noise glues quotes/braces/periods to name parts ("'GABAYNO", "{GABAYNO").
+  // Scan noise glues quotes/braces/periods to name parts ("'TESTAYNO", "{TESTAYNO").
   out.lastName = lastToks.join(" ").replace(/^['".,‘’“”{}[\]|]+/, "");
   const rest = restRaw
     .trim()
@@ -225,61 +225,66 @@ function splitIndividual(out: ExtractedCor, last: string, restRaw: string): void
 
 /** Clean a trade-name candidate: drop glued registration dates, PSIC tags,
  *  the glued CATEGORY column value and separator junk. Table-cell borders
- *  binarise into leading marks ("_| HEBREWS…"), so the leading strip class
+ *  binarise into leading marks ("_| TESTWAYS…"), so the leading strip class
  *  mirrors the trailing one (includes `_ ~ © ®`). Both are edge-anchored, so an
  *  internal hyphen ("13-8") is untouched and the CATEGORY strip is END-anchored
  *  only — "PRIMARY CARE PHARMACY" is a real trade name and keeps its first word. */
 function cleanTradeName(s: string): string {
-  return s
-    .replace(new RegExp(DATE_SRC, "g"), " ")
-    .replace(/[({[]\s*PSIC\s*[)}\]]?/g, " ")
-    // Cell separators aren't part of a name; a garbled REGISTRATION-DATE
-    // column shows up as a letters+digits mush token ("ASPMWM20E5") — drop
-    // tokens with digit→letter AND letter→digit transitions ("13-8", "1-A",
-    // "7ELEVEN" and pure numbers are untouched).
-    .replace(/\|/g, " ")
-    .replace(/(?:^|\s)(?=\S*[0-9][A-Z])(?=\S*[A-Z][0-9])\S{4,}/g, " ")
-    .replace(/(?:\s*\b(?:PRIMARY|SECONDARY)\b)+[\s:.\-|_~©®]*$/, " ")
-    // Edge junk includes brackets/braces — an empty neighbouring cell's border
-    // binarises into tokens like "[_]" glued before the value ("[_] NCV RICE
-    // TRADING"). Parentheses are NOT stripped (real names use them) — except a
-    // lone UNPAIRED leading "(" (border junk when no ")" follows anywhere).
-    .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.,\-|_~©®[\]{}"']+$/g, "")
-    .replace(/^\(\s*(?=[^)]*$)/, "")
-    // A lone trailing letter is border/CATEGORY-cell garble glued after the
-    // value ("…APARTMENT RENTAL a", "MARMEUNCARPALEOC I"), not part of the name.
-    .replace(/(\S{3,}(?:\s+\S+)*)\s+[A-Z]$/, "$1")
-    .replace(/\s{2,}/g, " ")
-    .trim()
-    .split(/\s+/)
-    .reduce<{ done: boolean; toks: string[] }>(
-      (acc, tok) => {
-        if (acc.done) return acc;
-        const alnum = tok.replace(/[^A-Z0-9]/gi, "").length;
-        // Skip leading margin garble ('U".', "[") until real content starts.
-        if (!acc.toks.length && alnum < 2) return acc;
-        // The cell ends at the CATEGORY column border, which OCRs into
-        // no-alnum tokens ("+.", "=:", "©") — everything from the first such
-        // token on is the neighbouring column ("…GOODS TRADING +. =: © Jiro
-        // 15,2023"). "&" is real trade-name punctuation and never cuts.
-        // No-alnum tokens AND colon-terminated tokens ("11:") mark the
-        // border into the next column.
-        if (acc.toks.length && ((alnum === 0 && !tok.includes("&")) || /:$/.test(tok))) {
-          return { done: true, toks: acc.toks };
-        }
-        acc.toks.push(tok);
-        return acc;
-      },
-      { done: false, toks: [] },
-    )
-    .toks.filter((tok, i, all) => !(i === all.length - 1 && /^[O0]+$/i.test(tok)))
-    .join(" ")
-    .replace(/[,;]+$/, "")
-    .trim();
+  return (
+    s
+      .replace(new RegExp(DATE_SRC, "g"), " ")
+      .replace(/[({[]\s*PSIC\s*[)}\]]?/g, " ")
+      // Cell separators aren't part of a name; a garbled REGISTRATION-DATE
+      // column shows up as a letters+digits mush token ("ASPMWM20E5") — drop
+      // tokens with digit→letter AND letter→digit transitions ("13-8", "1-A",
+      // "7ELEVEN" and pure numbers are untouched).
+      .replace(/\|/g, " ")
+      .replace(/(?:^|\s)(?=\S*[0-9][A-Z])(?=\S*[A-Z][0-9])\S{4,}/g, " ")
+      .replace(/(?:\s*\b(?:PRIMARY|SECONDARY)\b)+[\s:.\-|_~©®]*$/, " ")
+      // Edge junk includes brackets/braces — an empty neighbouring cell's border
+      // binarises into tokens like "[_]" glued before the value ("[_] XYZ RICE
+      // TRADING"). Parentheses are NOT stripped (real names use them) — except a
+      // lone UNPAIRED leading "(" (border junk when no ")" follows anywhere).
+      .replace(/^[\s:.\-|_~©®[\]{}"']+|[\s:.,\-|_~©®[\]{}"']+$/g, "")
+      .replace(/^\(\s*(?=[^)]*$)/, "")
+      // A lone trailing letter is border/CATEGORY-cell garble glued after the
+      // value ("…APARTMENT RENTAL a", "SAMPEUNTESTISOOC I"), not part of the name.
+      .replace(/(\S{3,}(?:\s+\S+)*)\s+[A-Z]$/, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim()
+      .split(/\s+/)
+      .reduce<{ done: boolean; toks: string[] }>(
+        (acc, tok) => {
+          if (acc.done) return acc;
+          const alnum = tok.replace(/[^A-Z0-9]/gi, "").length;
+          // Skip leading margin garble ('U".', "[") until real content starts.
+          if (!acc.toks.length && alnum < 2) return acc;
+          // The cell ends at the CATEGORY column border, which OCRs into
+          // no-alnum tokens ("+.", "=:", "©") — everything from the first such
+          // token on is the neighbouring column ("…GOODS TRADING +. =: © Jiro
+          // 15,2023"). "&" is real trade-name punctuation and never cuts.
+          // No-alnum tokens AND colon-terminated tokens ("11:") mark the
+          // border into the next column.
+          if (
+            acc.toks.length &&
+            ((alnum === 0 && !tok.includes("&")) || /:$/.test(tok))
+          ) {
+            return { done: true, toks: acc.toks };
+          }
+          acc.toks.push(tok);
+          return acc;
+        },
+        { done: false, toks: [] },
+      )
+      .toks.filter((tok, i, all) => !(i === all.length - 1 && /^[O0]+$/i.test(tok)))
+      .join(" ")
+      .replace(/[,;]+$/, "")
+      .trim()
+  );
 }
 
 /**
- * A photo-blurred trade-name cell OCRs into unbroken mush ("MARMEUNCARPALEOC",
+ * A photo-blurred trade-name cell OCRs into unbroken mush ("SAMPEUNTESTISOOC",
  * "WMAMMEUNCAMPALISGC") — better to show NOTHING than garbage on the review
  * card. Heuristic: a candidate of ≤2 tokens where one token is ≥14 chars is
  * mush (real trade-name words top out around "INTERNATIONAL"/"MERCHANDISING" =
@@ -292,7 +297,7 @@ function tradeNameLooksGarbled(candidate: string): boolean {
 
 /** Drop trailing OCR junk tokens (runs of O/0/dashes/tildes) from an address,
  *  then drop the "N.A." segments BIR prints for blank address components
- *  ("N.A., N.A., 25, MANALO ST, N.A., …" → "25, MANALO ST, …"). The filter is
+ *  ("N.A., N.A., 25, SAMPLE ST, N.A., …" → "25, SAMPLE ST, …"). The filter is
  *  per comma-segment, so real words containing NA are untouched. */
 function cleanAddress(s: string): string {
   // Pipes and double/curly quotes are never address characters (straight
@@ -414,7 +419,7 @@ export function parseCorText(raw: string): ExtractedCor {
 
   // --- TIN + branch: 9 digits, optionally followed by a 3-5 digit branch ---
   // FUZZY first: it tolerates look-alike letters and blurred separators
-  // ("165~502-880-000") and so sees the WHOLE dash-anchored run — the strict
+  // ("000~666-777-000") and so sees the WHOLE dash-anchored run — the strict
   // pattern alone would lock onto a mid-TIN fragment ("502-880-000") when the
   // first separator was garbled. A fuzzy candidate is only accepted when at
   // least one REAL dash survives, so a plain thousands number can't match.
@@ -497,11 +502,11 @@ export function parseCorText(raw: string): ExtractedCor {
     } else if (nameCand.includes(",")) {
       splitIndividual(out, nameCand.slice(0, nameCand.indexOf(",")), nameCand.slice(nameCand.indexOf(",") + 1));
     } else if (TRAILING_CO_RE.test(nameCand)) {
-      // "SMITH BELL & CO." — comma-less trailing CO reads as a company.
+      // "TESTER SAMPLE & CO." — comma-less trailing CO reads as a company.
       out.kind = "non-individual";
       out.regName = nameCand;
     } else {
-      // Photo blur turns the comma into a period ("PALISOG. MARIA EUNICA…").
+      // Photo blur turns the comma into a period ("TESTISOG. SAMPLE EUNIA…").
       // A single leading token ending in "." reads as the surname — but only
       // when it's ≥4 letters, so "ST. JOSEPH TRADING" stays a business name.
       const pm = nameCand.match(/^([A-Z'-]{4,})\.\s+(\S.*)$/);
@@ -516,12 +521,12 @@ export function parseCorText(raw: string): ExtractedCor {
   // --- Trade name (Business Information Details) ---
   // OCR damages this cell two different ways, so read it in two tiers:
   //   Tier 1 — the "TRADE NAME 1" label survives with its value on the same
-  //     line ("TRADE NAME 1 | NCV RICE TRADING"): take the text after the label.
+  //     line ("TRADE NAME 1 | XYZ RICE TRADING"): take the text after the label.
   //     This is preferred because the CATEGORY|REGISTRATION-DATE header row
   //     often OCRs to caps garble ("TT CAMCOAV | RECSTRATONDATE") that a
   //     positional scan would otherwise mistake for the value.
   //   Tier 2 — the label itself failed OCR (value on a bare line, e.g.
-  //     Nichievan): take the first data line in the section, AFTER the (possibly
+  //     Samplevan): take the first data line in the section, AFTER the (possibly
   //     garbled) column-header row and BEFORE the PSIC code, so a lost value is
   //     left empty rather than capturing the header or the Line of Business.
   // Fuzzy label: photo OCR yields "TRADENAME(", "TRADEWAMEY" ("NAME" → WAME,
@@ -536,7 +541,7 @@ export function parseCorText(raw: string): ExtractedCor {
     const rest = line.slice((labelM.index ?? 0) + labelM[0].length);
     // 1997 revision: TRADE NAME and LINE OF BUSINESS are SIDE-BY-SIDE column
     // headers ("TRADE NAME | LINE OF BUSINESS / INDUSTRY") — the value prints
-    // on a following line, first column ("MS GUTIERREZ ART & CRAFTS | 7499 …").
+    // on a following line, first column ("MS TESTIERREZ ART & CRAFTS | 7499 …").
     if (/LINE\s*OF\s*BUSINESS/.test(rest)) {
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
         const firstCol = lines[j]!.split("|")[0] ?? "";
@@ -592,7 +597,7 @@ export function parseCorText(raw: string): ExtractedCor {
   if (addr) {
     out.address = cleanAddress(addr);
     // The ZIP prints right before the city, AFTER any street/house number —
-    // "3723 DAHLIA STREET … CAMARIN 1400 CITY OF CALOOCAN" — so the LAST
+    // "5150 SAMPLE STREET … CAMARIN 1400 CITY OF CALOOCAN" — so the LAST
     // 4-digit run is the ZIP, never the first (a house number).
     const zips = [...out.address.matchAll(/\b\d{4}\b/g)];
     const lastZip = zips[zips.length - 1];

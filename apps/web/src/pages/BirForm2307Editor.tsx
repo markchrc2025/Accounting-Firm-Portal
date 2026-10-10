@@ -18,7 +18,7 @@ import { downloadSheetsPdf, type PagePt } from "../components/birform/sheetsPdf"
 import { Form2307, type Form2307Signatory } from "../components/birform/Form2307";
 import { tin14 } from "../components/birform/format";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
-import { printParty } from "../lib/birFiling";
+import { payorPrintName, printParty } from "../lib/birFiling";
 import {
   issueBlockers,
   type IssueBlocker,
@@ -306,13 +306,17 @@ export default function BirForm2307Editor() {
   const docRef = useRef<HTMLDivElement>(null);
   const [printing, setPrinting] = useState(false);
   const party = printParty(existing.data, clientQ.data);
+  // W8 R3: a filed certificate reprints what was issued, and is never refused.
+  const filed = existing.data?.status === "filed";
+  const payorName = payorPrintName(party, filed);
   const pdfName = certificateFileName("2307", period, party.tin);
 
   async function printPdf() {
     const node = docRef.current;
     if (!node || !isSaved) return;
-    // Item 7 prints the payor's BIR name, never a trade or display name (W7 R6).
-    if (!party.registeredName) {
+    // A draft's Item 7 prints the payor's BIR name, never a trade or display
+    // name (W7 R6); without it the draft is not printed.
+    if (!filed && !payorName) {
       setError(PAYOR_NAME_MISSING);
       return;
     }
@@ -461,7 +465,7 @@ export default function BirForm2307Editor() {
             payor={{
               tin: party.tin,
               branch: party.branch,
-              name: party.registeredName,
+              name: payorName,
               address: [party.address, party.city].filter(Boolean).join(", "),
               zip: party.zip,
             }}
