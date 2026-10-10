@@ -12,12 +12,14 @@ export const SALES_HEADERS = [
   "Date*",
   // The counterparty on a sale is the CUSTOMER. Until W5 these two read
   // "Vendor TIN*" / "Vendor Name*"; SALES_ALIASES still maps both spellings, so
-  // files made from the old template import unchanged.
+  // files made from the old template import unchanged. The three name columns
+  // below read "Vendor …" until W3 (F19); the import reads neither spelling of
+  // them, so an old file parses exactly as before.
   "Customer TIN*",
   "Customer Name*",
-  "Vendor Lastname",
-  "Vendor Firstname",
-  "Vendor Middlename",
+  "Customer Lastname",
+  "Customer Firstname",
+  "Customer Middlename",
   "Address",
   "City",
   "Postal Code*",

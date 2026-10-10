@@ -15,6 +15,7 @@ import {
   fetchClient,
   fetchIncome,
   fetchPurchases,
+  postPurchase,
   type IncomeTxn,
   type Paginated,
   type PurchaseTxn,
@@ -32,6 +33,7 @@ import {
   Skeleton,
   StatusChip,
 } from "../components/ui";
+import { expenseBadges, isHeld } from "../lib/expenseStatus";
 
 const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
 
@@ -54,7 +56,7 @@ function initials(name: string): string {
 
 export default function ClientDetailPage() {
   const { clientId = "" } = useParams();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const [kind, setKind] = useState<Kind>("income");
@@ -62,6 +64,8 @@ export default function ClientDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<IncomeTxn | PurchaseTxn | null>(null);
   const [newCategory, setNewCategory] = useState("");
+  const [posting, setPosting] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -91,10 +95,36 @@ export default function ClientDetailPage() {
   const canWrite = hasPermission(kind === "income" ? "Sales:Create" : "Expenses:Create");
   const canDelete = hasPermission(kind === "income" ? "Sales:Delete" : "Expenses:Delete");
   const canManageCategories = hasPermission("Categories:Create");
+  // Posting a held expense is the firm's decision, as on the Expenses page
+  // (W5): client roles hold Expenses:Update too.
+  const canPost = user?.userType === "FIRM" && hasPermission("Expenses:Update");
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: [kind, clientId] });
     queryClient.invalidateQueries({ queryKey: ["categories", clientId] });
+  }
+
+  // F23 (W3 R6): posting a held expense here refreshes this tab's own list.
+  async function handlePost(t: PurchaseTxn) {
+    const what = [t.referenceNo, t.vendor].filter(Boolean).join(" · ") || "this record";
+    if (
+      !confirm(
+        `Post ${what}? It is held now and counts nowhere. Once posted it counts in the books.`,
+      )
+    )
+      return;
+    setPosting(t.id);
+    setActionError(null);
+    try {
+      await postPurchase(t.id);
+      queryClient.invalidateQueries({ queryKey: ["expense", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["purchases", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-summary", clientId] });
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Could not post this record.");
+    } finally {
+      setPosting(null);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -261,6 +291,15 @@ export default function ClientDetailPage() {
         ))}
       </div>
 
+      {actionError ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-input border border-danger/30 bg-danger-bg px-3 py-2 text-[13px] text-danger-ink"
+        >
+          {actionError}
+        </p>
+      ) : null}
+
       {/* Filter bar */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
@@ -417,6 +456,13 @@ export default function ClientDetailPage() {
                       {kind === "income"
                         ? (income.customer ?? "—")
                         : (purchase.vendor ?? "—")}
+                      {kind === "expense"
+                        ? expenseBadges(purchase).map((b) => (
+                            <span key={b.label} className="ml-1.5 align-middle">
+                              <Chip variant={b.variant}>{b.label}</Chip>
+                            </span>
+                          ))
+                        : null}
                     </Td>
                     <Td className="text-content">{t.description}</Td>
                     <Td className="text-content-secondary">{categoryName(t.categoryId)}</Td>
@@ -444,7 +490,16 @@ export default function ClientDetailPage() {
                         </Chip>
                       </Td>
                     )}
-                    <Td className="text-right">
+                    <Td className="whitespace-nowrap text-right">
+                      {kind === "expense" && isHeld(purchase) && canPost ? (
+                        <button
+                          onClick={() => void handlePost(purchase)}
+                          disabled={posting === t.id}
+                          className="mr-3 font-semibold text-success underline-offset-2 hover:underline disabled:opacity-50"
+                        >
+                          {posting === t.id ? "Posting…" : "Post"}
+                        </button>
+                      ) : null}
                       <button
                         onClick={() => {
                           setEditing(t);

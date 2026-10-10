@@ -24,6 +24,7 @@ import {
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BillingDocument } from "../components/BillingDocument";
+import { captureNode } from "../components/birform/sheetsPdf";
 import { McrcMark } from "../components/McrcMark";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -42,7 +43,6 @@ import {
   Button,
   Card,
   Chip,
-  cn,
   EmptyState,
   ErrorState,
   PageHeader,
@@ -338,7 +338,8 @@ function InvoiceList({
   });
 
   // PDF / JPEG export: render the billing document off-screen, capture it with
-  // html2canvas (lazy chunk), download; jsPDF wraps the capture for PDF.
+  // the shared, fixed html2canvas capture (lazy chunk; W3 R5), download; jsPDF
+  // wraps the capture for PDF. Page format and encoding are unchanged.
   const [exporting, setExporting] = useState<{ inv: Invoice; format: "pdf" | "jpeg" } | null>(
     null,
   );
@@ -361,8 +362,7 @@ function InvoiceList({
       await new Promise((r) => setTimeout(r, 60)); // let the off-screen doc paint
       const node = exportRef.current;
       if (!node || cancelled) return;
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#ffffff" });
+      const canvas = await captureNode(node, { scale: 2 });
       if (cancelled) return;
       const image = canvas.toDataURL("image/jpeg", 0.95);
       if (exporting.format === "jpeg") {

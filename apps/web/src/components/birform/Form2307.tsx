@@ -22,6 +22,7 @@
 // Part I. Keeping both blocks as explicit props is what prevents the two
 // parties being silently swapped on a mandated certificate.
 
+import { titleTinLine } from "../../lib/certificateRules";
 import { mmddyyyy, tin14 } from "./format";
 import { BirAmtVal, BirBoxes, BirVal } from "./formkit";
 
@@ -153,7 +154,8 @@ function SignatureBlock({
   sig: Form2307Signatory | undefined;
 }) {
   const s = sig ?? {};
-  const titleTin = [s.title, s.tin].filter(Boolean).join(" · ");
+  // "TITLE / TIN 000-000-000-00000" (W3 R6); either half alone prints alone.
+  const titleTin = titleTinLine(s.title, s.tin);
   return (
     <div className="grow">
       {/* 1 — the signature space itself: blank by design, wet ink. */}
@@ -408,9 +410,9 @@ export function Form2307({
             <BirVal value={r.desc} lower blank />
           </div>
           <div className="c-atc br" style={{ padding: "0 3px" }}>
-            {/* The editor seeds every new row with a default ATC, so an ATC on
-                a row with no figures is the editor's default, not the
-                operator's entry — it prints only once the row has an amount. */}
+            {/* An ATC prints only once its row has an amount: an ATC chosen on
+                a row with no figures is not an income payment. (Since W3 the
+                editor no longer seeds a default ATC; R6.) */}
             <BirVal value={rowHasAmount(r) ? r.atc : ""} blank />
           </div>
           <div className="c-m1 br">

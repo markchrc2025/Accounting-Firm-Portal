@@ -117,6 +117,8 @@ export default function ExpensesPage() {
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["purchases", clientId] });
     queryClient.invalidateQueries({ queryKey: ["purchase-summary", clientId] });
+    // The Client Detail page's Expenses tab caches the same records (F23).
+    queryClient.invalidateQueries({ queryKey: ["expense", clientId] });
   }
 
   function openAdd() {

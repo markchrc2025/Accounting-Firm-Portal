@@ -2,28 +2,26 @@
 //
 // Split out of FormViewShell.tsx so that file exports only components (React
 // fast refresh requires it). Used by the shell's live preview and by a page's
-// own Print button, so both produce the same bytes.
+// own Print button, so both produce the same bytes. `captureNode` is the one
+// html2canvas capture every print path shares (W3 R5).
 
 /** A PDF page size in points. Long bond is [612, 936]; A4 is [595.28, 841.89]. */
 export type PagePt = [number, number];
 
 /**
- * Rasterise every `.bir-sheet` under `root` onto one PDF page each and return
- * the Blob. html2canvas and jsPDF are imported lazily so they stay out of the
- * main bundle, matching what sheetPdf.ts and BillingPage already do.
+ * Capture one DOM node to a canvas with html2canvas, with both capture fixes
+ * applied. EVERY print path in the Portal goes through here (W3 R5): the 2307
+ * replica, the legacy 2307 and 2316 sheets, and the billing PDF/JPEG export.
+ * Each path keeps its own page format and image encoding; only the capture is
+ * shared. html2canvas is imported lazily so it stays out of the main bundle.
  *
- * Raster PNG at scale 2 — 192 dpi at 96 px/in authoring. PNG, not JPEG:
- * JPEG's 8x8 blocks smear the form's 0.7px hairline rules and its sub-8pt
- * glyphs, which is exactly the content that has to stay readable on paper.
+ * `width`/`height` are passed to html2canvas only when given, so a path that
+ * never set them captures exactly as it did before.
  */
-export async function sheetsToPdfBlob(
-  root: HTMLElement,
-  pagePt: PagePt,
-  title?: string,
-): Promise<Blob> {
-  const found = Array.from(root.querySelectorAll<HTMLElement>(".bir-sheet"));
-  const sheets = found.length ? found : [root];
-
+export async function captureNode(
+  el: HTMLElement,
+  opts: { scale?: number; width?: number; height?: number } = {},
+): Promise<HTMLCanvasElement> {
   // Wait for web fonts so text isn't captured in a fallback face.
   if (typeof document !== "undefined" && document.fonts?.ready) {
     try {
@@ -33,22 +31,9 @@ export async function sheetsToPdfBlob(
     }
   }
 
-  const [html2canvas, { jsPDF }] = await Promise.all([
-    import("html2canvas").then((m) => m.default),
-    import("jspdf"),
-  ]);
+  const html2canvas = (await import("html2canvas")).default;
 
-  const pdf = new jsPDF({
-    unit: "pt",
-    format: [pagePt[0], pagePt[1]],
-    orientation: "portrait",
-    compress: true,
-  });
-  if (title) pdf.setProperties({ title });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-
-  // DEFECT FIX 1 — text painted too low. html2canvas finds each font's
+  // DEFECT FIX 1 (F10) — text painted too low. html2canvas finds each font's
   // baseline in the LIVE document (html2canvas.esm.js:6624) by setting a 1x1
   // <img> beside a <span> and measuring the offset between them (:6558-6583).
   // It sets vertical-align on that image but never `display`, and Tailwind's
@@ -62,43 +47,77 @@ export async function sheetsToPdfBlob(
   document.head.appendChild(probeFix);
 
   try {
-    for (let i = 0; i < sheets.length; i++) {
-      const el = sheets[i]!;
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        // Capture the sheet at its authored size, not at whatever the zoom
-        // transform is showing.
-        width: el.offsetWidth,
-        height: el.offsetHeight,
-        // DEFECT FIX 2 — the print must not depend on anything outside the
-        // sheet. html2canvas cancels animations and transforms only on the
-        // element it captures and its descendants (html2canvas.esm.js:3792-3797),
-        // never on its ANCESTORS. In the cloned document every ancestor's CSS
-        // animation restarts from zero (the page root's `animate-fade-rise` is a
-        // 300 ms translateY), so the sheet was captured at a random sub-pixel
-        // offset and a rule could land on one raster row or the next; and a
-        // Fit-to-width `transform: scale(...)` garbled the text outright. In the
-        // CLONE only (the live page is untouched) cancel every ancestor's
-        // animation and transition, then its transform, at `important` priority.
-        // An ordinary inline `transform: none` is not enough: a running
-        // animation outranks it.
-        onclone: (_doc, cloned) => {
-          for (let n = cloned.parentElement; n; n = n.parentElement) {
-            n.style.setProperty("animation", "none", "important");
-            n.style.setProperty("transition", "none", "important");
-            n.style.setProperty("transform", "none", "important");
-          }
-        },
-      });
-      const image = canvas.toDataURL("image/png");
-      if (i > 0) pdf.addPage([pagePt[0], pagePt[1]], "portrait");
-      // Full-bleed: the sheet and the page have identical aspect ratios by
-      // construction (both 8.5:13), so there is no stretch and no letterbox.
-      pdf.addImage(image, "PNG", 0, 0, pageW, pageH);
-    }
+    return await html2canvas(el, {
+      scale: opts.scale ?? 2,
+      backgroundColor: "#ffffff",
+      ...(opts.width != null ? { width: opts.width } : {}),
+      ...(opts.height != null ? { height: opts.height } : {}),
+      // DEFECT FIX 2 (F11) — the print must not depend on anything outside
+      // the captured node. html2canvas cancels animations and transforms only
+      // on the element it captures and its descendants (html2canvas.esm.js:
+      // 3792-3797), never on its ANCESTORS. In the cloned document every
+      // ancestor's CSS animation restarts from zero (the page root's
+      // `animate-fade-rise` is a 300 ms translateY), so the node was captured
+      // at a random sub-pixel offset and a rule could land on one raster row or
+      // the next; and a Fit-to-width `transform: scale(...)` garbled the text
+      // outright. In the CLONE only (the live page is untouched) cancel every
+      // ancestor's animation and transition, then its transform, at
+      // `important` priority. An ordinary inline `transform: none` is not
+      // enough: a running animation outranks it.
+      onclone: (_doc, cloned) => {
+        for (let n = cloned.parentElement; n; n = n.parentElement) {
+          n.style.setProperty("animation", "none", "important");
+          n.style.setProperty("transition", "none", "important");
+          n.style.setProperty("transform", "none", "important");
+        }
+      },
+    });
   } finally {
     probeFix.remove();
+  }
+}
+
+/**
+ * Rasterise every `.bir-sheet` under `root` onto one PDF page each and return
+ * the Blob. jsPDF is imported lazily so it stays out of the main bundle.
+ *
+ * Raster PNG at scale 2 — 192 dpi at 96 px/in authoring. PNG, not JPEG:
+ * JPEG's 8x8 blocks smear the form's 0.7px hairline rules and its sub-8pt
+ * glyphs, which is exactly the content that has to stay readable on paper.
+ */
+export async function sheetsToPdfBlob(
+  root: HTMLElement,
+  pagePt: PagePt,
+  title?: string,
+): Promise<Blob> {
+  const found = Array.from(root.querySelectorAll<HTMLElement>(".bir-sheet"));
+  const sheets = found.length ? found : [root];
+
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({
+    unit: "pt",
+    format: [pagePt[0], pagePt[1]],
+    orientation: "portrait",
+    compress: true,
+  });
+  if (title) pdf.setProperties({ title });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  for (let i = 0; i < sheets.length; i++) {
+    const el = sheets[i]!;
+    // Capture the sheet at its authored size, not at whatever the zoom
+    // transform is showing.
+    const canvas = await captureNode(el, {
+      scale: 2,
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    });
+    const image = canvas.toDataURL("image/png");
+    if (i > 0) pdf.addPage([pagePt[0], pagePt[1]], "portrait");
+    // Full-bleed: the sheet and the page have identical aspect ratios by
+    // construction (both 8.5:13), so there is no stretch and no letterbox.
+    pdf.addImage(image, "PNG", 0, 0, pageW, pageH);
   }
 
   return pdf.output("blob");

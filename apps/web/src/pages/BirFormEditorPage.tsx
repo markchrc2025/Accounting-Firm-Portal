@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchBirForm } from "../lib/api";
@@ -43,6 +44,18 @@ export default function BirFormEditorPage() {
     return <ErrorState message="Could not load this form." onRetry={() => void existing.refetch()} />;
   }
 
+  // One editor instance per form, per new-form address, and per status (W3).
+  // Without the key, React reuses the editor between /bir-forms/new and
+  // /bir-forms/:id and between two ids, so one form's unsaved values carried
+  // into another; and a form just marked filed kept unsaved edits on screen.
+  // A new key mounts a fresh editor that hydrates from the server.
+  const editorKey = isNew
+    ? `new:${form}:${params.get("correctFrom") ?? ""}`
+    : `${id}:${existing.data?.status ?? ""}`;
+  return <Fragment key={editorKey}>{editorFor(form)}</Fragment>;
+}
+
+function editorFor(form: string | undefined) {
   if (form === "2550Q") return <BirForm2550QEditor />;
   if (form === "1701Q") return <BirForm1701QEditor />;
   if (form === "1701A") return <BirForm1701AEditor />;
