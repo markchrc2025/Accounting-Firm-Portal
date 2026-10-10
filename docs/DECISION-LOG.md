@@ -86,3 +86,12 @@ Decision (technical partner): the expense list honours status and needsReview as
 
 ## 2026-10-10 · C4 · Corrections to the record, from U6 pass 3 and W5 pass 2
 U6's M2 poll loop never parsed a response (a backslash inside an f-string) and exited 0 after twenty silent polls; the merge decision was taken on a later, correct fetch. The seed has no client, so U6's T6 "seeded client" was an invented client under the seeded firm. W5's adversarial review had one skeptic read origin/track-a against W5's R1; nothing from it was used.
+\n
+## 2026-10-10 · D35 · Document type decides nothing (reverses D25)
+Decision: every row that passes the row rules posts, whatever its document type. Most clients do not receive formal invoices; what the team records is what it records. Document Type is an optional label on the row. A row is held only when it has no account (technical rule from U6). A row with no vendor TIN posts flagged for review (D27, D28). Built in U6-A2.
+
+## 2026-10-10 · D36 · No personal or non-deductible account (reverses D26)
+Decision: every receipt a client submits is a business receipt, filtered by the owner before it reaches the team. The importer marks no account as personal and stamps nothing non-deductible; every imported row is deductible. Built in U6-A2.
+
+## 2026-10-10 · D37 · Reference number is optional
+Decision (technical partner): a row without a reference number posts; duplicates for such rows are detected on vendor TIN, date and gross (U6 R6). Nothing is flagged for a missing reference.
