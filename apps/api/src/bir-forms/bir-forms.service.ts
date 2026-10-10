@@ -171,6 +171,27 @@ export class BirFormsService {
     }));
   }
 
+  /**
+   * U10 R4: one client's filed forms with their key figures, for the tax estimate
+   * (filed returns win; guardrail 1). The estimate's route has already authorized
+   * the caller on this client; this read is confined to the caller's firm.
+   */
+  async filedForClient(firmId: string, clientId: string) {
+    const rows = await this.prisma.birForm.findMany({
+      where: { firmId, clientId, status: "filed" },
+      orderBy: { filedAt: "desc" },
+    });
+    return rows.map((f) => ({
+      id: f.id,
+      form: f.form,
+      period: f.period,
+      filedAt: f.filedAt ? f.filedAt.toISOString() : null,
+      sequence: f.sequence ?? 1,
+      amendsId: f.amendsId ?? null,
+      figures: this.keyFigures(f.form, (f.dataJson ?? {}) as unknown as FilingData),
+    }));
+  }
+
   async create(user: AuthUser, input: CreateBirFormInput) {
     // U4 R2: create authorizes against the client named in the body.
     await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.create], input.clientId);

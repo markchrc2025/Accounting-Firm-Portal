@@ -176,3 +176,6 @@ Decision (technical partner): a role grant that does not fit the user's type is 
 
 ## 2026-10-10 · C9 · Corrections to the record, from W7 and W8
 apps/web's COR parser tests held the verbatim OCR text of the CORs of eleven real taxpayers, the firm's own included. W7 replaced one, and W8 replaced the rest and the parser comments that quoted them, all with invented data. The old values stay in git history, alongside D16's fixture and C8's ten files, until the history-rewrite decision.
+
+## 2026-10-10 · D47 · The tax estimate is computed once, for a period, from the client's rule
+Decision (technical partner): GET /clients/:clientId/tax-estimate computes the management estimate for a year or a quarter from posted records and the client's saved Tax Rule: graduated, 8% (in lieu of percentage tax, less ₱250,000, assuming no compensation income), flat or percentage. Business tax follows the regime: VAT payable, 3% percentage tax, or none for an exempt client. The rates live in one module until U5's statute table. Re-enrolling two-factor keeps the current secret until the new one is confirmed. Built in U10.

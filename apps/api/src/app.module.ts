@@ -34,6 +34,7 @@ import { RedisModule } from "./redis/redis.module";
 import { ServicesModule } from "./services/services.module";
 import { StorageModule } from "./storage/storage.module";
 import { TaxRulesModule } from "./tax-rules/tax-rules.module";
+import { TaxEstimateModule } from "./tax-estimate/tax-estimate.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -63,6 +64,7 @@ import { UsersModule } from "./users/users.module";
     IntegrationModule,
     FilingsModule,
     TaxRulesModule,
+    TaxEstimateModule,
     BirModule,
     CoaModule,
     FsModule,
