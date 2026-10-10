@@ -31,7 +31,9 @@ export class ReceiptScanController {
     private readonly poller: ReceiptScanPoller,
   ) {}
 
-  /** Route 3: send a pile. 201 with status "reading". */
+  /** Route 3: send a pile. 201 with status "reading". Accepted, by content: JPEG,
+   *  PNG, WebP, GIF, TIFF, BMP, AVIF and HEIC/HEIF photos, and PDFs of up to 5
+   *  pages (prepare.ts). */
   @Post()
   @RequirePermissions("Expenses:Create")
   @UseInterceptors(ScanUploadInterceptor)

@@ -3,9 +3,11 @@
  * Images are generated here (plain colours); no real receipt or photo is used.
  *  - EXIF orientation is applied and every EXIF/GPS block is gone;
  *  - images are sized to what the model reads (2,576 px long edge, ≤ 4,784 tokens);
- *  - HEIC is refused with R4's sentence; a 6-page PDF and a wrong type are refused;
+ *  - HEIC is read (U11-A1); a 6-page PDF and a wrong type are refused;
  *  - cost = usage × price × 0.5, and the estimate is an upper bound.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { PDFDocument } from "pdf-lib";
 import sharp from "sharp";
 import {
@@ -16,7 +18,7 @@ import {
   fitToModel,
   imageTokens,
 } from "./estimate";
-import { HEIC_REFUSAL, prepareUpload, sniff } from "./prepare";
+import { prepareUpload, sniff } from "./prepare";
 import { BATCH_DISCOUNT, PRICES, costOfUsage } from "./prices";
 import { pileTooLarge, uploadName } from "./receipt-scan.service";
 
@@ -101,21 +103,30 @@ describe("U11 T8 · preparing a file before it is stored or sent", () => {
     expect(fitToModel(800, 1000)).toEqual({ width: 800, height: 1000 });
   });
 
-  it("refuses an iPhone HEIC photo with R4's sentence", async () => {
-    // An ISO-BMFF header with the "heic" brand, as an iPhone writes it.
-    const heic = Buffer.concat([
+  it("U11-A1: reads an iPhone HEIC photo as a JPEG; a HEIC header with no picture cannot be read", async () => {
+    const real = readFileSync(
+      join(__dirname, "../../test/fixtures/receipts/heic-plain.heic"),
+    );
+    expect(sniff(real)).toBe("heic");
+    const p = await prepareUpload("IMG_0001.HEIC", real);
+    expect(p).toMatchObject({
+      ok: true,
+      kind: "image",
+      contentType: "image/jpeg",
+      width: 320,
+      height: 240,
+    });
+    // An ISO-BMFF header with the "heic" brand, as an iPhone writes it, and nothing else.
+    const empty = Buffer.concat([
       Buffer.from([0, 0, 0, 24]),
       Buffer.from("ftypheic"),
       Buffer.alloc(32),
     ]);
-    expect(sniff(heic)).toBe("heic");
-    expect(await prepareUpload("IMG_0001.HEIC", heic)).toEqual({
+    expect(sniff(empty)).toBe("heic");
+    expect(await prepareUpload("IMG_0001.HEIC", empty)).toEqual({
       ok: false,
-      message: `IMG_0001.HEIC: ${HEIC_REFUSAL}`,
+      message: "IMG_0001.HEIC could not be read as an image.",
     });
-    expect(HEIC_REFUSAL).toBe(
-      "This is an iPhone HEIC photo. Save it as JPG and upload it again.",
-    );
   });
 
   it("takes a PDF of up to 5 pages, as uploaded, and refuses 6", async () => {
@@ -133,11 +144,13 @@ describe("U11 T8 · preparing a file before it is stored or sent", () => {
   });
 
   it("refuses a wrong type, whatever its name says", async () => {
+    // U11-A1: "GIF89a…" is now a GIF's start, so the wrong type is plain text.
     expect(
-      await prepareUpload("receipt.jpg", Buffer.from("GIF89a not a receipt")),
+      await prepareUpload("receipt.jpg", Buffer.from("Invented notes, not a receipt")),
     ).toEqual({
       ok: false,
-      message: "receipt.jpg is not a JPEG, PNG, WebP or PDF file.",
+      message:
+        "receipt.jpg is not a photo or PDF the Portal can read (it looks like an unknown file).",
     });
   });
 });

@@ -29,12 +29,12 @@ async function rejects(
 
 describe("T3 · errors name the field", () => {
   it("a value longer than its boxes", async () => {
-    const name = "A".repeat(41);
+    // A digit comb: it never squeezes (C1-A1). Names now squeeze; see c1a1-squeeze.
     await rejects(
-      withValue(sample(), NS + "registeredName", name),
-      `${NS}registeredName`,
-      "41 characters",
-      "40 boxes",
+      withValue(sample(), NS + "txtRDOCode", "1234"),
+      `${NS}txtRDOCode`,
+      "4 characters",
+      "3 boxes",
     );
   });
 

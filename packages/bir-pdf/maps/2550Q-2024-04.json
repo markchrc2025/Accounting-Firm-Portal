@@ -233,7 +233,8 @@
             576.3, 592.25
           ]
         }
-      ]
+      ],
+      "squeeze": true
     },
     {
       "key": "frm2550qv2024:taxpayerAddress",
@@ -262,7 +263,8 @@
           ]
         }
       ],
-      "wrap": "words"
+      "wrap": "words",
+      "squeeze": true
     },
     {
       "key": "frm2550qv2024:taxpayerZip",
@@ -308,7 +310,8 @@
           ]
         }
       ],
-      "case": "keep"
+      "case": "keep",
+      "squeeze": true
     },
     {
       "key": "frm2550qv2024:taxPayerClassification1",
@@ -589,7 +592,8 @@
             489.68, 503.9, 518.0, 532.2, 546.8, 561.5, 575.7, 589.85
           ]
         }
-      ]
+      ],
+      "squeeze": true
     },
     {
       "key": "frm2550qv2024:vatableSales",
