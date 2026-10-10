@@ -307,13 +307,13 @@ describe("template", () => {
     expect(kv[CLIENT_SHEET_KEYS.periodTo] ?? null).toBeNull();
   });
 
-  it("COA lists only postable, non-archived accounts; expense-class and the personal account are allowed, the asset is not", () => {
+  it("COA lists only postable, non-archived accounts; every expense-class account is allowed, the asset is not, and no account is marked (U6-A2)", () => {
     const ws = wb.getWorksheet(SHEET.COA)!;
     const rows: Record<string, string>[] = [];
-    ws.eachRow((r, n) => { if (n > 1) rows.push({ code: String(r.getCell(1).value), allowed: String(r.getCell(6).value), personal: String(r.getCell(7).value ?? "") }); });
+    ws.eachRow((r, n) => { if (n > 1) rows.push({ code: String(r.getCell(1).value), allowed: String(r.getCell(6).value), extra: String(r.getCell(7).value ?? "") }); });
     const byCode = Object.fromEntries(rows.map((r) => [r.code, r]));
-    expect(byCode["5999001"]).toMatchObject({ allowed: "Y", personal: "" });
-    expect(byCode["5999002"]).toMatchObject({ allowed: "Y", personal: "★" });
+    expect(byCode["5999001"]).toMatchObject({ allowed: "Y", extra: "" });
+    expect(byCode["5999002"]).toMatchObject({ allowed: "Y", extra: "" }); // named "Personal" — no longer special
     expect(byCode["1999001"]).toMatchObject({ allowed: "N" });
     expect(byCode["5999003"]).toBeUndefined();
     expect(byCode["5000"]).toBeUndefined();
@@ -371,15 +371,15 @@ describe("importer: row rules (R4, R5)", () => {
     expect(res.rows[1]!).toMatchObject({ outcome: "rejected", messages: [expect.stringMatching(/Date is required/i)] });
   });
 
-  it("an invoice without a Reference Number rejects; a delivery receipt without one is held", async () => {
+  it("a row without a Reference Number posts, whatever its Document Type (U6-A2, D37)", async () => {
     const { svc } = build(clientRow(CLIENT_VAT, "VAT"));
     const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [
       { ...SUPERMARKET, "Reference Number": undefined },
       DELIVERY_NO_TIN,
     ]);
     const res = await svc.importFile(actor, CLIENT_VAT, upload(buf), true);
-    expect(res.rows[0]!).toMatchObject({ outcome: "rejected", messages: [expect.stringMatching(/Reference Number is required/i)] });
-    expect(res.rows[1]!).toMatchObject({ outcome: "held", needsReview: true });
+    expect(res.rows[0]!).toMatchObject({ outcome: "posted", messages: [] });
+    expect(res.rows[1]!).toMatchObject({ outcome: "posted", needsReview: true });
   });
 
   it("an invalid TIN rejects; a 12-digit TIN stores a five-digit branch", async () => {
@@ -417,11 +417,11 @@ describe("importer: row rules (R4, R5)", () => {
     expect(held[0]).toMatchObject({ account: null, categoryId: `cat-${UNASSIGNED_CATEGORY}` });
   });
 
-  it("the personal / non-deductible account marks the record non-deductible (D26)", async () => {
+  it("an account named 'Personal' is an ordinary expense account: its records are deductible (U6-A2, D36)", async () => {
     const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
     const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [{ ...SUPERMARKET, "COA Code": "5999002" }]);
     await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
-    expect(created.every((c) => c.deductible === false)).toBe(true);
+    expect(created.every((c) => c.deductible === true)).toBe(true);
     expect(created[0]).toMatchObject({ account: "Owner's Personal Expenses" });
   });
 
@@ -468,16 +468,17 @@ describe("importer: splitting and stamping (D23, D24)", () => {
     expect(created[1]).toMatchObject({ netAmount: 887.96, inputVATCategory: null, vatClaimable: false });
   });
 
-  it("a delivery receipt with no TIN becomes one held, flagged record (D25, D28)", async () => {
+  it("a delivery receipt with no TIN becomes one posted, flagged record (U6-A2: D35, D28)", async () => {
     const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
     const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [DELIVERY_NO_TIN]);
     const res = await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
-    expect(res.rows[0]!).toMatchObject({ outcome: "held", needsReview: true, messages: [expect.stringMatching(/no Vendor TIN/i), expect.stringMatching(/held/i)] });
+    expect(res.rows[0]!).toMatchObject({ outcome: "posted", needsReview: true, messages: [expect.stringMatching(/no Vendor TIN/i)] });
+    expect(res.rows[0]!.messages).toHaveLength(1);
     expect(created).toHaveLength(1);
-    expect(created[0]).toMatchObject({ status: "held", needsReview: true, vendorTin: null, netAmount: 500, vatClaimable: false, documentType: "DELIVERY_RECEIPT" });
+    expect(created[0]).toMatchObject({ status: "posted", needsReview: true, vendorTin: null, netAmount: 500, vatClaimable: false, documentType: "DELIVERY_RECEIPT", deductible: true });
     // The classification is reported in the response and the audit row, never stored on the record.
     expect(created[0]).not.toHaveProperty("classification");
-    expect(res.totals).toEqual({ rows: 1, posted: 0, held: 1, rejected: 0, grossAmount: 500 });
+    expect(res.totals).toEqual({ rows: 1, posted: 1, held: 0, rejected: 0, grossAmount: 500 });
   });
 
   it("Needs Review = Y posts the row with the flag and remarks kept (D27)", async () => {
@@ -512,7 +513,7 @@ describe("importer: duplicates (R6) and the dry run", () => {
     const h = build(clientRow(CLIENT_VAT, "VAT"));
     const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [SUPERMARKET, DELIVERY_NO_TIN]);
     const res = await h.svc.importFile(actor, CLIENT_VAT, upload(buf), true);
-    expect(res.rows.map((r) => r.outcome)).toEqual(["posted", "held"]);
+    expect(res.rows.map((r) => r.outcome)).toEqual(["posted", "posted"]); // U6-A2: the slip posts
     expect(res.rows.flatMap((r) => r.records.map((x) => x.id))).toEqual([null, null, null]);
     expect(h.created).toHaveLength(0);
     expect((h.prisma.$transaction as jest.Mock)).not.toHaveBeenCalled();
@@ -526,7 +527,7 @@ describe("importer: duplicates (R6) and the dry run", () => {
     const actions = h.audit.record.mock.calls.map((c) => c[0].action);
     expect(actions.filter((a) => a === "purchase.import.record")).toHaveLength(3);
     const batch = h.audit.record.mock.calls.map((c) => c[0]).find((e) => e.action === "purchase.import.batch");
-    expect(batch?.metadata).toMatchObject({ clientId: CLIENT_VAT, fileName: "expenses.xlsx", totals: { rows: 2, posted: 1, held: 1, rejected: 0 } });
+    expect(batch?.metadata).toMatchObject({ clientId: CLIENT_VAT, fileName: "expenses.xlsx", totals: { rows: 2, posted: 2, held: 0, rejected: 0 } });
   });
 });
 
@@ -553,3 +554,117 @@ describe("postHeld", () => {
     await expect(h.svc.postHeld(actor, "x")).rejects.toThrow(BadRequestException);
   });
 });
+
+// ---------------------------------------------------------------------------
+// U6-A2 — document type decides nothing (D35); nothing non-deductible (D36);
+// reference optional (D37). Written before the amendment: seen to fail.
+// ---------------------------------------------------------------------------
+
+describe("U6-A2 T2: what posts, what is held, nothing non-deductible", () => {
+  it("a row with Document Type blank posts; documentType is stored null", async () => {
+    const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
+    const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [{ ...SUPERMARKET, "Document Type": undefined }]);
+    const res = await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
+    expect(res.rows[0]!).toMatchObject({ outcome: "posted", messages: [] });
+    expect(created[0]).toMatchObject({ status: "posted", documentType: null });
+  });
+
+  it('a row with Document Type "Delivery Receipt" and a reference posts, stored as its code', async () => {
+    const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
+    const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [{ ...SUPERMARKET, "Document Type": "Delivery Receipt" }]);
+    const res = await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
+    expect(res.rows[0]!).toMatchObject({ outcome: "posted", messages: [] });
+    expect(created[0]).toMatchObject({ status: "posted", documentType: "DELIVERY_RECEIPT" });
+  });
+
+  it('a row with Document Type "Sales Invoice" and no reference posts', async () => {
+    const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
+    const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [{ ...SUPERMARKET, "Document Type": "Sales Invoice", "Reference Number": undefined }]);
+    const res = await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
+    expect(res.rows[0]!).toMatchObject({ outcome: "posted", messages: [] });
+    expect(created[0]).toMatchObject({ status: "posted", referenceNo: null, documentType: "SALES_INVOICE" });
+  });
+
+  it("a blank COA Code is the only held outcome left", async () => {
+    const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
+    const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [
+      { ...SUPERMARKET, "Document Type": "DELIVERY_RECEIPT", "Reference Number": undefined },  // formerly held (doc type)
+      { ...SUPERMARKET, "Document Type": "CASH_SLIP", "Vendor TIN": undefined, "Reference Number": "CS-1" }, // formerly held (doc type), no TIN
+      { ...SUPERMARKET, "Document Type": undefined, "Reference Number": "NO-DOC-1" },
+      { ...SUPERMARKET, "COA Code": undefined, "Reference Number": "BLANK-COA-1" },                // still held
+    ]);
+    const res = await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
+    expect(res.rows.map((r) => r.outcome)).toEqual(["posted", "posted", "posted", "held"]);
+    expect(res.rows[1]!).toMatchObject({ needsReview: true, messages: [expect.stringMatching(/no Vendor TIN/i)] });
+    expect(res.rows[3]!.messages).toEqual([expect.stringMatching(/COA Code is blank/i)]);
+    expect(created.filter((c) => c.status === "held").every((c) => c.account === null)).toBe(true);
+    expect(res.totals).toMatchObject({ rows: 4, posted: 3, held: 1, rejected: 0 });
+  });
+
+  it("no row anywhere gets deductible = false — not even on an account named 'Personal'", async () => {
+    const { svc, created } = build(clientRow(CLIENT_VAT, "VAT"));
+    const buf = await makeFile(clientRow(CLIENT_VAT, "VAT"), [
+      { ...SUPERMARKET, "COA Code": "5999002" },                                   // "Owner's Personal Expenses"
+      { ...SUPERMARKET, "COA Code": "5999001", "Reference Number": "R-2" },
+      { ...DELIVERY_NO_TIN, "COA Code": "5999002" },
+      { ...SUPERMARKET, "COA Code": undefined, "Reference Number": "R-4" },         // held, still deductible
+    ]);
+    await svc.importFile(actor, CLIENT_VAT, upload(buf), false);
+    expect(created.length).toBeGreaterThan(0);
+    expect(created.every((c) => c.deductible === true)).toBe(true);
+  });
+});
+
+describe("U6-A2 T3: the template carries no personal marker and describes the one hold reason", () => {
+  let wb: ExcelJS.Workbook;
+  beforeAll(async () => {
+    const buf = await buildExpenseTemplate({
+      client: { id: CLIENT_VAT, tin: "000111222", branch: "00000", businessName: "Invented VAT Trading Co", regimeLabel: "VAT-registered" },
+      accounts: classifyAccounts(ACCOUNTS),
+    });
+    wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf as unknown as ArrayBuffer);
+  });
+  const sheetText = (name: string): string => {
+    const out: string[] = [];
+    wb.getWorksheet(name)!.eachRow((r) => r.eachCell((c) => out.push(String(c.value ?? ""))));
+    return out.join("\n");
+  };
+
+  it("has no ★ on any sheet", () => {
+    for (const ws of wb.worksheets) expect(sheetText(ws.name)).not.toContain("★");
+  });
+
+  it('Instructions mention neither "personal" nor "non-deductible" nor "official invoice"', () => {
+    const text = sheetText(SHEET.INSTRUCTIONS).toLowerCase();
+    expect(text).not.toMatch(/personal/);
+    expect(text).not.toMatch(/non-?deductible/);
+    expect(text).not.toMatch(/official invoice/);
+  });
+
+  it("Instructions say a row is held only when the COA Code is blank", () => {
+    expect(sheetText(SHEET.INSTRUCTIONS)).toMatch(/held only when .*COA Code.* blank|only .*COA Code is blank.* held/i);
+  });
+
+  it("the REFERENCE sheet's Document Type list is unchanged in content", () => {
+    const codes: string[] = [];
+    wb.getWorksheet(SHEET.REFERENCE)!.eachRow((r) => {
+      const v = String(r.getCell(1).value ?? "");
+      if (DOCUMENT_TYPES.some((d) => d.code === v)) codes.push(v);
+    });
+    expect(codes).toEqual([
+      "SALES_INVOICE", "SERVICE_INVOICE", "OFFICIAL_RECEIPT", "DELIVERY_RECEIPT", "ACKNOWLEDGEMENT_RECEIPT",
+      "COLLECTION_RECEIPT", "BILLING_STATEMENT", "PROVISIONAL_RECEIPT", "CASH_SLIP", "OTHER",
+    ]);
+  });
+
+  it("the COA sheet has six columns and the 'Personal'-named account is an ordinary allowed account", () => {
+    const coa = wb.getWorksheet(SHEET.COA)!;
+    expect((coa.getRow(1).values as unknown[]).slice(1)).toEqual(["Code", "Account Name", "Class", "Account Type", "Use for", "Allowed on expense rows"]);
+    const rows: Record<string, string[]> = {};
+    coa.eachRow((r, n) => { if (n > 1) rows[String(r.getCell(1).value)] = (r.values as unknown[]).slice(1).map((v) => String(v ?? "")); });
+    expect(rows["5999002"]).toEqual(["5999002", "Owner's Personal Expenses", "Expense", "Other Expense", "Expense rows.", "Y"]);
+    expect(sheetText(SHEET.COA).toLowerCase()).not.toMatch(/non-?deductible/);
+  });
+});
+

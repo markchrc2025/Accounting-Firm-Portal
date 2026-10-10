@@ -61,28 +61,26 @@ export const CLIENT_SHEET_KEYS = {
 export interface DocumentType {
   code: string;
   label: string;
-  /** An official invoice posts on import; anything else is held (D25). */
-  isInvoice: boolean;
   note: string;
 }
 
 /**
- * Which document types count as an "official invoice" (D25) is a domain
- * decision; this list encodes the ruling as given and is the one place to
- * change it. A non-invoice document is recorded and held until an accountant
- * posts it.
+ * Document Type is an optional label on the row (D35, reversing D25): it is
+ * stored as given and decides nothing — every row that passes the row rules
+ * posts, whatever document the client handed in. The list exists so the
+ * encoder picks a consistent code; blank is allowed.
  */
 export const DOCUMENT_TYPES: readonly DocumentType[] = [
-  { code: "SALES_INVOICE", label: "Sales Invoice", isInvoice: true, note: "Official invoice for goods. Posts on import." },
-  { code: "SERVICE_INVOICE", label: "Service Invoice", isInvoice: true, note: "Official invoice for services. Posts on import." },
-  { code: "OFFICIAL_RECEIPT", label: "Official Receipt", isInvoice: true, note: "BIR-registered OR. Posts on import." },
-  { code: "DELIVERY_RECEIPT", label: "Delivery Receipt", isInvoice: false, note: "Not an invoice. Recorded and held for an accountant." },
-  { code: "ACKNOWLEDGEMENT_RECEIPT", label: "Acknowledgement Receipt", isInvoice: false, note: "Not an invoice. Held." },
-  { code: "COLLECTION_RECEIPT", label: "Collection Receipt", isInvoice: false, note: "Not an invoice. Held." },
-  { code: "BILLING_STATEMENT", label: "Billing Statement / SOA", isInvoice: false, note: "Not an invoice. Held." },
-  { code: "PROVISIONAL_RECEIPT", label: "Provisional Receipt", isInvoice: false, note: "Not an invoice. Held." },
-  { code: "CASH_SLIP", label: "Cash slip / POS tape without TIN", isInvoice: false, note: "Not an invoice. Held." },
-  { code: "OTHER", label: "Other document", isInvoice: false, note: "Describe it in Remarks. Held." },
+  { code: "SALES_INVOICE", label: "Sales Invoice", note: "Invoice for goods." },
+  { code: "SERVICE_INVOICE", label: "Service Invoice", note: "Invoice for services." },
+  { code: "OFFICIAL_RECEIPT", label: "Official Receipt", note: "BIR-registered OR." },
+  { code: "DELIVERY_RECEIPT", label: "Delivery Receipt", note: "A delivery slip." },
+  { code: "ACKNOWLEDGEMENT_RECEIPT", label: "Acknowledgement Receipt", note: "An acknowledgement of payment." },
+  { code: "COLLECTION_RECEIPT", label: "Collection Receipt", note: "A collection receipt." },
+  { code: "BILLING_STATEMENT", label: "Billing Statement / SOA", note: "A statement of account." },
+  { code: "PROVISIONAL_RECEIPT", label: "Provisional Receipt", note: "A provisional receipt." },
+  { code: "CASH_SLIP", label: "Cash slip / POS tape without TIN", note: "A till slip or POS tape." },
+  { code: "OTHER", label: "Other document", note: "Anything else — describe it in Remarks." },
 ];
 
 export const NEEDS_REVIEW_VALUES = ["Y", "N"] as const;
@@ -111,10 +109,6 @@ export const CLASSIFICATIONS: readonly ClassificationInfo[] = [
   { name: "ZERO_RATED", column: "Zero-rated Amount", vatCategory: NO_VAT_CATEGORY, useWhen: "The receipt marks the item zero-rated (0% VAT)." },
   { name: "OTHER_NON_VATABLE", column: "Other Non-vatable", vatCategory: NO_VAT_CATEGORY, useWhen: "No VAT applies and it is not marked exempt or zero-rated: a non-VAT seller's receipt, service charges, government fees." },
 ];
-
-/** An account whose name says it is the personal / non-deductible bucket (D26).
- *  Rows posted to it are recorded non-deductible. */
-export const PERSONAL_ACCOUNT_PATTERN = /\b(personal|non-?deductible|drawings?)\b/i;
 
 /** Category a held row takes while it has no COA account (a record cannot be
  *  stored without one). Posting requires a real account first (R4). */

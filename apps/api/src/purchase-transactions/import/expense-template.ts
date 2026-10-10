@@ -9,7 +9,6 @@ import {
   EXPENSES_HEADERS,
   MAX_DATA_ROWS,
   MAX_REFERENCE_LENGTH,
-  PERSONAL_ACCOUNT_PATTERN,
   SHEET,
   TEMPLATE_VERSION,
   TIN_FORMATS,
@@ -30,30 +29,25 @@ export interface TemplateAccount {
   name: string;
   class: string;
   accountType: string;
-  /** May a row be posted to it? Expense-class accounts and the personal bucket. */
+  /** May a row be posted to it? Expense-class accounts only. No account is
+   *  special (D36): nothing is marked personal and nothing is non-deductible. */
   allowed: boolean;
-  /** The personal / non-deductible account (D26). */
-  personal: boolean;
 }
 
-/** From chart rows to template rows: postable, non-archived; expense-class or
- *  the personal bucket are allowed on expense rows. */
+/** From chart rows to template rows: postable, non-archived; expense-class
+ *  accounts are allowed on expense rows, everything else is listed for reference. */
 export function classifyAccounts(
   rows: { code: string; name: string; class: string; accountType: string; postable: boolean; archived: boolean }[],
 ): TemplateAccount[] {
   return rows
     .filter((r) => r.postable && !r.archived)
-    .map((r) => {
-      const personal = PERSONAL_ACCOUNT_PATTERN.test(r.name);
-      return {
-        code: r.code,
-        name: r.name,
-        class: r.class,
-        accountType: r.accountType,
-        allowed: r.class === "Expense" || personal,
-        personal,
-      };
-    })
+    .map((r) => ({
+      code: r.code,
+      name: r.name,
+      class: r.class,
+      accountType: r.accountType,
+      allowed: r.class === "Expense",
+    }))
     .sort((a, b) => Number(b.allowed) - Number(a.allowed) || a.code.localeCompare(b.code));
 }
 
@@ -132,7 +126,7 @@ const WIDTHS: Partial<Record<ExpenseHeader, number>> = {
 /** One line per column, in the words the encoder reads. */
 export const COLUMN_GUIDE: Record<ExpenseHeader, string> = {
   Date: "REQUIRED. The date on the receipt, as a real date cell. Must fall inside the period on the CLIENT sheet.",
-  "Document Type": "REQUIRED. Pick from the list. An official invoice posts; anything else is recorded and held for an accountant.",
+  "Document Type": "Optional label. Pick from the list, or leave blank. It records what kind of document you had in hand and changes nothing about how the row is booked.",
   "Vendor TIN": "The seller's TIN: 000-000-000, 000-000-000-000, 000-000-000-00000 or 000000000-00000, dashes optional. Leave blank if the receipt has none — the row is then flagged for review.",
   "Vendor Branch": "The seller's branch code (000 or 00000). Leave blank when the TIN already carries it; 000 is the head office.",
   "Vendor Registered Name": "The seller's registered name (companies). Leave blank for an individual and use the three name columns.",
@@ -144,7 +138,7 @@ export const COLUMN_GUIDE: Record<ExpenseHeader, string> = {
   City: "Optional.",
   Province: "Optional.",
   "Postal Code": "Optional. Only when the receipt prints one.",
-  "Reference Number": `The invoice / receipt number exactly as printed, leading zeros included (type it as text; up to ${MAX_REFERENCE_LENGTH} characters). REQUIRED for an official invoice; optional for other documents.`,
+  "Reference Number": `Optional. The invoice / receipt number exactly as printed, leading zeros included (type it as text; up to ${MAX_REFERENCE_LENGTH} characters). Leave blank when the document has none.`,
   "Vatable Amount": "The VATable sales line (before VAT), if the receipt shows one.",
   "VAT Amount": "The 12% VAT line as printed. Required when Vatable Amount is given.",
   "VAT-Exempt Amount": "The VAT-exempt sales line, if any.",
@@ -152,7 +146,7 @@ export const COLUMN_GUIDE: Record<ExpenseHeader, string> = {
   "Other Non-vatable": "Anything with no VAT that is not marked exempt or zero-rated: a non-VAT seller's receipt, service charges, government fees.",
   "Gross Total": "REQUIRED. The total you paid. Vatable + VAT + VAT-Exempt + Zero-rated + Other must equal this within 0.01 or the row is rejected.",
   Description: "What was bought. Optional — the vendor name is used when blank.",
-  "COA Code": "The account from the COA sheet (pick from the list; only rows marked Allowed = Y). Leave blank if unsure — the row is held until an accountant assigns one.",
+  "COA Code": "The account from the COA sheet (pick from the list; only rows marked Allowed = Y). Leave blank if unsure — this is the one thing that holds a row: it waits, unposted, until an accountant assigns an account.",
   ATC: "Leave blank unless the client withholds tax on this purchase. If used, it must be a BIR ATC code and come with a Withholding Amount.",
   "Withholding Amount": "Leave blank unless the client withholds. The amount withheld, with its ATC.",
   "Source File": "The photo or scan filename you worked from (e.g. IMG_0123.jpg).",
@@ -182,11 +176,11 @@ export const SAMPLE_ROWS: Partial<Record<ExpenseHeader, unknown>>[] = [
     "Vendor Registered Name": "Sample Water Delivery",
     "Other Non-vatable": 500,
     "Gross Total": 500,
-    Description: "Water delivery — no TIN on the receipt",
+    Description: "Water delivery — no TIN on the slip",
     "COA Code": "(an Allowed = Y code from COA)",
     "Source File": "IMG_0002.jpg",
     "Needs Review": "Y",
-    Remarks: "Delivery receipt only; ask for the invoice",
+    Remarks: "Delivery slip, no TIN printed; posts flagged for review",
   },
 ];
 
@@ -197,14 +191,14 @@ export const INSTRUCTIONS_TEXT: string[] = [
   "2. Encode one row per receipt on the EXPENSES sheet. Start at row 2; the header row stays as it is. Do not add, rename or reorder columns.",
   "3. One receipt, one row — even a mixed receipt. Put each part in its own column (Vatable, VAT, VAT-Exempt, Zero-rated, Other Non-vatable) and the total you paid in Gross Total. The importer splits the row into one record per treatment. The parts must add up to Gross Total within 0.01.",
   "4. The client's VAT registration decides what the importer does with the VAT: a VAT-registered client books the VATable part net and claims the VAT; a non-VAT client books the gross and keeps the VAT as a cost figure. You never choose this — it is stamped on each record from the client's regime.",
-  "5. Document Type: pick from the list. An official invoice (Sales Invoice, Service Invoice, Official Receipt) posts on import. Any other document is recorded and HELD until an accountant decides — it does not count in any total until then.",
+  "5. Document Type is an optional label: pick from the list or leave it blank. It records what kind of document you had in hand and changes nothing — a delivery slip, a cash slip and an invoice are all booked the same way. Every row that passes the checks below posts.",
   "6. Vendor TIN is accepted with or without dashes in any of the four forms on the REFERENCE sheet. Blank is allowed when the receipt has none; the row is then flagged Needs Review. A wrong format rejects the row.",
-  "7. Reference Number: type it as text so leading zeros survive. It is required for an official invoice and optional otherwise.",
-  "8. COA Code: pick from the list (the COA sheet, rows marked Allowed = Y). The account name is looked up — never type it. Leave it blank if unsure; the row is held until an accountant assigns an account. The account marked ★ is the personal / non-deductible bucket.",
+  "7. Reference Number is optional. When the document has one, type it as text so leading zeros survive; when it has none, leave it blank — nothing is flagged for a missing reference.",
+  "8. COA Code: pick from the list (the COA sheet, rows marked Allowed = Y). The account name is looked up — never type it. Leave it blank if unsure. A row is held only when its COA Code is blank: it waits, unposted and outside every total, until an accountant assigns an account and posts it. Nothing else holds a row.",
   "9. ATC and Withholding Amount: leave both blank unless this client withholds tax on purchases. If used, both are required together and the ATC must be a BIR code.",
   "10. Needs Review = Y posts the row with a flag and keeps your Remarks on the record. Use it for faded receipts, uncertain accounts, anything an accountant should look at.",
   "11. Duplicates are rejected: the same vendor TIN + reference number + date + gross twice in one file, or a vendor TIN + reference number already in this client's books. Rows without a reference are checked on vendor TIN + date + gross.",
-  "12. Use the DRY RUN first. It checks every row and reports posted / held / rejected per row without writing anything. Fix what it flags, then import.",
+  "12. Use the DRY RUN first. It checks every row and reports posted / held / rejected per row without writing anything. Posted: written and live. Held: written, waiting for an account. Rejected: not written; the message says why. Fix what it flags, then import.",
   "",
   "Two sample rows follow — they are examples only and are not imported from this sheet.",
 ];
@@ -320,10 +314,11 @@ export async function buildExpenseTemplate(input: {
   ref.getColumn(2).width = 30;
   ref.getColumn(3).width = 44;
   ref.getColumn(4).width = 70;
-  const h1 = ref.addRow(["Document Type", "Label", "Posts or holds", "What it is"]);
+  const h1 = ref.addRow(["Document Type (optional label)", "Label", "What it is", "Effect on the row"]);
   h1.font = headerFont;
   h1.fill = headerFill;
-  for (const d of DOCUMENT_TYPES) ref.addRow([d.code, d.label, d.isInvoice ? "POSTS" : "HELD", d.note]);
+  for (const d of DOCUMENT_TYPES) ref.addRow([d.code, d.label, d.note, "none — a label only"]);
+  ref.addRow(["(blank)", "allowed", "No document type recorded", "none"]);
   ref.addRow([]);
   const h2 = ref.addRow(["Column on EXPENSES", "Treatment", "Stored as (VAT client; none on a non-VAT client)", "Use this when"]);
   h2.font = headerFont;
@@ -339,11 +334,11 @@ export async function buildExpenseTemplate(input: {
 
   // --- COA ------------------------------------------------------------------
   const coa = wb.addWorksheet(SHEET.COA);
-  const ch = coa.addRow(["Code", "Account Name", "Class", "Account Type", "Use for", "Allowed on expense rows", "Personal / non-deductible"]);
+  const ch = coa.addRow(["Code", "Account Name", "Class", "Account Type", "Use for", "Allowed on expense rows"]);
   ch.font = headerFont;
   ch.fill = headerFill;
   coa.views = [{ state: "frozen", ySplit: 1 }];
-  [11, 40, 12, 22, 44, 22, 24].forEach((w, i) => (coa.getColumn(i + 1).width = w));
+  [11, 40, 12, 22, 44, 22].forEach((w, i) => (coa.getColumn(i + 1).width = w));
   coa.getColumn(1).numFmt = "@";
   for (const a of input.accounts) {
     coa.addRow([
@@ -351,13 +346,8 @@ export async function buildExpenseTemplate(input: {
       a.name,
       a.class,
       a.accountType,
-      a.personal
-        ? "Personal and non-deductible purchases (D26). Rows here are recorded non-deductible."
-        : a.allowed
-          ? "Expense rows."
-          : "Not for expense rows — shown for reference.",
+      a.allowed ? "Expense rows." : "Not for expense rows — shown for reference.",
       a.allowed ? "Y" : "N",
-      a.personal ? "★" : null,
     ]);
   }
 
