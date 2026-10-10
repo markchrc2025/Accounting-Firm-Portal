@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   changeProfileEmail,
+  confirmMfa,
   deleteAvatar,
+  disableMfa,
+  enrollMfa,
   fetchProfile,
   updateProfile,
   uploadAvatar,
@@ -457,9 +460,72 @@ function LoginEmailCard({ profile }: { profile: Profile }) {
 
 /* -------------------------------------------------------------- Security card */
 
+/** Where the two-factor card is: at rest, asking for a current code (to turn
+ *  off, or to set up again), or showing a new authenticator entry. */
+type MfaStep = "idle" | "disable" | "reauth" | "scan";
+
+/**
+ * Two-factor sign-in (W9 R2, U9 D44). While it is on, turning it off or setting
+ * it up again needs a current code from the authenticator; the server's refusal
+ * shows here. Setting it up shows the new entry's key, then asks for its first
+ * code to confirm.
+ */
 function SecurityCard({ profile }: { profile: Profile }) {
-  // Surface the signed-in user for context; status comes from the profile itself.
-  useAuth();
+  const queryClient = useQueryClient();
+  const { refreshUser } = useAuth();
+  const on = profile.mfaEnabled;
+  const [step, setStep] = useState<MfaStep>("idle");
+  const [code, setCode] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [setup, setSetup] = useState<{ otpauthUrl: string; secret: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function reset(next: MfaStep = "idle") {
+    setStep(next);
+    setCode("");
+    setNewCode("");
+    setError(null);
+    if (next !== "scan") setSetup(null);
+  }
+  async function reload() {
+    await queryClient.invalidateQueries({ queryKey: ["profile"] });
+    void refreshUser();
+  }
+  const onError = (e: unknown) =>
+    setError(errMessage(e, "That did not work — please try again."));
+
+  const disable = useMutation({
+    mutationFn: (c: string) => disableMfa(c),
+    onSuccess: async () => {
+      reset();
+      setNotice("Two-factor sign-in is off.");
+      await reload();
+    },
+    onError,
+  });
+  const enroll = useMutation({
+    mutationFn: (c?: string) => enrollMfa(c),
+    onSuccess: async (r) => {
+      setSetup(r);
+      reset("scan");
+      setNotice(null);
+      // Until the new entry is confirmed the account's two-factor is off.
+      await reload();
+    },
+    onError,
+  });
+  const confirm = useMutation({
+    mutationFn: (c: string) => confirmMfa(c),
+    onSuccess: async () => {
+      reset();
+      setNotice("Two-factor sign-in is on.");
+      await reload();
+    },
+    onError,
+  });
+  const busy = disable.isPending || enroll.isPending || confirm.isPending;
+
   return (
     <Card>
       <CardContent className="space-y-4">
@@ -468,18 +534,156 @@ function SecurityCard({ profile }: { profile: Profile }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="font-serif text-[15px] font-medium text-navy">
-              Multi-factor authentication
+              Two-factor sign-in
             </div>
             <p className="mt-1 text-[12.5px] text-content-secondary">
-              Multi-factor authentication is required for all MCRC accounts.
+              {on
+                ? "A code from your authenticator app is asked for at every sign-in."
+                : "Turn it on to be asked for a code from your authenticator app at every sign-in."}
             </p>
           </div>
-          {profile.mfaEnabled ? (
-            <Chip variant="success">Enrolled</Chip>
-          ) : (
-            <Chip variant="warn">Not enrolled</Chip>
-          )}
+          <Chip variant={on ? "success" : "warn"}>
+            <span data-mfa-status>{on ? "On" : "Off"}</span>
+          </Chip>
         </div>
+
+        {notice && step === "idle" ? (
+          <p className="text-[12.5px] text-content-secondary">{notice}</p>
+        ) : null}
+
+        {step === "idle" ? (
+          <div className="flex flex-wrap gap-2">
+            {on ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setNotice(null);
+                    reset("disable");
+                  }}
+                >
+                  Turn off two-factor sign-in
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNotice(null);
+                    reset("reauth");
+                  }}
+                >
+                  Set up again
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setNotice(null);
+                  setError(null);
+                  enroll.mutate(undefined);
+                }}
+              >
+                Turn on two-factor sign-in
+              </Button>
+            )}
+          </div>
+        ) : null}
+
+        {step === "disable" || step === "reauth" ? (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              if (step === "disable") disable.mutate(code.trim());
+              else enroll.mutate(code.trim());
+            }}
+          >
+            <label className="block max-w-[240px]">
+              <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                Current code from your authenticator
+              </span>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\s/g, ""))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={10}
+                className="input w-full font-mono"
+                required
+              />
+            </label>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={busy || code.trim().length < 6}>
+                {step === "disable" ? "Turn off" : "Continue"}
+              </Button>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => reset()}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        {step === "scan" && setup ? (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              confirm.mutate(newCode.trim());
+            }}
+          >
+            <p className="text-[12.5px] text-content-secondary">
+              Add a new entry in your authenticator app with this key, or{" "}
+              <a href={setup.otpauthUrl} className="font-semibold text-blue underline">
+                open it in the app
+              </a>
+              . Two-factor sign-in stays off until you confirm the entry&apos;s first
+              code.
+            </p>
+            <code className="block break-all rounded-input bg-sidebar px-3 py-2 font-mono text-[13px] text-navy">
+              {setup.secret}
+            </code>
+            <label className="block max-w-[240px]">
+              <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                Code from the new authenticator entry
+              </span>
+              <input
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value.replace(/\s/g, ""))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={10}
+                className="input w-full font-mono"
+                required
+              />
+            </label>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={busy || newCode.trim().length < 6}
+              >
+                Confirm
+              </Button>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => reset()}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
+          >
+            {error}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
