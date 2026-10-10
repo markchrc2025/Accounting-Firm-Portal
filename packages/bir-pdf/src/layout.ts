@@ -171,6 +171,7 @@ function comb(
   const total = f.rows.reduce((t, r) => t + boxes(r), 0);
   if (f.pad && v.length < total) v = v.padStart(total, f.pad);
   if (v.length > total && (f.wrap !== "words" || f.rows.length === 1)) {
+    if (f.squeeze) return squeeze(f, v, raw, size, m, who);
     throw new BirPdfError(
       `${who}: "${raw}" is ${v.length} characters but the paper has ${total} boxes`,
       f.key,
@@ -186,6 +187,7 @@ function comb(
   if (f.wrap === "words") {
     const wrapped = wrapWords(v, f.rows.map(boxes));
     if (!wrapped) {
+      if (f.squeeze) return squeeze(f, v, raw, size, m, who);
       throw new BirPdfError(
         `${who}: "${raw}" (${v.length} characters) does not fit ${f.rows.length} rows of ${f.rows.map(boxes).join(" + ")} boxes`,
         f.key,
@@ -201,6 +203,93 @@ function comb(
     }
   }
   return f.rows.flatMap((r, i) => fill(r, parts[i] ?? "", 0, size, m, who));
+}
+
+/** The smallest size a squeezed value may print at (domain owner, C1-A1). */
+export const SQUEEZE_MIN = 5.5;
+/** Room left at each end of a squeezed line: clears a 1.4 pt page frame by 1.3 pt. */
+const SQUEEZE_INSET = 2;
+
+/** Break text into lines no wider than each row's width at `size`; undefined if it overflows. */
+function wrapMeasured(
+  v: string,
+  widths: number[],
+  size: number,
+  m: Metrics,
+): string[] | undefined {
+  const lines: string[] = [""];
+  const fits = (t: string) => m.width(t, size) <= widths[lines.length - 1]!;
+  for (const word of v.split(/ +/).filter(Boolean)) {
+    const cur = lines[lines.length - 1]!;
+    if (fits(cur ? `${cur} ${word}` : word)) {
+      lines[lines.length - 1] = cur ? `${cur} ${word}` : word;
+      continue;
+    }
+    // Start the word on the next row; split it only if it is wider than a whole row.
+    let w = word;
+    if (cur) lines.push("");
+    for (;;) {
+      if (lines.length > widths.length) return undefined;
+      if (fits(w)) {
+        lines[lines.length - 1] = w;
+        break;
+      }
+      let n = w.length - 1;
+      while (n > 0 && !fits(w.slice(0, n))) n--;
+      if (n === 0) return undefined;
+      lines[lines.length - 1] = w.slice(0, n);
+      w = w.slice(n);
+      lines.push("");
+    }
+  }
+  return lines.length <= widths.length ? lines : undefined;
+}
+
+/**
+ * A value too long for its boxes, printed whole: one continuous line per row
+ * across the comb's full width, at the largest size from `size` down to
+ * SQUEEZE_MIN that fits, vertically centred on the same middle line as the
+ * one-per-box characters. Below SQUEEZE_MIN it is an error naming the field.
+ */
+function squeeze(
+  f: CombField,
+  v: string,
+  raw: string,
+  size: number,
+  m: Metrics,
+  who: string,
+): DrawOp[] {
+  for (const ch of v) {
+    if (ch !== " " && !m.has(ch)) {
+      throw new BirPdfError(`${who}: the character "${ch}" cannot be printed`, f.key);
+    }
+  }
+  const widths = f.rows.map(
+    (r) => r.cells[r.cells.length - 1]! - r.cells[0]! - 2 * SQUEEZE_INSET,
+  );
+  for (let tenths = Math.round(size * 10); tenths >= SQUEEZE_MIN * 10; tenths--) {
+    const s = tenths / 10;
+    const lines = wrapMeasured(v, widths, s, m);
+    if (!lines) continue;
+    const lift = (m.capHeight(size) - m.capHeight(s)) / 2;
+    return f.rows.flatMap((r, i) =>
+      lines[i]
+        ? [
+            {
+              page: r.page,
+              x: r.cells[0]! + SQUEEZE_INSET,
+              y: r.y + lift,
+              text: lines[i]!,
+              size: s,
+            },
+          ]
+        : [],
+    );
+  }
+  throw new BirPdfError(
+    `${who}: "${raw}" (${v.length} characters) does not fit the comb even squeezed to ${SQUEEZE_MIN} pt`,
+    f.key,
+  );
 }
 
 const AMOUNT = /^(-?)([0-9][0-9,]*)(?:\.([0-9]+))?$/;

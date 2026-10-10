@@ -17,6 +17,8 @@ export interface TextItem {
   /** Baseline. */
   y: number;
   w: number;
+  /** Font size (the text matrix's vertical scale). */
+  size: number;
 }
 
 /** Read every text item of every page (1-based page numbers). */
@@ -37,6 +39,7 @@ export async function readText(bytes: Uint8Array): Promise<TextItem[]> {
         x: it.transform[4],
         y: it.transform[5],
         w: it.width,
+        size: Math.abs(it.transform[3]),
       });
     }
   }

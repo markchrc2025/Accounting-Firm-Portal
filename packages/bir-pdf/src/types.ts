@@ -46,6 +46,12 @@ export interface CombField extends Placed {
   case?: "upper" | "keep";
   /** The proof's ghost character: "8" for digit boxes, "W" for letter boxes. Default "W". */
   ghost?: "8" | "W";
+  /**
+   * Names, addresses, e-mail and payment particulars only (domain owner, C1-A1): a
+   * value too long for the boxes prints whole as one continuous line per row,
+   * shrinking down to 5.5 pt, instead of being refused. Never on digit combs.
+   */
+  squeeze?: boolean;
 }
 
 /** An amount: pesos right-aligned in `cells`, centavos after the printed point in `cents`. */
