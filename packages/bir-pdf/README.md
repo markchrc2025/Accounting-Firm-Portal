@@ -47,6 +47,16 @@ else. `pdfjs-dist` (reading text back in tests), `tsx`, `vitest` and Python
      centavo boxes, free text too long at its minimum size, a checkbox value other than
      `true`/`false`, an unknown dropdown index, or a character the font cannot print is an
      error **naming the field**. Nothing is cut off or dropped silently.
+   - **Squeeze** (domain owner, C1-A1: "it's okay if it isn't per character box, as long
+     as the name is complete"). A comb marked `"squeeze": true` (names, addresses,
+     e-mail, payment particulars) that is too long for its boxes prints whole instead:
+     one continuous line per row across the comb's full width (2 pt in from its outer
+     edges), vertically centred on the same middle line as one-per-box characters, at the
+     largest size from the field's size down to 5.5 pt that fits. Several rows break
+     between words. Below 5.5 pt it is still an error naming the field. A value that fits
+     still prints one character per box. Digit combs (TIN, RDO, ZIP, dates, amounts,
+     codes) never squeeze; the map validator refuses `squeeze` with `date`, `pad`,
+     `ghost: "8"` or right alignment.
    - Text prints in CAPITAL LETTERS, as the forms instruct, unless the field says
      `"case": "keep"` (email addresses).
    - Fixed metadata (title, subject, creator, producer; no dates, no ids): the same
@@ -123,6 +133,15 @@ writes `proofs/<form>-<version>-proof.pdf` with a ghost value in every mapped fi
 label on every free-text line. Rasterize every page (`pdftoppm -r 300`) and check that
 every character sits inside its box, centred, and covers no printed text. Commit the
 proof with the map.
+
+It also writes `proofs/<form>-<version>-longname-proof.pdf`: the form's sample export
+with every `squeeze` field given an invented value too long for its boxes. Check that
+each squeezed line is complete, inside its comb, and clear of the frame and cell
+borders.
+
+How much fits at 5.5 pt (2551Q, measured with ordinary capitals; wide letters such as
+M, W, B fit fewer): a 5-box bank about 17, a 7-box number about 25, the 8-box
+particulars about 28, a 26-box page-2 name about 88.
 
 ## Adding a new form version
 

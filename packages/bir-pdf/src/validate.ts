@@ -64,6 +64,8 @@ function checkField(map: FormMap, f: Field): void {
         fail(map, `${f.key}: right alignment is for one row only`);
       if (f.pad !== undefined && f.pad.length !== 1)
         fail(map, `${f.key}: pad is one character`);
+      if (f.squeeze && (f.date || f.pad || f.ghost === "8" || f.align === "right"))
+        fail(map, `${f.key}: squeeze is for letter combs only; digits never squeeze`);
       return;
     }
     case "money":
