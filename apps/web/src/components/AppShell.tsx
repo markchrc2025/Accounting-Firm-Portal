@@ -146,6 +146,15 @@ export function AppShell() {
                     { to: `/clients/${workspaceClientId}`, label: "Client Overview", end: true },
                     { to: `/clients/${workspaceClientId}/sales`, label: "Sales & Income" },
                     { to: `/clients/${workspaceClientId}/expenses`, label: "Expenses" },
+                    // W12 R1: scanning receipts, for firm users who may add expenses.
+                    ...(hasPermission("Expenses:Create")
+                      ? [
+                          {
+                            to: `/receipt-scans?clientId=${workspaceClientId}`,
+                            label: "Scan receipts",
+                          },
+                        ]
+                      : []),
                     { to: `/clients/${workspaceClientId}/tax`, label: "Tax Estimate" },
                     { to: `/clients/${workspaceClientId}/tax-rules`, label: "Tax Rules" },
                     { to: `/clients/${workspaceClientId}/filings`, label: "BIR Filings" },

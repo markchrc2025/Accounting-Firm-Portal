@@ -1341,6 +1341,27 @@ async function errorFrom(res: Response, fallback: string): Promise<ApiError> {
   return new ApiError(res.status, message, body);
 }
 
+/**
+ * POST a multipart form (W12: a pile of receipt photos). No Content-Type
+ * header is set: the browser writes it, with the multipart boundary. The
+ * server's `{ message }` is thrown word for word; a body that is not JSON
+ * reads "<fallback> (<status>)".
+ */
+export async function apiUpload<T>(
+  path: string,
+  form: FormData,
+  fallback: string,
+): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) throw await errorFrom(res, fallback);
+  return (await res.json()) as T;
+}
+
 /** The filename a Content-Disposition header names, or `fallback`. Handles the
  *  RFC 6266 forms: filename*=UTF-8''…, filename="…" and bare filename=…. */
 export function dispositionFilename(header: string | null, fallback: string): string {
