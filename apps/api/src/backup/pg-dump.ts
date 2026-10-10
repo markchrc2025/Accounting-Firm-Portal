@@ -77,7 +77,7 @@ async function run(bin: string, args: string[], conn: PgConnection): Promise<voi
   }
 }
 
-/** `pg_dump (PostgreSQL) 17.x` — logged so a deploy log shows which client ran. */
+/** `pg_dump (PostgreSQL) <major>.<minor> …` — logged, and compared with the server's major before every dump. */
 export async function pgDumpVersion(pgDump = "pg_dump"): Promise<string> {
   const { stdout } = await execFileAsync(pgDump, ["--version"]);
   return stdout.trim();

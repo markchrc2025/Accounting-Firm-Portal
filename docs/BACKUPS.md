@@ -23,6 +23,11 @@ copy knows exactly which migrations it has. A deploy with nothing pending takes 
 migrated.** Retention runs after each successful nightly and deletes only dumps the module
 itself named; anything else under `backups/` is left alone.
 
+**Versions.** The production server is **Sliplane Managed PostgreSQL 18** (read off the
+Sliplane console, 2026-10-10). The API image carries `pg_dump` 18 to match. Before every
+dump the module compares the two majors and refuses an older client (see *When the deploy
+refuses to migrate*), so a server upgrade can never produce a half-made dump.
+
 What is **not** in a dump: the files in the bucket itself (uploaded CORs, avatars,
 generated BIR form exports). Those already live in the bucket; the dump holds the rows
 that point to them.
@@ -68,8 +73,8 @@ head -c 5 2026-10-11.dump; echo      # prints: PGDMP
 ## Restoring into a fresh database (never over the live one)
 
 You need `pg_restore` of the same major version as the dump's server or newer
-(`pg_restore --version`; the API image carries 17). Restore into a **new, empty
-database**, look at it, and only then decide whether the API should use it.
+(`pg_restore --version`; the server is 18 and the API image carries 18). Restore into a
+**new, empty database**, look at it, and only then decide whether the API should use it.
 
 1. **Create the empty database** on the same PostgreSQL server. Use the user and host from
    `DATABASE_URL`; if that user may not create databases, use the credentials Sliplane
@@ -146,9 +151,12 @@ the nightly. Use it only when a deploy must go out and the bucket cannot be made
 right now; take a copy another way first (PITR exists), and remove the variable again the
 same day.
 
-**`pg_dump: error: server version mismatch`** means the PostgreSQL server is newer than the
-image's client. The fix is one number in `apps/api/Dockerfile`: `postgresql-client-17`
-becomes the server's major version.
+**`pg_dump 18 is older than the server 19: install postgresql-client-19 in
+apps/api/Dockerfile`** (whatever the two numbers are) means the PostgreSQL server has moved
+to a newer major than the image's client. The module checks this before every dump — the
+pre-migrate step fails closed with that line, the nightly logs it as its failure reason and
+reports it to Sentry when Sentry is configured — and the fix is exactly the one number it
+names, in `apps/api/Dockerfile`.
 
 ## How this is tested
 

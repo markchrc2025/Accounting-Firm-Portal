@@ -9,10 +9,12 @@ FROM node:22-bookworm-slim
 
 # Prisma needs openssl at runtime; certs for outbound TLS. pg_dump is for the
 # database backups (D38, docs/BACKUPS.md): it must be at least the server's major
-# version, and Debian bookworm's own archive stops at PostgreSQL 15, so the client
-# comes from the PostgreSQL project's apt repository (PGDG) at major 17. If a deploy
-# log ever says "server version mismatch", raise the 17 below. The final
-# `pg_dump --version` makes a missing client fail the image build, not the deploy.
+# version. The production server is Sliplane Managed PostgreSQL 18 (read off the
+# Sliplane console, 2026-10-10; recorded in docs/BACKUPS.md), and Debian bookworm's
+# own archive stops at 15, so the client comes from the PostgreSQL project's apt
+# repository (PGDG) at major 18. Before every dump the API compares pg_dump's major
+# with the server's and refuses, naming the number to raise here, if the client is
+# older. The final `pg_dump --version` makes a missing client fail the image build.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates curl \
   && install -d /usr/share/postgresql-common/pgdg \
@@ -21,7 +23,7 @@ RUN apt-get update \
   && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
        > /etc/apt/sources.list.d/pgdg.list \
   && apt-get update \
-  && apt-get install -y --no-install-recommends postgresql-client-17 \
+  && apt-get install -y --no-install-recommends postgresql-client-18 \
   && apt-get purge -y --auto-remove curl \
   && rm -rf /var/lib/apt/lists/* \
   && pg_dump --version

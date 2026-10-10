@@ -163,3 +163,59 @@ export function pendingMigrations(
   const applied = new Set(appliedNames);
   return [...directoryNames].sort().filter((name) => !applied.has(name));
 }
+
+// ---------------------------------------------------------------------------
+// U7-A1 (R2): pg_dump must not be older than the server it dumps
+// ---------------------------------------------------------------------------
+
+/** Major version from `pg_dump --version`: "pg_dump (PostgreSQL) 16.13 (Ubuntu …)" → 16, "18beta1" → 18. */
+export function pgMajorFromVersionString(line: string): number | null {
+  const m = /\(PostgreSQL\)\s+(\d+)/.exec(line);
+  return m && m[1] ? Number(m[1]) : null;
+}
+
+/** Major from PostgreSQL's server_version_num: 180000 → 18, 160013 → 16, 90624 → 9. */
+export function serverMajorFromVersionNum(num: number): number {
+  return Math.floor(num / 10000);
+}
+
+export type DumpClientCheck =
+  | { ok: true; clientMajor: number; serverMajor: number }
+  | { ok: false; clientMajor: number | null; serverMajor: number; message: string };
+
+/** The one line a person needs when the client is too old (R2, verbatim). */
+export function dumpClientMessage(clientMajor: number, serverMajor: number): string {
+  return `pg_dump ${clientMajor} is older than the server ${serverMajor}: install postgresql-client-${serverMajor} in apps/api/Dockerfile`;
+}
+
+/**
+ * pg_dump refuses a server newer than itself ("server version mismatch"), and
+ * does so only after connecting. This decides it up front, from pg_dump's own
+ * version line and the server's server_version_num: an older client is refused
+ * with the fix spelled out; an equal or newer client is fine. A version line
+ * that cannot be read is refused too — a dump nobody can vouch for is not one.
+ */
+export function checkDumpClient(
+  clientVersionLine: string,
+  serverVersionNum: number,
+): DumpClientCheck {
+  const serverMajor = serverMajorFromVersionNum(serverVersionNum);
+  const clientMajor = pgMajorFromVersionString(clientVersionLine);
+  if (clientMajor === null) {
+    return {
+      ok: false,
+      clientMajor,
+      serverMajor,
+      message: `pg_dump's version could not be read from "${clientVersionLine.trim()}"; refusing to dump a PostgreSQL ${serverMajor} server with an unknown client`,
+    };
+  }
+  if (clientMajor < serverMajor) {
+    return {
+      ok: false,
+      clientMajor,
+      serverMajor,
+      message: dumpClientMessage(clientMajor, serverMajor),
+    };
+  }
+  return { ok: true, clientMajor, serverMajor };
+}

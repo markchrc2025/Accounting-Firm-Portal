@@ -41,9 +41,12 @@ an argument — so the password never appears in `ps`.
 (`.github/workflows/ci.yml:56`) both use `postgres:16-alpine`. This is PostgreSQL 16 as
 well, so the major version matches everywhere. The patch level and the base image differ
 (Ubuntu build vs. Alpine), and neither the compose file nor CI pins a patch version.
-`docs/DEPLOY-SLIPLANE.md:8` names production only as "Sliplane Postgres template" — **the
-production version is not recorded anywhere in this repository.** Worth pinning down before
-anything depends on 16-specific behaviour.
+**Production is Sliplane Managed PostgreSQL 18** (read off the Sliplane console,
+2026-10-10, recorded in U7-A1), so local and CI are two majors behind it. The backup
+module's client check passes here because the VM's `pg_dump` 16 dumps the VM's server 16;
+the API image carries `pg_dump` 18 for production (`docs/BACKUPS.md`). Closing the gap
+between 16 here and 18 there is worth doing before anything depends on version-specific
+behaviour.
 
 **Local never uploads.** The backup module (`docs/BACKUPS.md`) dumps to the bucket only when `NODE_ENV=production` and the four `S3_*` variables are set; in this VM it prints one skip line, schedules no nightly, and nothing leaves the machine — the restore drill in `test:db` dumps and restores locally only.
 

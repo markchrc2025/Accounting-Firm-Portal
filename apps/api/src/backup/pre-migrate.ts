@@ -22,7 +22,7 @@ import { PrismaClient } from "@prisma/client";
 import { StorageService } from "../storage/storage.service";
 import { BackupGate, pendingMigrations, preMigrateKey } from "./backup.rules";
 import { BackupLog, BackupService } from "./backup.service";
-import { pgDumpVersion } from "./pg-dump";
+import { readServerVersionNum } from "./server-version";
 
 export interface MigrateWithBackupDeps {
   gate: BackupGate;
@@ -143,19 +143,24 @@ export function migrationDirectories(apiRoot: string): string[] {
     .map((entry) => entry.name);
 }
 
-async function readPending(
-  apiRoot: string,
-): Promise<{ pending: string[]; applied: number }> {
+/** One short-lived Prisma client per question; the command asks two and exits. */
+async function withPrisma<T>(fn: (prisma: PrismaClient) => Promise<T>): Promise<T> {
   const prisma = new PrismaClient();
   try {
+    return await fn(prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+function readPending(apiRoot: string): Promise<{ pending: string[]; applied: number }> {
+  return withPrisma(async (prisma) => {
     const applied = await appliedMigrations(prisma);
     return {
       pending: pendingMigrations(migrationDirectories(apiRoot), applied),
       applied: applied.length,
     };
-  } finally {
-    await prisma.$disconnect();
-  }
+  });
 }
 
 /** `prisma migrate deploy`, output inherited so the log reads as it always has. */
@@ -187,16 +192,15 @@ export function realDeps(): MigrateWithBackupDeps {
   const service = new BackupService({
     store: new StorageService(config),
     env,
+    serverVersionNum: () => withPrisma(readServerVersionNum),
     logger: cliLogger,
   });
   const apiRoot = join(__dirname, "..", "..");
   return {
     gate: service.gate(),
     pending: () => readPending(apiRoot),
-    backup: async (key) => {
-      defaultLog(await pgDumpVersion());
-      return service.backup(key);
-    },
+    // backup() logs pg_dump's version against the server's before it dumps (R2).
+    backup: (key) => service.backup(key),
     migrate: () => prismaMigrateDeploy(apiRoot),
   };
 }
