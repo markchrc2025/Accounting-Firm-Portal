@@ -21,9 +21,12 @@ set -euo pipefail
 
 # A PGHOST / PGPORT / PGUSER / PGPASSWORD / PGDATABASE exported in the calling shell
 # would be inherited by `su postgres -c psql` below and make it connect as that user
-# over TCP instead of as the OS superuser over the socket (U7's T7 incident). Every
-# connection detail in this script is passed explicitly, so none of them is needed.
-unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
+# over TCP instead of as the OS superuser over the socket (U7's T7 incident) — and so
+# would PGHOSTADDR, PGSERVICE, PGCLUSTER, PGPASSFILE or PGOPTIONS, which libpq and
+# Debian's pg_wrapper also read. Every connection detail in this script is passed
+# explicitly, so the whole PG* family is cleared, as apps/api/src/backup/pg-dump.ts
+# does for the child it spawns.
+unset "${!PG@}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"

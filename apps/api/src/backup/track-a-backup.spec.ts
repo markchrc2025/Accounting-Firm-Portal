@@ -15,6 +15,14 @@
  *   T5  the nightly — registered for 18:00 UTC; the key carries the MANILA date.
  */
 import { writeFile } from "node:fs/promises";
+import * as SentryNode from "@sentry/node";
+import { sentryEnabled } from "../observability/sentry";
+
+// The production Sentry binding (BackupService's default when no `sentry` dep is
+// injected) is realSentry = { isEnabled: sentryEnabled, captureException: Sentry.captureException }.
+// Both modules are mocked here so that binding can be exercised without a DSN.
+jest.mock("@sentry/node", () => ({ captureException: jest.fn(() => "event-id") }));
+jest.mock("../observability/sentry", () => ({ sentryEnabled: jest.fn(() => false) }));
 import {
   DAILY_KEEP,
   DAILY_PREFIX,
@@ -829,6 +837,7 @@ describe("U7-A1 T1 — pg_dump older than the server: the pre-migrate command re
     expect(code).toBe(1);
     expect(lines.some((l) => l.includes(R2_MESSAGE))).toBe(true);
     expect(lines.some((l) => l.includes("NOT migrated"))).toBe(true);
+    expect(svc.tempDirsOpen).toBe(0); // refused before touching the disk
   });
 });
 
@@ -878,7 +887,7 @@ describe("U7-A1 T2 — equal or newer clients dump; the nightly on an older clie
     });
     expect(serverMajorFromVersionNum(90624)).toBe(9);
     expect(serverMajorFromVersionNum(100000)).toBe(10);
-    expect(pgMajorFromVersionString("sh: pg_dump: not found")).toBeNull();
+    expect(pgMajorFromVersionString("not a pg_dump version line")).toBeNull();
     const bad = checkDumpClient("garbage", 180000);
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.message).toContain("could not be read");
@@ -928,6 +937,7 @@ describe("U7-A1 T2 — equal or newer clients dump; the nightly on an older clie
     expect(line).toBe(
       `error nightly backup FAILED for backups/daily/2026-10-11.dump: ${R2_MESSAGE}`,
     );
+    expect(svc.tempDirsOpen).toBe(0);
   });
 
   it("a failed nightly reaches Sentry once when Sentry is configured", async () => {
@@ -988,6 +998,53 @@ describe("U7-A1 T2 — equal or newer clients dump; the nightly on an older clie
     ).resolves.toBeUndefined();
     expect(
       logger.lines.some((l) => l.startsWith("warn") && l.includes("sentry down")),
+    ).toBe(true);
+  });
+});
+
+describe("U7-A1 — the production Sentry binding (no fake injected)", () => {
+  const mockedEnabled = sentryEnabled as jest.MockedFunction<typeof sentryEnabled>;
+  const mockedCapture = SentryNode.captureException as jest.MockedFunction<
+    typeof SentryNode.captureException
+  >;
+
+  function serviceWithRealSentry(enabled: boolean) {
+    mockedEnabled.mockReturnValue(enabled);
+    mockedCapture.mockClear();
+    const logger = fakeLog();
+    const svc = new BackupService({
+      store: fakeStore(),
+      env: envReader({
+        DATABASE_URL: "postgresql://u:p@localhost:5432/portal?schema=public",
+        ...PROD_ENV,
+      }),
+      dump: fakeDumper(2048).dump,
+      logger,
+      now: () => new Date("2026-10-10T18:00:00Z"),
+      clientVersion: async () => "pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)",
+      serverVersionNum: async () => 180000,
+      // no `sentry`: the default binding to @sentry/node + observability/sentry is used
+    });
+    return { svc, logger };
+  }
+
+  it("with SENTRY_DSN configured (sentryEnabled() true): Sentry.captureException is called once with the failure line", async () => {
+    const { svc } = serviceWithRealSentry(true);
+    await svc.runNightly();
+    expect(mockedCapture).toHaveBeenCalledTimes(1);
+    const reported = mockedCapture.mock.calls[0]?.[0] as Error;
+    expect(reported).toBeInstanceOf(Error);
+    expect(reported.message).toBe(
+      `nightly backup FAILED for backups/daily/2026-10-11.dump: ${R2_MESSAGE}`,
+    );
+  });
+
+  it("without SENTRY_DSN (sentryEnabled() false): Sentry.captureException is never called", async () => {
+    const { svc, logger } = serviceWithRealSentry(false);
+    await svc.runNightly();
+    expect(mockedCapture).not.toHaveBeenCalled();
+    expect(
+      logger.lines.some((l) => l.startsWith("error") && l.includes(R2_MESSAGE)),
     ).toBe(true);
   });
 });
