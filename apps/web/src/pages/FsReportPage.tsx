@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useConfirmAction } from "../components/useConfirmAction";
 import { AccountCombobox } from "../components/AccountCombobox";
 import {
   ApiError,
@@ -56,6 +57,8 @@ export default function FsReportPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const canManage = hasPermission("FinancialStatements:Manage");
   const [tab, setTab] = useState<Tab>("trial-balance");
   const [editingEntity, setEditingEntity] = useState(false);
@@ -96,6 +99,7 @@ export default function FsReportPage() {
 
   return (
     <div>
+      {confirmDialog}
       <PageHeader
         eyebrow="Financial Statements"
         title={r.entityName}
@@ -123,9 +127,14 @@ export default function FsReportPage() {
             {canManage && (
               <Button
                 variant="ghost"
-                onClick={() => {
-                  if (confirm("Delete this FS report and all its data?")) remove.mutate();
-                }}
+                onClick={() =>
+                  ask({
+                    question: "Delete this FS report and all its data?",
+                    confirmLabel: "Delete",
+                    failure: "Could not delete this report.",
+                    action: () => remove.mutateAsync(),
+                  })
+                }
               >
                 Delete
               </Button>
