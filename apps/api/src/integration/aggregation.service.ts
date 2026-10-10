@@ -22,6 +22,28 @@ function exemptConflict(businessName: string, form: "2550Q" | "2551Q"): Conflict
   );
 }
 
+/**
+ * U9 R3 (D45): each summary answers only for the regime that files its return —
+ * vat-summary for VAT clients, percentage-tax-summary for PERCENTAGE clients. An
+ * exempt client keeps U8's 409; every other regime gets this one.
+ */
+function wrongRegimeConflict(
+  businessName: string,
+  taxType: string | null,
+  form: "2550Q" | "2551Q",
+): ConflictException {
+  const summary = form === "2550Q" ? "VAT" : "percentage-tax";
+  const who =
+    taxType === "PERCENTAGE"
+      ? "is a percentage-tax client"
+      : taxType === "VAT"
+        ? "is VAT-registered"
+        : "has an unknown tax regime";
+  return new ConflictException(
+    `${businessName} ${who} and files no ${form}, so there is no ${summary} summary.`,
+  );
+}
+
 /** ISO yyyy-mm-dd from a Prisma @db.Date value. */
 function toIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -47,6 +69,9 @@ export class AggregationService {
     });
     if (!client) throw new NotFoundException("Client not found");
     if (isExemptTaxType(client.taxType)) throw exemptConflict(client.businessName, "2550Q");
+    if (client.taxType !== "VAT") {
+      throw wrongRegimeConflict(client.businessName, client.taxType, "2550Q");
+    }
 
     const { start, end } = quarterToRange(year, quarter);
     const range = { gte: new Date(start), lte: new Date(end) };
@@ -100,6 +125,9 @@ export class AggregationService {
     });
     if (!client) throw new NotFoundException("Client not found");
     if (isExemptTaxType(client.taxType)) throw exemptConflict(client.businessName, "2551Q");
+    if (client.taxType !== "PERCENTAGE") {
+      throw wrongRegimeConflict(client.businessName, client.taxType, "2551Q");
+    }
 
     const { start, end } = quarterToRange(year, quarter);
     const income = await this.prisma.incomeTransaction.findMany({

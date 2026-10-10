@@ -278,7 +278,7 @@ describe("U8 · a client with no tax regime keeps books (db)", () => {
 
     it("dashboard: the exempt client is counted in neither regime and gets no 2550Q or 2551Q in upcoming filings", async () => {
       const overview = await dashboard.firmOverview(actor.firmId);
-      expect(overview.regimeMix).toEqual({ vat: 0, percentage: 1 });
+      expect(overview.regimeMix).toEqual({ vat: 0, percentage: 1, exempt: 1 });
       const names = overview.upcomingFilings.map((f) => f.client);
       expect(names).toContain(`${TAG} Percentage Control`);
       expect(names).not.toContain("HALIMBAWA, JUANA SUBOK");

@@ -192,15 +192,30 @@ export class UsersService {
   }
 
   async setRoles(actor: AuthUser, id: string, input: SetRolesInput) {
-    const before = (await this.load(actor, id)).user;
-    const roles = await this.resolveFirmRoles(input.roleNames);
-    await this.prisma.$transaction([
-      // Replace only firm-wide (unscoped) role grants.
-      this.prisma.userRole.deleteMany({ where: { userId: id, clientScopeId: null } }),
-      this.prisma.userRole.createMany({
-        data: roles.map((r) => ({ userId: id, roleId: r.id })),
-      }),
-    ]);
+    const { user: before, clientId } = await this.load(actor, id);
+    // U9 R1 d (D44): a role's scope must fit the user — FIRM roles for firm users,
+    // CLIENT roles for portal users and scoped to that user's own client.
+    const roles = await this.resolveRolesFor(input.roleNames, before.userType);
+    if (before.userType === "CLIENT" && !clientId) {
+      throw new BadRequestException("This portal user belongs to no client.");
+    }
+    await this.prisma.$transaction(
+      before.userType === "FIRM"
+        ? [
+            // Replace only firm-wide (unscoped) role grants.
+            this.prisma.userRole.deleteMany({ where: { userId: id, clientScopeId: null } }),
+            this.prisma.userRole.createMany({
+              data: roles.map((r) => ({ userId: id, roleId: r.id })),
+            }),
+          ]
+        : [
+            // A portal user holds only grants scoped to their own client.
+            this.prisma.userRole.deleteMany({ where: { userId: id } }),
+            this.prisma.userRole.createMany({
+              data: roles.map((r) => ({ userId: id, roleId: r.id, clientScopeId: clientId })),
+            }),
+          ],
+    );
     await this.audit.record({
       userId: actor.id,
       action: "user.roles.set",
@@ -306,6 +321,34 @@ export class UsersService {
       metadata: { clientIds: validIds },
     });
     return this.assignedClients(actor, id);
+  }
+
+  /** Roles by name for a user of `userType`; 400 when a named role's scope does not fit. */
+  private async resolveRolesFor(roleNames: string[], userType: "FIRM" | "CLIENT") {
+    if (roleNames.length === 0) return [];
+    const all = await this.prisma.role.findMany({ where: { name: { in: roleNames } } });
+    const out: typeof all = [];
+    const unknown: string[] = [];
+    for (const name of new Set(roleNames)) {
+      const fit = all.find((r) => r.name === name && r.scope === userType);
+      if (fit) {
+        out.push(fit);
+        continue;
+      }
+      const other = all.find((r) => r.name === name);
+      if (other) {
+        throw new BadRequestException(
+          `A ${other.scope} role cannot be given to a ${userType} user.`,
+        );
+      }
+      unknown.push(name);
+    }
+    if (unknown.length > 0) {
+      throw new BadRequestException(
+        `Unknown ${userType === "FIRM" ? "firm" : "client"} role(s): ${unknown.join(", ")}`,
+      );
+    }
+    return out;
   }
 
   private async resolveFirmRoles(roleNames: string[]) {

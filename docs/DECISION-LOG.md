@@ -161,3 +161,12 @@ Decision (technical partner, extending D14): a firm user acts only on the client
 
 ## 2026-10-10 · C8 · Corrections to the record, from U4
 Ten test files carried names, TINs or addresses that could be real, some of them clients of the firm. They were replaced with invented data in U4-A1, and they stay in git history alongside D16's fixture until the history-rewrite decision. The Portal had no way to read or set client assignments from its screens, so D14's rule could not be administered. U4-A1 added the read, and Track B builds the screen.
+
+## 2026-10-10 · D43 · A tax regime is chosen, and a return that does not fit it warns
+Decision (technical partner): a new client cannot be saved until someone chooses its regime (VAT-registered, Percentage tax, or Exempt from business tax). A COR proposes one, and a person confirms it. The 2550Q editor warns when the client is not VAT-registered, and the 2551Q editor warns when the client is not under percentage tax. Neither blocks saving or filing. Built in Track B's W7.
+
+## 2026-10-10 · D44 · Sign-in hardened
+Decision (technical partner): a user who is not ACTIVE is refused at refresh and on every request. Two-factor sign-in is turned off only with a current code. Marking a BIR form filed needs BIRForms:File. A role's scope must fit the user's type. Microsoft sign-in trusts an email only from a consumer account or a token carrying xms_edov. Built in U9.
+
+## 2026-10-10 · D45 · Clients see posted records; summaries answer for their own regime; the dashboard shows what is due next
+Decision (technical partner): a client principal sees posted records only, whatever it asks for. vat-summary answers only for VAT clients and percentage-tax-summary only for percentage-tax clients; every other client gets 409. The dashboard lists the business-tax return whose deadline comes next, by Manila date, and counts exempt clients. Built in U9.

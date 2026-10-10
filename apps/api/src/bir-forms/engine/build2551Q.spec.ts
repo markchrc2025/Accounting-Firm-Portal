@@ -13,7 +13,7 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
     lastName: "TESTCASE",
     firstName: "JUANA TEST",
     middleName: "SAMPLE",
-    tin: "000000000",
+    tin: "000123456",
     branch: "00000",
     rdo: "027",
     address: "5 Halimbawa St., Barangay Lima",
@@ -53,8 +53,8 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
     has("frm2551Qv2018:rtnMonth=12frm2551Qv2018:rtnMonth=");
     has("frm2551Qv2018:txtYear=2026frm2551Qv2018:txtYear=");
     has("frm2551Qv2018:txtTIN1=000frm2551Qv2018:txtTIN1=");
-    has("frm2551Qv2018:txtTIN2=000frm2551Qv2018:txtTIN2=");
-    has("frm2551Qv2018:txtTIN3=000frm2551Qv2018:txtTIN3=");
+    has("frm2551Qv2018:txtTIN2=123frm2551Qv2018:txtTIN2=");
+    has("frm2551Qv2018:txtTIN3=456frm2551Qv2018:txtTIN3=");
     has("frm2551Qv2018:txtBranchCode=000frm2551Qv2018:txtBranchCode=");
     has("frm2551Qv2018:txtRDOCode=027frm2551Qv2018:txtRDOCode=");
   });
@@ -99,6 +99,6 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
   });
 
   it("produces the authentic filename", () => {
-    expect(fileName2551Q(f, tp)).toBe("0000000000002551Qv2018122026Q1.xml");
+    expect(fileName2551Q(f, tp)).toBe("0001234560002551Qv2018122026Q1.xml");
   });
 });

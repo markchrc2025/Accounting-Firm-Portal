@@ -532,6 +532,19 @@ Keys map to the actual April-2024 2550Q lines. All `net` amounts are exclusive o
   the **rate is resolved by the Generator's period-keyed catalog** — the Portal must not send a rate.
 - Creditable percentage-tax-withheld (Item 15) is **intentionally omitted** (stays manual in the Generator).
 
+### 6.3 Which clients each summary answers for (U9, D45)
+
+Each summary answers only for the regime that files its return:
+
+| Client's regime | `vat-summary` (2550Q) | `percentage-tax-summary` (2551Q) |
+|---|---|---|
+| VAT | 200, the §6.1 shape (`vatRegistered: true`) | **409** "&lt;business name&gt; is VAT-registered and files no 2551Q, so there is no percentage-tax summary." |
+| PERCENTAGE | **409** "&lt;business name&gt; is a percentage-tax client and files no 2550Q, so there is no VAT summary." | 200, the §6.2 shape (`vatRegistered: false`) |
+| none (exempt, D39) | **409** "&lt;business name&gt; has no tax regime: it is exempt from business tax and files no 2550Q, so there is no VAT summary." | **409**, the same wording naming the 2551Q and the percentage-tax summary |
+
+A 409 is returned before any transaction is read, so no base is ever handed out for a return the client does
+not file. The contract has no external consumer today (D3).
+
 ---
 
 ## 7. APIs the Portal Must Accept (Generator → Portal)
