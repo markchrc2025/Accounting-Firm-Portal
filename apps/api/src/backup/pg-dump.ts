@@ -62,25 +62,32 @@ function childEnv(conn: PgConnection): NodeJS.ProcessEnv {
   return { ...env, ...conn.env };
 }
 
+function notInstalled(bin: string): Error {
+  return new Error(
+    `${bin} is not installed or not on PATH (the database backups need it)`,
+  );
+}
+
 async function run(bin: string, args: string[], conn: PgConnection): Promise<void> {
   try {
     await execFileAsync(bin, args, { env: childEnv(conn), maxBuffer: 16 * 1024 * 1024 });
   } catch (err) {
     const e = err as NodeJS.ErrnoException & { stderr?: string | Buffer };
-    if (e.code === "ENOENT") {
-      throw new Error(
-        `${bin} is not installed or not on PATH (the database backups need it)`,
-      );
-    }
+    if (e.code === "ENOENT") throw notInstalled(bin);
     const stderr = (e.stderr ?? "").toString().trim();
     throw new Error(`${bin} failed against ${conn.target}: ${stderr || e.message}`);
   }
 }
 
-/** `pg_dump (PostgreSQL) 17.x` — logged so a deploy log shows which client ran. */
+/** `pg_dump (PostgreSQL) <major>.<minor> …` — logged, and compared with the server's major before every dump. */
 export async function pgDumpVersion(pgDump = "pg_dump"): Promise<string> {
-  const { stdout } = await execFileAsync(pgDump, ["--version"]);
-  return stdout.trim();
+  try {
+    const { stdout } = await execFileAsync(pgDump, ["--version"]);
+    return stdout.trim();
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") throw notInstalled(pgDump);
+    throw err;
+  }
 }
 
 export interface DumpOptions {

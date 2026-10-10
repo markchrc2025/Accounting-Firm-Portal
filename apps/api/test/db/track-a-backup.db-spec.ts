@@ -20,11 +20,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { BackupService } from "../../src/backup/backup.service";
 import {
   connectionFromUrl,
   dumpDatabase,
   restoreDatabase,
 } from "../../src/backup/pg-dump";
+import { readServerVersionNum } from "../../src/backup/server-version";
 
 function loadRootEnv(): void {
   if (process.env.DATABASE_URL) return;
@@ -129,6 +131,41 @@ describe("restore drill: dump() → pg_restore into a scratch database → same 
     expect(conn.target).toBe(
       `${conn.env.PGHOST}:${conn.env.PGPORT}/${conn.env.PGDATABASE}`,
     );
+  });
+
+  it("U7-A1: the real pg_dump is not older than the real server (16 vs 16 on the VM this was written on): the check passes and agrees with SHOW server_version", async () => {
+    const num = await readServerVersionNum(source);
+    const [shown] =
+      await source.$queryRawUnsafe<Array<{ server_version: string }>>(
+        "SHOW server_version",
+      );
+    const shownMajor = Number((shown?.server_version ?? "").split(".")[0]);
+    expect(Number.isInteger(num) && num >= 100000).toBe(true);
+    expect(Math.floor(num / 10000)).toBe(shownMajor);
+
+    // A store that refuses everything: the check must need no bucket at all.
+    const refusingStore = {
+      isEnabled: () => false,
+      putObject: async () => {
+        throw new Error("no uploads in a test");
+      },
+      listObjects: async () => [],
+      deleteObject: async () => {
+        throw new Error("no deletes in a test");
+      },
+    };
+    const svc = new BackupService({
+      store: refusingStore,
+      env: (name) => process.env[name],
+      serverVersionNum: () => readServerVersionNum(source),
+      logger: { log() {}, warn() {}, error() {} },
+    });
+    const check = await svc.checkDumpClient();
+    expect(check.ok).toBe(true);
+    if (check.ok) {
+      expect(check.serverMajor).toBe(shownMajor);
+      expect(check.clientMajor).toBeGreaterThanOrEqual(check.serverMajor);
+    }
   });
 
   it("dump() writes a custom-format, compressed archive of the live database", async () => {

@@ -14,9 +14,11 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { NightlyScheduler } from "./backup.scheduler";
 import { BackupService } from "./backup.service";
+import { readServerVersionNum } from "./server-version";
 
 @Injectable()
 export class NightlyBackupHost implements OnApplicationBootstrap, OnModuleDestroy {
@@ -42,9 +44,17 @@ export class NightlyBackupHost implements OnApplicationBootstrap, OnModuleDestro
   providers: [
     {
       provide: BackupService,
-      useFactory: (storage: StorageService, config: ConfigService) =>
-        new BackupService({ store: storage, env: (name) => config.get<string>(name) }),
-      inject: [StorageService, ConfigService],
+      useFactory: (
+        storage: StorageService,
+        config: ConfigService,
+        prisma: PrismaService,
+      ) =>
+        new BackupService({
+          store: storage,
+          env: (name) => config.get<string>(name),
+          serverVersionNum: () => readServerVersionNum(prisma),
+        }),
+      inject: [StorageService, ConfigService, PrismaService],
     },
     NightlyBackupHost,
   ],

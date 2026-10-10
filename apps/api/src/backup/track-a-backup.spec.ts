@@ -15,6 +15,14 @@
  *   T5  the nightly — registered for 18:00 UTC; the key carries the MANILA date.
  */
 import { writeFile } from "node:fs/promises";
+import * as SentryNode from "@sentry/node";
+import { sentryEnabled } from "../observability/sentry";
+
+// The production Sentry binding (BackupService's default when no `sentry` dep is
+// injected) is realSentry = { isEnabled: sentryEnabled, captureException: Sentry.captureException }.
+// Both modules are mocked here so that binding can be exercised without a DSN.
+jest.mock("@sentry/node", () => ({ captureException: jest.fn(() => "event-id") }));
+jest.mock("../observability/sentry", () => ({ sentryEnabled: jest.fn(() => false) }));
 import {
   DAILY_KEEP,
   DAILY_PREFIX,
@@ -25,11 +33,14 @@ import {
   dailyKey,
   nextNightlyRunAt,
   pendingMigrations,
+  checkDumpClient,
+  pgMajorFromVersionString,
   preMigrateKey,
   prunePlan,
+  serverMajorFromVersionNum,
 } from "./backup.rules";
 import { connectionFromUrl } from "./pg-dump";
-import { BackupLog, BackupService, BackupStore } from "./backup.service";
+import { BackupLog, BackupSentry, BackupService, BackupStore } from "./backup.service";
 import { NightlyScheduler } from "./backup.scheduler";
 import { cli, runMigrateWithBackup } from "./pre-migrate";
 
@@ -118,8 +129,25 @@ function service(
     dump: dumper.dump,
     logger,
     now,
+    // The VM this suite was written on: pg_dump 16 against server 16 (U7-A1 R5).
+    clientVersion: async () =>
+      "pg_dump (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)",
+    serverVersionNum: async () => 160013,
+    sentry: fakeSentry(false),
   });
   return { svc, store, dumper, logger };
+}
+
+function fakeSentry(enabled: boolean): BackupSentry & { captured: unknown[] } {
+  const captured: unknown[] = [];
+  return {
+    captured,
+    isEnabled: () => enabled,
+    captureException: (error) => {
+      captured.push(error);
+      return "event-id";
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -743,5 +771,280 @@ describe("runMigrateWithBackup — the gate (T3)", () => {
       ...clock,
     });
     expect(s.start().registered).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// U7-A1: pg_dump must not be older than the server (R2)
+// ---------------------------------------------------------------------------
+
+const R2_MESSAGE =
+  "pg_dump 17 is older than the server 18: install postgresql-client-18 in apps/api/Dockerfile";
+
+/** A BackupService whose pg_dump and server report the given majors; everything else faked. */
+function serviceWithVersions(
+  clientVersionLine: string,
+  serverVersionNum: number,
+  opts: {
+    store?: ReturnType<typeof fakeStore>;
+    dumper?: ReturnType<typeof fakeDumper>;
+    sentry?: BackupSentry;
+  } = {},
+) {
+  const store = opts.store ?? fakeStore();
+  const dumper = opts.dumper ?? fakeDumper(2048);
+  const logger = fakeLog();
+  const versions = {
+    clientVersion: async () => clientVersionLine,
+    serverVersionNum: async () => serverVersionNum,
+  };
+  const svc = new BackupService({
+    store,
+    env: envReader({
+      DATABASE_URL: "postgresql://u:p@localhost:5432/portal?schema=public",
+      ...PROD_ENV,
+    }),
+    dump: dumper.dump,
+    logger,
+    now: () => new Date("2026-10-10T18:15:30Z"),
+    sentry: opts.sentry ?? fakeSentry(false),
+    ...versions,
+  });
+  return { svc, store, dumper, logger };
+}
+
+describe("U7-A1 T1 — pg_dump older than the server: the pre-migrate command refuses before any dump", () => {
+  it("(client 17, server 18) with pending migrations: no dump attempted, migrate never invoked, exit 1, the R2 line", async () => {
+    const { svc, store, dumper } = serviceWithVersions(
+      "pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)",
+      180000,
+    );
+    const events: string[] = [];
+    const lines: string[] = [];
+    const code = await cli({
+      gate: backupGate(PROD_ENV),
+      pending: async () => ({ pending: ["20261011000000_u3_seal"], applied: 33 }),
+      backup: (key: string) => svc.backup(key),
+      migrate: async () => {
+        events.push("migrate");
+      },
+      now: () => new Date("2026-10-10T18:15:30Z"),
+      log: (line: string) => lines.push(line),
+    });
+    expect(dumper.calls).toEqual([]); // today the dump is attempted — this is the line that fails first
+    expect(store.puts).toEqual([]);
+    expect(events).toEqual([]);
+    expect(code).toBe(1);
+    expect(lines.some((l) => l.includes(R2_MESSAGE))).toBe(true);
+    expect(lines.some((l) => l.includes("NOT migrated"))).toBe(true);
+    expect(svc.tempDirsOpen).toBe(0); // refused before touching the disk
+  });
+});
+
+describe("U7-A1 T2 — equal or newer clients dump; the nightly on an older client refuses, logs and reports", () => {
+  it.each([
+    ["18 vs 18", "pg_dump (PostgreSQL) 18.0 (Debian 18.0-1.pgdg120+1)", 180000],
+    ["18 vs 16", "pg_dump (PostgreSQL) 18.0 (Debian 18.0-1.pgdg120+1)", 160013],
+  ])(
+    "client %s: proceeds to the dump and the upload, logging both versions",
+    async (_name, client, server) => {
+      const { svc, store, dumper, logger } = serviceWithVersions(client, server);
+      const result = await svc.backup("backups/daily/2026-10-11.dump");
+      expect(dumper.calls.length).toBe(1);
+      expect(store.puts.map((p) => p.key)).toEqual(["backups/daily/2026-10-11.dump"]);
+      expect(result.bytes).toBe(2048);
+      expect(
+        logger.lines.some(
+          (l) => l.includes(client) && l.includes(`server_version_num ${server}`),
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it("checkDumpClient: (17, 18) is the exact R2 line; 18beta1 counts as 18; 9.6 numbering; an unreadable version is refused", () => {
+    expect(
+      checkDumpClient("pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)", 180000),
+    ).toEqual({
+      ok: false,
+      clientMajor: 17,
+      serverMajor: 18,
+      message: R2_MESSAGE,
+    });
+    expect(checkDumpClient("pg_dump (PostgreSQL) 18beta1", 180000)).toEqual({
+      ok: true,
+      clientMajor: 18,
+      serverMajor: 18,
+    });
+    expect(
+      checkDumpClient(
+        "pg_dump (PostgreSQL) 16.13 (Ubuntu 16.13-0ubuntu0.24.04.1)",
+        160013,
+      ),
+    ).toEqual({
+      ok: true,
+      clientMajor: 16,
+      serverMajor: 16,
+    });
+    expect(serverMajorFromVersionNum(90624)).toBe(9);
+    expect(serverMajorFromVersionNum(100000)).toBe(10);
+    expect(pgMajorFromVersionString("not a pg_dump version line")).toBeNull();
+    const bad = checkDumpClient("garbage", 180000);
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.message).toContain("could not be read");
+  });
+
+  it("the pre-migrate command on (18, 18) with pending migrations dumps, uploads and migrates (exit 0)", async () => {
+    const { svc, store, dumper } = serviceWithVersions(
+      "pg_dump (PostgreSQL) 18.0 (Debian 18.0-1.pgdg120+1)",
+      180000,
+    );
+    const events: string[] = [];
+    const lines: string[] = [];
+    const code = await cli({
+      gate: backupGate(PROD_ENV),
+      pending: async () => ({ pending: ["20261011000000_u3_seal"], applied: 33 }),
+      backup: (key: string) => svc.backup(key),
+      migrate: async () => {
+        events.push("migrate");
+      },
+      now: () => new Date("2026-10-10T18:15:30Z"),
+      log: (line: string) => lines.push(line),
+    });
+    expect(code).toBe(0);
+    expect(dumper.calls.length).toBe(1);
+    expect(store.puts.map((p) => p.key)).toEqual([
+      "backups/pre-migrate/20261010T181530Z-33.dump",
+    ]);
+    expect(events).toEqual(["migrate"]);
+  });
+
+  it("nightly on (17, 18): logs the failure line with the R2 message, uploads nothing, prunes nothing", async () => {
+    const store = fakeStore(dailyKeys("2026-09-06", 35));
+    const { svc, dumper, logger } = serviceWithVersions(
+      "pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)",
+      180000,
+      {
+        store,
+      },
+    );
+    await expect(
+      svc.runNightly(new Date("2026-10-10T18:00:00Z")),
+    ).resolves.toBeUndefined();
+    expect(dumper.calls).toEqual([]);
+    expect(store.puts).toEqual([]);
+    expect(store.deleted).toEqual([]);
+    const line = logger.lines.find((l) => l.startsWith("error"));
+    expect(line).toBe(
+      `error nightly backup FAILED for backups/daily/2026-10-11.dump: ${R2_MESSAGE}`,
+    );
+    expect(svc.tempDirsOpen).toBe(0);
+  });
+
+  it("a failed nightly reaches Sentry once when Sentry is configured", async () => {
+    const sentry = fakeSentry(true);
+    const { svc } = serviceWithVersions(
+      "pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)",
+      180000,
+      { sentry },
+    );
+    await svc.runNightly(new Date("2026-10-10T18:00:00Z"));
+    expect(sentry.captured.length).toBe(1);
+    const reported = sentry.captured[0] as Error & { cause?: unknown };
+    expect(reported).toBeInstanceOf(Error);
+    expect(reported.message).toBe(
+      `nightly backup FAILED for backups/daily/2026-10-11.dump: ${R2_MESSAGE}`,
+    );
+    expect(reported.cause).toBeInstanceOf(Error);
+  });
+
+  it("…and is not reported when Sentry is not configured (the log line still is)", async () => {
+    const sentry = fakeSentry(false);
+    const { svc, logger } = serviceWithVersions(
+      "pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)",
+      180000,
+      { sentry },
+    );
+    await svc.runNightly(new Date("2026-10-10T18:00:00Z"));
+    expect(sentry.captured).toEqual([]);
+    expect(
+      logger.lines.some((l) => l.startsWith("error") && l.includes(R2_MESSAGE)),
+    ).toBe(true);
+  });
+
+  it("a successful nightly reports nothing to Sentry even when it is configured", async () => {
+    const sentry = fakeSentry(true);
+    const { svc, store } = serviceWithVersions(
+      "pg_dump (PostgreSQL) 18.0 (Debian 18.0-1.pgdg120+1)",
+      180000,
+      { sentry },
+    );
+    await svc.runNightly(new Date("2026-10-10T18:00:00Z"));
+    expect(store.puts.length).toBe(1);
+    expect(sentry.captured).toEqual([]);
+  });
+
+  it("a Sentry client that throws cannot break the nightly", async () => {
+    const sentry: BackupSentry = {
+      isEnabled: () => true,
+      captureException: () => {
+        throw new Error("sentry down");
+      },
+    };
+    const { svc, logger } = serviceWithVersions("pg_dump (PostgreSQL) 17.6", 180000, {
+      sentry,
+    });
+    await expect(
+      svc.runNightly(new Date("2026-10-10T18:00:00Z")),
+    ).resolves.toBeUndefined();
+    expect(
+      logger.lines.some((l) => l.startsWith("warn") && l.includes("sentry down")),
+    ).toBe(true);
+  });
+});
+
+describe("U7-A1 — the production Sentry binding (no fake injected)", () => {
+  const mockedEnabled = sentryEnabled as jest.MockedFunction<typeof sentryEnabled>;
+  const mockedCapture = SentryNode.captureException as jest.MockedFunction<
+    typeof SentryNode.captureException
+  >;
+
+  function serviceWithRealSentry(enabled: boolean) {
+    mockedEnabled.mockReturnValue(enabled);
+    mockedCapture.mockClear();
+    const logger = fakeLog();
+    const svc = new BackupService({
+      store: fakeStore(),
+      env: envReader({
+        DATABASE_URL: "postgresql://u:p@localhost:5432/portal?schema=public",
+        ...PROD_ENV,
+      }),
+      dump: fakeDumper(2048).dump,
+      logger,
+      now: () => new Date("2026-10-10T18:00:00Z"),
+      clientVersion: async () => "pg_dump (PostgreSQL) 17.6 (Debian 17.6-1.pgdg120+1)",
+      serverVersionNum: async () => 180000,
+      // no `sentry`: the default binding to @sentry/node + observability/sentry is used
+    });
+    return { svc, logger };
+  }
+
+  it("with SENTRY_DSN configured (sentryEnabled() true): Sentry.captureException is called once with the failure line", async () => {
+    const { svc } = serviceWithRealSentry(true);
+    await svc.runNightly();
+    expect(mockedCapture).toHaveBeenCalledTimes(1);
+    const reported = mockedCapture.mock.calls[0]?.[0] as Error;
+    expect(reported).toBeInstanceOf(Error);
+    expect(reported.message).toBe(
+      `nightly backup FAILED for backups/daily/2026-10-11.dump: ${R2_MESSAGE}`,
+    );
+  });
+
+  it("without SENTRY_DSN (sentryEnabled() false): Sentry.captureException is never called", async () => {
+    const { svc, logger } = serviceWithRealSentry(false);
+    await svc.runNightly();
+    expect(mockedCapture).not.toHaveBeenCalled();
+    expect(
+      logger.lines.some((l) => l.startsWith("error") && l.includes(R2_MESSAGE)),
+    ).toBe(true);
   });
 });

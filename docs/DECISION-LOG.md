@@ -101,3 +101,6 @@ Decision: the domain owner is never asked for a backup. Before every production 
 
 ## 2026-10-10 · C5 · Corrections to the record, from U6 pass 3 to U7
 D33 asked the domain owner where the production backup lived; the hosting console (Sliplane: one managed PostgreSQL, one object-storage bucket already used by the files module) answered it, and the technical partner should have found that before asking. No migration was merged while D33 was in force.
+
+## 2026-10-10 · C6 · Corrections to the record, from U7
+U7 installed postgresql-client-17 on R4's rule ("newest available") while the production server, read off the Sliplane console after the merge, is Managed PostgreSQL 18; pg_dump 17 cannot dump it. Fixed in U7-A1 with client 18 and a server-version check before every dump. U7's F2 ("point-in-time recovery at the platform level") is Sliplane's description of its managed product and was not verified for this database; the bucket dumps do not depend on it. The Sliplane build of #132 succeeded, which proves U7's T6 after the fact.

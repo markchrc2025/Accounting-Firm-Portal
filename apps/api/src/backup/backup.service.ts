@@ -13,18 +13,22 @@
  * cannot be tried from a development VM (no upload may leave one).
  */
 import { Logger } from "@nestjs/common";
+import * as Sentry from "@sentry/node";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sentryEnabled } from "../observability/sentry";
 import {
   BackupGate,
   DAILY_PREFIX,
+  DumpClientCheck,
   PRE_MIGRATE_PREFIX,
   backupGate,
+  checkDumpClient,
   dailyKey,
   prunePlan,
 } from "./backup.rules";
-import { dumpDatabase } from "./pg-dump";
+import { dumpDatabase, pgDumpVersion } from "./pg-dump";
 
 /** What the backups need from the files module's StorageService — nothing more. */
 export interface BackupStore {
@@ -47,14 +51,30 @@ export type Dumper = (opts: {
   outFile: string;
 }) => Promise<{ bytes: number; target: string }>;
 
+/** Where a failed nightly is reported besides the log (R3). Sentry in the app; a fake in tests. */
+export interface BackupSentry {
+  isEnabled(): boolean;
+  captureException(error: unknown): unknown;
+}
+
 export interface BackupServiceDeps {
   store: BackupStore;
   /** Reads one environment variable (ConfigService.get in the app). */
   env: (name: string) => string | undefined;
+  /** The server's server_version_num, read through the caller's database client. */
+  serverVersionNum: () => Promise<number>;
+  /** `pg_dump --version`'s first line. Defaults to running pg_dump. */
+  clientVersion?: () => Promise<string>;
   dump?: Dumper;
   logger?: BackupLog;
   now?: () => Date;
+  sentry?: BackupSentry;
 }
+
+const realSentry: BackupSentry = {
+  isEnabled: sentryEnabled,
+  captureException: (error) => Sentry.captureException(error),
+};
 
 export const DUMP_CONTENT_TYPE = "application/octet-stream";
 
@@ -62,16 +82,22 @@ export class BackupService {
   private readonly store: BackupStore;
   private readonly env: (name: string) => string | undefined;
   private readonly dumpFn: Dumper;
+  private readonly serverVersionNum: () => Promise<number>;
+  private readonly clientVersion: () => Promise<string>;
   private readonly logger: BackupLog;
   private readonly now: () => Date;
+  private readonly sentry: BackupSentry;
   private openTempDirs = 0;
 
   constructor(deps: BackupServiceDeps) {
     this.store = deps.store;
     this.env = deps.env;
     this.dumpFn = deps.dump ?? dumpDatabase;
+    this.serverVersionNum = deps.serverVersionNum;
+    this.clientVersion = deps.clientVersion ?? (() => pgDumpVersion());
     this.logger = deps.logger ?? new Logger("Backup");
     this.now = deps.now ?? (() => new Date());
+    this.sentry = deps.sentry ?? realSentry;
   }
 
   /** R1(c), read from the environment this process runs in. */
@@ -92,13 +118,33 @@ export class BackupService {
   }
 
   /**
+   * R2: before any dump, compare pg_dump's major with the server's. Runs once
+   * per dump, here, because dump() is the one step both the nightly and the
+   * pre-migrate command pass through. Logs one line naming both.
+   */
+  async checkDumpClient(): Promise<DumpClientCheck> {
+    const [clientLine, serverNum] = await Promise.all([
+      this.clientVersion(),
+      this.serverVersionNum(),
+    ]);
+    const check = checkDumpClient(clientLine, serverNum);
+    this.logger.log(
+      `${clientLine.trim()}; server_version_num ${serverNum} (major ${check.serverMajor})`,
+    );
+    return check;
+  }
+
+  /**
    * pg_dump the database DATABASE_URL names into a fresh temp directory. The
-   * caller removes the directory with cleanup(); backup() does both.
+   * caller removes the directory with cleanup(); backup() does both. Refuses,
+   * before touching the disk, when pg_dump is older than the server (R2).
    */
   async dump(): Promise<{ dir: string; file: string; bytes: number; target: string }> {
     const databaseUrl = this.env("DATABASE_URL");
     if (!databaseUrl)
       throw new Error("DATABASE_URL is not set; there is nothing to dump");
+    const check = await this.checkDumpClient();
+    if (!check.ok) throw new Error(check.message);
     const dir = await mkdtemp(join(tmpdir(), "portal-backup-"));
     this.openTempDirs += 1;
     const file = join(dir, "db.dump");
@@ -149,8 +195,9 @@ export class BackupService {
 
   /**
    * The nightly run: dump to backups/daily/<Manila date>.dump, then prune. One
-   * log line per run. Never throws — a failure is logged and the next night
-   * tries again; nothing here can reach a request handler.
+   * log line per run. Never throws — a failure is logged, reported to Sentry
+   * when Sentry is configured (R3), and the next night tries again; nothing
+   * here can reach a request handler.
    */
   async runNightly(now: Date = this.now()): Promise<void> {
     const key = dailyKey(now);
@@ -161,7 +208,17 @@ export class BackupService {
         `nightly backup uploaded ${key} (${bytes} bytes); retention removed ${pruned.deleted.length} of ${pruned.listed} objects`,
       );
     } catch (err) {
-      this.logger.error(`nightly backup FAILED for ${key}: ${(err as Error).message}`);
+      const line = `nightly backup FAILED for ${key}: ${(err as Error).message}`;
+      this.logger.error(line);
+      try {
+        if (this.sentry.isEnabled()) {
+          this.sentry.captureException(new Error(line, { cause: err }));
+        }
+      } catch (reportErr) {
+        this.logger.warn(
+          `could not report the failed nightly to Sentry: ${(reportErr as Error).message}`,
+        );
+      }
     }
   }
 }
