@@ -15,6 +15,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
+import { truncateBeforeEach } from "./helpers/truncate";
 
 /**
  * The repo keeps its .env at the root, not beside schema.prisma, so Prisma's
@@ -35,6 +36,9 @@ function loadRootEnv(): void {
   }
 }
 loadRootEnv();
+
+// U3 R12: every test starts from a truncated database.
+truncateBeforeEach();
 
 /** Marks the rows this suite creates so a failed run is identifiable. */
 const TAG = "track-a-persistence";

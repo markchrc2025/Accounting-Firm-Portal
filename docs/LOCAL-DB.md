@@ -20,8 +20,9 @@ It will:
    (`localhost`, `127.0.0.1`, `::1`) — the live database holds real client data;
 2. install PostgreSQL if it is missing, and start the cluster if it is stopped;
 3. create the role and the database that `DATABASE_URL` names, if they are not there;
-4. `prisma generate` → `prisma migrate deploy` → `prisma migrate status` → `db:seed`;
-5. print row counts.
+4. run `pnpm install --frozen-lockfile` when `node_modules` is absent (a fresh VM has none);
+5. `prisma generate` → `prisma migrate deploy` → `prisma migrate status` → `db:seed`;
+6. print row counts.
 
 It never prints `DATABASE_URL`. The password lives in that URL, so the script reports the
 hostname, port and database name only, and passes SQL to `psql` on **stdin** rather than as
@@ -41,9 +42,14 @@ an argument — so the password never appears in `ps`.
 (`.github/workflows/ci.yml:56`) both use `postgres:16-alpine`. This is PostgreSQL 16 as
 well, so the major version matches everywhere. The patch level and the base image differ
 (Ubuntu build vs. Alpine), and neither the compose file nor CI pins a patch version.
-`docs/DEPLOY-SLIPLANE.md:8` names production only as "Sliplane Postgres template" — **the
-production version is not recorded anywhere in this repository.** Worth pinning down before
-anything depends on 16-specific behaviour.
+**Production is Sliplane Managed PostgreSQL 18** (read off the Sliplane console,
+2026-10-10, recorded in U7-A1), so local and CI are two majors behind it. The backup
+module's client check passes here because the VM's `pg_dump` 16 dumps the VM's server 16;
+the API image carries `pg_dump` 18 for production (`docs/BACKUPS.md`). Closing the gap
+between 16 here and 18 there is worth doing before anything depends on version-specific
+behaviour.
+
+**Local never uploads.** The backup module (`docs/BACKUPS.md`) dumps to the bucket only when `NODE_ENV=production` and the four `S3_*` variables are set; in this VM it prints one skip line, schedules no nightly, and nothing leaves the machine — the restore drill in `test:db` dumps and restores locally only.
 
 **Redis is not required.** `RedisService` connects with `lazyConnect: true`
 (`apps/api/src/redis/redis.service.ts:19`), logs connection errors as warnings (`:25`) and
@@ -63,8 +69,11 @@ After a restart:
 
 ```bash
 cp .env.example .env      # if .env is gone
-bash scripts/local-db.sh
+bash scripts/local-db.sh  # installs dependencies itself when node_modules is gone
 ```
+
+Those two lines are the whole procedure, from a bare checkout (U3 proved it by deleting
+every `node_modules` first).
 
 ## Running the database-backed tests
 
@@ -85,6 +94,15 @@ So `pnpm -r test` stays hermetic and stays runnable with no database at all.
 
 CI runs `test:db` in the `database` job, after `db:seed` — the only job that has a
 PostgreSQL service. The `verify` job is untouched and stays hermetic.
+
+**The suite truncates the database (U3 R12).** `apps/api/test/db/helpers/truncate.ts`
+empties every table except `_prisma_migrations`, and refuses to unless `DATABASE_URL`'s host
+is local. Most files truncate before each test and once more after the file, and each test
+seeds only what it needs. The two expenses-import files (U6) build their fixtures once and
+share them across tests, so they truncate once before the file and once after it, and the
+helper puts back only the seeded rows they read: the Super Admin role with its grants, and,
+for one of them, the Chart of Accounts. So after `pnpm --filter api test:db` the local
+database holds no seed: run `bash scripts/local-db.sh` again to put it back.
 
 ## Gotcha: Prisma and `DATABASE_URL`
 

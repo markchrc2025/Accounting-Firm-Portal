@@ -212,6 +212,14 @@ export class ExpenseImportService {
    *  carry clientId as a query parameter, which PermissionsGuard does not scope
    *  on (it reads route params only), so the assignment check happens here. */
   private async requireClient(user: AuthUser, clientId: string) {
+    // U6-A1 (R3): the template, the import and posting are the firm's actions.
+    // A client-portal principal is refused whatever permissions its role holds
+    // (Client Owner carries Expenses:Create). Checked before any lookup.
+    if (user.userType !== "FIRM") {
+      throw new ForbiddenException(
+        "Importing expenses and posting held records belong to the firm; a client-portal account cannot do this.",
+      );
+    }
     const client = await this.clients.assertInFirm(user.firmId, clientId);
     const ok = await this.rbac.authorize(user, ["Expenses:Create"], clientId);
     if (!ok) throw new ForbiddenException("You are not assigned to this client.");
@@ -269,11 +277,12 @@ export class ExpenseImportService {
       errors.push(`Date ${date} is outside the period ${period.from} – ${period.to} declared on the CLIENT sheet.`);
     }
 
-    // Document type
+    // Document type — an optional label (D35). Blank is allowed; a listed value
+    // is stored as its code; an unlisted value is rejected because the dropdown
+    // says to pick from the list. It decides nothing about the outcome.
     const docCode = text("Document Type").toUpperCase().replace(/\s+/g, "_");
-    const doc = DOCUMENT_TYPES.find((d) => d.code === docCode);
-    if (!docCode) errors.push("Document Type is required — pick one from the list.");
-    else if (!doc) errors.push(`Document Type "${text("Document Type")}" is not one of the allowed values (see REFERENCE).`);
+    const doc = docCode ? DOCUMENT_TYPES.find((d) => d.code === docCode) : undefined;
+    if (docCode && !doc) errors.push(`Document Type "${text("Document Type")}" is not one of the allowed values (see REFERENCE).`);
 
     // Vendor TIN + branch
     const tinResult = normaliseTin(c["Vendor TIN"], c["Vendor Branch"]);
@@ -304,9 +313,8 @@ export class ExpenseImportService {
     if (referenceNo && referenceNo.length > MAX_REFERENCE_LENGTH) {
       errors.push(`Reference Number is longer than ${MAX_REFERENCE_LENGTH} characters.`);
     }
-    if (!referenceNo && doc?.isInvoice) {
-      errors.push(`Reference Number is required for ${doc.code} (an invoice document).`);
-    }
+    // A Reference Number is optional on every row (D37). A row without one is
+    // still checked for duplicates, on vendor TIN + date + gross (R6).
 
     // Amounts
     const money = (h: ExpenseHeader) => {
@@ -366,17 +374,11 @@ export class ExpenseImportService {
       else if (!["N", "NO", "FALSE", "0"].includes(nr)) errors.push(`Needs Review must be ${NEEDS_REVIEW_VALUES.join(" or ")}.`);
     }
 
-    // Outcome
+    // Outcome (D35): every row that passes the row rules posts. The one hold
+    // left is a blank COA Code — a record cannot post without an account.
     let outcome: RowOutcome;
     if (errors.length > 0) outcome = "rejected";
-    else {
-      outcome = "posted";
-      if (doc && !doc.isInvoice) {
-        outcome = "held";
-        notes.push(`Held: ${doc.code} is not an official invoice — an accountant must post it (D25).`);
-      }
-      if (!account) outcome = "held";
-    }
+    else outcome = account ? "posted" : "held";
 
     const parts = outcome === "rejected" ? [] : splitRow({ vatable, vat, exempt, zeroRated, other }, regime);
     const description = text("Description") || vendor || "Expense";
@@ -388,7 +390,7 @@ export class ExpenseImportService {
       inputVATCategory: null,
       inputVAT: null,
       isCapitalGood: false,
-      deductible: account ? !account.personal : true,
+      deductible: true, // D36: every receipt a client submits is a business receipt
       source: "import",
       vendorTin: tinResult.tin,
       vendorBranch: tinResult.branch,

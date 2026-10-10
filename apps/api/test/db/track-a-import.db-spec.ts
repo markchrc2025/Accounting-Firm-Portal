@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { PrismaClient } from "@prisma/client";
+import { truncateOncePerFile } from "./helpers/truncate";
 import * as ExcelJS from "exceljs";
 import { AppModule } from "../../src/app.module";
 import { PrismaService } from "../../src/prisma/prisma.service";
@@ -89,6 +90,13 @@ const PLAIN_INVOICE: RowInput = {
   Description: "Aircon cleaning",
   "COA Code": "5999001",
 };
+
+// U3 R12: start from a truncated database. These fixtures are built once in the
+// describe's beforeAll and read across its tests, so the truncation runs once per
+// file (a per-test one would delete them), and the helper puts back only the seeded
+// reference data this file reads: the FIRM role "Super Admin" with its grants
+// (the importer authorises through RBAC) and the seeded Chart of Accounts (T6 reads it).
+truncateOncePerFile({ firmRoles: ["Super Admin"], chartOfAccounts: true });
 
 describe("expenses import v2 (db)", () => {
   let app: INestApplication;
@@ -168,7 +176,7 @@ describe("expenses import v2 (db)", () => {
   it("T1: the same file imported twice — the second run posts nothing and rejects every row as a duplicate naming the first run's records", async () => {
     const file = await makeFile(vatClientId, [SUPERMARKET, DELIVERY_NO_TIN, PLAIN_INVOICE]);
     const first = await svc.importFile(actor, vatClientId, upload(file), false);
-    expect(first.totals).toMatchObject({ rows: 3, posted: 2, held: 1, rejected: 0 });
+    expect(first.totals).toMatchObject({ rows: 3, posted: 3, held: 0, rejected: 0 }); // U6-A2: the slip posts
     const firstIds = first.rows.flatMap((r) => r.records.map((x) => x.id as string));
     expect(firstIds).toHaveLength(4);
 
@@ -204,11 +212,11 @@ describe("expenses import v2 (db)", () => {
     ]);
   });
 
-  it("T2: a delivery receipt with no TIN becomes one held record with needsReview true", async () => {
+  it("T2: a delivery receipt with no TIN becomes one posted record with needsReview true (U6-A2)", async () => {
     const res = await svc.importFile(actor, nonVatClientId, upload(await makeFile(nonVatClientId, [{ ...DELIVERY_NO_TIN, Date: new Date(Date.UTC(2026, 8, 3)) }])), false);
     const id = res.rows[0]!.records[0]!.id as string;
     const row = await reader.purchaseTransaction.findUniqueOrThrow({ where: { id } });
-    expect(row).toMatchObject({ status: "held", needsReview: true, vendorTin: null, documentType: "DELIVERY_RECEIPT", vatClaimable: false, sourceFile: "IMG_0002.jpg" });
+    expect(row).toMatchObject({ status: "posted", needsReview: true, vendorTin: null, documentType: "DELIVERY_RECEIPT", vatClaimable: false, sourceFile: "IMG_0002.jpg", deductible: true });
     expect(row.netAmount.toNumber()).toBe(500);
   });
 
@@ -253,7 +261,7 @@ describe("expenses import v2 (db)", () => {
     expect(batchIds.size).toBe(1);
     const [batchId] = [...batchIds];
     const batch = await reader.auditLog.findFirst({ where: { action: "purchase.import.batch", entityId: batchId! } });
-    expect(batch?.metadata).toMatchObject({ clientId: nonVatClientId, fileName: "july-sept.xlsx", totals: { rows: 2, posted: 1, held: 1, rejected: 0 } });
+    expect(batch?.metadata).toMatchObject({ clientId: nonVatClientId, fileName: "july-sept.xlsx", totals: { rows: 2, posted: 2, held: 0, rejected: 0 } });
     const perRecord = await reader.auditLog.count({ where: { action: "purchase.import.record", entityId: { in: ids } } });
     expect(perRecord).toBe(ids.length);
   });
@@ -298,7 +306,8 @@ describe("expenses import v2 (db)", () => {
       // Dates no other test uses, so the sums below are exactly these two rows.
       const res = await svc.importFile(actor, vatClientId, upload(await makeFile(vatClientId, [
         { ...PLAIN_INVOICE, Date: new Date(Date.UTC(2026, 8, 10)), "Vendor TIN": "000-777-888", "Reference Number": "AGG-POSTED", "Other Non-vatable": 111, "Gross Total": 111 },
-        { ...DELIVERY_NO_TIN, Date: new Date(Date.UTC(2026, 8, 11)), "Other Non-vatable": 999, "Gross Total": 999 },
+        // U6-A2: a document type no longer holds; a blank COA Code is the one hold left.
+        { ...DELIVERY_NO_TIN, Date: new Date(Date.UTC(2026, 8, 11)), "COA Code": undefined, "Other Non-vatable": 999, "Gross Total": 999 },
       ])), false);
       postedId = res.rows[0]!.records[0]!.id as string;
       heldId = res.rows[1]!.records[0]!.id as string;
@@ -344,7 +353,7 @@ describe("expenses import v2 (db)", () => {
         _sum: { netAmount: true },
       });
       expect(v.purchases.domesticNoInputTax.net).toBe(posted._sum.netAmount!.toNumber());
-      expect(held._sum.netAmount!.toNumber()).toBeGreaterThanOrEqual(999); // this test's 999 (plus T1's held 500)
+      expect(held._sum.netAmount!.toNumber()).toBeGreaterThanOrEqual(999); // this test's 999 (nothing else of this client's is held after U6-A2)
       expect(all._sum.netAmount!.toNumber()).toBe(posted._sum.netAmount!.toNumber() + held._sum.netAmount!.toNumber());
     });
   });
@@ -363,5 +372,55 @@ describe("expenses import v2 (db)", () => {
     expect(allowed["1999001"]).toBe("N");
     expect(allowed["5001001"]).toBe("Y"); // a seeded operating expense
     expect(wb.getWorksheet(SHEET.EXPENSES)!.actualRowCount).toBe(1);
+  });
+
+  // ------------------------------------------------------------------ U6-A2 T1
+  it("U6-A2 T1: a delivery receipt with no vendor TIN and no reference, on an allowed account, imports as ONE posted record with needsReview true", async () => {
+    const slip = { ...DELIVERY_NO_TIN, Date: new Date(Date.UTC(2026, 8, 20)), "Other Non-vatable": 250, "Gross Total": 250 };
+    const res = await svc.importFile(actor, nonVatClientId, upload(await makeFile(nonVatClientId, [slip])), false);
+    expect(res.rows[0]).toMatchObject({ outcome: "posted", needsReview: true, messages: [expect.stringMatching(/no Vendor TIN/i)] });
+    expect(res.rows[0]!.messages).toHaveLength(1);
+    expect(res.rows[0]!.records).toHaveLength(1);
+    const id = res.rows[0]!.records[0]!.id as string;
+    const row = await reader.purchaseTransaction.findUniqueOrThrow({ where: { id } });
+    expect(row).toMatchObject({ status: "posted", needsReview: true, vendorTin: null, referenceNo: null, documentType: "DELIVERY_RECEIPT", deductible: true, vatClaimable: false });
+    expect(row.account).toBe(`${TAG} Office Supplies`);
+    expect(row.netAmount.toNumber()).toBe(250);
+    expect(res.totals).toEqual({ rows: 1, posted: 1, held: 0, rejected: 0, grossAmount: 250 });
+  });
+
+  // ------------------------------------------------------------------ U6-A2 T4
+  it("U6-A2 T4: the three worked examples imported for real — two posted records per supermarket receipt, one posted flagged record for the slip; audit counts 3 rows, 3 posted, 0 held, 0 rejected", async () => {
+    // References distinct from the earlier tests' so the ledger duplicate rule does not fire.
+    const nonVat = await svc.importFile(actor, nonVatClientId, upload(await makeFile(nonVatClientId, [
+      { ...SUPERMARKET, "Reference Number": "A2-NONVAT-12345" },
+      { ...DELIVERY_NO_TIN, Date: new Date(Date.UTC(2026, 8, 21)) },
+    ]), "examples-nonvat.xlsx"), false);
+    const vat = await svc.importFile(actor, vatClientId, upload(await makeFile(vatClientId, [
+      { ...SUPERMARKET, "Reference Number": "A2-VAT-12345" },
+    ]), "examples-vat.xlsx"), false);
+
+    expect(nonVat.rows.map((r) => r.outcome)).toEqual(["posted", "posted"]);
+    expect(nonVat.rows[1]).toMatchObject({ needsReview: true });
+    expect(vat.rows.map((r) => r.outcome)).toEqual(["posted"]);
+
+    const back = async (ids: string[]) => reader.purchaseTransaction.findMany({ where: { id: { in: ids } }, orderBy: { netAmount: "desc" } });
+    const ex1 = await back(nonVat.rows[0]!.records.map((x) => x.id as string));
+    expect(ex1.map((r) => [r.netAmount.toNumber(), r.taxAmount?.toNumber() ?? null, r.vatClaimable, r.status])).toEqual([[3306.25, 354.24, false, "posted"], [887.96, null, false, "posted"]]);
+    const ex3 = await back(nonVat.rows[1]!.records.map((x) => x.id as string));
+    expect(ex3.map((r) => [r.netAmount.toNumber(), r.needsReview, r.status, r.vendorTin])).toEqual([[500, true, "posted", null]]);
+    const ex2 = await back(vat.rows[0]!.records.map((x) => x.id as string));
+    expect(ex2.map((r) => [r.netAmount.toNumber(), r.inputVAT?.toNumber() ?? null, r.vatClaimable, r.status])).toEqual([[2952.01, 354.24, true, "posted"], [887.96, null, false, "posted"]]);
+
+    const batchTotals = async (recordId: string) => {
+      const rec = await reader.purchaseTransaction.findUniqueOrThrow({ where: { id: recordId } });
+      const audit = await reader.auditLog.findFirstOrThrow({ where: { action: "purchase.import.batch", entityId: rec.importBatchId! } });
+      return (audit.metadata as { totals: { rows: number; posted: number; held: number; rejected: number } }).totals;
+    };
+    const t1 = await batchTotals(ex1[0]!.id);
+    const t2 = await batchTotals(ex2[0]!.id);
+    expect(t1).toMatchObject({ rows: 2, posted: 2, held: 0, rejected: 0 });
+    expect(t2).toMatchObject({ rows: 1, posted: 1, held: 0, rejected: 0 });
+    expect([t1.rows + t2.rows, t1.posted + t2.posted, t1.held + t2.held, t1.rejected + t2.rejected]).toEqual([3, 3, 0, 0]);
   });
 });

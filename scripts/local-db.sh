@@ -19,6 +19,15 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
+# A PGHOST / PGPORT / PGUSER / PGPASSWORD / PGDATABASE exported in the calling shell
+# would be inherited by `su postgres -c psql` below and make it connect as that user
+# over TCP instead of as the OS superuser over the socket (U7's T7 incident) — and so
+# would PGHOSTADDR, PGSERVICE, PGCLUSTER, PGPASSFILE or PGOPTIONS, which libpq and
+# Debian's pg_wrapper also read. Every connection detail in this script is passed
+# explicitly, so the whole PG* family is cleared, as apps/api/src/backup/pg-dump.ts
+# does for the child it spawns.
+unset "${!PG@}"
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
@@ -172,7 +181,20 @@ printf 'ALTER ROLE %s CREATEDB;\nGRANT ALL ON SCHEMA public TO %s;\n' \
   "\"${PG_USER//\"/\"\"}\"" "\"${PG_USER//\"/\"\"}\"" \
   | as_super >/dev/null 2>&1 || true
 
-# --- 5. Prisma: generate, migrate, verify, seed ------------------------------
+# --- 5. Dependencies, then Prisma: generate, migrate, verify, seed -----------
+
+# A fresh VM has no node_modules, and the Prisma CLI, ts-node and the seed all
+# come from there: without this step the script died at "prisma: not found"
+# (U3 pass 1). Install from the lockfile when the API's Prisma CLI is absent.
+say "Dependencies"
+if [[ ! -x apps/api/node_modules/.bin/prisma ]]; then
+  command -v pnpm >/dev/null 2>&1 \
+    || die "pnpm is not installed — install Node $(cat .nvmrc 2>/dev/null || echo 22) and pnpm 10 first"
+  info "node_modules absent — pnpm install --frozen-lockfile"
+  pnpm install --frozen-lockfile
+else
+  info "already installed"
+fi
 
 say "Prisma client"
 pnpm --filter api prisma:generate >/dev/null

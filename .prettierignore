@@ -10,6 +10,8 @@ pnpm-lock.yaml
 # Source-of-truth docs and the pre-built shared package are managed externally.
 docs
 packages/shared
+# Frozen design prototype (D17): outside every root gate, format:check included.
+apps/portal
 CLAUDE.md
 PROMPT.md
 README.md

@@ -28,7 +28,7 @@ Column names must stay exactly as they are; do not add, rename or reorder column
 | # | Column | Type | Required | Allowed values | Example | Goes to |
 |---|---|---|---|---|---|---|
 | 1 | **Date** | date cell | **yes** | a real date inside the CLIENT period | `2026-08-14` | `txnDate` |
-| 2 | **Document Type** | dropdown | **yes** | see REFERENCE: `SALES_INVOICE`, `SERVICE_INVOICE`, `OFFICIAL_RECEIPT` post; `DELIVERY_RECEIPT`, `ACKNOWLEDGEMENT_RECEIPT`, `COLLECTION_RECEIPT`, `BILLING_STATEMENT`, `PROVISIONAL_RECEIPT`, `CASH_SLIP`, `OTHER` are held | `SALES_INVOICE` | `documentType` |
+| 2 | **Document Type** | dropdown | no | a label only — see REFERENCE: `SALES_INVOICE`, `SERVICE_INVOICE`, `OFFICIAL_RECEIPT`, `DELIVERY_RECEIPT`, `ACKNOWLEDGEMENT_RECEIPT`, `COLLECTION_RECEIPT`, `BILLING_STATEMENT`, `PROVISIONAL_RECEIPT`, `CASH_SLIP`, `OTHER`; blank allowed; it changes nothing about how the row is booked | `SALES_INVOICE` | `documentType` |
 | 3 | **Vendor TIN** | text | no | `000-000-000`, `000-000-000-000`, `000-000-000-00000` or `000000000-00000`; dashes optional; blank allowed (row is flagged) | `000-222-333-00000` | `vendorTin` (9 digits) |
 | 4 | **Vendor Branch** | text | no | 3 or 5 digits; `000` = head office; blank when the TIN carries it | `00000` | `vendorBranch` (5 digits) |
 | 5 | **Vendor Registered Name** | text | one of 5/6+7/9 | | `Invented Supermart Inc` | `vendor` |
@@ -39,8 +39,8 @@ Column names must stay exactly as they are; do not add, rename or reorder column
 | 10 | **Address** | text | no | | | *(not stored — see note)* |
 | 11 | **City** | text | no | | | *(not stored — see note)* |
 | 12 | **Province** | text | no | | `Rizal` | `province` |
-| 13 | **Postal Code** | text | no | | `1820` | *(not stored — see note)* |
-| 14 | **Reference Number** | **text** | invoices: **yes**; others: no | up to 32 characters, leading zeros kept | `00000000000000000012345` | `referenceNo` |
+| 13 | **Postal Code** | text | no | | `1850` | *(not stored — see note)* |
+| 14 | **Reference Number** | **text** | no | up to 32 characters, leading zeros kept; blank when the document has none | `00000000000000000012345` | `referenceNo` |
 | 15 | **Vatable Amount** | 0.00 | if the receipt shows it | | `2952.01` | one record, see *Treatments* |
 | 16 | **VAT Amount** | 0.00 | with Vatable | the VAT line as printed | `354.24` | `inputVAT` / `taxAmount` |
 | 17 | **VAT-Exempt Amount** | 0.00 | if any | | `887.96` | one record |
@@ -93,23 +93,31 @@ audit trail, not on the record itself.
 
 ### Outcomes
 
+**Every row that passes the checks posts, whatever document it came from.** Most clients do
+not receive formal invoices; what the team records is what it records. The document type is
+a label and decides nothing.
+
 | Outcome | Meaning | Counts in totals? |
 |---|---|---|
 | **posted** | written and live | yes |
-| **held** | written, but waiting for an accountant: the document is not an official invoice, or COA Code was blank | **no** — not in the tax estimate, the dashboard, the financial statements or any summary, until an accountant posts it |
+| **held** | written, but waiting for an account — **the one and only reason a row is held is a blank COA Code** | **no** — not in the tax estimate, the dashboard, the financial statements or any summary, until an accountant assigns an account and posts it |
 | **rejected** | not written; the message says why | — |
 
-A **Needs Review = Y** row, or a row with no Vendor TIN, is still posted (or held, by the
-rules above) — it just carries the flag and your Remarks so an accountant can look at it.
+**What flags a row** (it still posts; the flag and your Remarks stay on the record so an
+accountant can look at it): **Needs Review = Y**, or **no Vendor TIN** on the receipt.
+Nothing is flagged for a missing reference number or for the document type.
+
+Every imported row is **deductible** — the client filters out personal spending before the
+receipts reach the team, so no account is special and nothing is marked non-deductible.
 
 ### What gets a row rejected
 
 - Date blank, not a real date, or outside the CLIENT period.
-- Document Type blank or not on the list.
+- Document Type given but not on the list (blank is fine).
 - Vendor TIN in a form other than the four allowed (a *blank* TIN is fine).
 - No vendor name at all (Registered Name, or Lastname + Firstname).
-- Reference Number blank on an invoice document type, or longer than 32 characters, or
-  typed as a number so long Excel dropped its digits — type it as text.
+- Reference Number longer than 32 characters, or typed as a number so long Excel dropped
+  its digits — type it as text. (A blank reference is fine.)
 - Gross Total blank; no breakdown at all; Vatable without VAT (or VAT without Vatable); the
   breakdown not adding up to Gross Total within 0.01.
 - COA Code that is not on the chart, or an account not marked Allowed = Y.
@@ -168,11 +176,11 @@ Same row. Two records, but the VAT is now a claim, not a cost:
 |---|---|---|---|---|---|---|---|---|
 | 2026-09-02 | DELIVERY_RECEIPT | *(blank)* | Invented Water Delivery | *(blank)* | 500.00 | 500.00 | *(an Allowed code)* | IMG_0002.jpg |
 
-One record of **500.00**, `vatClaimable = false`. Outcome: **held**, **Needs Review** on,
-with two messages: *No Vendor TIN on the receipt: the row is flagged for review* and
-*Held: DELIVERY_RECEIPT is not an official invoice — an accountant must post it.* The
-blank reference is allowed because a delivery receipt is not an invoice. The 500.00 does
-not appear in any total until an accountant posts it from the Expenses page.
+One record of **500.00**, `vatClaimable = false`. Outcome: **posted, flagged** — Needs
+Review on, with one message: *No Vendor TIN on the receipt: the row is flagged for review.*
+The blank reference and the blank TIN are both allowed; the document type is a label. The
+500.00 counts in the books from the moment it is imported, and the flag tells an accountant
+to look at it.
 
 ---
 
@@ -180,7 +188,7 @@ not appear in any total until an accountant posts it from the Expenses page.
 
 - The Expenses page lists every record, with its **status** (posted / held), the Needs
   Review flag, the document type and the source file.
-- A held record is posted from that page once an accountant has decided what it is. A held
-  record with no account cannot be posted until an account is assigned to it.
+- A held record — one that was imported with no COA Code — is posted from that page once an
+  accountant has assigned an account to it; it cannot be posted before.
 - Every upload leaves one audit entry with the counts (rows, posted, held, rejected) and one
   per record, so a batch can always be traced back to its file.

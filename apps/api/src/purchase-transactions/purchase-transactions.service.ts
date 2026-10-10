@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { ExpenseImportRow, PurchaseTransaction } from "@portal/shared";
 import type { AuthUser } from "../common/auth/auth-user";
@@ -13,6 +13,13 @@ import type {
   PurchaseListQuery,
   PurchaseSummaryQuery,
 } from "./dto/purchase-query.schemas";
+
+/**
+ * Fields only the server writes (U6-A1, R4): the import stamps them, :id/post
+ * moves status, and no edit may set them. A body carrying any of them is a
+ * 400 that names the field — never silently dropped.
+ */
+const SERVER_OWNED_FIELDS = ["status", "needsReview", "vatClaimable", "importBatchId", "sourceFile"] as const;
 
 function asObject(body: unknown): Record<string, unknown> {
   return body && typeof body === "object" && !Array.isArray(body)
@@ -192,6 +199,7 @@ export class PurchaseTransactionsService {
   }
 
   async update(user: AuthUser, clientId: string, txnId: string, body: unknown) {
+    this.rejectServerOwned(asObject(body));
     const client = await this.clients.assertInFirm(user.firmId, clientId);
     const existing = await this.loadOwned(clientId, txnId);
     const regime = this.regime.requireRegime(client.taxType);
@@ -310,6 +318,8 @@ export class PurchaseTransactionsService {
       ...(full.isCapitalGood !== undefined ? { isCapitalGood: full.isCapitalGood } : {}),
       ...(full.deductible !== undefined ? { deductible: full.deductible } : {}),
       ...(full.source ? { source: full.source } : {}),
+      ...(full.status ? { status: full.status } : {}),
+      ...(full.needsReview !== undefined ? { needsReview: full.needsReview } : {}),
       ...(full.search
         ? {
             OR: [
@@ -377,6 +387,19 @@ export class PurchaseTransactionsService {
       unitPrice: input.unitPrice ?? null,
       discount: input.discount ?? null,
     };
+  }
+
+  /** 400 naming every server-owned field the body carries (same shape as the validation pipe). */
+  private rejectServerOwned(raw: Record<string, unknown>): void {
+    const offending = SERVER_OWNED_FIELDS.filter((f) => f in raw);
+    if (offending.length === 0) return;
+    throw new BadRequestException({
+      message: "Validation failed",
+      errors: offending.map((f) => ({
+        path: f,
+        message: `${f} is set by the server and cannot be changed through an edit.`,
+      })),
+    });
   }
 
   private async loadOwned(clientId: string, txnId: string) {
