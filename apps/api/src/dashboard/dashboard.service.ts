@@ -194,10 +194,12 @@ export class DashboardService {
     const totalClients = clients.length;
     const activeClients = clients.filter((c) => c.status === "ACTIVE").length;
     // A client with no regime (EXEMPT, U8 D39) owes no business tax: it is counted
-    // in neither regime here and files neither return in upcomingFilings().
-    const vatClients = clients.filter((c) => c.taxType === "VAT").length;
-    const percentageClients = clients.filter((c) => c.taxType === "PERCENTAGE").length;
-    const exemptClients = clients.filter((c) => c.status === "ACTIVE" && c.taxType === null).length;
+    // as exempt here and files neither return in upcomingFilings(). U9-A1 R1 (D46):
+    // every key counts active clients only, so vat + percentage + exempt = active.
+    const active = clients.filter((c) => c.status === "ACTIVE");
+    const vatClients = active.filter((c) => c.taxType === "VAT").length;
+    const percentageClients = active.filter((c) => c.taxType === "PERCENTAGE").length;
+    const exemptClients = active.filter((c) => c.taxType === null).length;
 
     const kpis: DashboardKpi[] = [
       {

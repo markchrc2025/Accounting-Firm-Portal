@@ -23,12 +23,20 @@ export const MS_CONSUMER_TENANT_ID = "9188040d-6c67-4c5b-b112-36a304b66dad";
 /** What the login page shows for the `email-unverified` code (Track B maps it). */
 export const SSO_EMAIL_UNVERIFIED_MESSAGE =
   "This Microsoft account's email is not verified. Sign in with your email and password, or with Google.";
+
+/** U9-A1 R5 (D46): the same refusal for Google; `&provider=` says which (R6). */
+export const SSO_GOOGLE_EMAIL_UNVERIFIED_MESSAGE =
+  "This Google account's email is not verified. Sign in with your email and password, or with Microsoft.";
 export const SSO_PROVIDERS: SsoProvider[] = ["google", "microsoft"];
 
 /** Machine-readable failure; the controller redirects with this code only —
  *  provider payloads and account details never reach the browser. */
 export class SsoError extends Error {
-  constructor(public readonly code: string) {
+  /** `provider` rides along on the redirect when the page must say which (R6). */
+  constructor(
+    public readonly code: string,
+    public readonly provider?: SsoProvider,
+  ) {
     super(code);
   }
 }
@@ -77,12 +85,13 @@ export class SsoService {
     return `${this.apiPublicUrl()}/api/v1/auth/sso/${provider}/callback`;
   }
 
-  loginRedirect(errorCode?: string, detail?: string): string {
+  loginRedirect(errorCode?: string, detail?: string, provider?: SsoProvider): string {
     if (!errorCode) return `${this.webAppUrl()}/login`;
     // `detail` is only ever a provider-side config code (e.g. AADSTS65001) — safe
     // to show; account-existence errors never carry one.
     const detailParam = detail ? `&sso_detail=${encodeURIComponent(detail)}` : "";
-    return `${this.webAppUrl()}/login?sso_error=${encodeURIComponent(errorCode)}${detailParam}`;
+    const providerParam = provider ? `&provider=${provider}` : "";
+    return `${this.webAppUrl()}/login?sso_error=${encodeURIComponent(errorCode)}${providerParam}${detailParam}`;
   }
 
   callbackRedirect(result: SsoResult): string {
@@ -266,10 +275,13 @@ export class SsoService {
   }
 
   /**
-   * Verified email from the provider. Google uses its OIDC userinfo endpoint;
-   * Microsoft reads the id_token claims directly (email → preferred_username →
-   * upn), which needs no Graph permission, and only when the token proves the
-   * email: a consumer account, or xms_edov = true (U9 R1 e).
+   * Verified email from the provider. Google uses its OIDC userinfo endpoint and
+   * trusts the email only when email_verified is exactly true (U9-A1 R5).
+   * Microsoft reads the id_token claims directly, which needs no Graph permission:
+   * a consumer account's email → preferred_username → upn, with userinfo as the
+   * fallback; an organizational account's email claim only, and only when the
+   * token carries xms_edov = true, which vouches for that claim alone (U9 R1 e,
+   * U9-A1 R4).
    */
   private async fetchEmail(
     provider: SsoProvider,
@@ -281,7 +293,8 @@ export class SsoService {
         tokens.accessToken,
       );
       const email = typeof info.email === "string" ? info.email : "";
-      if (!email || info.email_verified === false) throw new SsoError("email");
+      if (!email) throw new SsoError("email");
+      if (info.email_verified !== true) throw new SsoError("email-unverified", "google");
       return email;
     }
 
@@ -289,8 +302,14 @@ export class SsoService {
     const claims = tokens.idToken ? decodeJwtClaims(tokens.idToken) : {};
     // U9 R1 e (D44): an email is trusted only from a consumer account or a token
     // carrying xms_edov = true; otherwise the address is not proven to be theirs.
-    if (claims.tid !== MS_CONSUMER_TENANT_ID && claims.xms_edov !== true) {
-      throw new SsoError("email-unverified");
+    if (claims.tid !== MS_CONSUMER_TENANT_ID) {
+      // U9-A1 R4 (D46): xms_edov vouches for the email claim only — no
+      // preferred_username, UPN or userinfo fallback for an organizational token.
+      const email = firstString(claims.email);
+      if (claims.xms_edov !== true || !email.includes("@")) {
+        throw new SsoError("email-unverified", "microsoft");
+      }
+      return email;
     }
     const fromClaims =
       firstString(claims.email) || firstString(claims.preferred_username) || firstString(claims.upn);

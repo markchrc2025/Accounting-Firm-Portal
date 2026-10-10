@@ -97,12 +97,13 @@ describe("InvitationsService.invite (seat limit)", () => {
   });
 
   it("issues a token when a seat is available", async () => {
+    const create = jest.fn();
     const { svc } = build({
       clientUserProfile: { count: jest.fn().mockResolvedValue(1) },
       invitation: {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({
+        create: create.mockResolvedValue({
           id: "inv1",
           email: "c@x.test",
           expiresAt: new Date(Date.now() + 1000),
@@ -112,7 +113,9 @@ describe("InvitationsService.invite (seat limit)", () => {
       },
     });
     const res = await svc.invite(actor, "c1", { email: "c@x.test", clientRole: "OWNER" });
-    expect(res.token).toHaveLength(64);
+    // U9-A1 R8: the token is stored for the emailed link, never returned.
+    expect(create.mock.calls[0]![0].data.token).toHaveLength(64);
+    expect(res).not.toHaveProperty("token");
     expect(res.status).toBe("PENDING");
   });
 });

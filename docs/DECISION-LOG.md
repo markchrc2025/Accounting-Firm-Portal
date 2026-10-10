@@ -170,3 +170,9 @@ Decision (technical partner): a user who is not ACTIVE is refused at refresh and
 
 ## 2026-10-10 · D45 · Clients see posted records; summaries answer for their own regime; the dashboard shows what is due next
 Decision (technical partner): a client principal sees posted records only, whatever it asks for. vat-summary answers only for VAT clients and percentage-tax-summary only for percentage-tax clients; every other client gets 409. The dashboard lists the business-tax return whose deadline comes next, by Manila date, and counts exempt clients. Built in U9.
+
+## 2026-10-10 · D46 · Loose ends of sign-in and roles
+Decision (technical partner): a role grant that does not fit the user's type is ignored, never deleted; the API logs how many at boot. The second step of two-factor sign-in refuses an inactive user. Microsoft trusts only a verified email claim, and Google only email_verified = true; both refusals say which provider. The client invite no longer returns its token. regimeMix counts active clients only. Built in U9-A1.
+
+## 2026-10-10 · C9 · Corrections to the record, from W7 and W8
+apps/web's COR parser tests held the verbatim OCR text of the CORs of eleven real taxpayers, the firm's own included. W7 replaced one, and W8 replaced the rest and the parser comments that quoted them, all with invented data. The old values stay in git history, alongside D16's fixture and C8's ten files, until the history-rewrite decision.

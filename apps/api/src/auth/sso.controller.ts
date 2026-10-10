@@ -99,7 +99,8 @@ export class SsoController {
       res.redirect(this.sso.callbackRedirect(result));
     } catch (err) {
       const codeStr = err instanceof SsoError ? err.code : "failed";
-      res.redirect(this.sso.loginRedirect(codeStr));
+      const provider = err instanceof SsoError ? err.provider : undefined;
+      res.redirect(this.sso.loginRedirect(codeStr, undefined, provider));
     }
   }
 }
