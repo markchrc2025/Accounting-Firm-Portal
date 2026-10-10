@@ -7,6 +7,7 @@ import TransactionEntryModal, {
   type Regime,
 } from "../components/TransactionEntryModal";
 import { useAuth } from "../auth/AuthContext";
+import { isVatRegistered } from "../lib/regime";
 import {
   createCategory,
   deleteIncome,
@@ -33,7 +34,13 @@ import {
   Skeleton,
   StatusChip,
 } from "../components/ui";
-import { expenseBadges, isHeld } from "../lib/expenseStatus";
+import {
+  EXPENSE_STATUS_FILTERS,
+  expenseBadges,
+  isHeld,
+  statusFilterParams,
+  type ExpenseStatusFilter,
+} from "../lib/expenseStatus";
 
 const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
 
@@ -66,6 +73,7 @@ export default function ClientDetailPage() {
   const [newCategory, setNewCategory] = useState("");
   const [posting, setPosting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ExpenseStatusFilter>("all");
 
   const client = useQuery({
     queryKey: ["client", clientId],
@@ -76,7 +84,12 @@ export default function ClientDetailPage() {
     queryFn: () => fetchCategories(clientId),
   });
 
-  const activeFilters = { ...filters };
+  // The Expenses tab's Status filter is the server's, as on the Expenses page
+  // (Track A U6-A1, W6 R2); the footer counts the server's total.
+  const activeFilters =
+    kind === "expense"
+      ? { ...filters, ...statusFilterParams(statusFilter) }
+      : { ...filters };
   const list = useQuery<Paginated<IncomeTxn | PurchaseTxn>>({
     queryKey: [kind, clientId, activeFilters],
     queryFn: () =>
@@ -85,7 +98,14 @@ export default function ClientDetailPage() {
         : fetchPurchases(clientId, activeFilters),
   });
 
-  const regime = (client.data?.taxType as Regime | undefined) ?? undefined;
+  // Every client has a regime once it has loaded: VAT-registered records VAT;
+  // percentage tax and exempt (taxType null, D39) keep books without it, as on
+  // the Sales and Expenses pages (W6 R1).
+  const regime: Regime | undefined = client.data
+    ? isVatRegistered(client.data.taxType)
+      ? "VAT"
+      : "PERCENTAGE"
+    : undefined;
   const isVat = regime === "VAT";
   const categoryName = useMemo(() => {
     const map = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
@@ -188,7 +208,7 @@ export default function ClientDetailPage() {
                   TIN {client.data.tin}
                 </span>
               ) : null}
-              <RegimeChip regime={client.data?.taxType} />
+              {client.data ? <RegimeChip regime={client.data.taxType} /> : null}
               {client.data?.status ? (
                 <StatusChip
                   label={client.data.status}
@@ -221,13 +241,6 @@ export default function ClientDetailPage() {
           </Link>
         )}
       </div>
-
-      {!regime && (
-        <div className="mb-4 rounded-card border border-warn/30 bg-warn-bg px-4 py-3 text-[13px] text-gold-deep">
-          Set this client&apos;s tax type (VAT or PERCENTAGE) before recording
-          transactions.
-        </div>
-      )}
 
       {client.data?.hasBranches && (client.data.branchesJson?.length ?? 0) > 0 && (
         <div className="mb-6 rounded-card border border-line-strong bg-card">
@@ -278,6 +291,7 @@ export default function ClientDetailPage() {
             onClick={() => {
               setKind(k);
               setFilters({});
+              setStatusFilter("all");
             }}
             className={cn(
               "-mb-px px-1 pb-3 pt-1 text-[13px] transition-colors",
@@ -353,6 +367,22 @@ export default function ClientDetailPage() {
                     </option>
                   ),
                 )}
+              </select>
+            </label>
+          )}
+          {kind === "expense" && (
+            <label className="block">
+              <div className="mb-1 text-[13px] font-semibold text-content">Status</div>
+              <select
+                className="input"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ExpenseStatusFilter)}
+              >
+                {EXPENSE_STATUS_FILTERS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </label>
           )}
@@ -535,6 +565,7 @@ export default function ClientDetailPage() {
         <TransactionEntryModal
           clientId={clientId}
           regime={regime}
+          taxType={client.data?.taxType ?? null}
           kind={kind}
           categories={categories.data ?? []}
           existing={editing}

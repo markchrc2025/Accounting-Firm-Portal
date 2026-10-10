@@ -20,8 +20,10 @@ import {
   ErrorState,
   PageHeader,
   peso,
+  RegimeChip,
   Skeleton,
 } from "../components/ui";
+import { isExempt, isVatRegistered } from "../lib/regime";
 
 /**
  * Management-estimate tax computation for a client.
@@ -104,10 +106,10 @@ export default function TaxPage() {
     );
   }
 
-  // Regime from the client's tax type: contains "VAT" (but not "NON") → VAT,
-  // otherwise the percentage-tax regime.
-  const taxType = (clientQ.data?.taxType ?? "").toUpperCase();
-  const isVat = taxType.includes("VAT") && !taxType.includes("NON");
+  // Regime from the client's tax type: VAT-registered, exempt from business tax
+  // (taxType null, D39 — no business tax), otherwise percentage tax.
+  const isVat = isVatRegistered(clientQ.data?.taxType);
+  const exempt = !!clientQ.data && isExempt(clientQ.data.taxType);
 
   const retry = () => {
     void clientQ.refetch();
@@ -314,6 +316,19 @@ export default function TaxPage() {
                 ) : null}
               </CardContent>
             </Card>
+          ) : exempt ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Business tax (estimate)</CardTitle>
+                <RegimeChip regime={null} />
+              </CardHeader>
+              <CardContent>
+                <p className="text-[13px] text-content-secondary">
+                  No business tax: this client is exempt from business tax, so none is
+                  estimated.
+                </p>
+              </CardContent>
+            </Card>
           ) : (
             <Card>
               <CardHeader>
@@ -350,7 +365,9 @@ export default function TaxPage() {
                 value={
                   isVat
                     ? "12% VAT — output less input"
-                    : "3% percentage tax on gross receipts"
+                    : exempt
+                      ? "None — exempt from business tax"
+                      : "3% percentage tax on gross receipts"
                 }
               />
               <Assumption

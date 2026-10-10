@@ -24,6 +24,7 @@ import {
   cn,
 } from "../components/ui";
 import { CityCombobox } from "../components/CityCombobox";
+import { regimeLabel } from "../lib/regime";
 import type { PhLocation } from "../lib/phLocations";
 // Type-only import — erased at build, so pdf.js/tesseract stay OUT of the main
 // chunk (the extractor itself is loaded lazily in onPickCor). parseCor.ts is the
@@ -1056,10 +1057,10 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   onChange={(e) => setTaxType(e.target.value)}
                   className="input"
                 >
-                  <option value="">None (exempt from business tax)</option>
+                  <option value="">{regimeLabel(null)}</option>
                   {TAX_TYPES.map((t) => (
                     <option key={t} value={t}>
-                      {t}
+                      {regimeLabel(t)}
                     </option>
                   ))}
                 </select>

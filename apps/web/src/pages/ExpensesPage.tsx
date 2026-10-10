@@ -17,14 +17,13 @@ import {
   type PurchaseTxn,
 } from "../lib/api";
 import {
-  EXPENSE_LIST_LIMIT,
   EXPENSE_STATUS_FILTERS,
   expenseBadges,
   isHeld,
-  matchesStatusFilter,
   statusFilterParams,
   type ExpenseStatusFilter,
 } from "../lib/expenseStatus";
+import { isVatRegistered, regimeLabel } from "../lib/regime";
 import { downloadSheet, EXPENSE_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
@@ -37,12 +36,6 @@ import {
   peso,
   Skeleton,
 } from "../components/ui";
-
-/** VAT when the tax type mentions VAT but is not NON-VAT; otherwise percentage. */
-function isVatRegime(taxType?: string | null): boolean {
-  const t = (taxType ?? "").toUpperCase();
-  return t.includes("VAT") && !t.includes("NON");
-}
 
 export default function ExpensesPage() {
   const { clientId = "" } = useParams();
@@ -66,12 +59,9 @@ export default function ExpensesPage() {
     queryKey: ["categories", clientId, "EXPENSE"],
     queryFn: () => fetchCategories(clientId, "EXPENSE"),
   });
-  // The status filter is sent to the server AND applied to what comes back:
-  // the list parameters are a W5 proposal Track A has not confirmed, so a held
-  // row must never be shown under Posted even if the server ignores them.
-  // "All" shows the server's first page, as before. Any other status walks
-  // every page and filters here, because filtering one page would miss held
-  // rows on later pages; it then shows the first EXPENSE_LIST_LIMIT of them.
+  // The Status filter is the server's (Track A U6-A1, W6 R2): status and
+  // needsReview go with the one list request, the page shows the server's
+  // first page of matches, and the footer counts the server's total.
   const listFilters = useMemo(
     () => ({ ...filters, ...statusFilterParams(statusFilter) }),
     [filters, statusFilter],
@@ -79,14 +69,8 @@ export default function ExpensesPage() {
   const list = useQuery<{ rows: PurchaseTxn[]; total: number }>({
     queryKey: ["purchases", clientId, listFilters],
     queryFn: async () => {
-      if (statusFilter === "all") {
-        const page = await fetchPurchases(clientId, listFilters);
-        return { rows: page.data, total: page.total };
-      }
-      const matched = (await fetchAllPurchases(clientId, listFilters)).filter((t) =>
-        matchesStatusFilter(t, statusFilter),
-      );
-      return { rows: matched.slice(0, EXPENSE_LIST_LIMIT), total: matched.length };
+      const page = await fetchPurchases(clientId, listFilters);
+      return { rows: page.data, total: page.total };
     },
   });
   const summary = useQuery({
@@ -94,13 +78,14 @@ export default function ExpensesPage() {
     queryFn: () => fetchPurchaseSummary(clientId, filters),
   });
 
-  const isVat = isVatRegime(client.data?.taxType);
+  const isVat = isVatRegistered(client.data?.taxType);
   const regime: Regime | undefined = client.data
     ? isVat
       ? "VAT"
       : "PERCENTAGE"
     : undefined;
-  const regimeNote = client.data ? (isVat ? "VAT-registered" : "Percentage tax") : undefined;
+  // The header names the regime: null reads "Exempt from business tax" (W6 R1).
+  const regimeNote = client.data ? regimeLabel(client.data.taxType) : undefined;
 
   const categoryName = useMemo(() => {
     const map = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
@@ -154,11 +139,10 @@ export default function ExpensesPage() {
   async function onExport() {
     setExporting(true);
     try {
-      // What the Status filter shows is what is exported, and every row says
-      // whether it is held: a held record counts nowhere until it is posted.
-      const all = (await fetchAllPurchases(clientId, listFilters)).filter((t) =>
-        matchesStatusFilter(t, statusFilter),
-      );
+      // What the Status filter shows is what is exported — every record the
+      // server matches, page by page — and every row says whether it is held:
+      // a held record counts nowhere until it is posted.
+      const all = await fetchAllPurchases(clientId, listFilters);
       const tax = (t: (typeof all)[number]) => t.taxAmount ?? t.inputVAT ?? 0;
       const out = all.map((t) => ({
         "Date*": t.txnDate,
@@ -465,6 +449,7 @@ export default function ExpensesPage() {
         <TransactionEntryModal
           clientId={clientId}
           regime={regime}
+          taxType={client.data?.taxType ?? null}
           kind="expense"
           categories={categories.data ?? []}
           existing={editing}

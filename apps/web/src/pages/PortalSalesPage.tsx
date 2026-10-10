@@ -5,6 +5,7 @@ import TransactionEntryModal, {
   type Regime,
 } from "../components/TransactionEntryModal";
 import { useAuth } from "../auth/AuthContext";
+import { isVatRegistered } from "../lib/regime";
 import {
   deleteIncome,
   fetchCategories,
@@ -44,9 +45,8 @@ export default function PortalSalesPage() {
   const ctx = ctxQuery.data;
   const clientId = ctx?.id ?? "";
 
-  // Regime: taxType containing "VAT" (but not "NON") → VAT, else PERCENTAGE.
-  const taxType = (ctx?.taxType ?? "").toUpperCase();
-  const isVat = taxType.includes("VAT") && !taxType.includes("NON");
+  // VAT-registered records VAT; percentage tax and exempt (D39) do not.
+  const isVat = isVatRegistered(ctx?.taxType);
   const regime: Regime = isVat ? "VAT" : "PERCENTAGE";
 
   const income = useQuery({
@@ -299,6 +299,7 @@ export default function PortalSalesPage() {
         <TransactionEntryModal
           clientId={clientId}
           regime={regime}
+          taxType={ctx?.taxType ?? null}
           kind="income"
           categories={categories.data ?? []}
           existing={editing}

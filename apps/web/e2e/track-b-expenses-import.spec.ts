@@ -254,6 +254,38 @@ async function mockApi(
   const clients = opts.clients ?? [NON_VAT_CLIENT, VAT_CLIENT];
   const seen: Seen[] = [];
   const unmocked: string[] = [];
+  // Re-armable "nothing in flight": no request pending and none started for
+  // 500 ms. waitForLoadState("networkidle") resolves at once once the page has
+  // been idle, so it cannot catch a request that comes late (review, W6).
+  let inflight = 0;
+  let started = 0;
+  page.on("request", () => {
+    inflight += 1;
+    started += 1;
+  });
+  const settled = () => {
+    inflight -= 1;
+  };
+  page.on("requestfinished", settled);
+  page.on("requestfailed", settled);
+  const quiet = async () => {
+    let count = -1;
+    let since = 0;
+    await expect
+      .poll(
+        () => {
+          const now = Date.now();
+          if (inflight > 0 || started !== count) {
+            count = started;
+            since = now;
+            return false;
+          }
+          return now - since >= 500;
+        },
+        { intervals: [100], timeout: 15_000 },
+      )
+      .toBe(true);
+  };
 
   await page.addInitScript(() => {
     window.localStorage.setItem("portal_token", "test-token-not-a-secret");
@@ -323,7 +355,7 @@ async function mockApi(
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });
 
-  return { seen, unmocked };
+  return { seen, unmocked, quiet };
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -359,7 +391,7 @@ test.describe("Expenses import through the API (hermetic)", () => {
   test("T1 choosing a file sends exactly one multipart dry run and no JSON rows", async ({
     page,
   }) => {
-    const { seen, unmocked } = await mockApi(page, {
+    const { seen, unmocked, quiet } = await mockApi(page, {
       extra: [
         [
           "POST",
@@ -389,8 +421,12 @@ test.describe("Expenses import through the API (hermetic)", () => {
       buffer: expenseWorkbook(),
     });
 
-    // Give the modal time to do whatever it does with the file.
-    await page.waitForTimeout(1500);
+    // The dry run has been answered once its check is on screen; then nothing
+    // else may be in flight before the requests are counted (W6 R3).
+    await expect(
+      page.getByText(/This is a check\. Nothing has been saved yet\./),
+    ).toBeVisible();
+    await quiet();
 
     const dryRuns = seen.filter(
       (s) => s.method === "POST" && s.path === "/api/v1/purchase-transactions/import",
@@ -609,8 +645,12 @@ test.describe("T2 Expenses import: dry run, import, template, errors (hermetic)"
 // ---------------------------------------------------------------------------
 
 /** One legacy posted record (no status at all), one held and flagged, one
- *  posted and flagged. The server here IGNORES status filters — so every
- *  assertion below proves the browser's own filtering. */
+ *  posted and flagged. Since W6 the list mock filters like Track A's U6-A1
+ *  server (pagedList) wherever a filter is chosen, and the firm's pages show
+ *  what comes back unfiltered (the portal still drops a held record as a
+ *  guard). These assertions check what each page shows for the server's
+ *  answer; that each filter is ONE request with the right parameters is
+ *  W6's T2 (track-b-w6.spec.ts). */
 const LIST = [
   {
     id: "bbbbbbbb-0000-4000-8000-000000000001",
@@ -657,14 +697,23 @@ const HELD = LIST[1]!;
 const listBody = { data: LIST, page: 1, pageSize: 50, total: LIST.length };
 const LIST_PATH = /^\/api\/v1\/clients\/[^/]+\/purchase-transactions$/;
 
-/** A list endpoint that pages like today's server (page, pageSize 50 by
- *  default, in the order given) and, like it, ignores status filters. */
+/** A list endpoint that filters and pages like Track A's U6-A1 server (W6 R2):
+ *  status=posted|held and needsReview=true|false filter (a record with no
+ *  status is posted), page and pageSize (50 by default) page in the order
+ *  given, and total counts every match. */
 function pagedList(records: Array<Record<string, unknown>>): Handler {
   return (r, s) => {
+    const status = s.search.get("status");
+    const review = s.search.get("needsReview");
+    const matched = records.filter(
+      (t) =>
+        (status === null || (t.status ?? "posted") === status) &&
+        (review === null || (t.needsReview === true) === (review === "true")),
+    );
     const page = Number(s.search.get("page") ?? "1");
     const pageSize = Number(s.search.get("pageSize") ?? "50");
-    const data = records.slice((page - 1) * pageSize, page * pageSize);
-    return json(r, { data, page, pageSize, total: records.length });
+    const data = matched.slice((page - 1) * pageSize, page * pageSize);
+    return json(r, { data, page, pageSize, total: matched.length });
   };
 }
 
@@ -717,13 +766,12 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
         [
           "GET",
           /^\/api\/v1\/clients\/[^/]+\/purchase-transactions$/,
-          (r) =>
-            json(r, {
-              ...listBody,
-              data: LIST.map((t) =>
+          (r, s) =>
+            pagedList(
+              LIST.map((t) =>
                 posted && t.id === HELD.id ? { ...t, status: "posted" } : t,
               ),
-            }),
+            )(r, s),
         ],
         [
           "POST",
@@ -791,7 +839,7 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
   });
 
   test("T3 declining the confirmation posts nothing", async ({ page }) => {
-    const { seen, unmocked } = await mockApi(page, {
+    const { seen, unmocked, quiet } = await mockApi(page, {
       extra: [
         [
           "GET",
@@ -801,9 +849,17 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
       ],
     });
     await page.goto(`/clients/${NON_VAT_CLIENT.id}/expenses`);
-    page.on("dialog", (d) => void d.dismiss());
+    let declined = 0;
+    page.on("dialog", (d) => {
+      declined += 1;
+      void d.dismiss();
+    });
     await page.getByRole("button", { name: "Post" }).click();
-    await page.waitForTimeout(300);
+    // Declined: the confirmation came and went, and the row is back at rest —
+    // still held, its button still "Post" (W6 R3).
+    await expect.poll(() => declined).toBe(1);
+    await expect(page.getByRole("button", { name: "Post" })).toBeEnabled();
+    await quiet();
     expect(seen.filter((s) => s.method === "POST")).toHaveLength(0);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
@@ -824,11 +880,7 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
               seatLimit: null,
             }),
         ],
-        [
-          "GET",
-          /^\/api\/v1\/clients\/[^/]+\/purchase-transactions$/,
-          (r) => json(r, listBody),
-        ],
+        ["GET", LIST_PATH, pagedList(LIST)],
       ],
     });
     await page.goto("/portal/expenses");
@@ -847,7 +899,8 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
     page,
   }) => {
     // 55 posted records, newest first, then one held record older than all of
-    // them: it sits on the server's second page.
+    // them: it would sit on an unfiltered second page. Since W6 the page asks
+    // the server for status=held and gets it back on the first.
     const posted = Array.from({ length: 55 }, (_, i) => expense(`OR-P${i + 1}`, i));
     const held = expense("DR-OLD", 80, { status: "held", needsReview: true });
     const { unmocked } = await mockApi(page, {
@@ -881,8 +934,9 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
   test("T3 the portal hides held rows on every page and counts only posted ones", async ({
     page,
   }) => {
-    // 60 held records newer than the client's 10 posted ones: the server's
-    // whole first page is held.
+    // 60 held records newer than the client's 10 posted ones: an unfiltered
+    // first page would be all held. Since W6 the portal asks the server for
+    // status=posted, and its count is the server's total.
     const held = Array.from({ length: 60 }, (_, i) =>
       expense(`DR-H${i + 1}`, i, { status: "held", needsReview: true }),
     );
@@ -904,7 +958,7 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
     page,
   }) => {
     const { unmocked } = await mockApi(page, {
-      extra: [["GET", LIST_PATH, (r) => json(r, listBody)]],
+      extra: [["GET", LIST_PATH, pagedList(LIST)]],
     });
     await page.goto(`/clients/${NON_VAT_CLIENT.id}/expenses`);
     const body = page.locator("table tbody");

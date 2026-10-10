@@ -17,6 +17,7 @@ import {
   fetchIncomeSummary,
   type IncomeTxn,
 } from "../lib/api";
+import { isVatRegistered, regimeLabel } from "../lib/regime";
 import { downloadSheet, SALES_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
@@ -66,9 +67,8 @@ export default function SalesPage() {
     enabled: !!clientId,
   });
 
-  // Regime: taxType containing "VAT" (but not "NON") → VAT, else PERCENTAGE.
-  const taxType = (client.data?.taxType ?? "").toUpperCase();
-  const isVat = taxType.includes("VAT") && !taxType.includes("NON");
+  // VAT-registered records VAT; percentage tax and exempt (D39) do not.
+  const isVat = isVatRegistered(client.data?.taxType);
   const regime: Regime = isVat ? "VAT" : "PERCENTAGE";
 
   // Category-name lookup by id (same pattern as ClientDetailPage).
@@ -152,7 +152,8 @@ export default function SalesPage() {
   }
 
   const amountHeader = regime === "VAT" ? "Net amount (VAT)" : "Gross receipts";
-  const regimeNote = regime === "VAT" ? "VAT-registered" : "Percentage tax";
+  // The header names the regime: null reads "Exempt from business tax" (W6 R1).
+  const regimeNote = client.data ? regimeLabel(client.data.taxType) : undefined;
 
   return (
     <div className="animate-fade-rise">
@@ -332,6 +333,7 @@ export default function SalesPage() {
         <TransactionEntryModal
           clientId={clientId}
           regime={regime}
+          taxType={client.data?.taxType ?? null}
           kind="income"
           categories={categories.data ?? []}
           existing={editing}
@@ -343,11 +345,13 @@ export default function SalesPage() {
         />
       )}
 
-      {importOpen && (
+      {/* Once the client is known, so the import's note names its regime. */}
+      {importOpen && client.data && (
         <ImportModal
           kind="income"
           clientId={clientId}
           regime={regime}
+          taxType={client.data.taxType ?? null}
           onClose={() => setImportOpen(false)}
           onImported={() => {
             invalidate();
