@@ -8,18 +8,18 @@ const tp: Taxpayer = {
   id: "t1",
   kind: "individual",
   regName: "",
-  lastName: "GORGONIA",
-  firstName: "ROGER",
-  middleName: "ORSUA",
-  tin: "218430523",
+  lastName: "HALIMBAWA",
+  firstName: "JUANA",
+  middleName: "SUBOK",
+  tin: "000987654",
   branch: "0",
   rdo: "045",
-  address: "B1 L2 P3 SANTA BARBARA VILLAS II STREET",
-  city: "SAN MATEO RIZAL",
-  zip: "1820",
-  birthdate: "1983-09-18",
-  email: "mcrc.business.solutions@gmail.com",
-  phone: "09171102814",
+  address: "LOT 0 BLK 0 HALIMBAWA ST BARANGAY UNO",
+  city: "LUNGSOD NG HALIMBAWA",
+  zip: "0000",
+  birthdate: "1980-01-01",
+  email: "juana.halimbawa@example.com",
+  phone: "09000000000",
   citizenship: "FILIPINO",
   civilStatus: "married",
   taxpayerType: "",
@@ -54,9 +54,9 @@ describe("build1701", () => {
   const xml = build1701(filing, tp, compute1701(data));
 
   it("emits the frm1701 namespace and 3-part TIN keys", () => {
-    expect(xml).toContain("frm1701:txtPg1I4TIN1=218frm1701:txtPg1I4TIN1=");
-    expect(xml).toContain("frm1701:txtPg1I4TIN2=430frm1701:txtPg1I4TIN2=");
-    expect(xml).toContain("frm1701:txtPg1I4TIN3=523frm1701:txtPg1I4TIN3=");
+    expect(xml).toContain("frm1701:txtPg1I4TIN1=000frm1701:txtPg1I4TIN1=");
+    expect(xml).toContain("frm1701:txtPg1I4TIN2=987frm1701:txtPg1I4TIN2=");
+    expect(xml).toContain("frm1701:txtPg1I4TIN3=654frm1701:txtPg1I4TIN3=");
     expect(xml).toContain("frm1701:txtPg1I4BranchCode=000frm1701:txtPg1I4BranchCode=");
     expect(xml).toContain("frm1701:txtPg1I5RDOCode=045frm1701:txtPg1I5RDOCode=");
   });
@@ -76,11 +76,11 @@ describe("build1701", () => {
 
   it("URL-encodes the page-1 name and emits raw last name on pages 2-4", () => {
     expect(xml).toContain(
-      "frm1701:txtPg1I8TaxpayerName=GORGONIA%2C%20ROGER%20ORSUAfrm1701:txtPg1I8TaxpayerName=",
+      "frm1701:txtPg1I8TaxpayerName=HALIMBAWA%2C%20JUANA%20SUBOKfrm1701:txtPg1I8TaxpayerName=",
     );
-    expect(xml).toContain("frm1701:txtPg2TaxpayerName=GORGONIAfrm1701:txtPg2TaxpayerName=");
-    expect(xml).toContain("frm1701:txtPg3TaxpayerName=GORGONIAfrm1701:txtPg3TaxpayerName=");
-    expect(xml).toContain("frm1701:txtPg4TaxpayerName=GORGONIAfrm1701:txtPg4TaxpayerName=");
+    expect(xml).toContain("frm1701:txtPg2TaxpayerName=HALIMBAWAfrm1701:txtPg2TaxpayerName=");
+    expect(xml).toContain("frm1701:txtPg3TaxpayerName=HALIMBAWAfrm1701:txtPg3TaxpayerName=");
+    expect(xml).toContain("frm1701:txtPg4TaxpayerName=HALIMBAWAfrm1701:txtPg4TaxpayerName=");
   });
 
   it("emits Part II amount fields as 0.00 when the app has no figures", () => {
@@ -98,12 +98,12 @@ describe("build1701", () => {
   });
 
   it("emits a page-3 and page-4 header key", () => {
-    expect(xml).toContain("frm1701:txtPg3TIN1=218frm1701:txtPg3TIN1=");
-    expect(xml).toContain("frm1701:txtPg4TIN1=218frm1701:txtPg4TIN1=");
+    expect(xml).toContain("frm1701:txtPg3TIN1=000frm1701:txtPg3TIN1=");
+    expect(xml).toContain("frm1701:txtPg4TIN1=000frm1701:txtPg4TIN1=");
   });
 
   it("emits the global txtEmail field (un-namespaced)", () => {
-    expect(xml).toContain("<div>txtEmail=mcrc.business.solutions@gmail.comtxtEmail=</div>");
+    expect(xml).toContain("<div>txtEmail=juana.halimbawa@example.comtxtEmail=</div>");
   });
 
   it("ends with the BIR 2012.0 tail", () => {
@@ -115,7 +115,7 @@ describe("build1701", () => {
   });
 
   it("builds the canonical eBIRForms filename", () => {
-    expect(fileName1701(filing, tp)).toBe("2184305230001701v2018122025.xml");
+    expect(fileName1701(filing, tp)).toBe("0009876540001701v2018122025.xml");
   });
 
   it("wires Part IX reconciliation values into the txtPg4IPart9 keys", () => {

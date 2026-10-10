@@ -1,3 +1,5 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # apps/portal is a frozen design prototype (D17), outside every root gate.
+  - "!apps/portal"

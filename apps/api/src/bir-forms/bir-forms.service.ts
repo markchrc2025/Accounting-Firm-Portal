@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
@@ -7,6 +13,12 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
+import {
+  type FiledSnapshot,
+  readFiledSnapshot,
+  snapshotToClient,
+  takeFiledSnapshot,
+} from "./filed-snapshot";
 import {
   build1701,
   build1701A,
@@ -66,6 +78,28 @@ export const XML_EXPORT_FORMS = new Set([
   "1702Q",
   "1702RT",
 ]);
+
+/** The seven returns: a filed one is corrected by an amendment (U3 R2, D11). */
+export const RETURN_FORMS = XML_EXPORT_FORMS;
+
+/** The two certificates: no amendment — a mistake is corrected by a new certificate (D20). */
+export const CERTIFICATE_FORMS = new Set(["2307", "2316"]);
+
+/** The 409 for any change to a filed form, naming the correction path (U3 B2). */
+export function sealedMessage(form: string): string {
+  return CERTIFICATE_FORMS.has(form)
+    ? `This ${form} has been issued and is sealed: an issued certificate is never changed. ` +
+        "To correct it, issue a new certificate; this one stays as issued."
+    : `This ${form} has been filed and is sealed: a filed return is never changed. ` +
+        "To correct it, file an amendment — Amend opens a new draft that copies this one.";
+}
+
+/** The database trigger bir_forms_seal refused the write (U3 migration). */
+function isSealError(err: unknown): boolean {
+  return String((err as { message?: unknown })?.message ?? "").includes(
+    "BIR_FORM_SEALED",
+  );
+}
 
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
@@ -159,30 +193,122 @@ export class BirFormsService {
   }
 
   async update(user: AuthUser, id: string, input: UpdateBirFormInput) {
-    await this.loadOwned(user.firmId, id);
-    await this.prisma.birForm.update({
-      where: { id },
-      data: {
-        ...(input.period !== undefined ? { period: input.period } : {}),
-        ...(input.status !== undefined ? { status: input.status } : {}),
-        // Filing lifecycle: stamp filedAt when a form is marked filed, clear it
-        // when it's reopened to draft. This is what the client tax view keys on.
-        ...(input.status === "filed"
-          ? { filedAt: new Date() }
-          : input.status === "draft"
-            ? { filedAt: null }
+    const f = await this.loadOwned(user.firmId, id);
+    // U3 (D11): a filed form is never modified — figures, status or filedAt. There
+    // is no reopen; the database trigger bir_forms_seal enforces the same below us.
+    if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
+
+    // The draft → filed write carries filedAt and the taxpayer snapshot together (D12).
+    const filedAt = input.status === "filed" ? new Date() : null;
+    const snapshot = filedAt
+      ? takeFiledSnapshot(
+          await this.clients.assertInFirm(user.firmId, f.clientId),
+          filedAt,
+        )
+      : null;
+    try {
+      await this.prisma.birForm.update({
+        where: { id },
+        data: {
+          ...(input.period !== undefined ? { period: input.period } : {}),
+          ...(input.status !== undefined ? { status: input.status } : {}),
+          ...(filedAt && snapshot
+            ? { filedAt, filedSnapshotJson: snapshot as unknown as Prisma.InputJsonValue }
+            : input.status === "draft"
+              ? // Only a draft reaches here, and a draft's filedAt is already NULL
+                // (bir_forms_filed_at_check): this clears nothing, and the trigger
+                // refuses NULL over a filedAt that is set. Kept because the existing
+                // contract test bir-forms.service.spec.ts asserts it (U3: untouched).
+                { filedAt: null }
+              : {}),
+          ...(input.data !== undefined
+            ? { dataJson: input.data as Prisma.InputJsonValue }
             : {}),
-        ...(input.data !== undefined ? { dataJson: input.data as Prisma.InputJsonValue } : {}),
-      },
-    });
+        },
+      });
+    } catch (err) {
+      // Filed by someone else between the read above and this write: the trigger refused it.
+      if (isSealError(err)) throw new ConflictException(sealedMessage(f.form));
+      throw err;
+    }
     await this.audit.record({
       userId: user.id,
       action: "bir-form.update",
       entityType: "BirForm",
       entityId: id,
-      metadata: { fields: Object.keys(input) },
+      metadata: {
+        fields: Object.keys(input),
+        ...(snapshot ? { snapshot: "taken at filing" } : {}),
+      },
     });
     return this.getOne(user, id);
+  }
+
+  /**
+   * U3 (R2, D11, D20): correct a filed return with an amendment — a new draft of the
+   * same client, form and period, copying the original's data verbatim (unknown keys
+   * included, R6), sequence = original + 1, amendsId = original. The original is not
+   * written. Certificates (2307, 2316) have no amendment: a new certificate corrects
+   * them. One amendment per form (unique amendsId): a second correction amends the
+   * first amendment once it is filed.
+   */
+  async amend(
+    user: AuthUser,
+    id: string,
+  ): Promise<{ id: string; status: "draft"; sequence: number; amendsId: string }> {
+    const f = await this.loadOwned(user.firmId, id);
+    if (CERTIFICATE_FORMS.has(f.form)) {
+      throw new BadRequestException(
+        `A ${f.form} is a certificate and has no amendment. To correct a mistaken ` +
+          `${f.form}, issue a new certificate; this one stays as issued.`,
+      );
+    }
+    if (!RETURN_FORMS.has(f.form)) {
+      throw new BadRequestException(`Form ${f.form} cannot be amended.`);
+    }
+    if (f.status !== "filed") {
+      throw new BadRequestException(
+        `Only a filed return can be amended. This ${f.form} is still a draft — edit it instead.`,
+      );
+    }
+    const already = await this.prisma.birForm.findFirst({
+      where: { amendsId: f.id },
+      select: { id: true, sequence: true },
+    });
+    const alreadyMessage = (seq?: number) =>
+      `This ${f.form} has already been amended${seq ? ` (amendment ${seq})` : ""}. ` +
+      "Continue that amendment, or amend it once it is filed.";
+    if (already) throw new ConflictException(alreadyMessage(already.sequence));
+
+    const sequence = (f.sequence ?? 1) + 1;
+    let created: { id: string };
+    try {
+      created = await this.prisma.birForm.create({
+        data: {
+          firmId: f.firmId,
+          clientId: f.clientId,
+          form: f.form,
+          period: f.period,
+          status: "draft",
+          dataJson: (f.dataJson ?? {}) as Prisma.InputJsonValue,
+          sequence,
+          amendsId: f.id,
+        },
+      });
+    } catch (err) {
+      // Two amendments raced; the unique index on amendsId let one through.
+      if ((err as { code?: unknown })?.code === "P2002")
+        throw new ConflictException(alreadyMessage());
+      throw err;
+    }
+    await this.audit.record({
+      userId: user.id,
+      action: "bir-form.amended",
+      entityType: "BirForm",
+      entityId: created.id,
+      metadata: { amendsId: f.id, sequence },
+    });
+    return { id: created.id, status: "draft", sequence, amendsId: f.id };
   }
 
   /** Authoritative compute for a form + data (no persistence). */
@@ -208,7 +334,18 @@ export class BirFormsService {
       throw new BadRequestException("File storage is not configured — cannot export.");
     }
     const client = await this.clients.assertInFirm(user.firmId, f.clientId);
-    const taxpayer = clientToTaxpayer(client);
+    // D12: a form filed under U3 exports the taxpayer block it was filed with; a form
+    // filed before U3 has no snapshot and reads the live client, and the audit says so.
+    let snapshot: FiledSnapshot | null;
+    try {
+      snapshot = readFiledSnapshot(f.filedSnapshotJson);
+    } catch (err) {
+      throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
+    }
+    const taxpayer = clientToTaxpayer(snapshot ? snapshotToClient(snapshot) : client);
+    const snapshotAudit = snapshot
+      ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
+      : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
     const data = (f.dataJson ?? {}) as unknown as FilingData;
     const filing = {
       id: f.id,
@@ -232,7 +369,7 @@ export class BirFormsService {
       action: "bir-form.export",
       entityType: "BirForm",
       entityId: f.id,
-      metadata: { kind: "xml", filename },
+      metadata: { kind: "xml", filename, ...snapshotAudit },
     });
     return {
       id: exportRow.id,
@@ -275,35 +412,59 @@ export class BirFormsService {
   }
 
   /** Build the eBIRForms XML + canonical filename for a saved form. */
-  private buildXml(filing: Filing, taxpayer: Taxpayer): { xml: string; filename: string } {
+  private buildXml(
+    filing: Filing,
+    taxpayer: Taxpayer,
+  ): { xml: string; filename: string } {
     const data = filing.data ?? {};
     if (filing.form === "2551Q") {
       const comp = compute2551Q(data);
-      return { xml: build2551Q(filing, taxpayer, comp), filename: fileName2551Q(filing, taxpayer) };
+      return {
+        xml: build2551Q(filing, taxpayer, comp),
+        filename: fileName2551Q(filing, taxpayer),
+      };
     }
     if (filing.form === "2550Q") {
       const comp = compute2550Q(data);
-      return { xml: build2550Q(filing, taxpayer, comp), filename: fileName2550Q(filing, taxpayer) };
+      return {
+        xml: build2550Q(filing, taxpayer, comp),
+        filename: fileName2550Q(filing, taxpayer),
+      };
     }
     if (filing.form === "1701Q") {
       const comp = compute1701Q(data);
-      return { xml: build1701Q(filing, taxpayer, comp), filename: fileName1701Q(filing, taxpayer) };
+      return {
+        xml: build1701Q(filing, taxpayer, comp),
+        filename: fileName1701Q(filing, taxpayer),
+      };
     }
     if (filing.form === "1701A") {
       const comp = compute1701A(data);
-      return { xml: build1701A(filing, taxpayer, comp), filename: fileName1701A(filing, taxpayer) };
+      return {
+        xml: build1701A(filing, taxpayer, comp),
+        filename: fileName1701A(filing, taxpayer),
+      };
     }
     if (filing.form === "1701") {
       const comp = compute1701(data);
-      return { xml: build1701(filing, taxpayer, comp), filename: fileName1701(filing, taxpayer) };
+      return {
+        xml: build1701(filing, taxpayer, comp),
+        filename: fileName1701(filing, taxpayer),
+      };
     }
     if (filing.form === "1702Q") {
       const comp = compute1702Q(data);
-      return { xml: build1702Q(filing, taxpayer, comp), filename: fileName1702Q(filing, taxpayer) };
+      return {
+        xml: build1702Q(filing, taxpayer, comp),
+        filename: fileName1702Q(filing, taxpayer),
+      };
     }
     if (filing.form === "1702RT") {
       const comp = compute1702RT(data);
-      return { xml: build1702RT(filing, taxpayer, comp), filename: fileName1702RT(filing, taxpayer) };
+      return {
+        xml: build1702RT(filing, taxpayer, comp),
+        filename: fileName1702RT(filing, taxpayer),
+      };
     }
     throw new BadRequestException(`Form ${filing.form} is not available yet.`);
   }
@@ -313,7 +474,10 @@ export class BirFormsService {
    * filed form. Kept deliberately small — the full compute lives in getOne.
    * Returns null for forms without a ported engine.
    */
-  private keyFigures(form: string, data: FilingData): { totalTaxDue: number; totalPayable: number } | null {
+  private keyFigures(
+    form: string,
+    data: FilingData,
+  ): { totalTaxDue: number; totalPayable: number } | null {
     if (form === "2551Q") {
       const c = compute2551Q(data);
       return { totalTaxDue: c.i14, totalPayable: c.i24 };
@@ -367,6 +531,9 @@ export class BirFormsService {
     status: string;
     period: string;
     filedAt?: Date | null;
+    sequence?: number;
+    amendsId?: string | null;
+    filedSnapshotJson?: Prisma.JsonValue | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -378,6 +545,10 @@ export class BirFormsService {
       status: f.status,
       period: f.period,
       filedAt: f.filedAt ? f.filedAt.toISOString() : null,
+      // U3 (R6), additive: the amendment chain and the filing snapshot.
+      sequence: f.sequence ?? 1,
+      amendsId: f.amendsId ?? null,
+      filedSnapshot: f.filedSnapshotJson ?? null,
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
     };

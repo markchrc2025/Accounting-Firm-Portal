@@ -651,6 +651,12 @@ model BIRFiling {
 /// (ported from the Sentire BIR Form Generator's `filings` table). This is the
 /// authoring/draft record — distinct from `BIRFiling`, which stores the
 /// finalized, exported artifact. `dataJson` holds the raw field values.
+/// SEALED AT THE DATABASE (U3, D11): the trigger bir_forms_seal (migration
+/// 20261010120000_bir_form_seal) refuses any UPDATE or DELETE of a filed row — and
+/// with it the cascade from deleting its client or firm — any change to filedAt once
+/// set, and any change to amendsId once set. Two CHECKs Prisma does not model sit
+/// beside it: bir_forms_filed_at_check (status = 'filed' exactly when filedAt is
+/// set; NOT VALID) and bir_forms_sequence_check (sequence >= 1).
 model BirForm {
   id        String   @id @default(uuid()) @db.Uuid
   firmId    String   @db.Uuid
@@ -659,14 +665,23 @@ model BirForm {
   status    String    @default("draft") // "draft" | "filed"
   period    String    @default("") // "2026" or "2026-Q1"
   dataJson  Json      @default("{}")
-  /// Set when the form is marked filed; cleared when reopened to draft.
+  /// Set when the form is marked filed; never changed or cleared afterwards (U3).
   filedAt   DateTime?
+  /// 1 for an original; the amended form's sequence + 1 for an amendment (U3).
+  sequence          Int     @default(1)
+  /// The filed form this one amends; null for an original. One amendment per form.
+  amendsId          String? @unique @db.Uuid
+  /// The taxpayer block copied from the client at filing (U3, D12); null on drafts
+  /// and on forms filed before U3. Exports and certificates of a filed form read it.
+  filedSnapshotJson Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  firm    Firm            @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  client  Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  exports BirFormExport[]
+  firm      Firm            @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  client    Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amends    BirForm?        @relation("BirFormAmendment", fields: [amendsId], references: [id], onDelete: Restrict)
+  amendedBy BirForm?        @relation("BirFormAmendment")
+  exports   BirFormExport[]
 
   @@index([firmId])
   @@index([clientId])

@@ -160,10 +160,12 @@ names, in `apps/api/Dockerfile`.
 
 ## How this is tested
 
-- `apps/api/test/db/track-a-backup.db-spec.ts` is a **restore drill**: it dumps the local
-  database with the module's own `dump()`, restores it with the exact `pg_restore` command
-  above into a scratch database, and compares every table's row count and every row of
-  `_prisma_migrations` (name and checksum). CI runs it in the `database` job on every pull
+- `apps/api/test/db/track-a-backup.db-spec.ts` is a **restore drill**: it seeds its own rows
+  in six tables (the suite starts from a truncated database, U3), including a filed BIR form
+  and the draft that amends it, dumps with the module's own `dump()`, restores with the exact
+  `pg_restore` command above into a scratch database, and compares every table's row count
+  and every row of `_prisma_migrations` (name and checksum). It also proves the seal comes
+  across: an UPDATE of the restored filed form is refused by the restored trigger. CI runs it in the `database` job on every pull
   request, so the procedure on this page cannot rot unnoticed.
 - `apps/api/src/backup/track-a-backup.spec.ts` proves, with no database and no bucket, that
   a failed dump or upload never lets `prisma migrate deploy` run; that the gate skips

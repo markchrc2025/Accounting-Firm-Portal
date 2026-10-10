@@ -21,7 +21,7 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
     city: "QUEZON CITY",
     zip: "1116",
     birthdate: "",
-    email: "mcrc.business.solutions@gmail.com",
+    email: "juana.halimbawa@example.com",
     phone: "09190660794",
     citizenship: "",
     civilStatus: "",

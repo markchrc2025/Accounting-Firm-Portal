@@ -39,7 +39,7 @@ Column names must stay exactly as they are; do not add, rename or reorder column
 | 10 | **Address** | text | no | | | *(not stored — see note)* |
 | 11 | **City** | text | no | | | *(not stored — see note)* |
 | 12 | **Province** | text | no | | `Rizal` | `province` |
-| 13 | **Postal Code** | text | no | | `1820` | *(not stored — see note)* |
+| 13 | **Postal Code** | text | no | | `1850` | *(not stored — see note)* |
 | 14 | **Reference Number** | **text** | no | up to 32 characters, leading zeros kept; blank when the document has none | `00000000000000000012345` | `referenceNo` |
 | 15 | **Vatable Amount** | 0.00 | if the receipt shows it | | `2952.01` | one record, see *Treatments* |
 | 16 | **VAT Amount** | 0.00 | with Vatable | the VAT line as printed | `354.24` | `inputVAT` / `taxAmount` |

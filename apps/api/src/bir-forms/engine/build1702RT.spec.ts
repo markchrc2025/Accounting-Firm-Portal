@@ -22,7 +22,7 @@ const tp: Taxpayer = {
   zip: "3019",
   birthdate: "",
   incorpDate: "2025-08-01",
-  email: "mcrc.business.solutions@gmail.com",
+  email: "juana.halimbawa@example.com",
   phone: "09190660794",
   citizenship: "",
   civilStatus: "",
@@ -77,7 +77,7 @@ describe("build1702RT", () => {
   });
 
   it("keeps email namespaced and RDO/year/period correct", () => {
-    expect(has("frm1702RT:txtPg1Pt1I12Email", "mcrc.business.solutions@gmail.com")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I12Email", "juana.halimbawa@example.com")).toBe(true);
     expect(has("frm1702RT:txtRDO", "25B")).toBe(true);
     expect(has("frm1702RT:drpPg1Pt1I7RDOCode", "25B")).toBe(true);
     expect(has("frm1702RT:txtPg1I2Year", "25")).toBe(true);

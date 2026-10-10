@@ -20,7 +20,7 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
     city: "Caloocan",
     zip: "1400",
     birthdate: "1990-01-01",
-    email: "mcrc.business.solutions@gmail.com",
+    email: "juana.halimbawa@example.com",
     phone: "09190660794",
     citizenship: "FILIPINO",
     civilStatus: "single",
@@ -90,7 +90,7 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
   });
 
   it("emits the global (un-namespaced) txtEmail field", () => {
-    has("txtEmail=mcrc.business.solutions@gmail.comtxtEmail=");
+    has("txtEmail=juana.halimbawa@example.comtxtEmail=");
   });
 
   it("ends with the 2551Q package tail (BIR 2012.0)", () => {
