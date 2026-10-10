@@ -8,7 +8,12 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { TaxEstimate } from "../lib/api";
-import { businessTaxNote, methodLabel, sourceLabel } from "../lib/taxEstimate";
+import {
+  businessTaxNote,
+  methodLabel,
+  methodNote,
+  sourceLabel,
+} from "../lib/taxEstimate";
 import { yearOptions } from "../lib/taxPeriod";
 import {
   Card,
@@ -177,6 +182,14 @@ export function TaxEstimateBody({
                 </span>
                 <span className="text-content">{methodLabel(estimate.method)}</span>
                 <span>({sourceLabel(estimate.method.source)})</span>
+                {methodNote(estimate) ? (
+                  <p
+                    data-method-note
+                    className="mt-1 basis-full text-[12.5px] text-content"
+                  >
+                    {methodNote(estimate)}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <div className="eyebrow mb-1.5">Taxable income</div>

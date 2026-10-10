@@ -266,9 +266,10 @@ export function noFitSentence(e: AiEstimate, usdToPhp: number): string {
 
 export const MAX_FILES = 100;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-/** What the drop zone offers. HEIC is the API's to accept or refuse. */
-export const ACCEPTED_FILES =
-  "image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.pdf,.heic,.heif";
+/** What the picker offers (W12-A1 R1): any photo or PDF, iPhone HEIC included.
+ *  Nothing in the browser refuses a file for its type; the API reads each one
+ *  by its content and its 400 is shown word for word. */
+export const ACCEPTED_FILES = "image/*,.heic,.heif,.pdf,application/pdf";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
