@@ -64,6 +64,23 @@ export class ClientsService {
     }
   }
 
+  /**
+   * U4-A1 (D42): a billing parent must be a client the caller can see (403 in the
+   * guard's words). A parent outside the firm keeps its 400 from assertBillingLink,
+   * and nothing about an unseen parent is revealed before this check.
+   */
+  private async assertVisibleParent(
+    user: AuthUser,
+    permission: string,
+    billingParentId: string,
+  ): Promise<void> {
+    const inFirm = await this.prisma.client.findFirst({
+      where: { id: billingParentId, firmId: user.firmId },
+      select: { id: true },
+    });
+    if (inFirm) await this.rbac.assertClient(user, [permission], billingParentId);
+  }
+
   /** Validate a sub-client billing link (one level deep, same firm). */
   private async assertBillingLink(
     firmId: string,
@@ -85,8 +102,7 @@ export class ClientsService {
 
   async create(user: AuthUser, input: CreateClientInput) {
     if (input.billingParentId) {
-      // U4-A1 (D42): the billing parent must be a client the caller can see.
-      await this.rbac.assertClient(user, ["Clients:Create"], input.billingParentId);
+      await this.assertVisibleParent(user, "Clients:Create", input.billingParentId);
       await this.assertBillingLink(user.firmId, null, input.billingParentId);
     }
     if (input.defaultServiceId) {
@@ -150,10 +166,13 @@ export class ClientsService {
   }
 
   async update(user: AuthUser, clientId: string, input: UpdateClientInput) {
-    await this.get(user, clientId); // 404 if not in firm
+    const current = await this.get(user, clientId); // 404 if not in firm
     if (input.billingParentId) {
-      // U4-A1 (D42): the new billing parent must be a client the caller can see.
-      await this.rbac.assertClient(user, ["Clients:Update"], input.billingParentId);
+      // The client form re-sends the unchanged parent on every save; only a NEW
+      // parent is a new link to check.
+      if (input.billingParentId !== current.billingParentId) {
+        await this.assertVisibleParent(user, "Clients:Update", input.billingParentId);
+      }
       await this.assertBillingLink(user.firmId, clientId, input.billingParentId);
     }
     if (input.defaultServiceId) {

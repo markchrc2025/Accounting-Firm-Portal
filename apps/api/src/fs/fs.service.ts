@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { RbacService } from "../rbac/rbac.service";
+import { CLIENTS_VIEW_ALL } from "../rbac/permissions.constants";
+import { missingPermissionsMessage, RbacService } from "../rbac/rbac.service";
 import {
   buildBalanceSheet,
   buildCashFlow,
@@ -145,8 +152,10 @@ export class FsService {
 
   async createReport(user: AuthUser, input: CreateReportInput) {
     // A linked client's profile is fetched and snapshotted; explicit input wins.
-    if (input.clientId) await this.rbac.assertClient(user, [FS_MANAGE], input.clientId);
+    // A client outside the firm stays a 404; one the caller cannot see is a 403
+    // (U4-A1, D42). The facts are only read here, never returned before the check.
     const facts = input.clientId ? await this.resolveClientFacts(user, input.clientId) : null;
+    if (input.clientId) await this.rbac.assertClient(user, [FS_MANAGE], input.clientId);
     const entityName = input.entityName ?? facts?.entityName;
     if (!entityName) {
       throw new BadRequestException("The linked client has no usable entity name — provide one.");
@@ -689,7 +698,20 @@ export class FsService {
     });
     if (!report) throw new NotFoundException(`FS report ${id} not found.`);
     if (report.clientId) {
-      if (permission) await this.rbac.assertClient(user, [permission], report.clientId);
+      const linked = await this.prisma.client.findFirst({
+        where: { id: report.clientId, firmId: user.firmId },
+        select: { id: true },
+      });
+      if (!linked) {
+        // The linked client is gone (clientId has no foreign key): no one can be
+        // assigned to it, so the report is open to Clients:ViewAll holders only.
+        const all = (await this.rbac.authorizedClients(user, permission ? [permission] : [])) === "all";
+        if (!all) {
+          throw new ForbiddenException(
+            missingPermissionsMessage([CLIENTS_VIEW_ALL], report.clientId),
+          );
+        }
+      } else if (permission) await this.rbac.assertClient(user, [permission], report.clientId);
       else await this.rbac.assertVisibleClient(user, report.clientId);
     }
     return report;

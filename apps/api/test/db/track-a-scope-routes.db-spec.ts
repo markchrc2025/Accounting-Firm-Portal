@@ -557,4 +557,65 @@ describe("U4-A1 · every client-owned route obeys assignment (real app over HTTP
       expect(count(id.ma)).toBe(2);
     });
   });
+
+  // --- from the review: edits keep working, old answers stay, orphans stay reachable ---
+
+  describe("U4-A1 review cases", () => {
+    it("a Manager assigned to a sub-client (parent unseen) still saves it when the form re-sends the same parent", async () => {
+      const sub = await writer.client.create({
+        data: {
+          firmId,
+          businessName: `${TAG} Echo Sub Of Bravo`,
+          tin: "000000405",
+          billingParentId: client.B,
+        },
+      });
+      await writer.firmClientAssignment.create({
+        data: { firmUserId: id.ma, clientId: sub.id },
+      });
+      const res = await call("patch", `/clients/${sub.id}`, tok.ma).send({
+        businessName: `${TAG} Echo Sub Renamed`,
+        billingParentId: client.B,
+      });
+      expect(res.status).toBe(200);
+      expect(
+        (await reader.client.findUniqueOrThrow({ where: { id: sub.id } })).businessName,
+      ).toBe(`${TAG} Echo Sub Renamed`);
+    });
+
+    it("an unknown billing parent or FS client keeps its old answer for the Super Admin (400 / 404, not 403)", async () => {
+      const ghost = randomUUID();
+      const c = await call("post", "/clients", tok.sa).send({
+        businessName: `${TAG} Foxtrot`,
+        billingParentId: ghost,
+      });
+      expect(c.status).toBe(400);
+      expect(c.body.message).toBe("The selected main client was not found in this firm.");
+      const r = await call("post", "/fs/reports", tok.sa).send({
+        clientId: ghost,
+        periods: [{ label: "FY2026", endDate: "2026-12-31" }],
+      });
+      expect(r.status).toBe(404);
+    });
+
+    it("an FS report whose client is gone is reachable by the Super Admin (read and delete), not by the Manager", async () => {
+      const ghost = randomUUID();
+      const orphan = await writer.fsReport.create({
+        data: {
+          firmId,
+          clientId: ghost,
+          entityName: `${TAG} Orphan FS`,
+          createdById: id.sa,
+        },
+      });
+      const m = await call("get", `/fs/reports/${orphan.id}`, tok.ma);
+      expect(m.status).toBe(403);
+      expect(m.body.message).toBe(
+        `Missing permission(s): Clients:ViewAll for client ${ghost}`,
+      );
+      expect((await call("get", `/fs/reports/${orphan.id}`, tok.sa)).status).toBe(200);
+      expect((await call("delete", `/fs/reports/${orphan.id}`, tok.sa)).status).toBe(200);
+      expect(await reader.fsReport.count({ where: { id: orphan.id } })).toBe(0);
+    });
+  });
 });
