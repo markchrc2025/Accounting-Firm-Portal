@@ -1,7 +1,7 @@
 // expense-import.constants.ts — the shape of the Expenses import template v2
 // (U6). Everything the generator writes and the importer reads is named here
 // once, so the two cannot drift apart.
-import { InputVATCategory } from "@portal/shared";
+import { EXPENSES_V2_HEADERS, InputVATCategory } from "@portal/shared";
 
 export const TEMPLATE_VERSION = "expenses-v2";
 
@@ -15,36 +15,10 @@ export const SHEET = {
 } as const;
 
 /** The data sheet's header row, in order. The importer rejects a file whose
- *  header row differs, so a renamed or reordered column cannot be misread. */
-export const EXPENSES_HEADERS = [
-  "Date",
-  "Document Type",
-  "Vendor TIN",
-  "Vendor Branch",
-  "Vendor Registered Name",
-  "Vendor Lastname",
-  "Vendor Firstname",
-  "Vendor Middlename",
-  "Trade Name",
-  "Address",
-  "City",
-  "Province",
-  "Postal Code",
-  "Reference Number",
-  "Vatable Amount",
-  "VAT Amount",
-  "VAT-Exempt Amount",
-  "Zero-rated Amount",
-  "Other Non-vatable",
-  "Gross Total",
-  "Description",
-  "COA Code",
-  "ATC",
-  "Withholding Amount",
-  "Source File",
-  "Needs Review",
-  "Remarks",
-] as const;
+ *  header row differs, so a renamed or reordered column cannot be misread.
+ *  U11: the list lives in @portal/shared, where the receipt-scan contract (and
+ *  the web) read the same 27 names; it is not restated here. */
+export const EXPENSES_HEADERS = EXPENSES_V2_HEADERS;
 export type ExpenseHeader = (typeof EXPENSES_HEADERS)[number];
 
 /** Key labels in column A of the CLIENT sheet; values sit in column B. */

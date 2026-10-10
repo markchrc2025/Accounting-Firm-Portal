@@ -58,7 +58,7 @@ export interface McpWriteDeps {
 /** VAT rate for the invoice estimate and VATABLE_12 sales — 12% (PH). The
  *  authoritative constant lives in InvoicesService.computeTotals / the entry
  *  UI; this mirrors it for the pre-computed outputVAT on income records. */
-const VAT_RATE = 0.12;
+export const VAT_RATE = 0.12;
 
 const DEFAULT_INVOICE_TERMS_DAYS = 30; // mirrors the web UI's default Terms
 

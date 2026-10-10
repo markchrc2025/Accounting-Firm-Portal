@@ -88,6 +88,7 @@ model Firm {
   invoices           Invoice[]
   invitations        Invitation[]
   birForms           BirForm[]
+  receiptScans       ReceiptScan[]
 
   @@map("firms")
 }
@@ -177,6 +178,8 @@ model Client {
   @@index([firmId])
   @@index([billingParentId])
   @@index([defaultServiceId])
+  receiptScans ReceiptScan[]
+
   @@map("clients")
 }
 
@@ -211,6 +214,8 @@ model User {
   auditLogs     AuditLog[]
 
   @@index([firmId])
+  receiptScans ReceiptScan[]
+
   @@map("users")
 }
 
@@ -963,4 +968,101 @@ model FsAdjustmentLine {
 
   @@index([adjustmentId])
   @@map("fs_adjustment_lines")
+}
+
+/// U11 (D49): a pile of receipt photos for one client and one period, read
+/// overnight by Claude through Anthropic's Message Batches API. Nothing here is in
+/// the books: review and approval are U12.
+model ReceiptScan {
+  id            String    @id @default(uuid()) @db.Uuid
+  firmId        String    @db.Uuid
+  clientId      String    @db.Uuid
+  periodFrom    DateTime  @db.Date
+  periodTo      DateTime  @db.Date
+  /// reading | ready | failed | approved | discarded (the last two are U12's)
+  status        String    @default("reading")
+  model         String
+  promptVersion String
+  /// The Manila calendar month ("YYYY-MM") the pile counts in for the budget.
+  month         String
+  /// Anthropic's Message Batch id; null only while the batch is being created.
+  batchId       String?   @unique
+  estimatedUsd  Decimal   @db.Decimal(14, 6)
+  actualUsd     Decimal?  @db.Decimal(14, 6)
+  problem       String?
+  /// Null once the user who sent the pile is deleted (the pile stays).
+  createdById   String?   @db.Uuid
+  createdAt     DateTime  @default(now())
+  readyAt       DateTime?
+  /// Set by the one API instance collecting the results (a lease, so two never do).
+  collectingAt  DateTime?
+
+  firm      Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  files     ReceiptScanFile[]
+  rows      ReceiptScanRow[]
+
+  @@index([firmId, month])
+  @@index([clientId])
+  @@index([status])
+  @@map("receipt_scans")
+}
+
+/// One uploaded file of a pile: an image or a PDF, prepared and stored, and what
+/// the AI made of it.
+model ReceiptScanFile {
+  id               String   @id @default(uuid()) @db.Uuid
+  scanId           String   @db.Uuid
+  clientId         String   @db.Uuid
+  position         Int
+  name             String
+  contentType      String
+  bytes            Int
+  /// SHA-256 of the UPLOADED bytes: an exact copy of an earlier file of the same
+  /// client is not sent again.
+  sha256           String
+  storageKey       String?
+  /// pending | read | not-a-receipt | unreadable | copy-of-another-file | failed
+  result           String   @default("pending")
+  problem          String?
+  copyOfFileId     String?  @db.Uuid
+  promptVersion    String
+  width            Int?
+  height           Int?
+  pages            Int?
+  estimatedUsd     Decimal  @db.Decimal(14, 6)
+  inputTokens      Int?
+  cacheWriteTokens Int?
+  cacheReadTokens  Int?
+  outputTokens     Int?
+  costUsd          Decimal? @db.Decimal(14, 6)
+  createdAt        DateTime @default(now())
+
+  scan ReceiptScan      @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  rows ReceiptScanRow[]
+
+  @@index([scanId])
+  @@index([clientId, sha256])
+  @@map("receipt_scan_files")
+}
+
+/// One receipt read off a file, in the 27 template columns, with the AI's doubts
+/// and the import's own verdict on it (what approving would do).
+model ReceiptScanRow {
+  id         String   @id @default(uuid()) @db.Uuid
+  scanId     String   @db.Uuid
+  fileId     String   @db.Uuid
+  position   Int
+  cellsJson  Json
+  doubtsJson Json     @default("[]")
+  checkJson  Json
+  createdAt  DateTime @default(now())
+
+  scan ReceiptScan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  file ReceiptScanFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([fileId])
+  @@map("receipt_scan_rows")
 }
