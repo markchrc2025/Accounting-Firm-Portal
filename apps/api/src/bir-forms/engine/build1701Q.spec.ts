@@ -9,7 +9,7 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   const tp: Taxpayer = {
     id: "tp1", kind: "individual", regName: "",
     lastName: "TESTCASE", firstName: "JUAN", middleName: "T",
-    tin: "000000000", branch: "00000", rdo: "045",
+    tin: "000123456", branch: "00000", rdo: "045",
     address: "1 HALIMBAWA ST BARANGAY UNO", city: "LUNGSOD NG HALIMBAWA", zip: "0000",
     birthdate: "1990-01-15", email: "test-taxpayer@example.com",
     phone: "09000000000", citizenship: "FILIPINO", civilStatus: "single",
@@ -29,8 +29,8 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   it("uses the frm1701q namespace and authentic background/TIN keys", () => {
     has("frm1701q:txtYear=2025frm1701q:txtYear=");
     has("frm1701q:txtTIN1=000frm1701q:txtTIN1=");
-    has("frm1701q:txtTIN2=000frm1701q:txtTIN2=");
-    has("frm1701q:txtTIN3=000frm1701q:txtTIN3=");
+    has("frm1701q:txtTIN2=123frm1701q:txtTIN2=");
+    has("frm1701q:txtTIN3=456frm1701q:txtTIN3=");
     has("frm1701q:txtBranchCode=000frm1701q:txtBranchCode=");
     has("frm1701q:txtRDOCode=045frm1701q:txtRDOCode=");
   });
@@ -72,6 +72,6 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   });
 
   it("produces the authentic filename", () => {
-    expect(fileName1701Q(f, tp)).toBe("0000000000001701Qv20182025Q2.xml");
+    expect(fileName1701Q(f, tp)).toBe("0001234560001701Qv20182025Q2.xml");
   });
 });

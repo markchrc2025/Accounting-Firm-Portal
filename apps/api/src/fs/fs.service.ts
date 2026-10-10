@@ -120,22 +120,22 @@ export class FsService {
       orderBy: { updatedAt: "desc" },
       include: { periods: { orderBy: { sortOrder: "asc" } } },
     });
-    const clientNames = await this.clientNames(rows.map((r) => r.clientId));
+    const clientNames = await this.clientNames(user.firmId, rows.map((r) => r.clientId));
     return rows.map((r) => this.toReportDto(r, clientNames));
   }
 
   async getReport(user: AuthUser, id: string) {
     const report = await this.requireReport(user, id);
-    const clientNames = await this.clientNames([report.clientId]);
+    const clientNames = await this.clientNames(user.firmId, [report.clientId]);
     return this.toReportDto(report, clientNames);
   }
 
-  /** Display names for linked clients (bulk, firm-scoped). */
-  private async clientNames(ids: (string | null)[]): Promise<Map<string, string>> {
+  /** Display names for linked clients (bulk). Only the caller's firm's clients are named (U9 R6). */
+  private async clientNames(firmId: string, ids: (string | null)[]): Promise<Map<string, string>> {
     const wanted = [...new Set(ids.filter((x): x is string => Boolean(x)))];
     if (wanted.length === 0) return new Map();
     const rows = await this.prisma.client.findMany({
-      where: { id: { in: wanted } },
+      where: { id: { in: wanted }, firmId },
       select: { id: true, businessName: true, regName: true },
     });
     return new Map(rows.map((c) => [c.id, c.regName?.trim() || c.businessName]));

@@ -14,7 +14,7 @@ const tp: Taxpayer = {
   lastName: "",
   firstName: "",
   middleName: "",
-  tin: "000-000-000",
+  tin: "000-123-456",
   branch: "0",
   rdo: "25B",
   address: "3 HALIMBAWA ST BARANGAY TATLO",
@@ -54,8 +54,8 @@ function has(key: string, value: string): boolean {
 describe("build1702RT", () => {
   it("emits the frm1702RT namespace and 4-part TIN on every page", () => {
     expect(has("frm1702RT:txtPg1Pt1I6TIN1", "000")).toBe(true);
-    expect(has("frm1702RT:txtPg1Pt1I6TIN2", "000")).toBe(true);
-    expect(has("frm1702RT:txtPg1Pt1I6TIN3", "000")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I6TIN2", "123")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I6TIN3", "456")).toBe(true);
     expect(has("frm1702RT:txtPg1Pt1I6TIN4", "000")).toBe(true);
     expect(has("frm1702RT:txtPg2TIN1", "000")).toBe(true);
     expect(has("frm1702RT:txtPg3TIN1", "000")).toBe(true);
@@ -113,6 +113,6 @@ describe("build1702RT", () => {
   });
 
   it("produces the canonical annual filename", () => {
-    expect(fileName1702RT(filing, tp)).toBe("0000000000001702RTv2018122025.xml");
+    expect(fileName1702RT(filing, tp)).toBe("0001234560001702RTv2018122025.xml");
   });
 });

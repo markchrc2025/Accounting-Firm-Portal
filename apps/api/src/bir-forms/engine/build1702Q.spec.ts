@@ -15,7 +15,7 @@ const tp: Taxpayer = {
   lastName: "",
   firstName: "",
   middleName: "",
-  tin: "000-000-000",
+  tin: "000-123-456",
   branch: "0",
   rdo: "040",
   address: "2 HALIMBAWA ST BARANGAY DALAWA",
@@ -55,8 +55,8 @@ function has(key: string, value: string): boolean {
 describe("build1702Q", () => {
   it("emits the frm1702q namespace with lowercase txtTin parts + RDO", () => {
     expect(has("frm1702q:txtTin1", "000")).toBe(true);
-    expect(has("frm1702q:txtTin2", "000")).toBe(true);
-    expect(has("frm1702q:txtTin3", "000")).toBe(true);
+    expect(has("frm1702q:txtTin2", "123")).toBe(true);
+    expect(has("frm1702q:txtTin3", "456")).toBe(true);
     expect(has("frm1702q:txtBranchCode", "000")).toBe(true);
     expect(has("frm1702q:txtRdoCode", "040")).toBe(true);
     expect(has("frm1702q:txtYearEnded", "2025")).toBe(true);
@@ -108,6 +108,6 @@ describe("build1702Q", () => {
   });
 
   it("produces the canonical quarterly filename (no v2018, no mm)", () => {
-    expect(fileName1702Q(filing, tp)).toBe("0000000000001702Q2025Q2.xml");
+    expect(fileName1702Q(filing, tp)).toBe("0001234560001702Q2025Q2.xml");
   });
 });

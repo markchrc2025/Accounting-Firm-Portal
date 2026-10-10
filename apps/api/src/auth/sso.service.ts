@@ -12,6 +12,17 @@ import { PrismaService } from "../prisma/prisma.service";
 import { TokenService } from "./token.service";
 
 export type SsoProvider = "google" | "microsoft";
+
+/**
+ * U9 R1 e (D44): Microsoft's consumer-account tenant. A personal Microsoft account
+ * owns its email; an organizational account's email is trusted only when the token
+ * carries xms_edov = true (the tenant verified the domain).
+ */
+export const MS_CONSUMER_TENANT_ID = "9188040d-6c67-4c5b-b112-36a304b66dad";
+
+/** What the login page shows for the `email-unverified` code (Track B maps it). */
+export const SSO_EMAIL_UNVERIFIED_MESSAGE =
+  "This Microsoft account's email is not verified. Sign in with your email and password, or with Google.";
 export const SSO_PROVIDERS: SsoProvider[] = ["google", "microsoft"];
 
 /** Machine-readable failure; the controller redirects with this code only —
@@ -257,8 +268,8 @@ export class SsoService {
   /**
    * Verified email from the provider. Google uses its OIDC userinfo endpoint;
    * Microsoft reads the id_token claims directly (email → preferred_username →
-   * upn), which needs no Graph permission and works for work/school accounts
-   * whose UPN is the login address (e.g. name@mcrctas.com).
+   * upn), which needs no Graph permission, and only when the token proves the
+   * email: a consumer account, or xms_edov = true (U9 R1 e).
    */
   private async fetchEmail(
     provider: SsoProvider,
@@ -276,6 +287,11 @@ export class SsoService {
 
     // Microsoft: the id_token carries the identity — no Graph call required.
     const claims = tokens.idToken ? decodeJwtClaims(tokens.idToken) : {};
+    // U9 R1 e (D44): an email is trusted only from a consumer account or a token
+    // carrying xms_edov = true; otherwise the address is not proven to be theirs.
+    if (claims.tid !== MS_CONSUMER_TENANT_ID && claims.xms_edov !== true) {
+      throw new SsoError("email-unverified");
+    }
     const fromClaims =
       firstString(claims.email) || firstString(claims.preferred_username) || firstString(claims.upn);
     if (fromClaims && fromClaims.includes("@")) return fromClaims;
