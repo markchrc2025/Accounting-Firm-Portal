@@ -247,7 +247,8 @@ describe("U8 · a client with no tax regime keeps books (db)", () => {
   describe("T3: nothing computes a business tax for the exempt client (real services, real database)", () => {
     let controlId = "";
     beforeEach(async () => {
-      // A percentage-tax client in the same firm, so every assertion below can fail.
+      // A percentage-tax control client in the same firm: the dashboard and the
+      // integration summaries must tell the two apart.
       const control = await writer.client.create({
         data: {
           firmId: actor.firmId,
@@ -283,9 +284,34 @@ describe("U8 · a client with no tax regime keeps books (db)", () => {
       expect(names).not.toContain("HALIMBAWA, JUANA SUBOK");
     });
 
-    it("income summary (the web's estimate input): the exempt client's total output VAT is 0", async () => {
+    it("income summary (the web's estimate input): a sale through the real create path is NON_VAT, a VAT sale is refused, and the total output VAT is 0", async () => {
+      // The summary sums what is stored, so the sale goes through the real create
+      // path (regime, frozen schema, validator); were the null regime read as VAT,
+      // the NON_VAT sale would be refused and the VAT one written.
+      const cat = await writer.category.findFirstOrThrow({
+        where: { clientId, type: "INCOME" },
+      });
+      await incomes.create(actor, clientId, {
+        txnDate: "2026-08-20",
+        description: "Consulting",
+        categoryId: cat.id,
+        netAmount: 5000,
+        vatClass: "NON_VAT",
+        saleToGovernment: false,
+      });
+      await expect(
+        incomes.create(actor, clientId, {
+          txnDate: "2026-08-21",
+          description: "Consulting",
+          categoryId: cat.id,
+          netAmount: 5000,
+          vatClass: "VATABLE_12",
+          outputVAT: 600,
+          saleToGovernment: false,
+        }),
+      ).rejects.toMatchObject({ status: 400 });
       const sum = await incomes.summary(actor, clientId, {});
-      expect(sum).toMatchObject({ totalNet: 20000, totalOutputVAT: 0 });
+      expect(sum).toMatchObject({ totalNet: 25000, totalOutputVAT: 0 });
     });
 
     it("purchase summary: a manual expense through the real create path is written and the total input VAT is 0", async () => {

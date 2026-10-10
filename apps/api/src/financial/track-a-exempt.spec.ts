@@ -120,6 +120,16 @@ describe("U8 T2 · an EXEMPT client follows the non-VAT rules", () => {
         v.validateIncome("EXEMPT", income({ creditableVATWithheld5pct: 50 })),
       ),
     ).toBe("A non-VAT client has no creditable VAT withheld.");
+    expect(
+      regimeError(() =>
+        v.validateIncome(
+          "EXEMPT",
+          income({ saleToGovernment: true, creditableVATWithheld5pct: 0 }),
+        ),
+      ),
+    ).toBe(
+      "The 5% creditable VAT withholding is VAT-only; it does not apply to a non-VAT client.",
+    );
   });
 
   it("a purchase with an input-VAT category is rejected", () => {
@@ -139,16 +149,44 @@ describe("U8 T2 · an EXEMPT client follows the non-VAT rules", () => {
     ).toBe("A non-VAT client has no creditable input VAT.");
   });
 
+  it("a purchase with an input-tax attribution is rejected", () => {
+    expect(
+      regimeError(() =>
+        v.validatePurchase("EXEMPT", purchase({ inputTaxAttribution: "VATABLE" })),
+      ),
+    ).toBe("Input-tax attribution only applies to VAT-registered clients.");
+  });
+
   it("a plain purchase (no category, no input VAT) is accepted", () => {
     expect(() => v.validatePurchase("EXEMPT", purchase())).not.toThrow();
   });
 
   it("PERCENTAGE gets exactly the same answers (one rule set for both non-VAT regimes)", () => {
-    for (const [fn] of [
-      [() => v.validateIncome("PERCENTAGE", income({ vatClass: "VATABLE_12" }))],
-      [() => v.validatePurchase("PERCENTAGE", purchase({ inputVAT: 120 }))],
-    ] as const) {
-      expect(regimeError(fn)).toMatch(/^A non-VAT client/);
+    const incomes: Array<Partial<IncomeTransaction>> = [
+      {},
+      { vatClass: "VATABLE_12" },
+      { saleToGovernment: true, creditableVATWithheld5pct: 0 },
+      { creditableVATWithheld5pct: 50 },
+      { outputVAT: 120 },
+    ];
+    const purchases: Array<Partial<PurchaseTransaction>> = [
+      {},
+      { inputVATCategory: "DOMESTIC_PURCHASES" },
+      { inputVAT: 120 },
+      { inputTaxAttribution: "VATABLE" },
+    ];
+    for (const o of incomes) {
+      const exempt = regimeError(() => v.validateIncome("EXEMPT", income(o)));
+      expect(regimeError(() => v.validateIncome("PERCENTAGE", income(o)))).toBe(exempt);
+      // Every input but the plain one is refused, so the comparison is not vacuous.
+      if (Object.keys(o).length > 0) expect(exempt).not.toBe("(no error)");
+    }
+    for (const o of purchases) {
+      const exempt = regimeError(() => v.validatePurchase("EXEMPT", purchase(o)));
+      expect(regimeError(() => v.validatePurchase("PERCENTAGE", purchase(o)))).toBe(
+        exempt,
+      );
+      if (Object.keys(o).length > 0) expect(exempt).not.toBe("(no error)");
     }
   });
 });
@@ -327,6 +365,13 @@ describe("U8 T3 · the expenses importer (pure rules and the CLIENT sheet label)
     );
     expect(regimeLabel("VAT")).toBe("VAT-registered");
     expect(regimeLabel("PERCENTAGE")).toBe("Non-VAT (percentage tax)");
+    // An unknown stored value is named as such, never shown as exempt.
+    expect(regimeLabel("X")).toBe(
+      'Unknown tax regime "X" — fix the client record before importing',
+    );
+    expect(regimeLabel("")).toBe(
+      'Unknown tax regime "" — fix the client record before importing',
+    );
   });
 });
 
@@ -445,23 +490,23 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
         findMany: jest.fn(async () => [client]),
       },
     };
-    const dto = { id: "t1", clientId: CLIENT_ID, txnDate: "2026-08-14", netAmount: 1000 };
+    // The REAL income and purchase services (regime check, frozen schema, validator)
+    // sit behind the tools, so a refusal of the null regime would surface as isError.
+    const real = services();
     const svcs = {
       audit: { record: jest.fn().mockResolvedValue(undefined) },
       clients: {},
-      income: { create: jest.fn(async () => dto) },
-      purchases: { create: jest.fn(async () => dto) },
       invoices: {},
     };
     const service = new McpService(
       prisma as unknown as PrismaService,
       svcs.audit as unknown as AuditService,
       svcs.clients as unknown as ClientsService,
-      svcs.income as unknown as IncomeTransactionsService,
-      svcs.purchases as unknown as PurchaseTransactionsService,
+      real.incomes,
+      real.purchases,
       svcs.invoices as unknown as InvoicesService,
     );
-    return { service, svcs };
+    return { service, real };
   }
   async function connect(service: McpService) {
     const server = service.buildServer();
@@ -472,7 +517,7 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
   }
 
   it("portal_record_income: NON_VAT with no output VAT", async () => {
-    const { service, svcs } = mcp();
+    const { service, real } = mcp();
     const c = await connect(service);
     const res = await c.callTool({
       name: "portal_record_income",
@@ -484,16 +529,15 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
       },
     });
     expect(res.isError).toBeUndefined();
-    const body = (svcs.income.create.mock.calls[0] as unknown[])[2] as Record<
-      string,
-      unknown
-    >;
-    expect(body.vatClass).toBe("NON_VAT");
-    expect(body).not.toHaveProperty("outputVAT");
+    expect(real.incomeTransaction.create).toHaveBeenCalledTimes(1);
+    const data = real.incomeTransaction.create.mock.calls[0]![0].data;
+    expect(data.vatClass).toBe("NON_VAT");
+    expect(data.outputVAT ?? null).toBeNull();
+    expect(data.creditableVATWithheld5pct ?? null).toBeNull();
   });
 
   it("portal_record_expense: no input-VAT category and no input VAT; a vatAmount is refused", async () => {
-    const { service, svcs } = mcp();
+    const { service, real } = mcp();
     const c = await connect(service);
     const ok = await c.callTool({
       name: "portal_record_expense",
@@ -505,12 +549,10 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
       },
     });
     expect(ok.isError).toBeUndefined();
-    const body = (svcs.purchases.create.mock.calls[0] as unknown[])[2] as Record<
-      string,
-      unknown
-    >;
-    expect(body).not.toHaveProperty("inputVATCategory");
-    expect(body).not.toHaveProperty("inputVAT");
+    expect(real.purchaseTransaction.create).toHaveBeenCalledTimes(1);
+    const data = real.purchaseTransaction.create.mock.calls[0]![0].data;
+    expect(data.inputVATCategory ?? null).toBeNull();
+    expect(data.inputVAT ?? null).toBeNull();
     const refused = await c.callTool({
       name: "portal_record_expense",
       arguments: {
@@ -522,6 +564,6 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
       },
     });
     expect(refused.isError).toBe(true);
-    expect(svcs.purchases.create).toHaveBeenCalledTimes(1);
+    expect(real.purchaseTransaction.create).toHaveBeenCalledTimes(1);
   });
 });
