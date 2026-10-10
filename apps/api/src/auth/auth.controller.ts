@@ -10,6 +10,8 @@ import {
   LoginSchema,
   MfaConfirmInput,
   MfaConfirmSchema,
+  MfaCurrentCodeInput,
+  MfaCurrentCodeSchema,
   MfaVerifyInput,
   MfaVerifySchema,
 } from "./dto/auth.schemas";
@@ -44,9 +46,22 @@ export class AuthController {
     return this.auth.refresh(user);
   }
 
+  /** When two-factor is already on, re-enrolling replaces it: a current code is needed (U9). */
   @Post("mfa/enroll")
-  enrollMfa(@CurrentUser() user: AuthUser) {
-    return this.auth.enrollMfa(user);
+  enrollMfa(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(MfaCurrentCodeSchema)) body: MfaCurrentCodeInput,
+  ) {
+    return this.auth.enrollMfa(user, body?.code);
+  }
+
+  /** U9 R1 b: turn two-factor sign-in off, with a current code from the authenticator. */
+  @Post("mfa/disable")
+  disableMfa(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(MfaCurrentCodeSchema)) body: MfaCurrentCodeInput,
+  ) {
+    return this.auth.disableMfa(user, body?.code);
   }
 
   @Post("mfa/confirm")

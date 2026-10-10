@@ -14,7 +14,7 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
     lastName: "",
     firstName: "",
     middleName: "",
-    tin: "000000000",
+    tin: "000123456",
     branch: "00000",
     rdo: "038",
     address: "4 HALIMBAWA ST BARANGAY APAT",
@@ -51,8 +51,8 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
 
   it("uses the frm2550qv2024 namespace and authentic TIN / RDO keys", () => {
     has("frm2550qv2024:txtTIN1=000frm2550qv2024:txtTIN1=");
-    has("frm2550qv2024:txtTIN2=000frm2550qv2024:txtTIN2=");
-    has("frm2550qv2024:txtTIN3=000frm2550qv2024:txtTIN3=");
+    has("frm2550qv2024:txtTIN2=123frm2550qv2024:txtTIN2=");
+    has("frm2550qv2024:txtTIN3=456frm2550qv2024:txtTIN3=");
     has("frm2550qv2024:branchCode=000frm2550qv2024:branchCode=");
     has("frm2550qv2024:txtRDOCode=038frm2550qv2024:txtRDOCode=");
   });
@@ -106,6 +106,6 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
   });
 
   it("produces the authentic filename", () => {
-    expect(fileName2550Q(f, tp)).toBe("0000000000002550Qv2024122026Q1.xml");
+    expect(fileName2550Q(f, tp)).toBe("0001234560002550Qv2024122026Q1.xml");
   });
 });

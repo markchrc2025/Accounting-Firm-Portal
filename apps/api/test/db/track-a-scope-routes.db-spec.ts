@@ -348,7 +348,7 @@ describe("U4-A1 · every client-owned route obeys assignment (real app over HTTP
     expect(kpi("Portfolio income")).toBe(1000);
     expect(kpi("Portfolio expenses")).toBe(300);
     expect(kpi("Active clients")).toBe(1);
-    expect(res.body.regimeMix).toEqual({ vat: 0, percentage: 1 });
+    expect(res.body.regimeMix).toEqual({ vat: 0, percentage: 1, exempt: 0 });
     expect(res.body.recentActivity).toEqual([]);
     expect(
       (res.body.upcomingFilings as Array<{ client: string }>).map((f) => f.client),

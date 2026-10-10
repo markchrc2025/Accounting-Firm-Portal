@@ -3,9 +3,14 @@ import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
+import { ACCOUNT_DISABLED_MESSAGE } from "../common/guards/jwt-auth.guard";
 import { MfaService } from "./mfa.service";
 import { PasswordService } from "./password.service";
 import { TokenService } from "./token.service";
+
+/** U9 R1 b (D44): what a user reads when turning two-factor off without a code. */
+export const MFA_CODE_REQUIRED_MESSAGE =
+  "Enter a current code from your authenticator to turn off two-factor sign-in.";
 
 export type LoginResult =
   | { status: "ok"; accessToken: string; user: PublicUser }
@@ -124,8 +129,30 @@ export class AuthService {
     };
   }
 
+  /**
+   * U9 R1 b (D44): two-factor sign-in, when on, is turned off only with a current
+   * code from the authenticator — whether by re-enrolling or by disabling it.
+   */
+  private async requireCurrentCode(
+    user: AuthUser,
+    code: string | undefined,
+  ): Promise<void> {
+    const record = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { mfaEnabled: true, mfaSecret: true },
+    });
+    if (!record?.mfaEnabled) return;
+    if (!code || !record.mfaSecret || !this.mfa.verify(record.mfaSecret, code)) {
+      throw new BadRequestException(MFA_CODE_REQUIRED_MESSAGE);
+    }
+  }
+
   /** Begin MFA enrollment: store a pending secret and return the provisioning URI. */
-  async enrollMfa(user: AuthUser): Promise<{ otpauthUrl: string; secret: string }> {
+  async enrollMfa(
+    user: AuthUser,
+    currentCode?: string,
+  ): Promise<{ otpauthUrl: string; secret: string }> {
+    await this.requireCurrentCode(user, currentCode);
     const { secret, otpauthUrl } = this.mfa.enroll(user.email);
     // Store the secret but keep mfaEnabled=false until a code is confirmed.
     await this.prisma.user.update({
@@ -133,6 +160,22 @@ export class AuthService {
       data: { mfaSecret: secret, mfaEnabled: false },
     });
     return { otpauthUrl, secret };
+  }
+
+  /** U9 R1 b: turn two-factor sign-in off — with a current code when it is on. */
+  async disableMfa(user: AuthUser, currentCode?: string): Promise<{ mfaEnabled: false }> {
+    await this.requireCurrentCode(user, currentCode);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { mfaEnabled: false, mfaSecret: null },
+    });
+    await this.audit.record({
+      userId: user.id,
+      action: "auth.mfa.disabled",
+      entityType: "User",
+      entityId: user.id,
+    });
+    return { mfaEnabled: false };
   }
 
   /** Confirm MFA enrollment by verifying the first code, then enable MFA. */
@@ -162,7 +205,16 @@ export class AuthService {
    * session). The client calls this on activity so an active session's token
    * never expires; after ~4h of no activity the token simply lapses.
    */
-  refresh(user: AuthUser): { accessToken: string } {
+  async refresh(user: AuthUser): Promise<{ accessToken: string }> {
+    // U9 R1 a (D44): no new token for a user who is no longer ACTIVE — read now,
+    // never from the guard's cache.
+    const record = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { status: true },
+    });
+    if (record?.status !== "ACTIVE") {
+      throw new UnauthorizedException(ACCOUNT_DISABLED_MESSAGE);
+    }
     return {
       accessToken: this.tokens.signAccess({
         id: user.id,

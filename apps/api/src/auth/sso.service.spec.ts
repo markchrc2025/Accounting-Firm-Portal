@@ -172,7 +172,7 @@ describe("SsoService", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
         access_token: "t",
-        id_token: fakeIdToken({ preferred_username: "Mark@mcrctas.com" }),
+        id_token: fakeIdToken({ preferred_username: "Mark@mcrctas.com", xms_edov: true }),
       }),
     );
     const result = await svc.handleCallback("microsoft", "c", state);
@@ -192,7 +192,7 @@ describe("SsoService", () => {
     const { svc } = build();
     const state = stateOf(svc.startUrl("microsoft"));
     fetchMock
-      .mockResolvedValueOnce(jsonResponse(200, { access_token: "t", id_token: fakeIdToken({ sub: "x" }) }))
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "t", id_token: fakeIdToken({ sub: "x", xms_edov: true }) }))
       .mockResolvedValueOnce(jsonResponse(200, { email: "mark@mcrctas.com" }));
     const result = await svc.handleCallback("microsoft", "c", state);
     expect(result.kind).toBe("access");

@@ -219,6 +219,10 @@ export class BirFormsService {
 
   async update(user: AuthUser, id: string, input: UpdateBirFormInput) {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.update);
+    // U9 R1 c (D44): marking a form filed needs BIRForms:File, whatever route does it.
+    if (input.status === "filed") {
+      await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.file], f.clientId);
+    }
     // U3 (D11): a filed form is never modified — figures, status or filedAt. There
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));

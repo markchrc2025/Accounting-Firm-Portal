@@ -175,7 +175,12 @@ export class PurchaseTransactionsService {
 
   async list(user: AuthUser, clientId: string, query: PurchaseListQuery) {
     await this.clients.assertInFirm(user.firmId, clientId);
-    const where = this.buildWhere(clientId, query);
+    // U9 R2 (D45): a client principal sees posted records only, whatever it asks
+    // for — held records are the firm's working state.
+    const where = {
+      ...this.buildWhere(clientId, query),
+      ...(user.userType === "CLIENT" ? { status: "posted" } : {}),
+    };
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.purchaseTransaction.findMany({
         where,
@@ -195,13 +200,13 @@ export class PurchaseTransactionsService {
 
   async get(user: AuthUser, clientId: string, txnId: string) {
     await this.clients.assertInFirm(user.firmId, clientId);
-    return toPurchaseDto(await this.loadOwned(clientId, txnId));
+    return toPurchaseDto(await this.loadOwned(clientId, txnId, user));
   }
 
   async update(user: AuthUser, clientId: string, txnId: string, body: unknown) {
     this.rejectServerOwned(asObject(body));
     const client = await this.clients.assertInFirm(user.firmId, clientId);
-    const existing = await this.loadOwned(clientId, txnId);
+    const existing = await this.loadOwned(clientId, txnId, user);
     const regime = this.regime.requireRegime(client.taxType);
 
     // A patch that changes `account` (without a categoryId) re-resolves the
@@ -234,7 +239,7 @@ export class PurchaseTransactionsService {
 
   async remove(user: AuthUser, clientId: string, txnId: string) {
     await this.clients.assertInFirm(user.firmId, clientId);
-    await this.loadOwned(clientId, txnId);
+    await this.loadOwned(clientId, txnId, user);
     await this.prisma.purchaseTransaction.delete({ where: { id: txnId } });
     await this.audit.record({
       userId: user.id,
@@ -402,9 +407,10 @@ export class PurchaseTransactionsService {
     });
   }
 
-  private async loadOwned(clientId: string, txnId: string) {
+  /** A record of the client (404 otherwise); to a client principal, posted ones only (U9 R2). */
+  private async loadOwned(clientId: string, txnId: string, user?: AuthUser) {
     const row = await this.prisma.purchaseTransaction.findFirst({
-      where: { id: txnId, clientId },
+      where: { id: txnId, clientId, ...(user?.userType === "CLIENT" ? { status: "posted" } : {}) },
     });
     if (!row) throw new NotFoundException("Purchase transaction not found");
     return row;

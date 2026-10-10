@@ -38,7 +38,8 @@ export interface FirmDashboard {
   incomeVsExpenses: IncomeVsExpensesPoint[];
   recentActivity: RecentActivityItem[];
   upcomingFilings: UpcomingFiling[];
-  regimeMix: { vat: number; percentage: number };
+  /** U9 R4: exempt = ACTIVE clients with no regime (they file no business-tax return). */
+  regimeMix: { vat: number; percentage: number; exempt: number };
 }
 
 const MONTH_LABELS = [
@@ -140,7 +141,7 @@ export class DashboardService {
         incomeVsExpenses: [],
         recentActivity: [],
         upcomingFilings: [],
-        regimeMix: { vat: 0, percentage: 0 },
+        regimeMix: { vat: 0, percentage: 0, exempt: 0 },
       };
     }
 
@@ -196,6 +197,7 @@ export class DashboardService {
     // in neither regime here and files neither return in upcomingFilings().
     const vatClients = clients.filter((c) => c.taxType === "VAT").length;
     const percentageClients = clients.filter((c) => c.taxType === "PERCENTAGE").length;
+    const exemptClients = clients.filter((c) => c.status === "ACTIVE" && c.taxType === null).length;
 
     const kpis: DashboardKpi[] = [
       {
@@ -237,7 +239,7 @@ export class DashboardService {
         };
       }),
       upcomingFilings: this.upcomingFilings(now, clients),
-      regimeMix: { vat: vatClients, percentage: percentageClients },
+      regimeMix: { vat: vatClients, percentage: percentageClients, exempt: exemptClients },
     };
   }
 
@@ -285,19 +287,20 @@ export class DashboardService {
     });
   }
 
-  /** Quarterly returns due for each active client, derived from its regime. */
+  /**
+   * U9 R4 (D45): for each active VAT or PERCENTAGE client, the business-tax return
+   * whose deadline comes next — the quarter that most recently ended, until the
+   * 25th of the following month has passed, then the quarter after it. Every date
+   * is a Manila date (UTC+8, no daylight saving). Sorted by due date, then client
+   * name; at most six rows. Exempt clients file no business-tax return.
+   */
   private upcomingFilings(
     now: Date,
     clients: { id: string; businessName: string; taxType: string | null; status: string }[],
   ): UpcomingFiling[] {
-    const quarter = Math.floor(now.getMonth() / 3) + 1; // 1..4
-    const year = now.getFullYear();
-    // Quarter end month index (0-based) and the due date (25th of the next month).
-    const quarterEndMonth = quarter * 3 - 1; // Mar=2, Jun=5, Sep=8, Dec=11
-    const dueMonth = (quarterEndMonth + 1) % 12;
-    const dueLabel = `DUE ${(MONTH_LABELS[dueMonth] ?? "").toUpperCase()} 25`;
-
-    const out: UpcomingFiling[] = [];
+    const next = dueNext(now);
+    const dueLabel = `DUE ${(MONTH_LABELS[next.dueMonth] ?? "").toUpperCase()} 25`;
+    const out: (UpcomingFiling & { dueAt: number })[] = [];
     for (const c of clients) {
       if (c.status !== "ACTIVE") continue;
       const isVat = c.taxType === "VAT";
@@ -306,15 +309,45 @@ export class DashboardService {
       const form = isVat ? "2550Q" : "2551Q";
       const kind = isVat ? "VAT" : "Percentage";
       out.push({
-        id: `${c.id}:${form}:${year}Q${quarter}`,
+        id: `${c.id}:${form}:${next.year}Q${next.quarter}`,
         form,
         client: c.businessName,
-        period: `Q${quarter} ${year} · ${kind} return`,
+        period: `Q${next.quarter} ${next.year} · ${kind} return`,
         due: dueLabel,
         urgency: "normal",
+        dueAt: Date.UTC(next.dueYear, next.dueMonth, 25),
       });
-      if (out.length >= 6) break;
     }
-    return out;
+    out.sort((a, b) => a.dueAt - b.dueAt || a.client.localeCompare(b.client));
+    return out.slice(0, 6).map(({ dueAt: _dueAt, ...f }) => f);
   }
+}
+
+/** Manila is UTC+8 all year. */
+const MANILA_OFFSET_MS = 8 * HOUR_MS;
+
+/**
+ * The quarterly return whose deadline comes next on `now`'s Manila date: the
+ * quarter that most recently ended while its 25th-of-the-next-month deadline has
+ * not passed, otherwise the current quarter (due the 25th after it ends).
+ */
+export function dueNext(now: Date): {
+  year: number;
+  quarter: number;
+  dueYear: number;
+  dueMonth: number;
+} {
+  const m = new Date(now.getTime() + MANILA_OFFSET_MS);
+  const year = m.getUTCFullYear();
+  const month = m.getUTCMonth(); // 0-based
+  const day = m.getUTCDate();
+  const current = Math.floor(month / 3) + 1;
+  const firstMonthOfCurrent = (current - 1) * 3;
+  if (month === firstMonthOfCurrent && day <= 25) {
+    // The previous quarter's return is due on the 25th of this month.
+    const quarter = current === 1 ? 4 : current - 1;
+    return { year: current === 1 ? year - 1 : year, quarter, dueYear: year, dueMonth: month };
+  }
+  const dueMonth = (current * 3) % 12;
+  return { year, quarter: current, dueYear: current === 4 ? year + 1 : year, dueMonth };
 }
