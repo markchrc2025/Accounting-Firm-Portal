@@ -4,22 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError, fetchSsoProviders, ssoStartUrl } from "../lib/api";
 import { AuthLayout } from "../components/AuthLayout";
-
-/** Friendly copy for the ?sso_error= codes the API callback redirects with. */
-const SSO_ERRORS: Record<string, string> = {
-  "no-account":
-    "No active portal account matches that email. Ask the firm to invite you first, then try again.",
-  cancelled: "Sign-in was cancelled at the provider.",
-  denied: "You declined access at the provider. Try again and approve the sign-in to continue.",
-  provider:
-    "The provider rejected the sign-in. Your Microsoft/Google tenant likely requires a one-time admin consent for this app — grant it in the provider's admin console (for Microsoft: Entra ID → Enterprise applications → this app → Permissions → “Grant admin consent”), then try again.",
-  unavailable: "That sign-in method isn't configured yet.",
-  state: "The sign-in attempt expired — please try again.",
-  email: "The provider didn't share a verified email address for your account.",
-  exchange: "The provider rejected the sign-in — please try again.",
-  userinfo: "The provider rejected the sign-in — please try again.",
-  failed: "SSO sign-in failed — please try again.",
-};
+import { EMAIL_UNVERIFIED, ssoErrorMessage } from "../lib/ssoErrors";
 
 /**
  * Sign-in (design handoff screens 1–2). Password step, then — when the API returns
@@ -39,9 +24,7 @@ export default function LoginPage() {
   const ssoDetail = params.get("sso_detail");
   const [error, setError] = useState<string | null>(
     ssoErrorCode
-      ? `${SSO_ERRORS[ssoErrorCode] ?? SSO_ERRORS.failed!}${
-          ssoDetail ? ` (provider code: ${ssoDetail})` : ""
-        }`
+      ? ssoErrorMessage(ssoErrorCode, params.get("provider"), ssoDetail)
       : null,
   );
   const [busy, setBusy] = useState(false);
@@ -106,6 +89,7 @@ export default function LoginPage() {
             #1 cause is a redirect URI that isn't registered at the provider. */}
         {ssoErrorCode &&
           ssoErrorCode !== "no-account" &&
+          ssoErrorCode !== EMAIL_UNVERIFIED &&
           ssoProviders.data?.redirectUris && (
             <div className="mb-5 rounded-input border border-line-strong bg-sidebar px-3.5 py-3 text-[12px] text-content-secondary">
               <p className="mb-1.5 font-semibold text-content">

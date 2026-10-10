@@ -1791,6 +1791,31 @@ export interface Profile {
 export function fetchProfile(): Promise<Profile> {
   return apiFetch<Profile>("/profile/me");
 }
+/** Start (or, while two-factor is on, restart) authenticator enrollment. While
+ *  two-factor is on the API needs a current `code` (U9); the account's
+ *  two-factor is then off until the new entry's first code is confirmed. */
+export function enrollMfa(
+  code?: string,
+): Promise<{ otpauthUrl: string; secret: string }> {
+  return apiFetch("/auth/mfa/enroll", {
+    method: "POST",
+    body: JSON.stringify(code ? { code } : {}),
+  });
+}
+/** Confirm enrollment with the first code from the new authenticator entry. */
+export function confirmMfa(code: string): Promise<{ mfaEnabled: true }> {
+  return apiFetch("/auth/mfa/confirm", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+/** Turn two-factor sign-in off with a current code from the authenticator (U9). */
+export function disableMfa(code: string): Promise<{ mfaEnabled: false }> {
+  return apiFetch("/auth/mfa/disable", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
 export function updateProfile(body: { fullName: string }): Promise<Profile> {
   return apiFetch("/profile/me", { method: "PATCH", body: JSON.stringify(body) });
 }

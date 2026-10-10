@@ -21,6 +21,7 @@ import {
   Skeleton,
   cn,
 } from "./ui";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 /** Editable "Roles & permissions" — create custom roles and toggle what each can do. */
 export function RolesManager() {
@@ -147,6 +148,8 @@ function RolePanel({
   clearError: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  /** W9 R4: deleting asks in-app, never with a browser confirm. */
+  const [askDelete, setAskDelete] = useState(false);
   const [name, setName] = useState(role.name);
   const [granted, setGranted] = useState<Set<string>>(() => new Set(role.permissions));
 
@@ -171,10 +174,14 @@ function RolePanel({
   const remove = useMutation({
     mutationFn: () => deleteRole(role.id),
     onSuccess: () => {
+      setAskDelete(false);
       clearError();
       onDone();
     },
-    onError,
+    onError: (e) => {
+      setAskDelete(false);
+      onError(e);
+    },
   });
 
   function toggle(perm: string): void {
@@ -188,6 +195,15 @@ function RolePanel({
 
   return (
     <div className="rounded-card border border-line">
+      {askDelete ? (
+        <ConfirmDialog
+          question={`Delete the "${role.name}" role? This cannot be undone.`}
+          confirmLabel="Delete role"
+          busy={remove.isPending}
+          onCancel={() => setAskDelete(false)}
+          onConfirm={() => remove.mutate()}
+        />
+      ) : null}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -274,15 +290,7 @@ function RolePanel({
                     size="sm"
                     className="text-danger hover:bg-danger-bg"
                     disabled={remove.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete the "${role.name}" role? This can't be undone.`,
-                        )
-                      ) {
-                        remove.mutate();
-                      }
-                    }}
+                    onClick={() => setAskDelete(true)}
                   >
                     Delete role
                   </Button>

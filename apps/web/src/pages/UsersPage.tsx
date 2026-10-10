@@ -29,6 +29,7 @@ import {
 } from "../components/ui";
 import { SettingsTabs } from "../components/SettingsTabs";
 import { RolesManager } from "../components/RolesManager";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { UserClientsDialog } from "../components/UserClientsDialog";
 import { permittedFor } from "../lib/permissions";
 import { clientsLabel, isFirmUser, isSuperAdmin } from "../lib/userClients";
@@ -108,6 +109,9 @@ export default function UsersPage() {
   const assignable = (u: FirmUserSummary) =>
     canAssignClients && isFirmUser(u) && !isSuperAdmin(u);
   const [clientsUser, setClientsUser] = useState<FirmUserSummary | null>(null);
+  /** The user a Delete is asking about (W9 R4: in-app, never a browser confirm). */
+  const [deleting, setDeleting] = useState<FirmUserSummary | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const users = useQuery({ queryKey: ["users"], queryFn: () => fetchUsers() });
   const [inviteOpen, setInviteOpen] = useState(false);
   const [profileUser, setProfileUser] = useState<FirmUserSummary | null>(null);
@@ -332,13 +336,8 @@ export default function UsersPage() {
                                         disabled={actionBusy}
                                         onClick={() => {
                                           setActionError(null);
-                                          if (
-                                            window.confirm(
-                                              `Delete ${u.fullName}? This permanently removes their account and cannot be undone.`,
-                                            )
-                                          ) {
-                                            removeUser.mutate(u.id);
-                                          }
+                                          setDeleteError(null);
+                                          setDeleting(u);
                                         }}
                                       >
                                         Delete
@@ -409,6 +408,24 @@ export default function UsersPage() {
       </div>
 
       {inviteOpen && <InviteUserModal onClose={() => setInviteOpen(false)} />}
+      {deleting ? (
+        <ConfirmDialog
+          question={`Delete ${deleting.fullName}? This cannot be undone.`}
+          confirmLabel="Delete"
+          busy={removeUser.isPending}
+          error={deleteError}
+          onCancel={() => setDeleting(null)}
+          onConfirm={() =>
+            removeUser.mutate(deleting.id, {
+              onSuccess: () => setDeleting(null),
+              onError: (e) =>
+                setDeleteError(
+                  e instanceof ApiError ? e.message : "The user could not be deleted.",
+                ),
+            })
+          }
+        />
+      ) : null}
       {clientsUser ? (
         <UserClientsDialog user={clientsUser} onClose={() => setClientsUser(null)} />
       ) : null}
