@@ -17,14 +17,15 @@ import {
   type PurchaseTxn,
 } from "../lib/api";
 import {
-  EXPENSE_LIST_LIMIT,
   EXPENSE_STATUS_FILTERS,
   expenseBadges,
   isHeld,
-  matchesStatusFilter,
   statusFilterParams,
   type ExpenseStatusFilter,
 } from "../lib/expenseStatus";
+import { manilaQuarter } from "../lib/manilaQuarter";
+import { permittedFor } from "../lib/permissions";
+import { isVatRegistered, regimeLabel } from "../lib/regime";
 import { downloadSheet, EXPENSE_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
@@ -38,15 +39,12 @@ import {
   Skeleton,
 } from "../components/ui";
 
-/** VAT when the tax type mentions VAT but is not NON-VAT; otherwise percentage. */
-function isVatRegime(taxType?: string | null): boolean {
-  const t = (taxType ?? "").toUpperCase();
-  return t.includes("VAT") && !t.includes("NON");
-}
+/** The export column that carries a non-VAT client's VAT (D23, W7 R3). */
+const NON_CLAIMABLE_VAT = "VAT (non-claimable)";
 
 export default function ExpensesPage() {
   const { clientId = "" } = useParams();
-  const { user, hasPermission } = useAuth();
+  const { user, permissions, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -66,12 +64,9 @@ export default function ExpensesPage() {
     queryKey: ["categories", clientId, "EXPENSE"],
     queryFn: () => fetchCategories(clientId, "EXPENSE"),
   });
-  // The status filter is sent to the server AND applied to what comes back:
-  // the list parameters are a W5 proposal Track A has not confirmed, so a held
-  // row must never be shown under Posted even if the server ignores them.
-  // "All" shows the server's first page, as before. Any other status walks
-  // every page and filters here, because filtering one page would miss held
-  // rows on later pages; it then shows the first EXPENSE_LIST_LIMIT of them.
+  // The Status filter is the server's (Track A U6-A1, W6 R2): status and
+  // needsReview go with the one list request, the page shows the server's
+  // first page of matches, and the footer counts the server's total.
   const listFilters = useMemo(
     () => ({ ...filters, ...statusFilterParams(statusFilter) }),
     [filters, statusFilter],
@@ -79,28 +74,30 @@ export default function ExpensesPage() {
   const list = useQuery<{ rows: PurchaseTxn[]; total: number }>({
     queryKey: ["purchases", clientId, listFilters],
     queryFn: async () => {
-      if (statusFilter === "all") {
-        const page = await fetchPurchases(clientId, listFilters);
-        return { rows: page.data, total: page.total };
-      }
-      const matched = (await fetchAllPurchases(clientId, listFilters)).filter((t) =>
-        matchesStatusFilter(t, statusFilter),
-      );
-      return { rows: matched.slice(0, EXPENSE_LIST_LIMIT), total: matched.length };
+      const page = await fetchPurchases(clientId, listFilters);
+      return { rows: page.data, total: page.total };
     },
   });
+  // "Posted total for the quarter" (W7 R3): the server totals posted records
+  // only — held ones count nowhere — for the current calendar quarter.
+  const quarter = useMemo(() => manilaQuarter(), []);
   const summary = useQuery({
-    queryKey: ["purchase-summary", clientId, filters],
-    queryFn: () => fetchPurchaseSummary(clientId, filters),
+    queryKey: ["purchase-summary", clientId, quarter.dateFrom, quarter.dateTo],
+    queryFn: () =>
+      fetchPurchaseSummary(clientId, {
+        dateFrom: quarter.dateFrom,
+        dateTo: quarter.dateTo,
+      }),
   });
 
-  const isVat = isVatRegime(client.data?.taxType);
+  const isVat = isVatRegistered(client.data?.taxType);
   const regime: Regime | undefined = client.data
     ? isVat
       ? "VAT"
       : "PERCENTAGE"
     : undefined;
-  const regimeNote = client.data ? (isVat ? "VAT-registered" : "Percentage tax") : undefined;
+  // The header names the regime: null reads "Exempt from business tax" (W6 R1).
+  const regimeNote = client.data ? regimeLabel(client.data.taxType) : undefined;
 
   const categoryName = useMemo(() => {
     const map = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
@@ -109,10 +106,13 @@ export default function ExpensesPage() {
 
   const canWrite = hasPermission("Expenses:Create");
   const canDelete = hasPermission("Expenses:Delete");
-  // Posting a held record is the firm's decision. Client roles hold
-  // Expenses:Update too (permissions.constants.ts:189-192), so the permission
-  // alone is not enough; the server must enforce the same rule.
-  const canPost = user?.userType === "FIRM" && hasPermission("Expenses:Update");
+  // W7 R5: Edit and Post are offered only where the server would allow them
+  // on THIS client — editing needs Expenses:Update; posting a held record is
+  // the firm's decision (a client role is refused whatever it holds), with
+  // Expenses:Create (the import controller's gate).
+  const canEdit = permittedFor(permissions, "Expenses:Update", clientId);
+  const canPost =
+    user?.userType === "FIRM" && permittedFor(permissions, "Expenses:Create", clientId);
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["purchases", clientId] });
@@ -154,12 +154,15 @@ export default function ExpensesPage() {
   async function onExport() {
     setExporting(true);
     try {
-      // What the Status filter shows is what is exported, and every row says
-      // whether it is held: a held record counts nowhere until it is posted.
-      const all = (await fetchAllPurchases(clientId, listFilters)).filter((t) =>
-        matchesStatusFilter(t, statusFilter),
-      );
+      // What the Status filter shows is what is exported — every record the
+      // server matches, page by page — and every row says whether it is held:
+      // a held record counts nowhere until it is posted.
+      const all = await fetchAllPurchases(clientId, listFilters);
       const tax = (t: (typeof all)[number]) => t.taxAmount ?? t.inputVAT ?? 0;
+      // A client that is not VAT-registered keeps the VAT in the cost (D23):
+      // its record's amount already includes it, so the amount is the expense
+      // and the VAT is shown once, in its own column, as non-claimable (W7 R3).
+      // A VAT client's amounts are net of VAT, so its VAT is added back.
       const out = all.map((t) => ({
         "Date*": t.txnDate,
         "Vendor TIN*": t.vendorTin ?? "",
@@ -175,15 +178,16 @@ export default function ExpensesPage() {
         "Tax Type*": t.inputVATCategory ? "VAT" : "",
         Category: categoryName(t.categoryId),
         Description: t.description,
-        // Amount is tax-inclusive (net + input VAT / tax).
-        "Amount*": Math.round((t.netAmount + tax(t)) * 100) / 100,
+        "Amount*": Math.round((isVat ? t.netAmount + tax(t) : t.netAmount) * 100) / 100,
         "COA Code*": t.account ?? "",
+        ...(isVat ? {} : { [NON_CLAIMABLE_VAT]: Math.round(tax(t) * 100) / 100 }),
         Status: isHeld(t) ? "Held" : "Posted",
         "Needs review": t.needsReview === true ? "Yes" : "",
       }));
       const base = (client.data?.businessName ?? "client").replace(/[^\w.-]+/g, "_");
       await downloadSheet(`${base}-expenses.xlsx`, "EXPENSES", out, [
         ...EXPENSE_HEADERS,
+        ...(isVat ? [] : [NON_CLAIMABLE_VAT]),
         "Status",
         "Needs review",
       ]);
@@ -303,10 +307,10 @@ export default function ExpensesPage() {
           )}
         </div>
 
-        {/* Quarter total */}
+        {/* Posted total for the current calendar quarter */}
         <div className="text-right">
           <div className="font-mono text-[10px] uppercase tracking-[.14em] text-content-secondary">
-            Quarter total
+            Posted total for the quarter
           </div>
           {summary.isPending ? (
             <Skeleton className="mt-1 h-7 w-32" />
@@ -316,7 +320,8 @@ export default function ExpensesPage() {
             </div>
           )}
           <div className="mt-0.5 font-mono text-[11px] text-content-tertiary">
-            Deductible {peso(summary.data?.deductibleNet)}
+            Q{quarter.quarter} {quarter.year} · Deductible{" "}
+            {peso(summary.data?.deductibleNet)}
           </div>
         </div>
       </div>
@@ -423,15 +428,17 @@ export default function ExpensesPage() {
                           {posting === t.id ? "Posting…" : "Post"}
                         </button>
                       ) : null}
-                      <button
-                        onClick={() => {
-                          setEditing(t);
-                          setModalOpen(true);
-                        }}
-                        className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
-                      >
-                        Edit
-                      </button>
+                      {canEdit ? (
+                        <button
+                          onClick={() => {
+                            setEditing(t);
+                            setModalOpen(true);
+                          }}
+                          className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(t.id)}
@@ -465,6 +472,7 @@ export default function ExpensesPage() {
         <TransactionEntryModal
           clientId={clientId}
           regime={regime}
+          taxType={client.data?.taxType ?? null}
           kind="expense"
           categories={categories.data ?? []}
           existing={editing}

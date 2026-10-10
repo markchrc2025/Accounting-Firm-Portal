@@ -15,8 +15,10 @@ import {
   ErrorState,
   PageHeader,
   peso,
+  RegimeChip,
   Skeleton,
 } from "../components/ui";
+import { isExempt, isVatRegistered } from "../lib/regime";
 
 /**
  * Client-portal, READ-ONLY tax estimate for the signed-in client's own org.
@@ -110,9 +112,10 @@ export default function PortalTaxPage() {
   }
 
   const ctx = ctxQ.data;
-  // Regime from tax type: contains "VAT" (but not "NON") → VAT, else percentage.
-  const taxType = (ctx.taxType ?? "").toUpperCase();
-  const isVat = taxType.includes("VAT") && !taxType.includes("NON");
+  // Regime from tax type: VAT-registered, exempt from business tax (taxType
+  // null, D39 — no business tax), otherwise percentage tax.
+  const isVat = isVatRegistered(ctx.taxType);
+  const exempt = isExempt(ctx.taxType);
 
   const retry = () => {
     void incomeQ.refetch();
@@ -310,6 +313,19 @@ export default function PortalTaxPage() {
                     a creditable input-VAT credit.
                   </p>
                 ) : null}
+              </CardContent>
+            </Card>
+          ) : exempt ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Business tax (estimate)</CardTitle>
+                <RegimeChip regime={null} />
+              </CardHeader>
+              <CardContent>
+                <p className="text-[13px] text-content-secondary">
+                  No business tax: your business is exempt from business tax, so none is
+                  estimated.
+                </p>
               </CardContent>
             </Card>
           ) : (

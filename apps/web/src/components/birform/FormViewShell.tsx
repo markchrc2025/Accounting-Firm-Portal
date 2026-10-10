@@ -55,6 +55,12 @@ export interface FormViewShellProps {
   debounceMs?: number;
   /** Extra controls for the toolbar's right-hand side (Save, File, …). */
   actions?: ReactNode;
+  /**
+   * Show the PDF viewer's own toolbar (download, print) on the preview.
+   * False hides it where the viewer honours `#toolbar=0` (Chromium's does) —
+   * the 2307 hides it until the certificate is saved (W7 R6). Default true.
+   */
+  previewToolbar?: boolean;
 }
 
 const ZOOM_FIT = "fit";
@@ -72,6 +78,7 @@ export function FormViewShell({
   revisionKey = 0,
   debounceMs = 500,
   actions,
+  previewToolbar = true,
 }: FormViewShellProps) {
   /** The CAPTURE copy: always off-screen at a fixed integer position. */
   const docRef = rootRef;
@@ -274,7 +281,7 @@ export function FormViewShell({
               <iframe
                 className="h-full min-h-[520px] w-full border-0"
                 title="Form PDF preview"
-                src={pdfUrl + "#view=FitH"}
+                src={pdfUrl + "#view=FitH" + (previewToolbar ? "" : "&toolbar=0")}
               />
             ) : (
               <div className="flex h-full min-h-[520px] items-center justify-center text-[13px] text-white/70">

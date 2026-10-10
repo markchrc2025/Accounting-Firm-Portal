@@ -24,6 +24,7 @@ import {
   cn,
 } from "../components/ui";
 import { CityCombobox } from "../components/CityCombobox";
+import { proposeRegime, regimeLabel } from "../lib/regime";
 import type { PhLocation } from "../lib/phLocations";
 // Type-only import — erased at build, so pdf.js/tesseract stay OUT of the main
 // chunk (the extractor itself is loaded lazily in onPickCor). parseCor.ts is the
@@ -33,6 +34,11 @@ import type { ExtractedCor } from "../lib/cor/parseCor";
 // Enums replicated from the API DTO (apps/api/src/clients/dto/client.schemas.ts).
 // The web app can't import that schema, so the option lists live here.
 const TAX_TYPES = ["VAT", "PERCENTAGE"] as const;
+/** The regime select's value while a new client's regime is not chosen yet
+ *  (W7 R1). Exempt is "" — what the API stores as no regime. */
+const REGIME_UNCHOSEN = "choose";
+const CHOOSE_REGIME =
+  "Choose the client's tax regime: VAT-registered, Percentage tax, or Exempt from business tax.";
 const BILLING_METHODS = ["QUARTERLY", "MONTHLY", "AS_FILING"] as const;
 // Civil status (standard BIR Form 1901/1902 set) and taxpayer classification —
 // picked from a fixed list rather than free-typed, mirroring Sentire Tax.
@@ -167,7 +173,13 @@ function ClientForm({ existing }: { existing: Client | null }) {
   const [rdo, setRdo] = useState(existing?.rdo ?? "");
   const [classification, setClassification] = useState(existing?.classification ?? "");
   const [citizenship, setCitizenship] = useState(existing?.citizenship ?? "");
-  const [taxType, setTaxType] = useState(existing?.taxType ?? "");
+  // A regime is chosen, never defaulted (W7 R1): a new client starts with none
+  // chosen; an existing one shows what is stored, exempt ("") included.
+  const [taxType, setTaxType] = useState(
+    existing ? (existing.taxType ?? "") : REGIME_UNCHOSEN,
+  );
+  /** The regime shown was proposed by the COR and is not confirmed yet. */
+  const [regimeFromCor, setRegimeFromCor] = useState(false);
   const [currency, setCurrency] = useState(existing?.currency ?? "PHP");
   const [seatLimit, setSeatLimit] = useState(
     existing?.seatLimit != null ? String(existing.seatLimit) : "3",
@@ -319,6 +331,13 @@ function ClientForm({ existing }: { existing: Client | null }) {
     if (x.rdo) setRdo(x.rdo);
     if (x.address) setAddress(x.address);
     if (x.zip) setZip(x.zip);
+    // The COR's tax types propose a regime for a new client whose regime is
+    // not chosen yet (or is still an earlier COR's proposal). Never on edit.
+    const proposed = existing ? null : proposeRegime(x.taxTypes.map((t) => t.type));
+    if (proposed && (taxType === REGIME_UNCHOSEN || regimeFromCor)) {
+      setTaxType(proposed === "EXEMPT" ? "" : proposed);
+      setRegimeFromCor(true);
+    }
     if (x.taxTypes.length) {
       setTaxTypes((prev) => {
         const seen = new Set(prev.map((r) => `${r.type}|${r.form}`.toUpperCase()));
@@ -536,6 +555,11 @@ function ClientForm({ existing }: { existing: Client | null }) {
     setError(null);
     setFieldErrors({});
     setCorWarning(null);
+    if (taxType === REGIME_UNCHOSEN) {
+      setError(CHOOSE_REGIME);
+      setFieldErrors({ taxType: CHOOSE_REGIME });
+      return;
+    }
     setBusy(true);
     const payload = buildPayload();
     try {
@@ -1053,16 +1077,29 @@ function ClientForm({ existing }: { existing: Client | null }) {
               <Field label="Tax regime" error={fieldErrors.taxType}>
                 <select
                   value={taxType}
-                  onChange={(e) => setTaxType(e.target.value)}
+                  onChange={(e) => {
+                    setTaxType(e.target.value);
+                    setRegimeFromCor(false);
+                  }}
                   className="input"
                 >
-                  <option value="">None (exempt from business tax)</option>
+                  {existing ? null : (
+                    <option value={REGIME_UNCHOSEN} disabled>
+                      Choose…
+                    </option>
+                  )}
+                  <option value="">{regimeLabel(null)}</option>
                   {TAX_TYPES.map((t) => (
                     <option key={t} value={t}>
-                      {t}
+                      {regimeLabel(t)}
                     </option>
                   ))}
                 </select>
+                {regimeFromCor ? (
+                  <span className="mt-1 block text-xs text-content-secondary">
+                    From the COR — confirm before saving.
+                  </span>
+                ) : null}
               </Field>
               <Field label="Seat limit" error={fieldErrors.seatLimit}>
                 <input

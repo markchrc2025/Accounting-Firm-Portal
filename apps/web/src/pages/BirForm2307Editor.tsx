@@ -12,7 +12,7 @@ import {
   type BirForm2307Computed,
   type ClientSummary,
 } from "../lib/api";
-import { certificateFileName, sheetsToPdf } from "../lib/sheetPdf";
+import { certificateFileName } from "../lib/sheetPdf";
 import { FormViewShell, type FormViewMode } from "../components/birform/FormViewShell";
 import { downloadSheetsPdf, type PagePt } from "../components/birform/sheetsPdf";
 import { Form2307, type Form2307Signatory } from "../components/birform/Form2307";
@@ -85,6 +85,12 @@ interface Row {
 /** A new row has no ATC: the accountant selects one (W3 R6). */
 const emptyRow = (): Row => ({ atc: "", desc: "", m1: "", m2: "", m3: "", tax: "" });
 
+// W7 R6: a certificate prints only once saved, and only with its payor's
+// BIR name in Item 7.
+const SAVE_BEFORE_PRINTING = "Save the certificate before printing.";
+const PAYOR_NAME_MISSING =
+  "Complete the client's registered name (or last and first name for an individual) before printing this certificate.";
+
 /**
  * 2307 — Certificate of Creditable Tax Withheld at Source.
  *
@@ -134,6 +140,10 @@ export default function BirForm2307Editor() {
   const [payorSig, setPayorSig] = useState<SignatoryState>(emptySignatory);
   const [payeeSig, setPayeeSig] = useState<SignatoryState>(emptySignatory);
   const [mode, setMode] = useState<FormViewMode>("guided");
+  /** The certificate data as last loaded from the server, to tell an unsaved
+   *  edit from the saved certificate (W7 R6). */
+  const [savedBaseline, setSavedBaseline] = useState<string | null>(null);
+  const [baselinePending, setBaselinePending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // The withholding agent is the client (the payor issuing the certificate).
@@ -193,6 +203,12 @@ export default function BirForm2307Editor() {
     setPayorSig(readSig("payor"));
     setPayeeSig(readSig("payee"));
   }, [seed]);
+  // Each load of the saved certificate is hydrated by the effect above; the
+  // render those values land in is the saved certificate, so the baseline is
+  // taken there (W7 R6, "save before printing").
+  useEffect(() => {
+    if (existing.data) setBaselinePending(true);
+  }, [existing.data]);
 
   const data = useMemo(
     () => ({
@@ -233,6 +249,19 @@ export default function BirForm2307Editor() {
     ],
   );
   const period = `${year}-${quarter}`;
+
+  useEffect(() => {
+    if (!baselinePending) return;
+    setSavedBaseline(JSON.stringify(data));
+    setBaselinePending(false);
+  }, [baselinePending, data]);
+  // Only a saved certificate prints, exactly as saved (W7 R6): a new one, or one
+  // whose screen differs from what is saved, is saved first.
+  const isSaved =
+    !isNew &&
+    !baselinePending &&
+    savedBaseline !== null &&
+    savedBaseline === JSON.stringify(data);
 
   // An existing form is computed only once it is hydrated: its first, empty
   // state is never sent, so a freshly mounted form (after Mark as filed, an
@@ -275,16 +304,18 @@ export default function BirForm2307Editor() {
   // ---- Print to PDF (the certificate's only output) ----
   /** The NEW replica's `.bir-doc` root — long bond, built from the official form. */
   const docRef = useRef<HTMLDivElement>(null);
-  /** The hand-written A4 sheet, kept behind "Print (legacy)" until W4. */
-  const legacySheetRef = useRef<HTMLDivElement>(null);
   const [printing, setPrinting] = useState(false);
-  const [printingLegacy, setPrintingLegacy] = useState(false);
   const party = printParty(existing.data, clientQ.data);
   const pdfName = certificateFileName("2307", period, party.tin);
 
   async function printPdf() {
     const node = docRef.current;
-    if (!node) return;
+    if (!node || !isSaved) return;
+    // Item 7 prints the payor's BIR name, never a trade or display name (W7 R6).
+    if (!party.registeredName) {
+      setError(PAYOR_NAME_MISSING);
+      return;
+    }
     setPrinting(true);
     setError(null);
     try {
@@ -293,23 +324,6 @@ export default function BirForm2307Editor() {
       setError("Could not produce the PDF — please retry.");
     } finally {
       setPrinting(false);
-    }
-  }
-
-  /** The pre-pass-2 path: the hand-written sheet, rasterised onto A4 through
-   *  the shared, fixed capture (W3 R5). Kept until W4 so a person can print
-   *  both and compare them on paper. */
-  async function printLegacyPdf() {
-    const node = legacySheetRef.current;
-    if (!node) return;
-    setPrintingLegacy(true);
-    setError(null);
-    try {
-      await sheetsToPdf([node], `legacy-${pdfName}`);
-    } catch {
-      setError("Could not produce the legacy PDF — please retry.");
-    } finally {
-      setPrintingLegacy(false);
     }
   }
 
@@ -431,6 +445,7 @@ export default function BirForm2307Editor() {
         filename={pdfName}
         pagePt={LONG_BOND_PT}
         revisionKey={revisionKey}
+        previewToolbar={isSaved}
         sheets={
           <Form2307
             periodFrom={periodFrom}
@@ -446,7 +461,7 @@ export default function BirForm2307Editor() {
             payor={{
               tin: party.tin,
               branch: party.branch,
-              name: party.businessName,
+              name: party.registeredName,
               address: [party.address, party.city].filter(Boolean).join(", "),
               zip: party.zip,
             }}
@@ -471,20 +486,11 @@ export default function BirForm2307Editor() {
           <>
             <Button
               variant="outline"
-              disabled={!clientId || printing}
+              disabled={!clientId || printing || !isSaved}
+              title={isSaved ? undefined : SAVE_BEFORE_PRINTING}
               onClick={() => void printPdf()}
             >
               {printing ? "Preparing PDF…" : "Print certificate (PDF)"}
-            </Button>
-            {/* Kept so a person can print both paths and lay them side by side
-                against a blank BIR 2307. Removed in W4. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={printingLegacy}
-              onClick={() => void printLegacyPdf()}
-            >
-              {printingLegacy ? "Preparing…" : "Print (legacy)"}
             </Button>
           </>
         }
@@ -905,26 +911,6 @@ export default function BirForm2307Editor() {
           </div>
         }
       />
-
-      {/* The pre-pass-2 hand-written A4 sheet. Kept off-screen until W4,
-          reachable through "Print (legacy)" so the two printouts can be
-          compared on paper. Prints from the same payor source (W3 R3). */}
-      <div className="bir-sheet-stage" aria-hidden="true">
-        <div ref={legacySheetRef} className="bir-sheet">
-          <Sheet2307
-            year={year}
-            quarter={quarter}
-            agentName={party.businessName}
-            agentTin={party.tin}
-            agentAddress={[party.address, party.city].filter(Boolean).join(", ")}
-            payeeName={payeeName}
-            payeeTin={payeeTin}
-            payeeAddress={payeeAddress}
-            rows={rows}
-            comp={c}
-          />
-        </div>
-      </div>
     </div>
   );
 }
@@ -1031,8 +1017,10 @@ function SignatoryFields({
   );
 }
 
-/** The faithful printed 2307 sheet. Plain black-on-white, A4 at 96dpi. */
-function Sheet2307({
+/** The pre-pass-2 hand-written 2307 sheet (A4 at 96dpi). RETIRED in W7 (R6):
+ *  no route, button or link renders or prints it; the certificate prints only
+ *  through "Print certificate (PDF)". Kept, unused, until it is deleted. */
+export function Sheet2307({
   year,
   quarter,
   agentName,

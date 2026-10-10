@@ -22,7 +22,8 @@ export function isHeld(t: StatusFields): boolean {
   return t.status === "held";
 }
 
-/** Whether a record belongs under the chosen filter. */
+/** Whether a record belongs under the chosen filter — the rule the server
+ *  applies to `statusFilterParams` (Track A U6-A1). */
 export function matchesStatusFilter(
   t: StatusFields,
   filter: ExpenseStatusFilter,
@@ -39,13 +40,10 @@ export function matchesStatusFilter(
   }
 }
 
-/** How many records an Expenses list shows: the list endpoint's default page. */
-export const EXPENSE_LIST_LIMIT = 50;
-
 /**
- * Query parameters the list endpoint is asked to filter by. R1 does not define
- * them, so the server may ignore them; that is why every page also filters the
- * rows it gets back with `matchesStatusFilter`. Proposed to Track A in W5.
+ * Query parameters the list endpoint filters by (Track A U6-A1:
+ * status=posted|held, needsReview=true). The expense lists send them and show
+ * what the server returns, counted by its total (W6 R2).
  */
 export function statusFilterParams(filter: ExpenseStatusFilter): Record<string, string> {
   if (filter === "posted") return { status: "posted" };

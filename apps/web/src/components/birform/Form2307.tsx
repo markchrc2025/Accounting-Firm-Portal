@@ -28,8 +28,6 @@ import { BirAmtVal, BirBoxes, BirVal } from "./formkit";
 
 /** The official BIR seal, served from /public/assets. */
 export const SEAL_SRC = "/assets/bir-seal.png";
-/** The official barcode image, when one has been supplied. */
-export const BARCODE_SRC = "/assets/bir-2307-barcode.png";
 
 /** One Part III income-payment row as the editor holds it. */
 export interface Form2307Row {
@@ -90,9 +88,6 @@ export interface Form2307Props {
 
   payorSignatory?: Form2307Signatory;
   payeeSignatory?: Form2307Signatory;
-
-  /** True once the official barcode PNG is present under /public/assets. */
-  hasBarcode?: boolean;
 }
 
 /** The official form prints ten data rows in each Part III block. */
@@ -208,7 +203,6 @@ export function Form2307({
   totals,
   payorSignatory,
   payeeSignatory,
-  hasBarcode = false,
 }: Form2307Props) {
   // Ten printed rows, whatever the editor holds.
   // Block A's Total row prints only once there is something to total — a
@@ -258,13 +252,11 @@ export function Form2307({
           </div>
         </div>
         <div className="col bl" style={{ width: 148, flex: "none", padding: "3px 4px" }}>
-          {hasBarcode ? (
-            <img className="bir-barcode" src={BARCODE_SRC} alt="" />
-          ) : (
-            // Drawn at the official size and left empty: the barcode image was
-            // not supplied, and a mandated form gets no invented artwork.
-            <span className="bir-barcode" data-barcode="empty" />
-          )}
+          {/* Drawn at the official size and left empty (D18): the barcode image
+              has not been supplied, and a mandated form gets no invented
+              artwork — nor a reference to a file that is not there (W6 R4).
+              The real barcode comes in W4. */}
+          <span className="bir-barcode" data-barcode="empty" />
           <div className="bir-barcode-code">2307 01/18ENCS</div>
         </div>
       </div>

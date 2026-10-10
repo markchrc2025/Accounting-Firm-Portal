@@ -596,8 +596,8 @@ export function parseCorText(raw: string): ExtractedCor {
     // 4-digit run is the ZIP, never the first (a house number).
     const zips = [...out.address.matchAll(/\b\d{4}\b/g)];
     const lastZip = zips[zips.length - 1];
-    // …but never the address's own LEADING house number ("7721 LUWASAN ST…"
-    // whose real ZIP was destroyed) — a ZIP never starts the address.
+    // …but never the address's own LEADING house number ("4417 SAMPLE ST…"
+    // whose ZIP was destroyed) — a ZIP never starts the address.
     if (lastZip && lastZip.index !== 0) out.zip = lastZip[0];
   }
 

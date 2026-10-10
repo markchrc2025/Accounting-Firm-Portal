@@ -24,6 +24,7 @@ import {
 } from "../components/ui";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
+import { formRegimeWarning } from "../lib/regime";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -175,6 +176,11 @@ export default function BirForm2550QEditor() {
     !!existing.data?.amendsId &&
     (existing.data.data as { amended?: unknown }).amended !== "yes";
   const filedAt = existing.data?.filedAt ?? null;
+  // W7 R2: warn, never block, when the client's regime does not match the
+  // return. Saving and filing stay allowed; a filed form shows no warning.
+  const filer = clients.find((cl: ClientSummary) => cl.id === clientId);
+  const regimeWarning =
+    !isFiled && filer ? formRegimeWarning("2550Q", filer.taxType) : null;
 
   return (
     <div className="animate-fade-rise">
@@ -188,6 +194,15 @@ export default function BirForm2550QEditor() {
           </Button>
         }
       />
+
+      {regimeWarning ? (
+        <div
+          role="status"
+          className="mb-5 rounded-input border border-gold/50 bg-warn-bg-2 px-3.5 py-2.5 text-[13px] text-content"
+        >
+          {regimeWarning}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mb-5 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">

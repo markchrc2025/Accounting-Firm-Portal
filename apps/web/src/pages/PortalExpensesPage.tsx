@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ReactNode } from "react";
 import {
-  fetchAllPurchases,
   fetchCategories,
   fetchPortalContext,
+  fetchPurchases,
   type PurchaseTxn,
 } from "../lib/api";
-import { EXPENSE_LIST_LIMIT, isHeld, statusFilterParams } from "../lib/expenseStatus";
+import { isHeld, statusFilterParams } from "../lib/expenseStatus";
+import { isVatRegistered } from "../lib/regime";
 import {
   Card,
   Chip,
@@ -18,12 +19,6 @@ import {
   Skeleton,
 } from "../components/ui";
 
-/** VAT when the tax type mentions VAT but is not NON-VAT; otherwise percentage. */
-function isVatRegime(taxType?: string | null): boolean {
-  const t = (taxType ?? "").toUpperCase();
-  return t.includes("VAT") && !t.includes("NON");
-}
-
 export default function PortalExpensesPage() {
   const ctxQuery = useQuery({
     queryKey: ["portal-context"],
@@ -31,7 +26,7 @@ export default function PortalExpensesPage() {
   });
   const ctx = ctxQuery.data;
   const clientId = ctx?.id ?? "";
-  const isVat = isVatRegime(ctx?.taxType);
+  const isVat = isVatRegistered(ctx?.taxType);
 
   const categories = useQuery({
     queryKey: ["categories", clientId, "EXPENSE"],
@@ -39,16 +34,14 @@ export default function PortalExpensesPage() {
     enabled: !!clientId,
   });
   // A held expense waits for the firm to post it; the client never sees it,
-  // not even in the count (W5 R3). Asked of the server with status=posted — a
-  // W5 proposal Track A has not confirmed — and enforced here on every page
-  // that comes back regardless, so the count is the posted records only.
+  // not even in the count (W5 R3). The server filters (status=posted, Track A
+  // U6-A1): one request, and the count is the server's total (W6 R2). The
+  // page it returns is still checked here, so a held record can never show.
   const list = useQuery<{ rows: PurchaseTxn[]; total: number }>({
     queryKey: ["purchases", clientId, "portal-posted"],
     queryFn: async () => {
-      const posted = (
-        await fetchAllPurchases(clientId, statusFilterParams("posted"))
-      ).filter((t) => !isHeld(t));
-      return { rows: posted.slice(0, EXPENSE_LIST_LIMIT), total: posted.length };
+      const page = await fetchPurchases(clientId, statusFilterParams("posted"));
+      return { rows: page.data.filter((t) => !isHeld(t)), total: page.total };
     },
     enabled: !!clientId,
   });

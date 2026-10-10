@@ -17,6 +17,8 @@ import {
   fetchIncomeSummary,
   type IncomeTxn,
 } from "../lib/api";
+import { permittedFor } from "../lib/permissions";
+import { isVatRegistered, regimeLabel } from "../lib/regime";
 import { downloadSheet, SALES_HEADERS } from "../lib/spreadsheet";
 import {
   Button,
@@ -35,7 +37,7 @@ const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
 
 export default function SalesPage() {
   const { clientId = "" } = useParams();
-  const { hasPermission } = useAuth();
+  const { permissions, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -66,9 +68,8 @@ export default function SalesPage() {
     enabled: !!clientId,
   });
 
-  // Regime: taxType containing "VAT" (but not "NON") → VAT, else PERCENTAGE.
-  const taxType = (client.data?.taxType ?? "").toUpperCase();
-  const isVat = taxType.includes("VAT") && !taxType.includes("NON");
+  // VAT-registered records VAT; percentage tax and exempt (D39) do not.
+  const isVat = isVatRegistered(client.data?.taxType);
   const regime: Regime = isVat ? "VAT" : "PERCENTAGE";
 
   // Category-name lookup by id (same pattern as ClientDetailPage).
@@ -91,6 +92,8 @@ export default function SalesPage() {
 
   const canCreate = hasPermission("Sales:Create");
   const canDelete = hasPermission("Sales:Delete");
+  // W7 R5: Edit is offered only where the server would allow it on THIS client.
+  const canEdit = permittedFor(permissions, "Sales:Update", clientId);
   const filtersActive = search.trim() !== "" || (filters.vatClass ?? "") !== "";
 
   function invalidate() {
@@ -152,7 +155,8 @@ export default function SalesPage() {
   }
 
   const amountHeader = regime === "VAT" ? "Net amount (VAT)" : "Gross receipts";
-  const regimeNote = regime === "VAT" ? "VAT-registered" : "Percentage tax";
+  // The header names the regime: null reads "Exempt from business tax" (W6 R1).
+  const regimeNote = client.data ? regimeLabel(client.data.taxType) : undefined;
 
   return (
     <div className="animate-fade-rise">
@@ -300,12 +304,14 @@ export default function SalesPage() {
                       {peso(t.netAmount)}
                     </Td>
                     <Td className="text-right">
-                      <button
-                        onClick={() => openEdit(t)}
-                        className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
-                      >
-                        Edit
-                      </button>
+                      {canEdit ? (
+                        <button
+                          onClick={() => openEdit(t)}
+                          className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(t.id)}
@@ -332,6 +338,7 @@ export default function SalesPage() {
         <TransactionEntryModal
           clientId={clientId}
           regime={regime}
+          taxType={client.data?.taxType ?? null}
           kind="income"
           categories={categories.data ?? []}
           existing={editing}
@@ -343,11 +350,13 @@ export default function SalesPage() {
         />
       )}
 
-      {importOpen && (
+      {/* Once the client is known, so the import's note names its regime. */}
+      {importOpen && client.data && (
         <ImportModal
           kind="income"
           clientId={clientId}
           regime={regime}
+          taxType={client.data.taxType ?? null}
           onClose={() => setImportOpen(false)}
           onImported={() => {
             invalidate();

@@ -967,6 +967,12 @@ export interface BirFormExportRef {
  */
 export interface BirFiledSnapshot {
   businessName?: string | null;
+  /** The name fields the 2307's Item 7 prints from (W7 R6). */
+  kind?: string | null;
+  regName?: string | null;
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
   tin?: string | null;
   branch?: string | null;
   address?: string | null;
@@ -1375,11 +1381,26 @@ export async function importExpenseFile(
   return (await res.json()) as ExpenseImportResult;
 }
 
-/** Post a held expense record into the books. */
-export function postPurchase(id: string): Promise<unknown> {
-  return apiFetch(`/purchase-transactions/${encodeURIComponent(id)}/post`, {
-    method: "POST",
-  });
+/** Post a held expense record into the books. The server's `{ message }` is
+ *  shown verbatim; an error body that is not JSON — a proxy's HTML error
+ *  page — reads "Could not post this record (502)", never a JSON parse
+ *  error (W6 R3). */
+export async function postPurchase(id: string): Promise<unknown> {
+  const token = getToken();
+  const res = await fetch(
+    `${API_BASE_URL}/purchase-transactions/${encodeURIComponent(id)}/post`,
+    {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+  if (!res.ok) throw await errorFrom(res, "Could not post this record");
+  const text = await res.text();
+  try {
+    return text ? (JSON.parse(text) as unknown) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 export function createIncome(clientId: string, body: unknown): Promise<IncomeTxn> {
   return apiFetch(`/clients/${clientId}/income-transactions`, {
