@@ -256,6 +256,37 @@ describe("U9-A1 · loose ends of sign-in and roles (real app over HTTP, db)", ()
     expect(res.body.accessToken).toBeUndefined();
   });
 
+  it("T3 · a user disabled, and with two-factor cleared, between the two steps reads the disabled message", async () => {
+    const secret = authenticator.generateSecret();
+    const u = await writer.user.create({
+      data: {
+        firmId,
+        userType: "FIRM",
+        fullName: `${TAG} two-step cleared`,
+        email: `${TAG}-two-step-cleared@example.com`,
+        status: "ACTIVE",
+        mfaEnabled: true,
+        mfaSecret: secret,
+        firmProfile: { create: { title: "Test" } },
+      },
+    });
+    const mfaToken = tokens.signMfa({
+      id: u.id,
+      firmId,
+      userType: "FIRM",
+      email: u.email,
+    });
+    await writer.user.update({
+      where: { id: u.id },
+      data: { status: "DISABLED", mfaEnabled: false, mfaSecret: null },
+    });
+    const res = await http()
+      .post(`${API}/auth/mfa/verify`)
+      .send({ mfaToken, code: authenticator.generate(secret) });
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("This account is disabled.");
+  });
+
   // --- T6 -------------------------------------------------------------------------
 
   it("T6 · the client invite returns no token, and the emailed link still accepts", async () => {

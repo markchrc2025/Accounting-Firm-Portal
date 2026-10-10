@@ -101,12 +101,13 @@ export class AuthService {
       where: { id: payload.sub },
       include: { clientProfile: true },
     });
+    // U9-A1 R3 (D46): a user disabled between the password and the code gets no
+    // token — checked first, so it reads the same whatever else changed meanwhile.
+    if (user && user.status !== "ACTIVE") {
+      throw new UnauthorizedException(ACCOUNT_DISABLED_MESSAGE);
+    }
     if (!user || !user.mfaEnabled || !user.mfaSecret) {
       throw new UnauthorizedException("MFA not available for this account");
-    }
-    // U9-A1 R3 (D46): a user disabled between the password and the code gets no token.
-    if (user.status !== "ACTIVE") {
-      throw new UnauthorizedException(ACCOUNT_DISABLED_MESSAGE);
     }
 
     if (!this.mfa.verify(user.mfaSecret, code)) {
