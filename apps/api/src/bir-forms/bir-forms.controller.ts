@@ -14,7 +14,7 @@ import {
   UpdateBirFormInput,
   UpdateBirFormSchema,
 } from "./dto/bir-form.schemas";
-import { BirFormsService } from "./bir-forms.service";
+import { BIR_FORMS_PERMISSION, BirFormsService } from "./bir-forms.service";
 
 /**
  * Internal BIR Forms module endpoints. Firm-scoped; reads need BIRForms:Read,
@@ -28,19 +28,19 @@ export class BirFormsController {
   constructor(private readonly birForms: BirFormsService) {}
 
   @Get("catalog")
-  @RequirePermissions("BIRForms:Read")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
   catalog() {
     return this.birForms.catalog();
   }
 
   @Post("compute")
-  @RequirePermissions("BIRForms:Read")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
   compute(@Body(new ZodValidationPipe(ComputeBirFormSchema)) body: ComputeBirFormInput) {
     return this.birForms.computePreview(body.form, body.data);
   }
 
   @Get()
-  @RequirePermissions("BIRForms:Read")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
   list(
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(ListBirFormsQuerySchema)) query: ListBirFormsQuery,
@@ -50,7 +50,7 @@ export class BirFormsController {
 
   /** Filed forms + their authoritative key figures (for the client tax view). */
   @Get("filed")
-  @RequirePermissions("BIRForms:Read")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
   filed(
     @CurrentUser() user: AuthUser,
     @Query(new ZodValidationPipe(ListBirFormsQuerySchema)) query: ListBirFormsQuery,
@@ -59,7 +59,7 @@ export class BirFormsController {
   }
 
   @Post()
-  @RequirePermissions("BIRForms:Create")
+  @RequirePermissions(BIR_FORMS_PERMISSION.create)
   create(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(CreateBirFormSchema)) body: CreateBirFormInput,
@@ -68,13 +68,13 @@ export class BirFormsController {
   }
 
   @Get(":id")
-  @RequirePermissions("BIRForms:Read")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
   getOne(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.birForms.getOne(user, id);
   }
 
   @Patch(":id")
-  @RequirePermissions("BIRForms:Update")
+  @RequirePermissions(BIR_FORMS_PERMISSION.update)
   update(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,
@@ -89,19 +89,19 @@ export class BirFormsController {
    * A certificate (2307, 2316) or an unfiled form answers 400.
    */
   @Post(":id/amend")
-  @RequirePermissions("BIRForms:Create")
+  @RequirePermissions(BIR_FORMS_PERMISSION.create)
   amend(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.birForms.amend(user, id);
   }
 
   @Post(":id/export")
-  @RequirePermissions("BIRForms:File")
+  @RequirePermissions(BIR_FORMS_PERMISSION.file)
   export(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.birForms.exportForm(user, id);
   }
 
   @Get(":id/exports/:exportId/url")
-  @RequirePermissions("BIRForms:Read")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
   exportUrl(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,

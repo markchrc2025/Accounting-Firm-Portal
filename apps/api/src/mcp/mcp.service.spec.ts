@@ -53,8 +53,8 @@ function clientRow(overrides: Record<string, unknown> = {}) {
   return {
     id: CLIENT_ID,
     firmId: FIRM.id,
-    businessName: "HEBREWS 13-8 MILKTEA SHOP",
-    tin: "234968660",
+    businessName: "INVENTED TEST CLIENT CO",
+    tin: "000000000",
     taxType: "PERCENTAGE",
     status: "ACTIVE",
     city: "Marikina",
@@ -78,7 +78,11 @@ function prismaStub(o: StubOverrides = {}) {
   const row = clientRow(o.client);
   return {
     firm: { findFirst: jest.fn(async () => FIRM) },
-    user: { findFirst: jest.fn(async () => ACTOR) },
+    user: {
+      findFirst: jest.fn(async () => ACTOR),
+      // U4 (D41): MCP writes run as the firm's one active Super Admin.
+      findMany: jest.fn(async () => [ACTOR]),
+    },
     client: {
       findMany: jest.fn(
         async ({ where }: { where: Record<string, unknown> }) => {
@@ -105,7 +109,7 @@ function prismaStub(o: StubOverrides = {}) {
           id: "inv-1",
           number: "INV-2026-001",
           clientId: CLIENT_ID,
-          client: { businessName: "HEBREWS 13-8 MILKTEA SHOP" },
+          client: { businessName: "INVENTED TEST CLIENT CO" },
           billedFor: null,
           description: "Q2 2026 engagement fees",
           issuedDate: new Date("2026-07-01T00:00:00.000Z"),
@@ -164,7 +168,7 @@ const INVOICE_DTO = {
   id: INVOICE_ID,
   number: "BILL-2026-0001",
   clientId: CLIENT_ID,
-  clientName: "HEBREWS 13-8 MILKTEA SHOP",
+  clientName: "INVENTED TEST CLIENT CO",
   billedForClientId: null as string | null,
   billedForName: null as string | null,
   description: "",
@@ -312,10 +316,10 @@ describe("McpService — client write tools", () => {
     const client = await connect(prismaStub(), services);
     const res = await client.callTool({
       name: "portal_create_client",
-      arguments: { businessName: "COPYCAT CO", tin: "234-968-660" },
+      arguments: { businessName: "COPYCAT CO", tin: "000-000-000" },
     });
     expect(res.isError).toBe(true);
-    expect(errText(res)).toContain("HEBREWS 13-8 MILKTEA SHOP");
+    expect(errText(res)).toContain("INVENTED TEST CLIENT CO");
     expect(errText(res)).toContain(CLIENT_ID);
     expect(services.clients.create).not.toHaveBeenCalled();
   });
@@ -324,7 +328,7 @@ describe("McpService — client write tools", () => {
     const client = await connect(prismaStub());
     const res = await client.callTool({
       name: "portal_create_client",
-      arguments: { businessName: "X CO", tin: "234-968-660-00000" },
+      arguments: { businessName: "X CO", tin: "000-000-000-00000" },
     });
     expect(res.isError).toBe(true);
     expect(errText(res)).toMatch(/9 digits/);

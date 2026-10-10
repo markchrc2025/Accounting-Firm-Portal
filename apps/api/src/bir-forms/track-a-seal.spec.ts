@@ -22,6 +22,7 @@ import { PERMISSIONS_KEY } from "../common/decorators/require-permissions.decora
 import type { AuditService } from "../audit/audit.service";
 import type { ClientsService } from "../clients/clients.service";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { RbacService } from "../rbac/rbac.service";
 import type { StorageService } from "../storage/storage.service";
 import type { AuthUser } from "../common/auth/auth-user";
 
@@ -99,8 +100,15 @@ function build(row: Record<string, unknown> = formRow()) {
   const audit = {
     record: jest.fn().mockResolvedValue(undefined),
   } as unknown as AuditService;
+  // U4: these tests are not about client scope (track-a-scope.db-spec.ts is):
+  // the caller is authorized for every client.
+  const rbac = {
+    assertClient: jest.fn().mockResolvedValue(undefined),
+    assertAnyClient: jest.fn().mockResolvedValue(undefined),
+    authorizedClients: jest.fn().mockResolvedValue("all"),
+  } as unknown as RbacService;
   return {
-    svc: new BirFormsService(prisma, clients, storage, audit),
+    svc: new BirFormsService(prisma, clients, storage, audit, rbac),
     birForm,
     clients,
     storage,
