@@ -70,6 +70,9 @@ export const FiledSnapshotSchema = z
     civilStatus: nstr,
     taxpayerType: nstr,
     classification: nstr,
+    // U13 F4, additive: the fiscal year start at filing. Absent from a snapshot
+    // taken before U13; null for a calendar-year client.
+    fiscalYearStart: isoDate.optional(),
   })
   .passthrough();
 export type FiledSnapshot = z.infer<typeof FiledSnapshotSchema>;
@@ -83,7 +86,10 @@ function fromDay(s: string | null): Date | null {
 }
 
 /** Copy the taxpayer block off the client row, as it stands at `at`. */
-export function takeFiledSnapshot(client: ClientForTaxpayer, at: Date): FiledSnapshot {
+export function takeFiledSnapshot(
+  client: ClientForTaxpayer & { fiscalYearStart?: Date | null },
+  at: Date,
+): FiledSnapshot {
   return {
     snapshotVersion: FILED_SNAPSHOT_VERSION,
     takenAt: at.toISOString(),
@@ -110,6 +116,7 @@ export function takeFiledSnapshot(client: ClientForTaxpayer, at: Date): FiledSna
     civilStatus: client.civilStatus,
     taxpayerType: client.taxpayerType,
     classification: client.classification,
+    fiscalYearStart: day(client.fiscalYearStart ?? null),
   };
 }
 
