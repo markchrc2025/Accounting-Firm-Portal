@@ -692,26 +692,27 @@ describe("parseCorText — dot-noise 2019 COR with the full WHT table (Rossan)",
   });
 });
 
-// Real pipeline OCR (Otsu pass) — an Aug-2024 COR photographed on a dark
-// background (Atacador): the RDO code is ALPHANUMERIC ("25B - EAST BULACAN",
-// OCN "25BRC2026…"), the address's only surviving 4-digit number is its own
-// HOUSE number (7721 — the real ZIP 3022 was destroyed, so no ZIP may be
-// claimed), the income row garbles to "INDIVIDUALINCONME", and margin junk
-// precedes the trade-name label ("EEL TRADENAME 1 | DANDY L. ATACADOR oo").
-const ATACADOR = `
+// Pipeline OCR (Otsu pass) of an Aug-2024 COR photographed on a dark
+// background, with the taxpayer's name, TIN, OCN and street replaced by
+// invented values: the RDO code is ALPHANUMERIC ("25B - EAST BULACAN", OCN
+// "25BRC2026…"), the address's only surviving 4-digit number is its own HOUSE
+// number (4417 — the ZIP was destroyed, so no ZIP may be claimed), the income
+// row garbles to "INDIVIDUALINCONME", and margin junk precedes the trade-name
+// label ("EEL TRADENAME 1 | SAMPLE F. TESTPAYER oo").
+const ALNUM_RDO = `
 BIR FORM NO. REP Ta ANCRIBPINAS
 2303 KAWANIARY NG Fl TRE TE RNAS Irs 0]
 REVENUE REGIONNO. as - CARARIvA AND BuLACAN or =
 REVISED: AUGUST 2024 REVENUE D!STRIG OF RIGED its AF - EAST BULACAN . ry 5
-OCN: 25BRC20260000012642
+OCN: 25BRC20260000000000
 Date OCN Generated: July 9, 2025
 CERTIFICATE OF REGISTRATION
 TIN & BRANCH CODE | NAME OF TAXPAYER TIN ISSUANCE DATE i
-314-160-187-00000 : ATACADOR, DANDY LACTAD May 23. 2013 i
+999-999-999-00000 : TESTPAYER, SAMPLE FIXTURE May 23. 2013 i
 ; TAXPAYER TYPE/S - - : | PROFESSIONAL iIN'GENERAL 1
 REGISTERING OFFICE" |X HeadOfice ~~ | | Brann oo
 REGISTERED ADDRESS". ©il i ©. |
-7721 LUWASAN ST. BALASING SU2°SANTA MARIA BULACAN PHILIPPINES oh
+4417 SAMPLE ST. TESTVILLE SU2°SANTA MARIA BULACAN PHILIPPINES oh
 i TAXTYPES |. FORM 1° FiLING FILING : FILING DUE DATE
 1 EE 1 | :TYPES' | START DATE FREQUENCY |
 INDIVIDUAL or ME. 01A/1T0. Janay t ANNUALLY | covering income for the preceding
@@ -721,31 +722,31 @@ Fs K SITAR LE 2 B . 1701Q July 9, 2026 QUARTERLY AUGUST 15 3rd Quarter-on or
 - | AVALEDOFBY% INCOME TAX RATE OPTION? Yes ONo | PERIOD COVERED:CY December 30, 2026
 oP {BUBINESSINFORMATION DETAILS |
 [EO Ruel oo CATEGORY | REGISTRATION DATE _
-EEL TRADENAME 1 | DANDY L. ATACADOR oo July 9, 2026 :
+EEL TRADENAME 1 | SAMPLE F. TESTPAYER oo July 9, 2026 :
 ATRLIIY ULL PSIC) 74908-OTHER PROFESSIONAL, |
 i fos § my wl SCIENTIFIC AND TECHNICAL Pri |
 (HER: he of Business | VIRTUAL ASSISTANT oo »
 HE REMINDERS: So
 rea] 2% Filing of required tax return/s to conform with the above tax types.`;
 
-describe("parseCorText — alphanumeric RDO + house-number ZIP (Atacador, Otsu pass)", () => {
-  const r = parseCorText(ATACADOR);
+describe("parseCorText — alphanumeric RDO + house-number ZIP (invented taxpayer, Otsu pass)", () => {
+  const r = parseCorText(ALNUM_RDO);
 
   it("reads the ALPHANUMERIC RDO from the OCN ('25BRC…' → 25B)", () => {
     expect(r.rdo).toBe("25B");
   });
 
   it("reads TIN, name and trade name through the margin junk", () => {
-    expect(r.tin).toBe("314160187"); // 8/9 pixel ambiguity — user-reviewed
+    expect(r.tin).toBe("999999999");
     expect(r.branch).toBe("00000");
-    expect(r.lastName).toBe("ATACADOR");
-    expect(r.firstName).toBe("DANDY");
-    expect(r.middleName).toBe("LACTAD");
-    expect(r.tradeName).toBe("DANDY L. ATACADOR");
+    expect(r.lastName).toBe("TESTPAYER");
+    expect(r.firstName).toBe("SAMPLE");
+    expect(r.middleName).toBe("FIXTURE");
+    expect(r.tradeName).toBe("SAMPLE F. TESTPAYER");
   });
 
   it("claims NO ZIP when the only 4-digit run is the leading house number", () => {
-    expect(r.address).toContain("7721 LUWASAN ST");
+    expect(r.address).toContain("4417 SAMPLE ST");
     expect(r.zip).toBeUndefined();
   });
 

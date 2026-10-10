@@ -967,6 +967,12 @@ export interface BirFormExportRef {
  */
 export interface BirFiledSnapshot {
   businessName?: string | null;
+  /** The name fields the 2307's Item 7 prints from (W7 R6). */
+  kind?: string | null;
+  regName?: string | null;
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
   tin?: string | null;
   branch?: string | null;
   address?: string | null;

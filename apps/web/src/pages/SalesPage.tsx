@@ -17,6 +17,7 @@ import {
   fetchIncomeSummary,
   type IncomeTxn,
 } from "../lib/api";
+import { permittedFor } from "../lib/permissions";
 import { isVatRegistered, regimeLabel } from "../lib/regime";
 import { downloadSheet, SALES_HEADERS } from "../lib/spreadsheet";
 import {
@@ -36,7 +37,7 @@ const VAT_INCOME_CLASSES = VatClass.options.filter((c) => c !== "NON_VAT");
 
 export default function SalesPage() {
   const { clientId = "" } = useParams();
-  const { hasPermission } = useAuth();
+  const { permissions, hasPermission } = useAuth();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -91,6 +92,8 @@ export default function SalesPage() {
 
   const canCreate = hasPermission("Sales:Create");
   const canDelete = hasPermission("Sales:Delete");
+  // W7 R5: Edit is offered only where the server would allow it on THIS client.
+  const canEdit = permittedFor(permissions, "Sales:Update", clientId);
   const filtersActive = search.trim() !== "" || (filters.vatClass ?? "") !== "";
 
   function invalidate() {
@@ -301,12 +304,14 @@ export default function SalesPage() {
                       {peso(t.netAmount)}
                     </Td>
                     <Td className="text-right">
-                      <button
-                        onClick={() => openEdit(t)}
-                        className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
-                      >
-                        Edit
-                      </button>
+                      {canEdit ? (
+                        <button
+                          onClick={() => openEdit(t)}
+                          className="font-semibold text-blue underline-offset-2 hover:text-navy-hover hover:underline"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(t.id)}

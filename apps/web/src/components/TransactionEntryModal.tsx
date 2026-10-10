@@ -156,10 +156,10 @@ export default function TransactionEntryModal({
       unit: existing?.unit ?? "",
       unitPrice: existing?.unitPrice != null ? String(existing.unitPrice) : priceFallback,
       discount: existing?.discount != null ? String(existing.discount) : "",
-      account:
-        existing?.account ??
-        categories.find((c) => c.id === existing?.categoryId)?.name ??
-        "",
+      // A record keeps the account it has (W7 R4). One with none — a held
+      // import, a record from before the Chart of Accounts — keeps none until
+      // a person picks one: its category's name is never written into it.
+      account: existing?.account ?? "",
       categoryId: existing?.categoryId ?? "",
       vatClass: inc?.vatClass ?? "VATABLE_12",
       atc: (isIncome ? inc?.atc : pur?.atc) ?? "",
@@ -526,7 +526,11 @@ export default function TransactionEntryModal({
                             : "",
                         })
                       }
-                      placeholder={l.account || "Select account…"}
+                      placeholder={
+                        l.account ||
+                        categories.find((c) => c.id === l.categoryId)?.name ||
+                        "Select account…"
+                      }
                     />
                     {isIncome ? (
                       <select

@@ -826,18 +826,59 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
       if (res.status() === 404 || notAnAsset)
         missing.push(`${res.url()} → ${res.status()} ${type}`);
     });
-    page.on("requestfailed", (req) => {
-      if (own(req.url())) missing.push(`${req.url()} (${req.failure()?.errorText})`);
+    // A request the page itself cancelled (net::ERR_ABORTED — an image whose
+    // html2canvas clone was torn down mid-load) is not a missing file when the
+    // same URL also loaded as an image; any other failure is.
+    const loaded = new Set<string>();
+    const failed: Array<{ url: string; text: string }> = [];
+    page.on("response", (res) => {
+      const type = res.headers()["content-type"] ?? "";
+      if (res.status() === 200 && /^(image|font)\//.test(type)) loaded.add(res.url());
     });
+    page.on("requestfailed", (req) => {
+      if (own(req.url()))
+        failed.push({ url: req.url(), text: req.failure()?.errorText ?? "" });
+    });
+    // Only a SAVED certificate prints, and its payor needs a registered name
+    // (W7 R6): the same client, saved, with the name its Item 7 prints.
+    const SAVED_ID = "f2307000-0000-4000-8000-0000000000b6";
+    const saved = {
+      id: SAVED_ID,
+      clientId: PCT_CLIENT.id,
+      clientName: PCT_CLIENT.businessName,
+      form: "2307",
+      status: "draft",
+      period: "2026-Q1",
+      filedAt: null,
+      createdAt: "2026-04-10T01:00:00.000Z",
+      updatedAt: "2026-04-10T01:00:00.000Z",
+      data: { year: "2026", quarter: "1" },
+      computed: null,
+      exports: [],
+      amendsId: null,
+      sequence: 1,
+      filedSnapshot: null,
+    };
     const { unmocked, quiet } = await mockApi(page, {
       extra: [
         ["GET", /^\/api\/v1\/bir-forms\/catalog$/, (r) => json(r, [])],
         ["POST", /^\/api\/v1\/bir-forms\/compute$/, (r) => json(r, {})],
+        ["GET", new RegExp(`^/api/v1/bir-forms/${SAVED_ID}$`), (r) => json(r, saved)],
+        [
+          "GET",
+          new RegExp(`^/api/v1/clients/${PCT_CLIENT.id}$`),
+          (r) =>
+            json(r, {
+              ...PCT_CLIENT,
+              kind: "non-individual",
+              regName: "INVENTED BAKERY CORP",
+            }),
+        ],
       ],
     });
     await page.setViewportSize({ width: 1600, height: 1200 });
-    await page.goto("/bir-forms/new?form=2307");
-    await page.getByLabel("Withholding agent (client)").selectOption(PCT_CLIENT.id);
+    await page.goto(`/bir-forms/${SAVED_ID}`);
+    await expect(page.getByLabel("Year")).toHaveValue("2026");
     await page.getByRole("button", { name: "Form", exact: true }).click();
 
     const boxes = page.locator('[data-barcode="empty"]');
@@ -853,6 +894,10 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
       page.getByRole("button", { name: /Print certificate \(PDF\)/ }).click(),
     ]);
     await quiet();
+    for (const f of failed) {
+      if (!(f.text === "net::ERR_ABORTED" && loaded.has(f.url)))
+        missing.push(`${f.url} (${f.text})`);
+    }
     expect(missing, `missing assets: ${missing.join(", ")}`).toEqual([]);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });

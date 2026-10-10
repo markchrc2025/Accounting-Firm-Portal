@@ -52,6 +52,9 @@ export function amendmentHeading(
 /** The payor / employer block a certificate prints. */
 export interface PrintParty {
   businessName: string;
+  /** The BIR name: "LAST, FIRST MIDDLE" for an individual, the registered
+   *  name otherwise; "" when those fields are empty (W7 R6). */
+  registeredName: string;
   tin: string;
   branch: string;
   address: string;
@@ -63,6 +66,33 @@ export interface PrintParty {
 }
 
 const str = (v: string | null | undefined) => (v == null ? "" : String(v));
+
+/** The name fields a client record (or its filing snapshot) carries. */
+export interface NameFields {
+  kind?: string | null;
+  regName?: string | null;
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+}
+
+/**
+ * The taxpayer's name as a BIR certificate prints it (W7 R6): for an
+ * individual, "LAST, FIRST MIDDLE" from the last, first and middle names; for
+ * anyone else, the registered name. Never the trade name or the display name.
+ * "" when the fields it needs are empty — an individual needs a last and a
+ * first name — so the caller can refuse to print.
+ */
+export function registeredName(src: NameFields): string {
+  if (str(src.kind).trim() === "individual") {
+    const last = str(src.lastName).trim();
+    const first = str(src.firstName).trim();
+    const middle = str(src.middleName).trim();
+    if (!last || !first) return "";
+    return `${last}, ${first}${middle ? ` ${middle}` : ""}`;
+  }
+  return str(src.regName).trim();
+}
 
 /**
  * W3 R3: once a form is filed and carries its filing snapshot, every print
@@ -79,6 +109,7 @@ export function printParty(
   const src = snap ?? client ?? {};
   return {
     businessName: str(src.businessName),
+    registeredName: registeredName(src),
     tin: str(src.tin),
     branch: str(src.branch),
     address: str(src.address),
