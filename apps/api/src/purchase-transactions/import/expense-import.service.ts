@@ -600,8 +600,17 @@ export class ExpenseImportService {
   }
 }
 
-function regimeLabel(taxType: string | null | undefined): string {
+/**
+ * The CLIENT sheet's regime line. Informational only: the importer reads the
+ * regime from the client record and checks nothing on the sheet but the template
+ * version, the client id and the period, so a file generated before U8 — whose
+ * line reads "NOT SET — …" for a client with no regime — still imports.
+ */
+export function regimeLabel(taxType: string | null | undefined): string {
   if (taxType === "VAT") return "VAT-registered";
   if (taxType === "PERCENTAGE") return "Non-VAT (percentage tax)";
-  return "NOT SET — set the client's tax type before importing";
+  if (taxType === null || taxType === undefined) {
+    return "Exempt from business tax (no VAT, no percentage tax)";
+  }
+  return `Unknown tax regime "${taxType}" — fix the client record before importing`;
 }

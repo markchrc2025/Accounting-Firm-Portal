@@ -19,6 +19,9 @@ export function perm(resource: string, action: string): string {
  */
 export const CLIENTS_VIEW_ALL = "Clients:ViewAll";
 
+/** The firm role that holds every permission; MCP writes run as its holder (D15, D41). */
+export const SUPER_ADMIN_ROLE = "Super Admin";
+
 // Full firm permission set (resource → actions).
 const FIRM_PERMISSIONS: Record<string, string[]> = {
   Users: ["Create", "Read", "Update", "Delete"],
@@ -110,7 +113,7 @@ export interface RoleDefinition {
  */
 export const DEFAULT_ROLES: RoleDefinition[] = [
   {
-    name: "Super Admin",
+    name: SUPER_ADMIN_ROLE,
     scope: "FIRM",
     permissions: allOf(FIRM_PERMISSIONS), // includes Clients:ViewAll
   },

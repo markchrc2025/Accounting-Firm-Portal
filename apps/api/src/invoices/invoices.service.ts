@@ -9,12 +9,23 @@ import { dateToIso, isoToDate } from "../financial/serialization";
 import { invoiceDueEmail } from "../mail/email-templates";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RbacService } from "../rbac/rbac.service";
 import { EmailSettingsService } from "../settings/email-settings.service";
 import type {
   CreateInvoiceInput,
   InvoiceLineItemInput,
   UpdateInvoiceInput,
 } from "./dto/invoice.schemas";
+
+/**
+ * The permission each billing operation needs: the route's own (the controller
+ * declares these), asked again of the record's client by the service (U4 R2).
+ */
+export const BILLING_PERMISSION = {
+  read: "Billing:Read",
+  create: "Billing:Create",
+  send: "Billing:Send",
+} as const;
 
 /** ₱-formatted amount for the billing email (currency per guardrails: PHP). */
 function pesoLabel(v: Prisma.Decimal | number | string): string {
@@ -89,8 +100,11 @@ function toInvoiceDto(inv: InvoiceRow) {
 /**
  * Firm-scoped invoices billed against a client (Portal-only engagement billing).
  * Every operation is confined to the actor's firmId; the target client must
- * belong to that firm (`ClientsService.assertInFirm`). The `vat` figure is a 12%
- * management estimate — NOT authoritative BIR tax (guardrail #1).
+ * belong to that firm (`ClientsService.assertInFirm`). Within the firm, every
+ * operation is also confined to the clients the caller is authorized for (U4 R2,
+ * D14): a billing recorded under a parent for a sub-client belongs to both, and
+ * either is enough. The `vat` figure is a 12% management estimate — NOT
+ * authoritative BIR tax (guardrail #1).
  */
 /**
  * Statuses an edit may revert to Draft. "Paid" is absent because Paid is
@@ -119,6 +133,7 @@ export class InvoicesService {
     private readonly mail: MailService,
     private readonly emailSettings: EmailSettingsService,
     config: ConfigService,
+    private readonly rbac: RbacService,
   ) {
     this.webAppUrl = (
       config.get<string>("WEB_APP_URL", "https://acctgfirm.mcrctas.com") ?? ""
@@ -129,11 +144,21 @@ export class InvoicesService {
     // A client's billing view includes invoices RECORDED under it (its own +
     // its sub-clients') and, for a sub-client, the invoices billed to its main
     // client on its behalf — so both workspaces see the engagement.
+    // U4 R2: a named client must be one the caller is authorized for (else 403);
+    // with none named, only the billings of clients the caller may see.
+    let scope: Prisma.InvoiceWhereInput = {};
+    if (clientId) {
+      await this.rbac.assertClient(user, [BILLING_PERMISSION.read], clientId);
+      scope = { OR: [{ clientId }, { billedForClientId: clientId }] };
+    } else {
+      const clients = await this.rbac.authorizedClients(user, [BILLING_PERMISSION.read]);
+      if (clients !== "all") {
+        const ids = [...clients];
+        scope = { OR: [{ clientId: { in: ids } }, { billedForClientId: { in: ids } }] };
+      }
+    }
     const rows = await this.prisma.invoice.findMany({
-      where: {
-        firmId: user.firmId,
-        ...(clientId ? { OR: [{ clientId }, { billedForClientId: clientId }] } : {}),
-      },
+      where: { firmId: user.firmId, ...scope },
       include: invoiceInclude,
       orderBy: { createdAt: "desc" },
     });
@@ -141,10 +166,12 @@ export class InvoicesService {
   }
 
   async get(user: AuthUser, id: string) {
-    return toInvoiceDto(await this.loadOwned(user.firmId, id));
+    return toInvoiceDto(await this.loadAuthorized(user, id, BILLING_PERMISSION.read));
   }
 
   async create(user: AuthUser, input: CreateInvoiceInput) {
+    // U4 R2: create authorizes against the client named in the body.
+    await this.rbac.assertClient(user, [BILLING_PERMISSION.create], input.clientId);
     const target = await this.clients.assertInFirm(user.firmId, input.clientId);
     // Sub-client billing: the invoice is RECORDED under the main client (the
     // payer / bill addressee); billedForClientId keeps the sub-client
@@ -208,7 +235,7 @@ export class InvoicesService {
   ] as const;
 
   async update(user: AuthUser, id: string, input: UpdateInvoiceInput) {
-    const current = await this.loadOwned(user.firmId, id);
+    const current = await this.loadAuthorized(user, id, BILLING_PERMISSION.create);
 
     // A settled billing is immutable — no status change, no figure change.
     if (current.status === TERMINAL_STATUS) {
@@ -263,7 +290,7 @@ export class InvoicesService {
   }
 
   async send(user: AuthUser, id: string) {
-    await this.loadOwned(user.firmId, id);
+    await this.loadAuthorized(user, id, BILLING_PERMISSION.send);
     const invoice = await this.prisma.invoice.update({
       where: { id },
       data: { status: "Sent" },
@@ -355,6 +382,24 @@ export class InvoicesService {
       RETURNING "nextSeq"`;
     const seq = Number(rows[0]?.nextSeq ?? 1) - 1;
     return `BILL-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  /**
+   * Resolve an invoice of the caller's firm (404 otherwise) that the caller may
+   * act on with `permission` for its paying client or its billed-for sub-client
+   * (403 otherwise, in the guard's words — U4 R2).
+   */
+  private async loadAuthorized(
+    user: AuthUser,
+    id: string,
+    permission: string,
+  ): Promise<InvoiceRow> {
+    const invoice = await this.loadOwned(user.firmId, id);
+    await this.rbac.assertAnyClient(user, [permission], [
+      invoice.clientId,
+      invoice.billedForClientId,
+    ]);
+    return invoice;
   }
 
   /** Resolve an invoice that must belong to `firmId`; 404 otherwise. */

@@ -10,6 +10,7 @@ import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
@@ -94,6 +95,17 @@ export function sealedMessage(form: string): string {
         "To correct it, file an amendment — Amend opens a new draft that copies this one.";
 }
 
+/**
+ * The permission each BIR-form operation needs: the route's own (the controller
+ * declares these), asked again of the form's client by the service (U4 R2).
+ */
+export const BIR_FORMS_PERMISSION = {
+  read: "BIRForms:Read",
+  create: "BIRForms:Create",
+  update: "BIRForms:Update",
+  file: "BIRForms:File",
+} as const;
+
 /** The database trigger bir_forms_seal refused the write (U3 migration). */
 function isSealError(err: unknown): boolean {
   return String((err as { message?: unknown })?.message ?? "").includes(
@@ -104,7 +116,9 @@ function isSealError(err: unknown): boolean {
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
  * authoritative compute + eBIRForms XML export. Every operation is firm-scoped;
- * the target client must belong to the actor's firm.
+ * the target client must belong to the actor's firm. Within the firm, every
+ * operation is confined to the clients the caller is authorized for (U4 R2, D14);
+ * catalog and compute carry no client data and are not.
  */
 @Injectable()
 export class BirFormsService {
@@ -113,6 +127,7 @@ export class BirFormsService {
     private readonly clients: ClientsService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly rbac: RbacService,
   ) {}
 
   /** The BIR form catalog + per-form rollout status. */
@@ -124,7 +139,7 @@ export class BirFormsService {
   async list(user: AuthUser, clientId?: string, status?: string) {
     const where: Prisma.BirFormWhereInput = {
       firmId: user.firmId,
-      ...(clientId ? { clientId } : {}),
+      ...(await this.clientScope(user, clientId)),
       ...(status ? { status } : {}),
     };
     const rows = await this.prisma.birForm.findMany({
@@ -142,7 +157,11 @@ export class BirFormsService {
    */
   async listFiled(user: AuthUser, clientId?: string) {
     const rows = await this.prisma.birForm.findMany({
-      where: { firmId: user.firmId, status: "filed", ...(clientId ? { clientId } : {}) },
+      where: {
+        firmId: user.firmId,
+        status: "filed",
+        ...(await this.clientScope(user, clientId)),
+      },
       orderBy: { filedAt: "desc" },
       include: { client: { select: { businessName: true } } },
     });
@@ -153,6 +172,8 @@ export class BirFormsService {
   }
 
   async create(user: AuthUser, input: CreateBirFormInput) {
+    // U4 R2: create authorizes against the client named in the body.
+    await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.create], input.clientId);
     this.assertSupported(input.form);
     await this.clients.assertInFirm(user.firmId, input.clientId);
     const created = await this.prisma.birForm.create({
@@ -172,12 +193,16 @@ export class BirFormsService {
       entityId: created.id,
       metadata: { form: input.form, clientId: input.clientId, period: input.period },
     });
-    return this.getOne(user, created.id);
+    return this.detail(await this.loadOwned(user.firmId, created.id));
   }
 
   /** One form with its raw data, computed figures, and export list. */
   async getOne(user: AuthUser, id: string) {
-    const f = await this.loadOwned(user.firmId, id);
+    return this.detail(await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read));
+  }
+
+  /** The detail view of a loaded form (no authorization: callers have done it). */
+  private detail(f: Awaited<ReturnType<BirFormsService["loadOwned"]>>) {
     const data = (f.dataJson ?? {}) as unknown as FilingData;
     return {
       ...this.toSummary(f),
@@ -193,7 +218,7 @@ export class BirFormsService {
   }
 
   async update(user: AuthUser, id: string, input: UpdateBirFormInput) {
-    const f = await this.loadOwned(user.firmId, id);
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.update);
     // U3 (D11): a filed form is never modified — figures, status or filedAt. There
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
@@ -248,7 +273,7 @@ export class BirFormsService {
         ...(snapshot ? { snapshot: "taken at filing" } : {}),
       },
     });
-    return this.getOne(user, id);
+    return this.detail(await this.loadOwned(user.firmId, id));
   }
 
   /**
@@ -263,7 +288,7 @@ export class BirFormsService {
     user: AuthUser,
     id: string,
   ): Promise<{ id: string; status: "draft"; sequence: number; amendsId: string }> {
-    const f = await this.loadOwned(user.firmId, id);
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.create);
     if (CERTIFICATE_FORMS.has(f.form)) {
       throw new BadRequestException(
         `A ${f.form} is a certificate and has no amendment. To correct a mistaken ` +
@@ -329,7 +354,7 @@ export class BirFormsService {
    * record the export. The XML is the authoritative artifact you upload to BIR.
    */
   async exportForm(user: AuthUser, id: string) {
-    const f = await this.loadOwned(user.firmId, id);
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.file);
     this.assertSupported(f.form);
     if (!XML_EXPORT_FORMS.has(f.form)) {
       throw new BadRequestException(
@@ -388,7 +413,7 @@ export class BirFormsService {
 
   /** A fresh signed download URL for a stored export. */
   async exportUrl(user: AuthUser, id: string, exportId: string) {
-    await this.loadOwned(user.firmId, id);
+    await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
     const exp = await this.prisma.birFormExport.findFirst({
       where: { id: exportId, birFormId: id },
     });
@@ -519,6 +544,32 @@ export class BirFormsService {
       return { totalTaxDue: c.i43, totalPayable: c.i21 };
     }
     return null;
+  }
+
+  /**
+   * U4 R2: the clientId filter of a list. A named client must be one the caller is
+   * authorized for (else 403); with none named, the clients the caller may see.
+   */
+  private async clientScope(
+    user: AuthUser,
+    clientId?: string,
+  ): Promise<Prisma.BirFormWhereInput> {
+    if (clientId) {
+      await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.read], clientId);
+      return { clientId };
+    }
+    const clients = await this.rbac.authorizedClients(user, [BIR_FORMS_PERMISSION.read]);
+    return clients === "all" ? {} : { clientId: { in: [...clients] } };
+  }
+
+  /**
+   * A form of the caller's firm (404 otherwise) that the caller may act on with
+   * `permission` for its client (403 otherwise, in the guard's words — U4 R2).
+   */
+  private async loadAuthorized(user: AuthUser, id: string, permission: string) {
+    const f = await this.loadOwned(user.firmId, id);
+    await this.rbac.assertClient(user, [permission], f.clientId);
+    return f;
   }
 
   private async loadOwned(firmId: string, id: string) {

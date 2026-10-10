@@ -1,8 +1,23 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import type { IncomeTransaction, PurchaseTransaction } from "@portal/shared";
 
-/** A client's tax regime. Derived from Client.taxType. */
-export type Regime = "VAT" | "PERCENTAGE";
+/**
+ * A client's tax regime, derived from Client.taxType. EXEMPT is internal (U8, D39):
+ * it is what a null taxType means — the client form's "None (exempt from business
+ * tax)" — and is never stored. An EXEMPT client keeps books under the non-VAT rules
+ * and owes no business tax.
+ */
+export type Regime = "VAT" | "PERCENTAGE" | "EXEMPT";
+
+/** True when a stored taxType means EXEMPT: no regime at all (U8, D39). */
+export function isExemptTaxType(taxType: string | null | undefined): boolean {
+  return taxType === null || taxType === undefined;
+}
+
+/** The non-VAT regimes: one rule set for both (U8 R2). */
+export function isNonVat(regime: Regime): boolean {
+  return regime !== "VAT";
+}
 
 /** InputVATCategory members that carry NO creditable input VAT (amount only). */
 const NO_INPUT_VAT_CATEGORIES = new Set([
@@ -25,11 +40,16 @@ function isZeroOrAbsent(v: number | undefined | null): boolean {
  */
 @Injectable()
 export class RegimeValidator {
-  /** Resolve and validate a client's regime; a regime is required to classify. */
+  /**
+   * Resolve a client's regime. VAT and PERCENTAGE are themselves; null (or absent)
+   * is EXEMPT — a client exempt from business tax still keeps books (D39). Any
+   * other stored value is refused.
+   */
   requireRegime(taxType: string | null | undefined): Regime {
     if (taxType === "VAT" || taxType === "PERCENTAGE") return taxType;
+    if (taxType === null || taxType === undefined) return "EXEMPT";
     throw new BadRequestException(
-      "Set the client's tax type (VAT or PERCENTAGE) before recording classified transactions.",
+      "Unknown tax regime: use VAT, PERCENTAGE, or none for a client exempt from business tax.",
     );
   }
 
@@ -62,23 +82,20 @@ export class RegimeValidator {
       return;
     }
 
-    // PERCENTAGE (non-VAT) client.
+    // A non-VAT client: PERCENTAGE, or EXEMPT (no regime) — the same rules (U8 R2).
     if (tx.vatClass !== "NON_VAT") {
-      this.fail(
-        "vatClass",
-        "A percentage-tax (non-VAT) client's income must be classified NON_VAT.",
-      );
+      this.fail("vatClass", "A non-VAT client's income must be classified NON_VAT.");
     }
     if (tx.saleToGovernment) {
       this.fail(
         "saleToGovernment",
-        "The 5% creditable VAT withholding is VAT-only; it does not apply to a percentage-tax client.",
+        "The 5% creditable VAT withholding is VAT-only; it does not apply to a non-VAT client.",
       );
     }
     if (!isZeroOrAbsent(tx.creditableVATWithheld5pct)) {
       this.fail(
         "creditableVATWithheld5pct",
-        "A percentage-tax client has no creditable VAT withheld.",
+        "A non-VAT client has no creditable VAT withheld.",
       );
     }
     if (!isZeroOrAbsent(tx.outputVAT)) {
@@ -113,15 +130,15 @@ export class RegimeValidator {
       return;
     }
 
-    // PERCENTAGE (non-VAT) client: no input-VAT classification applies.
+    // A non-VAT client (PERCENTAGE or EXEMPT): no input-VAT classification applies.
     if (tx.inputVATCategory) {
       this.fail(
         "inputVATCategory",
-        "A percentage-tax (non-VAT) client claims no input VAT; leave the category unset.",
+        "A non-VAT client claims no input VAT; leave the category unset.",
       );
     }
     if (!isZeroOrAbsent(tx.inputVAT)) {
-      this.fail("inputVAT", "A percentage-tax client has no creditable input VAT.");
+      this.fail("inputVAT", "A non-VAT client has no creditable input VAT.");
     }
     if (tx.inputTaxAttribution) {
       this.fail(

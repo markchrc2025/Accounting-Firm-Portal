@@ -5,7 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { RbacService } from "../../rbac/rbac.service";
+import { missingPermissionsMessage, RbacService } from "../../rbac/rbac.service";
 import type {
   RequestWithIntegration,
   RequestWithUser,
@@ -44,11 +44,7 @@ export class PermissionsGuard implements CanActivate {
     const clientId = request.params?.clientId;
     const allowed = await this.rbac.authorize(user, required, clientId);
     if (!allowed) {
-      throw new ForbiddenException(
-        `Missing permission(s): ${required.join(", ")}${
-          clientId ? ` for client ${clientId}` : ""
-        }`,
-      );
+      throw new ForbiddenException(missingPermissionsMessage(required, clientId));
     }
     return true;
   }

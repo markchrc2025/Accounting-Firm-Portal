@@ -143,3 +143,15 @@ Decision: on the live portal, with a dummy client named so nobody mistakes it, b
 
 ## 2026-09-25 · C2 · Corrections to the record, from U2, W1, W2 and U3 pass 1
 U1's "no database in this VM" was wrong: PostgreSQL 16 was installed and stopped. U2's "all 23 other tables" and "35 tables" were 24 and 36. U2's claim that scripts/local-db.sh is the whole after-restart procedure was wrong: it needed pnpm install first; fixed in U3. docs/BUILD-PLAN.md: lib/sheetPdf.ts is live code on the certificate path; "40 pages" is 40 routes — 34 pages and 6 redirects. Sentire's 2307 replica omits item 5, Part III block B and the signature-block lines, and adds an ATC list the official face does not carry. docs/BUILD-PLAN.md:402 had a real TIN replaced in U3; docs/BUILD-PLAN.pdf was removed for the same reason. The domain owner confirmed on paper on 2026-09-25 that certificates issued from the Portal print their text on or through the form's lines (W2 F10).
+
+## 2026-10-10 · D39 · A client with no tax regime is exempt from business tax and keeps books
+Decision (domain owner): a client with no tax regime — taxType null, the client form's "None (exempt from business tax)" — is exempt from business tax; such clients exist and keep books, and the import and every bookkeeping path accept them. Bookkeeping for them follows the non-VAT rules (technical partner): income NON_VAT, purchases with no input-VAT claim, the gross receipt is the expense and its VAT a non-claimable figure (D23). Nothing computes a business tax for them. Source: 115 encoded receipts of an exempt client of the firm were refused with "Set the client's tax type (VAT or PERCENTAGE)". Built in U8.
+
+## 2026-10-10 · D40 · format:check is not a gate
+Decision (technical partner): format:check has failed on the same 186 pre-existing files since U3, and CI does not run it. Until a formatting unit makes the tree pass and adds it to CI, every unit reports its count and none reformats a file it does not otherwise change. U3, U7 and U8 merged with it red, correctly.
+
+## 2026-10-10 · D41 · Which Super Admin MCP acts as
+Decision (technical partner, under D15): MCP writes run as the firm's one active Super Admin. With none, MCP writes refuse. With more than one, MCP acts as the Super Admin who issued the connector key now in use (the newest mcp.connector.rotate audit row); otherwise it refuses and says how to choose. Built in U4.
+
+## 2026-10-10 · C7 · Corrections to the record, from U8
+D39, as the technical partner dictated it, named a real client of the firm. In U4 the name was replaced in D39 with "an exempt client of the firm". It is the only edit ever made to an existing entry, made because real client data stays out of the repository (D16). In U4 the fixture in apps/api/src/mcp/mcp.service.spec.ts, which carried a real client's name and TIN, was also replaced with invented data. Git history keeps both, alongside D16's fixture, until the history-rewrite decision.

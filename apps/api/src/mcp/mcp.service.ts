@@ -26,6 +26,7 @@ import { IncomeTransactionsService } from "../income-transactions/income-transac
 import { InvoicesService } from "../invoices/invoices.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PurchaseTransactionsService } from "../purchase-transactions/purchase-transactions.service";
+import { SUPER_ADMIN_ROLE } from "../rbac/permissions.constants";
 import { fail, isoDate, ok, READ_ONLY } from "./mcp-common";
 import { mcpEnabled } from "./mcp-secret";
 import { registerWriteTools } from "./mcp-write-tools";
@@ -39,6 +40,13 @@ export interface McpConnectorDto {
   source: "portal" | "environment" | null;
   secret: string | null;
 }
+
+/** U4 R3 (D15, D41): the two refusals of an MCP write, as the caller reads them. */
+export const MCP_NO_SUPER_ADMIN =
+  "MCP acts as the firm's Super Admin, and there is no active Super Admin.";
+export const MCP_SEVERAL_SUPER_ADMINS =
+  "More than one active Super Admin. Issue the connector key from the Portal's MCP " +
+  "Connector page as the Super Admin Claude should act as.";
 
 const SERVER_NAME = "mcrc-portal-mcp-server";
 const SERVER_VERSION = "1.1.0";
@@ -172,24 +180,49 @@ export class McpService {
   }
 
   /**
-   * The principal MCP WRITES run as: the firm's earliest active staff user
-   * (in practice the seeded Super Admin). Service-layer audit rows attribute
-   * to this user; each write also records an `mcp.<tool>` row marking the
-   * connector as the true actor (see mcp-write-tools.ts).
+   * The principal MCP WRITES run as (U4 R3, D15, D41): the firm's Super Admin,
+   * chosen by role and never by creation order. The candidates are the ACTIVE
+   * firm users holding the Super Admin role firm-wide (clientScopeId null).
+   *   - one: that user;
+   *   - none: every write refuses (MCP_NO_SUPER_ADMIN);
+   *   - several: the one who issued the connector key in use — the user on the
+   *     firm's newest mcp.connector.rotate audit row — when a candidate; else
+   *     refuse (MCP_SEVERAL_SUPER_ADMINS).
+   * Each write tool turns a refusal into a tool error. Service-layer audit rows
+   * attribute to this user; each write also records an `mcp.<tool>` row marking
+   * the connector as the true actor (see mcp-write-tools.ts).
    */
   private async getActor(): Promise<AuthUser> {
     const firmId = await this.firmId();
-    const user = await this.prisma.user.findFirst({
-      where: { firmId, userType: "FIRM", status: "ACTIVE" },
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        firmId,
+        userType: "FIRM",
+        status: "ACTIVE",
+        userRoles: {
+          some: { clientScopeId: null, role: { name: SUPER_ADMIN_ROLE, scope: "FIRM" } },
+        },
+      },
       orderBy: { createdAt: "asc" },
       select: { id: true, email: true },
     });
-    if (!user) {
-      throw new Error(
-        "No active firm user exists to attribute writes to — seed the database first (db:seed).",
-      );
-    }
-    return { id: user.id, firmId, userType: "FIRM", email: user.email };
+    const actor = (u: { id: string; email: string }): AuthUser => ({
+      id: u.id,
+      firmId,
+      userType: "FIRM",
+      email: u.email,
+    });
+    const [only] = candidates;
+    if (!only) throw new Error(MCP_NO_SUPER_ADMIN);
+    if (candidates.length === 1) return actor(only);
+    const rotation = await this.prisma.auditLog.findFirst({
+      where: { action: "mcp.connector.rotate", entityType: "Firm", entityId: firmId },
+      orderBy: { timestamp: "desc" },
+      select: { userId: true },
+    });
+    const issuer = candidates.find((c) => c.id === rotation?.userId);
+    if (!issuer) throw new Error(MCP_SEVERAL_SUPER_ADMINS);
+    return actor(issuer);
   }
 
   /** Resolve a client within the firm or explain how to find a valid id. */
@@ -215,7 +248,8 @@ export class McpService {
       {
         title: "List clients",
         description:
-          "List the firm's clients (id, business name, TIN, tax regime VAT|PERCENTAGE, status, " +
+          "List the firm's clients (id, business name, TIN, tax regime VAT|PERCENTAGE or null " +
+          "for a client exempt from business tax, status, " +
           "location, sub-client billing link). Optional case-insensitive substring filter on " +
           "business name or TIN. Use this first to resolve client ids for the other tools.",
         inputSchema: {
@@ -572,6 +606,7 @@ export class McpService {
       purchases: this.purchases,
       invoices: this.invoices,
       getActor: () => this.getActor(),
+      getFirmId: () => this.firmId(),
     });
 
     return server;

@@ -180,6 +180,8 @@ export class DashboardService {
 
     const totalClients = clients.length;
     const activeClients = clients.filter((c) => c.status === "ACTIVE").length;
+    // A client with no regime (EXEMPT, U8 D39) owes no business tax: it is counted
+    // in neither regime here and files neither return in upcomingFilings().
     const vatClients = clients.filter((c) => c.taxType === "VAT").length;
     const percentageClients = clients.filter((c) => c.taxType === "PERCENTAGE").length;
 
