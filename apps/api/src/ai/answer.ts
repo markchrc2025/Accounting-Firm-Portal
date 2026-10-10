@@ -100,7 +100,7 @@ export type Answer = z.infer<typeof Answer>;
 
 /** Strings with every NUL removed (PostgreSQL text and JSONB cannot hold one). */
 function withoutNul(v: unknown): unknown {
-  if (typeof v === "string") return v.replace(/\u0000/g, "");
+  if (typeof v === "string") return v.split(String.fromCharCode(0)).join("");
   if (Array.isArray(v)) return v.map(withoutNul);
   if (v && typeof v === "object") {
     return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, withoutNul(x)]));

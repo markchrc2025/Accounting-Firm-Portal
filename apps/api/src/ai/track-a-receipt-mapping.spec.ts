@@ -4,7 +4,7 @@
  * Invented vendors and TINs only.
  */
 import { EXPENSES_V2_HEADERS } from "@portal/shared";
-import type { AnswerReceipt } from "./answer";
+import { parseAnswer, type AnswerReceipt } from "./answer";
 import {
   SELLER_VAT_UNKNOWN,
   VAT_BACKED_OUT,
@@ -306,5 +306,15 @@ describe("U11 T9 · R7: one receipt → the template's 27 columns", () => {
       ctx,
     );
     expect(branch.doubts).toEqual([]);
+  });
+
+  it("review: a NUL in the AI's answer is stripped (PostgreSQL cannot store one)", () => {
+    const text = JSON.stringify({
+      result: "unreadable",
+      problem: `blur${String.fromCharCode(0)}red`,
+      receipts: [],
+    });
+    expect(parseAnswer([{ type: "text", text }])?.problem).toBe("blurred");
+    expect(parseAnswer([{ type: "text", text: "not json" }])).toBeNull();
   });
 });
