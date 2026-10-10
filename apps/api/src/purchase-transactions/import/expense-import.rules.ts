@@ -2,6 +2,7 @@
 // reading, TIN normalisation (R5), footing (R4) and the split by treatment
 // (D23, D24). No I/O, no Nest, so every rule is testable on its own.
 import { round2 } from "@portal/shared";
+import type { Regime } from "../../financial/regime-validator";
 import {
   FOOTING_TOLERANCE,
   NO_VAT_CATEGORY,
@@ -9,7 +10,8 @@ import {
   type Classification,
 } from "./expense-import.constants";
 
-export type Regime = "VAT" | "PERCENTAGE";
+/** The regime type is defined once, in the validator (U8: VAT | PERCENTAGE | EXEMPT). */
+export type { Regime };
 
 // --- cells ------------------------------------------------------------------
 
