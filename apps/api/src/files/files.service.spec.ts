@@ -2,6 +2,7 @@ import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { FilesService } from "./files.service";
 import type { AuthUser } from "../common/auth/auth-user";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { RbacService } from "../rbac/rbac.service";
 import type { StorageService } from "../storage/storage.service";
 
 const FIRM = "firm-1";
@@ -25,9 +26,13 @@ function makeService(opts?: { enabled?: boolean; objects?: unknown[] }) {
     signedGetUrl: jest.fn(async (key: string) => `https://signed.example/${key}`),
   };
   const prisma = { client: { findMany: jest.fn(async () => CLIENTS) } };
+  // U4-A1: the caller here sees every client (a Clients:ViewAll holder); the
+  // per-client scope is proved in test/db/track-a-scope-routes.db-spec.ts.
+  const rbac = { authorizedClients: jest.fn(async () => "all") };
   const service = new FilesService(
     prisma as unknown as PrismaService,
     storage as unknown as StorageService,
+    rbac as unknown as RbacService,
   );
   return { service, storage, prisma };
 }

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import type { ClientScope } from "../rbac/rbac.service";
 
 /** One headline KPI tile on the firm dashboard. */
 export interface DashboardKpi {
@@ -110,9 +111,16 @@ function relativeTime(ts: Date, now: number): string {
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async firmOverview(firmId: string): Promise<FirmDashboard> {
+  /**
+   * `visible` (U4-A1, D42): "all" for a Clients:ViewAll holder — the whole firm, as
+   * before — otherwise the caller's visible clients. Every figure is computed over
+   * them, and the firm's audit activity appears only for "all".
+   */
+  async firmOverview(firmId: string, visible: ClientScope = "all"): Promise<FirmDashboard> {
+    const scoped = visible !== "all";
+    const ids = scoped ? [...visible] : [];
     const clients = await this.prisma.client.findMany({
-      where: { firmId },
+      where: { firmId, ...(scoped ? { id: { in: ids } } : {}) },
       select: { id: true, businessName: true, taxType: true, status: true },
     });
 
@@ -140,26 +148,29 @@ export class DashboardService {
     const window = this.monthWindow(now, 6);
     const windowStart = window[0]?.start ?? now;
 
+    // The clients every figure covers: the firm, or the caller's visible ones.
+    const of = scoped ? { client: { firmId }, clientId: { in: ids } } : { client: { firmId } };
     const [incomeAgg, expenseAgg, filingCount, incomeRows, expenseRows, auditRows] =
       await Promise.all([
         this.prisma.incomeTransaction.aggregate({
-          where: { client: { firmId } },
+          where: of,
           _sum: { netAmount: true },
         }),
         this.prisma.purchaseTransaction.aggregate({
-          where: { client: { firmId }, status: "posted" }, // held imports excluded (U6, R7)
+          where: { ...of, status: "posted" }, // held imports excluded (U6, R7)
           _sum: { netAmount: true },
         }),
-        this.prisma.bIRFiling.count({ where: { client: { firmId } } }),
+        this.prisma.bIRFiling.count({ where: of }),
         this.prisma.incomeTransaction.findMany({
-          where: { client: { firmId }, txnDate: { gte: windowStart } },
+          where: { ...of, txnDate: { gte: windowStart } },
           select: { txnDate: true, netAmount: true },
         }),
         this.prisma.purchaseTransaction.findMany({
-          where: { client: { firmId }, txnDate: { gte: windowStart }, status: "posted" },
+          where: { ...of, txnDate: { gte: windowStart }, status: "posted" },
           select: { txnDate: true, netAmount: true },
         }),
-        this.prisma.auditLog.findMany({
+        // The firm's audit activity is a firm record: Clients:ViewAll holders only.
+        scoped ? Promise.resolve([]) : this.prisma.auditLog.findMany({
           where: {
             OR: [
               { user: { is: { firmId } } },
@@ -177,6 +188,7 @@ export class DashboardService {
           take: 5,
         }),
       ]);
+    const across = scoped ? "across your clients" : "across the firm";
 
     const totalClients = clients.length;
     const activeClients = clients.filter((c) => c.status === "ACTIVE").length;
@@ -190,13 +202,13 @@ export class DashboardService {
         label: "Portfolio income",
         value: num(incomeAgg._sum.netAmount),
         isCurrency: true,
-        delta: "across the firm",
+        delta: across,
       },
       {
         label: "Portfolio expenses",
         value: num(expenseAgg._sum.netAmount),
         isCurrency: true,
-        delta: "across the firm",
+        delta: across,
       },
       {
         label: "Active clients",

@@ -81,14 +81,16 @@ export class RbacService {
 
   /**
    * Returns true iff `user` holds every required permission for the given scope.
-   * `clientId` undefined = a firm-level (non-client-scoped) action.
+   * `clientId` undefined = a firm-level (non-client-scoped) action. With a client
+   * and no permission, it answers whether the user can see that client at all
+   * (U4-A1: reads that need no permission, e.g. financial statements).
    */
   async authorize(
     user: AuthUser,
     required: string[],
     clientId?: string,
   ): Promise<boolean> {
-    if (required.length === 0) return true;
+    if (required.length === 0 && !clientId) return true;
     // U4 R4: two firms never meet. A client outside the caller's firm is refused
     // here, at the guard, as well as by every service's own firmId filter.
     if (clientId && !(await this.isClientOfFirm(user.firmId, clientId))) return false;
@@ -114,6 +116,19 @@ export class RbacService {
   ): Promise<void> {
     if (!(await this.authorize(user, required, clientId))) {
       throw new ForbiddenException(missingPermissionsMessage(required, clientId));
+    }
+  }
+
+  /**
+   * U4-A1 (D42): the caller must be able to see this client — every client with
+   * Clients:ViewAll, otherwise the assigned ones — for a read that needs no
+   * permission. The refusal names what would grant it.
+   */
+  async assertVisibleClient(user: AuthUser, clientId: string): Promise<void> {
+    if (!(await this.authorize(user, [], clientId))) {
+      throw new ForbiddenException(
+        missingPermissionsMessage([CLIENTS_VIEW_ALL], clientId),
+      );
     }
   }
 

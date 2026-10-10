@@ -1,8 +1,16 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { CLIENTS_VIEW_ALL } from "../rbac/permissions.constants";
+import { missingPermissionsMessage, RbacService } from "../rbac/rbac.service";
 import {
   buildBalanceSheet,
   buildCashFlow,
@@ -55,6 +63,9 @@ const toDate = (s: string): Date => new Date(`${s}T00:00:00.000Z`);
  * Balances are entered or imported per period; the tested `fs-engine` turns the
  * adjusted trial balance into the statements.
  */
+/** The one FinancialStatements action (permissions.constants.ts); reads need none. */
+const FS_MANAGE = "FinancialStatements:Manage";
+
 @Injectable()
 export class FsService {
   private readonly logger = new Logger(FsService.name);
@@ -62,6 +73,7 @@ export class FsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly rbac: RbacService,
   ) {}
 
   // ------------------------------------------------------------ CoA read/validate
@@ -95,8 +107,16 @@ export class FsService {
   // --------------------------------------------------------------------- reports
 
   async listReports(user: AuthUser) {
+    // U4-A1 (D42): reads are open to every firm user, for the clients they can see.
+    // A report linked to no client belongs to the firm and stays visible.
+    const visible = await this.rbac.authorizedClients(user, []);
     const rows = await this.prisma.fsReport.findMany({
-      where: { firmId: user.firmId },
+      where: {
+        firmId: user.firmId,
+        ...(visible === "all"
+          ? {}
+          : { OR: [{ clientId: null }, { clientId: { in: [...visible] } }] }),
+      },
       orderBy: { updatedAt: "desc" },
       include: { periods: { orderBy: { sortOrder: "asc" } } },
     });
@@ -132,7 +152,10 @@ export class FsService {
 
   async createReport(user: AuthUser, input: CreateReportInput) {
     // A linked client's profile is fetched and snapshotted; explicit input wins.
+    // A client outside the firm stays a 404; one the caller cannot see is a 403
+    // (U4-A1, D42). The facts are only read here, never returned before the check.
     const facts = input.clientId ? await this.resolveClientFacts(user, input.clientId) : null;
+    if (input.clientId) await this.rbac.assertClient(user, [FS_MANAGE], input.clientId);
     const entityName = input.entityName ?? facts?.entityName;
     if (!entityName) {
       throw new BadRequestException("The linked client has no usable entity name — provide one.");
@@ -175,7 +198,7 @@ export class FsService {
   }
 
   async updateReport(user: AuthUser, id: string, input: UpdateReportInput) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     const report = await this.prisma.fsReport.update({
       where: { id },
       data: {
@@ -207,7 +230,7 @@ export class FsService {
   }
 
   async deleteReport(user: AuthUser, id: string) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     await this.prisma.fsReport.delete({ where: { id } });
     await this.audit.record({
       userId: user.id,
@@ -222,7 +245,7 @@ export class FsService {
    *  removed period cascades its trial-balance rows; unchanged sort orders keep
    *  their columns lined up. */
   async setPeriods(user: AuthUser, id: string, input: SetPeriodsInput) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     // Reconfiguring periods mints new period ids, cascade-clearing their trial
     // balances. Clear adjustments too so none is left pointing at a dead period.
     await this.prisma.$transaction([
@@ -263,7 +286,7 @@ export class FsService {
   /** Replace one period's trial balance in full. Every code is validated against
    *  the postable Chart of Accounts; blank/zero rows are dropped. */
   async setTrialBalance(user: AuthUser, id: string, periodId: string, input: SetTrialBalanceInput) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     await this.requirePeriod(id, periodId);
     const { postable } = await this.loadCoa();
     const entries = input.entries.filter((e) => e.amount !== 0);
@@ -319,7 +342,7 @@ export class FsService {
   }
 
   async createAdjustment(user: AuthUser, id: string, input: CreateAdjustmentInput) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     await this.requirePeriod(id, input.periodId);
     const { postable } = await this.loadCoa();
     this.assertCodes(input.lines.map((l) => l.accountCode), postable);
@@ -358,7 +381,7 @@ export class FsService {
   }
 
   async deleteAdjustment(user: AuthUser, id: string, adjustmentId: string) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     const adj = await this.prisma.fsAdjustment.findFirst({ where: { id: adjustmentId, reportId: id } });
     if (!adj) throw new NotFoundException(`Adjustment ${adjustmentId} not found.`);
     await this.prisma.fsAdjustment.delete({ where: { id: adjustmentId } });
@@ -588,7 +611,7 @@ export class FsService {
   /** Override or toggle a policy block. `body`/`title` null resets to the
    *  library default while keeping the include flag. */
   async setPolicyNote(user: AuthUser, id: string, blockKey: string, input: SetPolicyNoteInput) {
-    const report = await this.requireReport(user, id);
+    const report = await this.requireReport(user, id, FS_MANAGE);
     const known = policyBlocksFor(report.framework).some((b) => b.key === blockKey);
     if (!known) throw new BadRequestException(`Unknown policy block "${blockKey}".`);
     const where = { reportId_blockKey: { reportId: id, blockKey } };
@@ -614,13 +637,13 @@ export class FsService {
 
   /** Reset a policy block to the library default (remove the override row). */
   async resetPolicyNote(user: AuthUser, id: string, blockKey: string) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     await this.prisma.fsNote.deleteMany({ where: { reportId: id, blockKey } });
     return this.getNotes(user, id);
   }
 
   async addCustomNote(user: AuthUser, id: string, input: AddCustomNoteInput) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     const max = await this.prisma.fsNote.aggregate({
       where: { reportId: id, kind: "custom" },
       _max: { sortOrder: true },
@@ -639,7 +662,7 @@ export class FsService {
   }
 
   async updateCustomNote(user: AuthUser, id: string, noteId: string, input: UpdateCustomNoteInput) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     const existing = await this.prisma.fsNote.findFirst({ where: { id: noteId, reportId: id, kind: "custom" } });
     if (!existing) throw new NotFoundException(`Custom note ${noteId} not found.`);
     await this.prisma.fsNote.update({
@@ -654,7 +677,7 @@ export class FsService {
   }
 
   async deleteCustomNote(user: AuthUser, id: string, noteId: string) {
-    await this.requireReport(user, id);
+    await this.requireReport(user, id, FS_MANAGE);
     const existing = await this.prisma.fsNote.findFirst({ where: { id: noteId, reportId: id, kind: "custom" } });
     if (!existing) throw new NotFoundException(`Custom note ${noteId} not found.`);
     await this.prisma.fsNote.delete({ where: { id: noteId } });
@@ -663,12 +686,34 @@ export class FsService {
 
   // -------------------------------------------------------------------- helpers
 
-  private async requireReport(user: AuthUser, id: string) {
+  /**
+   * A report of the caller's firm (404 otherwise). U4-A1 (D42): when it is linked to
+   * a client, a read needs that client to be one the caller can see, and a write
+   * (`permission` given) needs the permission for that client — 403 otherwise.
+   */
+  private async requireReport(user: AuthUser, id: string, permission?: string) {
     const report = await this.prisma.fsReport.findFirst({
       where: { id, firmId: user.firmId },
       include: { periods: { orderBy: { sortOrder: "asc" } } },
     });
     if (!report) throw new NotFoundException(`FS report ${id} not found.`);
+    if (report.clientId) {
+      const linked = await this.prisma.client.findFirst({
+        where: { id: report.clientId, firmId: user.firmId },
+        select: { id: true },
+      });
+      if (!linked) {
+        // The linked client is gone (clientId has no foreign key): no one can be
+        // assigned to it, so the report is open to Clients:ViewAll holders only.
+        const all = (await this.rbac.authorizedClients(user, permission ? [permission] : [])) === "all";
+        if (!all) {
+          throw new ForbiddenException(
+            missingPermissionsMessage([CLIENTS_VIEW_ALL], report.clientId),
+          );
+        }
+      } else if (permission) await this.rbac.assertClient(user, [permission], report.clientId);
+      else await this.rbac.assertVisibleClient(user, report.clientId);
+    }
     return report;
   }
 

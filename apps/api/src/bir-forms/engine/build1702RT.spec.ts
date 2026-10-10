@@ -10,20 +10,20 @@ import { build1702RT, fileName1702RT } from "./build1702RT";
 const tp: Taxpayer = {
   id: "tp1",
   kind: "non-individual",
-  regName: "INITIA FIRST STEP CORP.",
+  regName: "INVENTED TEST STEP CORP.",
   lastName: "",
   firstName: "",
   middleName: "",
-  tin: "683-266-552",
+  tin: "000-000-000",
   branch: "0",
   rdo: "25B",
-  address: "2 STALL #2 QUARTZ ST. MERALCO VILLAGE LIAS",
-  city: "MARILAO BULACAN",
-  zip: "3019",
+  address: "3 HALIMBAWA ST BARANGAY TATLO",
+  city: "LUNGSOD NG HALIMBAWA",
+  zip: "0000",
   birthdate: "",
   incorpDate: "2025-08-01",
   email: "juana.halimbawa@example.com",
-  phone: "09190660794",
+  phone: "09000000000",
   citizenship: "",
   civilStatus: "",
   taxpayerType: "",
@@ -53,12 +53,12 @@ function has(key: string, value: string): boolean {
 
 describe("build1702RT", () => {
   it("emits the frm1702RT namespace and 4-part TIN on every page", () => {
-    expect(has("frm1702RT:txtPg1Pt1I6TIN1", "683")).toBe(true);
-    expect(has("frm1702RT:txtPg1Pt1I6TIN2", "266")).toBe(true);
-    expect(has("frm1702RT:txtPg1Pt1I6TIN3", "552")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I6TIN1", "000")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I6TIN2", "000")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I6TIN3", "000")).toBe(true);
     expect(has("frm1702RT:txtPg1Pt1I6TIN4", "000")).toBe(true);
-    expect(has("frm1702RT:txtPg2TIN1", "683")).toBe(true);
-    expect(has("frm1702RT:txtPg3TIN1", "683")).toBe(true);
+    expect(has("frm1702RT:txtPg2TIN1", "000")).toBe(true);
+    expect(has("frm1702RT:txtPg3TIN1", "000")).toBe(true);
     expect(has("frm1702RT:txtPg4TIN4", "000")).toBe(true);
   });
 
@@ -70,10 +70,12 @@ describe("build1702RT", () => {
   });
 
   it("encodes the registered name on page 1 but keeps it raw on pages 2-4", () => {
-    expect(has("frm1702RT:txtPg1Pt1I8Name1", "INITIA%20FIRST%20STEP%20CORP.")).toBe(true);
-    expect(has("frm1702RT:txtPg2RegisteredName", "INITIA FIRST STEP CORP.")).toBe(true);
-    expect(has("frm1702RT:txtPg3RegisteredName", "INITIA FIRST STEP CORP.")).toBe(true);
-    expect(has("frm1702RT:txtPg4RegisteredName", "INITIA FIRST STEP CORP.")).toBe(true);
+    expect(has("frm1702RT:txtPg1Pt1I8Name1", "INVENTED%20TEST%20STEP%20CORP.")).toBe(
+      true,
+    );
+    expect(has("frm1702RT:txtPg2RegisteredName", "INVENTED TEST STEP CORP.")).toBe(true);
+    expect(has("frm1702RT:txtPg3RegisteredName", "INVENTED TEST STEP CORP.")).toBe(true);
+    expect(has("frm1702RT:txtPg4RegisteredName", "INVENTED TEST STEP CORP.")).toBe(true);
   });
 
   it("keeps email namespaced and RDO/year/period correct", () => {
@@ -111,6 +113,6 @@ describe("build1702RT", () => {
   });
 
   it("produces the canonical annual filename", () => {
-    expect(fileName1702RT(filing, tp)).toBe("6832665520001702RTv2018122025.xml");
+    expect(fileName1702RT(filing, tp)).toBe("0000000000001702RTv2018122025.xml");
   });
 });

@@ -4,6 +4,7 @@ import type { PasswordService } from "../auth/password.service";
 import type { MailService } from "../mail/mail.service";
 import type { EmailSettingsService } from "../settings/email-settings.service";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { RbacService } from "../rbac/rbac.service";
 import type { StorageService } from "../storage/storage.service";
 import type { ConfigService } from "@nestjs/config";
 import type { AuthUser } from "../common/auth/auth-user";
@@ -49,7 +50,9 @@ function build(beforeRole: string, afterRole: string) {
     }),
   } as unknown as EmailSettingsService;
   const config = { get: jest.fn((_k: string, def?: string) => def) } as unknown as ConfigService;
-  const svc = new UsersService(prisma, passwords, audit, storage, mail, emailSettings, config);
+  // U4-A1: not about client scope (track-a-scope-routes.db-spec.ts is).
+  const rbac = { assertClient: jest.fn().mockResolvedValue(undefined) } as unknown as RbacService;
+  const svc = new UsersService(prisma, passwords, audit, storage, mail, emailSettings, config, rbac);
   return { svc, mail };
 }
 
