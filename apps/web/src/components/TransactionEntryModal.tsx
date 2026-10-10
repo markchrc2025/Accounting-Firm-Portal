@@ -14,6 +14,7 @@ import {
   type PurchaseTxn,
 } from "../lib/api";
 import { AccountCombobox } from "./AccountCombobox";
+import { isExempt } from "../lib/regime";
 import { Button, cn, peso, RegimeChip } from "./ui";
 
 export type Regime = "VAT" | "PERCENTAGE";
@@ -21,7 +22,12 @@ export type Kind = "income" | "expense";
 
 interface Props {
   clientId: string;
+  /** VAT or not: "PERCENTAGE" is every regime that records no VAT, exempt
+   *  included. */
   regime: Regime;
+  /** The client's tax regime as stored, so the header names it (W6 R1): null is
+   *  "Exempt from business tax". Omitted, the header names `regime`. */
+  taxType?: string | null;
   kind: Kind;
   categories: Category[];
   existing?: IncomeTxn | PurchaseTxn | null;
@@ -83,6 +89,7 @@ function lineNet(l: Line): number {
 export default function TransactionEntryModal({
   clientId,
   regime,
+  taxType,
   kind,
   categories,
   existing,
@@ -91,6 +98,7 @@ export default function TransactionEntryModal({
 }: Props) {
   const isIncome = kind === "income";
   const isVat = regime === "VAT";
+  const exempt = taxType !== undefined && isExempt(taxType);
   const inc = existing as IncomeTxn | undefined;
   const pur = existing as PurchaseTxn | undefined;
   const editing = Boolean(existing);
@@ -352,7 +360,7 @@ export default function TransactionEntryModal({
             <h2 className="font-serif text-[20px] font-medium uppercase tracking-wide text-navy">
               {editing ? `Edit ${docTitle}` : docTitle}
             </h2>
-            <RegimeChip regime={regime} />
+            <RegimeChip regime={taxType === undefined ? regime : taxType} />
           </div>
           <button
             type="button"
@@ -534,7 +542,11 @@ export default function TransactionEntryModal({
                             </option>
                           ))
                         ) : (
-                          <option value="NON_VAT">Non-VAT (Percentage)</option>
+                          <option value="NON_VAT">
+                            {exempt
+                              ? "Non-VAT (exempt from business tax)"
+                              : "Non-VAT (Percentage)"}
+                          </option>
                         )}
                       </select>
                     ) : (

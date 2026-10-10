@@ -23,6 +23,20 @@ import { Button, Chip, cn, peso } from "./ui";
 
 type Stage = "pick" | "checking" | "checked" | "importing" | "done";
 
+const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/** The expenses template is an .xlsx workbook — by name or by type, as the
+ *  file picker's `accept` list says; nothing else is sent. */
+function isXlsxFile(f: File): boolean {
+  return /\.xlsx$/i.test(f.name) || f.type === XLSX_TYPE;
+}
+
+/** What a picked or dropped file that is not the template reads as: the
+ *  server's own words for it (expense-import.parser.ts), so both paths read
+ *  as the picker always has. */
+const NOT_XLSX =
+  "The file is not an .xlsx workbook. Upload the template you downloaded, filled in.";
+
 const OUTCOME_CHIP: Record<ExpenseImportOutcome, "success" | "warn" | "danger"> = {
   posted: "success",
   held: "warn",
@@ -190,6 +204,15 @@ export function ExpenseImportModal({
     if (fileRef.current) fileRef.current.value = "";
     if (!picked) return;
     const mine = ++req.current;
+    // Picked or dropped, only the .xlsx template goes to the server (W6 R3).
+    if (!isXlsxFile(picked)) {
+      setFile(null);
+      setCheck(null);
+      setResult(null);
+      setError(NOT_XLSX);
+      setStage("pick");
+      return;
+    }
     setFile(picked);
     setCheck(null);
     setResult(null);
@@ -235,11 +258,14 @@ export function ExpenseImportModal({
   }
 
   const willCreate = check ? check.totals.posted + check.totals.held : 0;
+  // While the import runs the dialog stays open: closing it would hide the
+  // outcome of a write that is already under way (W6 R3).
+  const importing = stage === "importing";
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(14,33,44,0.45)] p-4"
-      onClick={onClose}
+      onClick={importing ? undefined : onClose}
     >
       <div
         role="dialog"
@@ -259,7 +285,11 @@ export function ExpenseImportModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-content-muted hover:text-navy"
+            disabled={importing}
+            title={
+              importing ? "The import is running. Wait for it to finish." : undefined
+            }
+            className="text-content-muted hover:text-navy disabled:cursor-not-allowed disabled:opacity-40"
           >
             ✕
           </button>
@@ -311,7 +341,7 @@ export function ExpenseImportModal({
               <input
                 ref={fileRef}
                 type="file"
-                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                accept={`.xlsx,${XLSX_TYPE}`}
                 className="hidden"
                 onChange={(e) => void onPick(e.target.files?.[0] ?? null)}
               />

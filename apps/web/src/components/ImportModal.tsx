@@ -9,6 +9,7 @@ import {
   mapImportRows,
   parseSheet,
 } from "../lib/spreadsheet";
+import { isExempt } from "../lib/regime";
 import { ExpenseImportModal } from "./ExpenseImportModal";
 import { Button, cn, peso } from "./ui";
 
@@ -56,12 +57,15 @@ export function ImportModal({
   kind,
   clientId,
   regime,
+  taxType,
   onClose,
   onImported,
 }: {
   kind: Kind;
   clientId: string;
   regime: Regime;
+  /** The client's tax regime as stored (W6 R1): null is exempt. */
+  taxType?: string | null;
   onClose: () => void;
   onImported: () => void;
 }) {
@@ -71,6 +75,7 @@ export function ImportModal({
     <SalesImportModal
       clientId={clientId}
       regime={regime}
+      exempt={taxType !== undefined && isExempt(taxType)}
       onClose={onClose}
       onImported={onImported}
     />
@@ -81,11 +86,13 @@ export function ImportModal({
 function SalesImportModal({
   clientId,
   regime,
+  exempt,
   onClose,
   onImported,
 }: {
   clientId: string;
   regime: Regime;
+  exempt: boolean;
   onClose: () => void;
   onImported: () => void;
 }) {
@@ -292,7 +299,12 @@ function SalesImportModal({
                 columns are recognised automatically, and the party is matched by TIN. The{" "}
                 <strong>Amount is taken as-is (tax-inclusive)</strong>; the net and VAT are derived
                 from the <strong>Tax Code / Tax Type</strong>
-                {regime === "VAT" ? "" : " (no VAT for this percentage-tax client)"}. New categories
+                {regime === "VAT"
+                  ? ""
+                  : exempt
+                    ? " (no VAT: this client is exempt from business tax)"
+                    : " (no VAT for this percentage-tax client)"}
+                . New categories
                 are created automatically.
               </p>
               <input

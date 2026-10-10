@@ -4,13 +4,16 @@
  * reference the design tokens from tailwind.config.js (never raw hex).
  */
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import { isExempt, isVatRegistered, regimeLabel } from "../lib/regime";
 
 /** Tiny class combiner (join truthy classes). */
+// eslint-disable-next-line react-refresh/only-export-components -- a tiny pure helper every page imports from here; moving it would only churn those imports
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
 /** Peso currency, always mono + 2 decimals (design token: `₱1,234,567.00`). */
+// eslint-disable-next-line react-refresh/only-export-components -- a tiny pure helper every page imports from here; moving it would only churn those imports
 export function peso(amount: number | string | null | undefined): string {
   const n = typeof amount === "string" ? Number.parseFloat(amount) : (amount ?? 0);
   if (Number.isNaN(n)) return "₱0.00";
@@ -121,12 +124,16 @@ export function StatusChip({ label, variant = "neutral" }: { label: string; vari
   return <Chip variant={variant}>{label}</Chip>;
 }
 
-/** Regime chip — VAT (blue) vs Percentage tax (gold). Accepts any tax-type string. */
+/** Regime chip — a client's tax regime by its label (W6 R1, D39): VAT-registered
+ *  (blue), Percentage tax (gold), Exempt from business tax (neutral; taxType
+ *  null). Callers render it once the client has loaded. */
 export function RegimeChip({ regime }: { regime?: string | null }) {
-  const isVat = (regime ?? "").toUpperCase().includes("VAT") && !(regime ?? "").toUpperCase().includes("NON");
-  const isPct = (regime ?? "").toUpperCase().includes("PERCENT");
-  if (!regime) return <span className="text-content-muted">—</span>;
-  return <Chip variant={isVat ? "vat" : isPct ? "gold" : "neutral"}>{regime}</Chip>;
+  const variant: ChipVariant = isVatRegistered(regime)
+    ? "vat"
+    : !isExempt(regime) && (regime ?? "").toUpperCase().includes("PERCENT")
+      ? "gold"
+      : "neutral";
+  return <Chip variant={variant}>{regimeLabel(regime)}</Chip>;
 }
 
 /* ------------------------------------------------------------- PageHeader */
