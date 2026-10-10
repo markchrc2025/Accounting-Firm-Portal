@@ -154,7 +154,9 @@ describe("U4 T1 · billings and BIR forms for assigned clients only (real app ov
         fullName: `${TAG} portal user`,
         email: `${TAG}-portal@example.com`,
         status: "ACTIVE",
-        // Unscoped, as POST /users/:id/roles can grant it (A5): only the CLIENT check stops it.
+        // Unscoped, as old POST /users/:id/roles could grant it (A5). U9-A1 R2 now ignores
+        // it (a client role must be scoped to the user's own client); the firm-level
+        // CLIENT check stands behind that.
         userRoles: { create: { roleId: portalRole.id } },
       },
     });

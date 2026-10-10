@@ -294,10 +294,15 @@ export class UsersService {
 
   async assignClients(actor: AuthUser, id: string, input: AssignClientsInput) {
     const user = await this.prisma.user.findFirst({
-      where: { id, firmId: actor.firmId, userType: "FIRM" },
+      where: { id, firmId: actor.firmId },
       include: { firmProfile: true },
     });
-    if (!user?.firmProfile) throw new NotFoundException("Firm user not found");
+    if (!user) throw new NotFoundException("Firm user not found");
+    // U9-A1 R9 (D46): the same answer as the read, assignedClients().
+    if (user.userType !== "FIRM") {
+      throw new BadRequestException("Only firm users are assigned clients.");
+    }
+    if (!user.firmProfile) throw new NotFoundException("Firm user not found");
 
     // U4-A1 (D42): every client must belong to the firm; otherwise 400, nothing written.
     const wanted = [...new Set(input.clientIds)];

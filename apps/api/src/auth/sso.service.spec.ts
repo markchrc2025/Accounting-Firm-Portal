@@ -136,7 +136,7 @@ describe("SsoService", () => {
     const state = stateOf(svc.startUrl("google"));
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { access_token: "t" }))
-      .mockResolvedValueOnce(jsonResponse(200, { email: "mark@mcrctas.com" }));
+      .mockResolvedValueOnce(jsonResponse(200, { email: "mark@mcrctas.com", email_verified: true }));
     const result = await svc.handleCallback("google", "c", state);
     expect(result.kind).toBe("mfa");
     expect(tokens.verify(result.token, "mfa").sub).toBe("u1");
@@ -147,7 +147,7 @@ describe("SsoService", () => {
     const state = stateOf(svc.startUrl("google"));
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, { access_token: "t" }))
-      .mockResolvedValueOnce(jsonResponse(200, { email: "stranger@x.test" }));
+      .mockResolvedValueOnce(jsonResponse(200, { email: "stranger@x.test", email_verified: true }));
     await expect(svc.handleCallback("google", "c", state)).rejects.toMatchObject({
       code: "no-account",
     });
@@ -172,7 +172,7 @@ describe("SsoService", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
         access_token: "t",
-        id_token: fakeIdToken({ preferred_username: "Mark@mcrctas.com", xms_edov: true }),
+        id_token: fakeIdToken({ preferred_username: "Mark@mcrctas.com", tid: "9188040d-6c67-4c5b-b112-36a304b66dad" }),
       }),
     );
     const result = await svc.handleCallback("microsoft", "c", state);
@@ -192,7 +192,7 @@ describe("SsoService", () => {
     const { svc } = build();
     const state = stateOf(svc.startUrl("microsoft"));
     fetchMock
-      .mockResolvedValueOnce(jsonResponse(200, { access_token: "t", id_token: fakeIdToken({ sub: "x", xms_edov: true }) }))
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "t", id_token: fakeIdToken({ sub: "x", tid: "9188040d-6c67-4c5b-b112-36a304b66dad" }) }))
       .mockResolvedValueOnce(jsonResponse(200, { email: "mark@mcrctas.com" }));
     const result = await svc.handleCallback("microsoft", "c", state);
     expect(result.kind).toBe("access");

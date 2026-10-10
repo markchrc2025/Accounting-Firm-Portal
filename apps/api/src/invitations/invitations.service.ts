@@ -189,15 +189,14 @@ export class InvitationsService {
       expiresAt,
     });
 
-    // The token is also returned so the caller can surface the activation link
-    // directly (e.g. copy-paste when email is down). Not persisted elsewhere.
+    // U9-A1 R8 (D46): the raw token is never returned; it reaches the invitee
+    // only through the emailed link.
     return {
       id: invitation.id,
       email: invitation.email,
       clientRole: input.clientRole,
       expiresAt: invitation.expiresAt,
       status: invitation.status,
-      token,
       emailStatus,
       emailError,
     };

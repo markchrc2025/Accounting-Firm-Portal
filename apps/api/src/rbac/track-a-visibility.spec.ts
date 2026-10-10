@@ -22,7 +22,9 @@ function rbac(globalPerms: string[], assignments: string[]) {
       findMany: async () => [
         {
           clientScopeId: null,
+          // U9-A1 R2: a grant counts only when its role's scope fits the user.
           role: {
+            scope: "FIRM",
             rolePermissions: globalPerms.map((p) => {
               const [resource, action] = p.split(":");
               return { permission: { resource, action } };

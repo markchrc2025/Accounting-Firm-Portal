@@ -25,6 +25,46 @@ function statusCacheMs(): number {
   return Number.isFinite(raw) ? Math.min(Math.max(raw, 0), MAX_STATUS_CACHE_MS) : MAX_STATUS_CACHE_MS;
 }
 
+/** The most users whose status the guard holds at once (U9-A1 R7). */
+const MAX_STATUS_CACHE_ENTRIES = 1_000;
+
+/**
+ * U9-A1 R7 (D46): user id → ACTIVE or not, bounded. An entry lives at most
+ * statusCacheMs() (≤ 60 s); expired entries are pruned on every write; past
+ * 1,000 entries the oldest is dropped. Entries are kept in write order (a rewrite
+ * moves the entry to the end), so the oldest is always first.
+ */
+export class StatusCache {
+  private readonly entries = new Map<string, { active: boolean; at: number }>();
+
+  get size(): number {
+    return this.entries.size;
+  }
+
+  get(userId: string, now: number): boolean | undefined {
+    const hit = this.entries.get(userId);
+    if (!hit) return undefined;
+    if (now - hit.at < statusCacheMs()) return hit.active;
+    this.entries.delete(userId);
+    return undefined;
+  }
+
+  set(userId: string, active: boolean, now: number): void {
+    const window = statusCacheMs();
+    this.entries.delete(userId);
+    for (const [id, e] of this.entries) {
+      if (now - e.at < window) break;
+      this.entries.delete(id);
+    }
+    if (window === 0) return;
+    while (this.entries.size >= MAX_STATUS_CACHE_ENTRIES) {
+      const oldest = this.entries.keys().next().value as string;
+      this.entries.delete(oldest);
+    }
+    this.entries.set(userId, { active, at: now });
+  }
+}
+
 /**
  * Global authentication guard. Requires a valid bearer token unless the route is
  * marked @Public(). Accepts BOTH kinds of token:
@@ -35,8 +75,8 @@ function statusCacheMs(): number {
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  /** userId → status and when it was read (R1 a: at most 60 s old). */
-  private readonly statusCache = new Map<string, { active: boolean; at: number }>();
+  /** userId → status and when it was read (R1 a: at most 60 s old; R7: bounded). */
+  private readonly statusCache = new StatusCache();
 
   constructor(
     private readonly reflector: Reflector,
@@ -78,16 +118,15 @@ export class JwtAuthGuard implements CanActivate {
 
   /** The user's status, read at most every statusCacheMs() (R1 a: ≤ 60 s). */
   private async isActive(userId: string): Promise<boolean> {
-    const window = statusCacheMs();
     const now = Date.now();
-    const hit = this.statusCache.get(userId);
-    if (hit && now - hit.at < window) return hit.active;
+    const hit = this.statusCache.get(userId, now);
+    if (hit !== undefined) return hit;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { status: true },
     });
     const active = user?.status === "ACTIVE";
-    if (window > 0) this.statusCache.set(userId, { active, at: now });
+    this.statusCache.set(userId, active, now);
     return active;
   }
 

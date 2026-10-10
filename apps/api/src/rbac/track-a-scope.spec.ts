@@ -18,7 +18,11 @@ const F2_X = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const CLIENTS: Record<string, string> = { [F1_A]: "f1", [F1_B]: "f1", [F2_X]: "f2" };
 
 function rbac(opts: {
-  userRoles: Array<{ clientScopeId: string | null; permissions: string[] }>;
+  userRoles: Array<{
+    clientScopeId: string | null;
+    permissions: string[];
+    scope?: "FIRM" | "CLIENT";
+  }>;
   assignments?: string[];
 }) {
   const findFirst = jest.fn(
@@ -34,7 +38,9 @@ function rbac(opts: {
       findMany: async () =>
         opts.userRoles.map((ur) => ({
           clientScopeId: ur.clientScopeId,
+          // U9-A1 R2: a grant counts only when its role's scope fits the user.
           role: {
+            scope: ur.scope ?? "FIRM",
             rolePermissions: ur.permissions.map((p) => {
               const [resource, action] = p.split(":");
               return { permission: { resource, action } };
@@ -135,7 +141,7 @@ describe("U4 R2 · the client scope of a list (authorizedClients)", () => {
   it("a client principal: its own client when it holds the permission", async () => {
     const portal: AuthUser = { ...firmUser, userType: "CLIENT", clientId: F1_A };
     const { svc } = rbac({
-      userRoles: [{ clientScopeId: F1_A, permissions: ["Sales:Read"] }],
+      userRoles: [{ clientScopeId: F1_A, permissions: ["Sales:Read"], scope: "CLIENT" }],
     });
     expect(await svc.authorizedClients(portal, ["Sales:Read"])).toEqual(new Set([F1_A]));
     expect(await svc.authorizedClients(portal, ["Billing:Read"])).toEqual(new Set());

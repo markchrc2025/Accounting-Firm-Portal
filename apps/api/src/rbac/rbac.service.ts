@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, OnApplicationBootstrap } from "@nestjs/common";
 import type { AuthUser } from "../common/auth/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { CLIENTS_VIEW_ALL } from "./permissions.constants";
@@ -9,6 +9,25 @@ const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 /** The refusal wording, shared by PermissionsGuard and every service-level check. */
 export function missingPermissionsMessage(required: string[], clientId?: string): string {
   return `Missing permission(s): ${required.join(", ")}${clientId ? ` for client ${clientId}` : ""}`;
+}
+
+/**
+ * U9-A1 R2 (D46): a role grant counts only when it fits the user — a FIRM-scope
+ * role for a FIRM user; a CLIENT-scope role for a CLIENT user, scoped to that
+ * user's own client. Any other grant (as old setRoles could write) is ignored,
+ * never deleted.
+ */
+export function grantFitsUser(
+  userType: string,
+  userClientId: string | null | undefined,
+  roleScope: string,
+  clientScopeId: string | null,
+): boolean {
+  if (userType === "FIRM") return roleScope === "FIRM";
+  if (userType === "CLIENT") {
+    return roleScope === "CLIENT" && !!userClientId && clientScopeId === userClientId;
+  }
+  return false;
 }
 
 /**
@@ -35,8 +54,46 @@ export interface EffectivePermissions {
  *  - CLIENT users act only within their own organization.
  */
 @Injectable()
-export class RbacService {
+export class RbacService implements OnApplicationBootstrap {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * U9-A1 R2: one boot line with the number of grants ignored — the count only,
+   * no ids — so the production log says whether old setRoles left any.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    if (!this.prisma.isConnected) return;
+    try {
+      const n = await this.countIgnoredGrants();
+      console.log(`[rbac] ${n} role grant(s) ignored: scope does not fit the user`);
+    } catch (err) {
+      console.log(
+        `[rbac] could not count ignored role grants: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /** How many role grants, across every firm, do not fit their user (R2). */
+  async countIgnoredGrants(): Promise<number> {
+    const grants = await this.prisma.userRole.findMany({
+      select: {
+        clientScopeId: true,
+        role: { select: { scope: true } },
+        user: {
+          select: { userType: true, clientProfile: { select: { clientId: true } } },
+        },
+      },
+    });
+    return grants.filter(
+      (g) =>
+        !grantFitsUser(
+          g.user.userType,
+          g.user.clientProfile?.clientId,
+          g.role.scope,
+          g.clientScopeId,
+        ),
+    ).length;
+  }
 
   async getEffectivePermissions(user: AuthUser): Promise<EffectivePermissions> {
     const userRoles = await this.prisma.userRole.findMany({
@@ -50,6 +107,10 @@ export class RbacService {
     const scoped = new Map<string, Set<string>>();
 
     for (const ur of userRoles) {
+      // U9-A1 R2 (D46): a grant that does not fit the user grants nothing.
+      if (!grantFitsUser(user.userType, user.clientId, ur.role.scope, ur.clientScopeId)) {
+        continue;
+      }
       const perms = ur.role.rolePermissions.map(
         (rp) => `${rp.permission.resource}:${rp.permission.action}`,
       );

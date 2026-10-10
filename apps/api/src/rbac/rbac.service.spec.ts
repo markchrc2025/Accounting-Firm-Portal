@@ -6,7 +6,11 @@ import { RbacService } from "./rbac.service";
  * exercise the scoping rules without a database.
  */
 function fakePrisma(opts: {
-  userRoles: { clientScopeId: string | null; permissions: string[] }[];
+  userRoles: {
+    clientScopeId: string | null;
+    permissions: string[];
+    scope?: "FIRM" | "CLIENT";
+  }[];
   assignments?: string[];
 }) {
   return {
@@ -14,7 +18,9 @@ function fakePrisma(opts: {
       findMany: async () =>
         opts.userRoles.map((ur) => ({
           clientScopeId: ur.clientScopeId,
+          // U9-A1 R2: a grant counts only when its role's scope fits the user.
           role: {
+            scope: ur.scope ?? "FIRM",
             rolePermissions: ur.permissions.map((p) => {
               const [resource, action] = p.split(":");
               return { permission: { resource, action } };
@@ -85,7 +91,11 @@ describe("RbacService.authorize", () => {
     const svc = new RbacService(
       fakePrisma({
         userRoles: [
-          { clientScopeId: CLIENT_A, permissions: ["Sales:Read", "ClientUsers:Create"] },
+          {
+            clientScopeId: CLIENT_A,
+            permissions: ["Sales:Read", "ClientUsers:Create"],
+            scope: "CLIENT",
+          },
         ],
       }),
     );
