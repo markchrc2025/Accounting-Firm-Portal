@@ -72,7 +72,13 @@ test.describe("BIR Forms (requires API)", () => {
     await page.goto("/clients");
     await page.getByRole("link", { name: clientName!.trim() }).first().click();
     await page.getByRole("link", { name: /Tax/i }).first().click();
-    await expect(page.getByText("Filed BIR forms")).toBeVisible();
+    // W11: the tax page shows the API's estimate for a chosen period and lists
+    // the filed returns that cover it; this return is Q1 2026's.
+    await page.getByLabel("Year").selectOption("2026");
+    await page.getByLabel("Quarter").selectOption({ label: "Q1" });
+    const filed = page.locator("[data-filed-returns]");
+    await expect(filed.getByText("Filed returns for this period")).toBeVisible();
+    await expect(filed.getByText("2551Q").first()).toBeVisible();
     await expect(page.getByText("AUTHORITATIVE")).toBeVisible();
   });
 

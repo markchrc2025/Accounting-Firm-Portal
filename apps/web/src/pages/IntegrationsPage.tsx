@@ -335,6 +335,16 @@ function IntegrationCard({
     },
   });
 
+  // W11 R4: rotating cuts the current secret off at once, so it asks first.
+  function handleRotate() {
+    ask({
+      question: `Rotate the secret for ${integration.name}? The current secret stops working immediately.`,
+      confirmLabel: "Rotate",
+      failure: "Could not rotate the secret.",
+      action: () => rotate.mutateAsync(),
+    });
+  }
+
   function handleRevoke() {
     ask({
       question: `Revoke access for "${integration.name}"? Its client key and secret will stop working immediately.`,
@@ -449,7 +459,7 @@ function IntegrationCard({
               variant="outline"
               size="sm"
               disabled={rotate.isPending || revoke.isPending}
-              onClick={() => rotate.mutate()}
+              onClick={handleRotate}
             >
               {rotate.isPending ? "Rotating…" : "Rotate secret"}
             </Button>

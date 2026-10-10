@@ -1,4 +1,6 @@
 /** Thin API client with bearer-token auth and JSON handling. */
+import { estimateQuery } from "./taxPeriod";
+
 // Resolution order: runtime config (window.__PORTAL_ENV__, written by the web
 // container from API_BASE_URL) → build-time VITE_API_BASE_URL → local default.
 const API_BASE_URL =
@@ -1586,6 +1588,56 @@ export function saveTaxRules(clientId: string, body: TaxRule): Promise<TaxRule> 
     method: "PUT",
     body: JSON.stringify(body),
   });
+}
+
+// --- Tax estimate (U10 R1, D47): the API computes it; the web only shows it -------
+/** A filed BIR return that covers the estimate's period (U10 R4). */
+export interface TaxEstimateFiledForm extends FiledBirForm {
+  /** True when a later amendment names this return. */
+  superseded: boolean;
+}
+export interface TaxEstimate {
+  basis: "management-estimate";
+  /** What the page tells the reader first, word for word. */
+  notice: string;
+  client: { id: string; businessName: string; regime: string };
+  period: {
+    year: number;
+    quarter: number | null;
+    label: string;
+    incomeTaxFrom: string;
+    incomeTaxTo: string;
+    businessTaxFrom: string;
+    businessTaxTo: string;
+  };
+  method: { name: TaxMethod | string; source: "saved" | "default"; rate: number | null };
+  incomeTax: {
+    grossIncome: number;
+    deductibleExpenses: number;
+    taxableIncome: number;
+    due: number;
+  };
+  businessTax: {
+    kind: "vat" | "percentage" | "none";
+    grossReceipts: number;
+    outputVAT: number;
+    inputVAT: number;
+    /** The percentage-tax rate the API applied, %; null when none applies. */
+    rate: number | null;
+    due: number;
+  };
+  assumptions: string[];
+  filedForms: TaxEstimateFiledForm[];
+}
+/** GET /clients/:clientId/tax-estimate?year=YYYY[&quarter=1-4] — no quarter is the whole year. */
+export function fetchTaxEstimate(
+  clientId: string,
+  year: number,
+  quarter: number | null,
+): Promise<TaxEstimate> {
+  return apiFetch<TaxEstimate>(
+    `/clients/${clientId}/tax-estimate?${estimateQuery(year, quarter)}`,
+  );
 }
 
 // --- Billing / Invoices (firm-scoped; billed against a client) ----------------------

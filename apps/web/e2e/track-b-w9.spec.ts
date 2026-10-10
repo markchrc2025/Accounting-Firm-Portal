@@ -261,7 +261,8 @@ function mfaServer(state: { on: boolean }, refuse = false): Entry[] {
       ENROLL,
       (r) => {
         if (refuse) return json(r, { message: CODE_REQUIRED }, 400);
-        state.on = false;
+        // U10 R5: enrolling again leaves two-factor as it was (on stays on)
+        // until the new entry is confirmed.
         return json(
           r,
           {
