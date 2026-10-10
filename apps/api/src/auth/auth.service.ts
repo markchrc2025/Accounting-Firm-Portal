@@ -152,17 +152,21 @@ export class AuthService {
     }
   }
 
-  /** Begin MFA enrollment: store a pending secret and return the provisioning URI. */
+  /**
+   * Begin MFA enrollment: store the new secret as PENDING and return the
+   * provisioning URI. U10 R5 (D47): the current secret — and two-factor itself, if
+   * on — stays active until confirmMfa() proves the new one; an abandoned
+   * re-enrollment leaves the old secret working.
+   */
   async enrollMfa(
     user: AuthUser,
     currentCode?: string,
   ): Promise<{ otpauthUrl: string; secret: string }> {
     await this.requireCurrentCode(user, currentCode);
     const { secret, otpauthUrl } = this.mfa.enroll(user.email);
-    // Store the secret but keep mfaEnabled=false until a code is confirmed.
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { mfaSecret: secret, mfaEnabled: false },
+      data: { pendingMfaSecret: secret },
     });
     return { otpauthUrl, secret };
   }
@@ -172,7 +176,7 @@ export class AuthService {
     await this.requireCurrentCode(user, currentCode);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: false, mfaSecret: null },
+      data: { mfaEnabled: false, mfaSecret: null, pendingMfaSecret: null },
     });
     await this.audit.record({
       userId: user.id,
@@ -183,18 +187,25 @@ export class AuthService {
     return { mfaEnabled: false };
   }
 
-  /** Confirm MFA enrollment by verifying the first code, then enable MFA. */
+  /**
+   * Confirm MFA enrollment by verifying a code from the PENDING secret, then make
+   * it the active secret and enable MFA (U10 R5). A secret stored by the earlier
+   * flow (mfaSecret set, MFA still off, nothing pending) is confirmed in place.
+   */
   async confirmMfa(user: AuthUser, code: string): Promise<{ mfaEnabled: true }> {
     const record = await this.prisma.user.findUnique({ where: { id: user.id } });
-    if (!record?.mfaSecret) {
+    const pending =
+      record?.pendingMfaSecret ??
+      (record && !record.mfaEnabled ? record.mfaSecret : null);
+    if (!pending) {
       throw new BadRequestException("Start MFA enrollment first");
     }
-    if (!this.mfa.verify(record.mfaSecret, code)) {
+    if (!this.mfa.verify(pending, code)) {
       throw new BadRequestException("Invalid MFA code");
     }
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { mfaEnabled: true },
+      data: { mfaSecret: pending, pendingMfaSecret: null, mfaEnabled: true },
     });
     await this.audit.record({
       userId: user.id,

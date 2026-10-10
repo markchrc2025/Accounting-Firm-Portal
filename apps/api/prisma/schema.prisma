@@ -194,6 +194,9 @@ model User {
   /// Base32 TOTP secret. Set at enrollment; MFA is only enforced once mfaEnabled=true.
   /// NOTE: encrypt at rest in production; stored plain here for the reference build.
   mfaSecret    String?
+  /// U10 R5 (D47): a re-enrollment's new secret, held here until POST /auth/mfa/confirm
+  /// proves it; mfaSecret stays active meanwhile. Null when no enrollment is pending.
+  pendingMfaSecret String?
   status       UserStatus @default(INVITED)
   /// Object-storage key of the user's uploaded avatar (S3-compatible); null when unset.
   avatarPath   String?

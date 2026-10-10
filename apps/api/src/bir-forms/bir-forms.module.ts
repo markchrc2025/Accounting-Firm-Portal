@@ -7,5 +7,6 @@ import { BirFormsService } from "./bir-forms.service";
   imports: [ClientsModule], // ClientsService.assertInFirm
   controllers: [BirFormsController],
   providers: [BirFormsService],
+  exports: [BirFormsService], // U10: the tax estimate lists the filed forms
 })
 export class BirFormsModule {}
