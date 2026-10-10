@@ -19,6 +19,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { Prisma } from "@prisma/client";
 import {
   ReceiptScanStatus,
@@ -103,9 +104,10 @@ const GIVE_UP_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 const UNSENT_AFTER_MS = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** What the multipart interceptor hands over for each file. */
+/** What the multipart interceptor hands over for each file: written to a
+ *  temporary file on disk, which the interceptor removes when the request ends. */
 export interface UploadedScanFile {
-  buffer: Buffer;
+  path: string;
   originalname: string;
   size: number;
 }
@@ -222,7 +224,8 @@ export class ReceiptScanService {
     if (uploads.length > MAX_FILES)
       throw new BadRequestException(`A pile holds at most ${MAX_FILES} files.`);
 
-    // Prepare every file in memory first; one refusal refuses the pile (R4).
+    // Prepare every file first, one at a time from disk, so at most one decoded
+    // picture is in memory; one refusal refuses the pile (R4).
     const prepared: Array<{
       upload: UploadedScanFile;
       name: string;
@@ -232,14 +235,15 @@ export class ReceiptScanService {
     }> = [];
     for (const u of uploads) {
       const name = uploadName(u.originalname);
-      const p = await prepareUpload(name, u.buffer);
+      const bytes = await readFile(u.path);
+      const p = await prepareUpload(name, bytes);
       if (!p.ok) throw new BadRequestException(p.message);
       prepared.push({
         upload: u,
         name,
         prepared: p,
         id: randomUUID(),
-        sha: sha256(u.buffer),
+        sha: sha256(bytes),
       });
     }
     const tooLarge = pileTooLarge(prepared.map((p) => p.prepared.body.length));

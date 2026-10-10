@@ -956,11 +956,14 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
     expect(six.body.message).toBe(
       "six-pages.pdf has 6 pages; a PDF in a pile may have at most 5.",
     );
+    // U11-A1: "GIF89a…" is now a GIF's start, so the wrong type is plain text.
     const wrong = await pile([
-      { name: "notes.jpg", body: Buffer.from("GIF89a invented"), type: "image/jpeg" },
+      { name: "notes.jpg", body: Buffer.from("invented notes"), type: "image/jpeg" },
     ]);
     expect(wrong.status).toBe(400);
-    expect(wrong.body.message).toBe("notes.jpg is not a JPEG, PNG, WebP or PDF file.");
+    expect(wrong.body.message).toBe(
+      "notes.jpg is not a photo or PDF the Portal can read (it looks like an unknown file).",
+    );
     const heic = Buffer.concat([
       Buffer.from([0, 0, 0, 24]),
       Buffer.from("ftypheic"),
@@ -969,10 +972,9 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
     const iphone = await pile([
       { name: "IMG_0002.HEIC", body: heic, type: "image/heic" },
     ]);
+    // U11-A1: HEIC is read now; a HEIC header with no picture in it cannot be.
     expect(iphone.status).toBe(400);
-    expect(iphone.body.message).toBe(
-      "IMG_0002.HEIC: This is an iPhone HEIC photo. Save it as JPG and upload it again.",
-    );
+    expect(iphone.body.message).toBe("IMG_0002.HEIC could not be read as an image.");
     const none = await pile([]);
     expect([none.status, none.body.message]).toEqual([
       400,
