@@ -18,9 +18,10 @@
   "ts-node": {
     "transpileOnly": true,
     "files": true,
-    "//": "Force the ESM-source @portal/shared to transpile as CommonJS so the CJS API can require() it.",
+    "//": "Force the ESM-source @portal/shared and @portal/bir-pdf to transpile as CommonJS so the CJS API can require() them.",
     "moduleTypes": {
-      "../../packages/shared/src/**/*": "cjs"
+      "../../packages/shared/src/**/*": "cjs",
+      "../../packages/bir-pdf/src/**/*": "cjs"
     }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],

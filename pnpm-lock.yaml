@@ -47,6 +47,9 @@ importers:
       '@nestjs/swagger':
         specifier: ^7.4.2
         version: 7.4.2(@nestjs/common@10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)
+      '@portal/bir-pdf':
+        specifier: workspace:*
+        version: link:../../packages/bir-pdf
       '@portal/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -120,6 +123,9 @@ importers:
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.43)(ts-node@10.9.2(@types/node@20.19.43)(typescript@5.9.3))
+      pdfjs-dist:
+        specifier: 6.1.200
+        version: 6.1.200
       prisma:
         specifier: ^5.20.0
         version: 5.22.0

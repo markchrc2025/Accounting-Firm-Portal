@@ -3,9 +3,16 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
+import {
+  BirPdfError,
+  loadMap as loadPrintMap,
+  parseEbirExport,
+  renderReturn,
+} from "@portal/bir-pdf";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
@@ -37,6 +44,8 @@ import {
   compute2316,
   compute2550Q,
   compute2551Q,
+  ExportRefusal,
+  manilaDate,
   fileName1701,
   fileName1701A,
   fileName1701Q,
@@ -44,6 +53,7 @@ import {
   fileName1702RT,
   fileName2550Q,
   fileName2551Q,
+  type Build2550QOptions,
   type Filing,
   type FilingData,
   type FormCode,
@@ -79,6 +89,62 @@ export const XML_EXPORT_FORMS = new Set([
   "1702Q",
   "1702RT",
 ]);
+
+/**
+ * U13 (D50): the eBIRForms version each return's builder writes, which is the
+ * BIR blank a clear copy prints on. A return prints once @portal/bir-pdf has a
+ * field map for its form and version; until then its clear copy is "not
+ * available yet".
+ */
+export const CLEAR_COPY_VERSION: Record<string, string> = {
+  "2551Q": "2018-01",
+  "2550Q": "2024-04",
+  "1701Q": "2018-01",
+  "1701A": "2018-01",
+  "1701": "2018-01",
+  "1702Q": "2018-01",
+  "1702RT": "2018-01",
+};
+
+/** U13 R1: the refusal for a draft. */
+export const CLEAR_COPY_DRAFT =
+  "Mark the return as filed first; a clear copy shows what was filed.";
+
+const printMapsLoaded = new Set<string>();
+const mapLog = new Logger("BirFormsClearCopy");
+
+/**
+ * True when the print engine has a usable field map for this form's version. A
+ * map that loads is remembered; a missing one is looked for again next time, and
+ * one that exists but cannot be read is logged, never thrown at a reader.
+ */
+export function clearCopyMapped(form: string): boolean {
+  const version = CLEAR_COPY_VERSION[form];
+  if (!version) return false;
+  const key = `${form}-${version}`;
+  if (printMapsLoaded.has(key)) return true;
+  try {
+    loadPrintMap(form, version);
+    printMapsLoaded.add(key);
+    return true;
+  } catch (err) {
+    if (!(err instanceof BirPdfError && /no field map for/.test(err.message)))
+      mapLog.error(`print map ${key} cannot be used: ${(err as Error).message}`);
+    return false;
+  }
+}
+
+/** True for a print-engine error that is the Portal's fault (a map, the package,
+ *  the export's shape), not the return's data: answered 500 and logged, never a
+ *  409 the user cannot act on. */
+export function isEngineFault(err: unknown): boolean {
+  return (
+    !(err instanceof BirPdfError) ||
+    /appears twice in the export|has no entry in the field map|^eBIRForms export:|^@portal\/bir-pdf:|^map |^field map:|no field map for|unknown form version/.test(
+      err.message,
+    )
+  );
+}
 
 /** The seven returns: a filed one is corrected by an amendment (U3 R2, D11). */
 export const RETURN_FORMS = XML_EXPORT_FORMS;
@@ -229,6 +295,8 @@ export class BirFormsService {
       ...this.toSummary(f),
       data,
       computed: AVAILABLE_FORMS.has(f.form) ? this.compute(f.form, data) : null,
+      // U13 R2, additive: a filed return whose form and version have a map.
+      clearCopyAvailable: f.status === "filed" && clearCopyMapped(f.form),
       exports: f.exports.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -380,6 +448,87 @@ export class BirFormsService {
    */
   async exportForm(user: AuthUser, id: string) {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.file);
+    const { xml, filename, snapshotAudit } = await this.buildExport(user, f);
+
+    const key = this.storage.birFormExportKey(user.firmId, f.id, filename);
+    await this.storage.putObject(key, new TextEncoder().encode(xml), "application/xml");
+    const exportRow = await this.prisma.birFormExport.create({
+      data: { birFormId: f.id, kind: "xml", storageKey: key, filename },
+    });
+    await this.audit.record({
+      userId: user.id,
+      action: "bir-form.export",
+      entityType: "BirForm",
+      entityId: f.id,
+      metadata: { kind: "xml", filename, ...snapshotAudit },
+    });
+    return {
+      id: exportRow.id,
+      kind: "xml",
+      filename,
+      url: await this.storage.signedGetUrl(key),
+    };
+  }
+
+  /**
+   * U13 R1 (D50): the client's clear copy of a filed return — the same eBIRForms
+   * export exportForm writes (same builder, the D12 filing snapshot, the same
+   * taxpayer mapping), printed by @portal/bir-pdf onto the BIR's own blank PDF and
+   * stored beside the XML. Downloaded through GET :id/exports/:exportId/url.
+   */
+  async clearCopy(user: AuthUser, id: string) {
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.file);
+    if (!clearCopyMapped(f.form)) {
+      throw new ConflictException(`A clear copy of the ${f.form} is not available yet.`);
+    }
+    if (f.status !== "filed") throw new ConflictException(CLEAR_COPY_DRAFT);
+    const { xml, filename: xmlName, snapshotAudit } = await this.buildExport(user, f);
+    let pdf: Uint8Array;
+    try {
+      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, parseEbirExport(xml));
+    } catch (err) {
+      // The engine names the field of the return it cannot print; nothing is
+      // stored. A fault of the Portal's own is a 500, not the user's to fix.
+      if (!isEngineFault(err)) throw new ConflictException((err as Error).message);
+      mapLog.error(`clear copy of form ${f.id} failed: ${(err as Error).message}`);
+      throw new InternalServerErrorException(
+        `The clear copy of this ${f.form} could not be printed. The error is logged.`,
+      );
+    }
+    const filename = xmlName.replace(/\.xml$/i, ".pdf");
+    const key = this.storage.birFormExportKey(user.firmId, f.id, filename);
+    await this.storage.putObject(key, pdf, "application/pdf");
+    const exportRow = await this.prisma.birFormExport.create({
+      data: { birFormId: f.id, kind: "pdf", storageKey: key, filename },
+    });
+    await this.audit.record({
+      userId: user.id,
+      action: "bir-form.clear-copy",
+      entityType: "BirForm",
+      entityId: f.id,
+      metadata: {
+        kind: "pdf",
+        filename,
+        version: CLEAR_COPY_VERSION[f.form],
+        ...snapshotAudit,
+      },
+    });
+    return {
+      id: exportRow.id,
+      kind: "pdf" as const,
+      filename,
+      createdAt: exportRow.createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * The eBIRForms export of a loaded form, as exportForm and clearCopy both write
+   * it. A return the export cannot carry faithfully is refused with 409 (U13 F1).
+   */
+  private async buildExport(
+    user: AuthUser,
+    f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
+  ) {
     this.assertSupported(f.form);
     if (!XML_EXPORT_FORMS.has(f.form)) {
       throw new BadRequestException(
@@ -403,6 +552,21 @@ export class BirFormsService {
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
+    // U13 F3: the 2550Q's filing date is a filed return's own (Manila), a draft's
+    // export date. F4: its quarters follow the fiscal year start the return was
+    // filed with (the snapshot's, from U13 on) or, for a draft, the client's. A
+    // return filed before U13 keeps the calendar quarters it was filed with: a
+    // filed document is never re-dated (D12).
+    const fiscalYearStart =
+      f.status === "filed"
+        ? (snapshot?.fiscalYearStart ?? null)
+        : client.fiscalYearStart
+          ? client.fiscalYearStart.toISOString().slice(0, 10)
+          : null;
+    const options: Build2550QOptions = {
+      dateFiled: manilaDate(f.status === "filed" && f.filedAt ? f.filedAt : new Date()),
+      fiscalYearStart,
+    };
     const data = (f.dataJson ?? {}) as unknown as FilingData;
     const filing = {
       id: f.id,
@@ -414,26 +578,12 @@ export class BirFormsService {
       createdAt: 0,
       updatedAt: 0,
     };
-    const { xml, filename } = this.buildXml(filing, taxpayer);
-
-    const key = this.storage.birFormExportKey(user.firmId, f.id, filename);
-    await this.storage.putObject(key, new TextEncoder().encode(xml), "application/xml");
-    const exportRow = await this.prisma.birFormExport.create({
-      data: { birFormId: f.id, kind: "xml", storageKey: key, filename },
-    });
-    await this.audit.record({
-      userId: user.id,
-      action: "bir-form.export",
-      entityType: "BirForm",
-      entityId: f.id,
-      metadata: { kind: "xml", filename, ...snapshotAudit },
-    });
-    return {
-      id: exportRow.id,
-      kind: "xml",
-      filename,
-      url: await this.storage.signedGetUrl(key),
-    };
+    try {
+      return { ...this.buildXml(filing, taxpayer, options), snapshotAudit };
+    } catch (err) {
+      if (err instanceof ExportRefusal) throw new ConflictException(err.message);
+      throw err;
+    }
   }
 
   /** A fresh signed download URL for a stored export. */
@@ -472,6 +622,7 @@ export class BirFormsService {
   private buildXml(
     filing: Filing,
     taxpayer: Taxpayer,
+    options: Build2550QOptions = {},
   ): { xml: string; filename: string } {
     const data = filing.data ?? {};
     if (filing.form === "2551Q") {
@@ -484,8 +635,8 @@ export class BirFormsService {
     if (filing.form === "2550Q") {
       const comp = compute2550Q(data);
       return {
-        xml: build2550Q(filing, taxpayer, comp),
-        filename: fileName2550Q(filing, taxpayer),
+        xml: build2550Q(filing, taxpayer, comp, options),
+        filename: fileName2550Q(filing, taxpayer, options),
       };
     }
     if (filing.form === "1701Q") {
