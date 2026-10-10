@@ -87,6 +87,10 @@ The client's registration (shown on the CLIENT sheet) decides this. You never ch
 | Zero-rated | same as VAT-Exempt | same |
 | Other Non-vatable | same as VAT-Exempt | same |
 
+A client with **no tax regime** — the client form's "None (exempt from business tax)" — is
+booked exactly like the non-VAT column; its CLIENT sheet reads *Exempt from business tax (no
+VAT, no percentage tax)* (U8).
+
 `DOMESTIC_NO_INPUT_TAX` is the Portal's name for "no VAT applies" on a purchase (2550Q item
 48, amount only). The three no-VAT columns are told apart in the import result and in the
 audit trail, not on the record itself.

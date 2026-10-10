@@ -215,7 +215,8 @@ export class McpService {
       {
         title: "List clients",
         description:
-          "List the firm's clients (id, business name, TIN, tax regime VAT|PERCENTAGE, status, " +
+          "List the firm's clients (id, business name, TIN, tax regime VAT|PERCENTAGE or null " +
+          "for a client exempt from business tax, status, " +
           "location, sub-client billing link). Optional case-insensitive substring filter on " +
           "business name or TIN. Use this first to resolve client ids for the other tools.",
         inputSchema: {

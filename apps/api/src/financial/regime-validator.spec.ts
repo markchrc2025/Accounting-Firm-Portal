@@ -37,9 +37,9 @@ describe("RegimeValidator.requireRegime", () => {
     expect(v.requireRegime("VAT")).toBe("VAT");
     expect(v.requireRegime("PERCENTAGE")).toBe("PERCENTAGE");
   });
-  it("rejects an unset or unknown regime", () => {
-    expect(() => v.requireRegime(null)).toThrow(BadRequestException);
-    expect(() => v.requireRegime(undefined)).toThrow(BadRequestException);
+  it("resolves no regime to EXEMPT and rejects an unknown regime (U8: null is exempt from business tax)", () => {
+    expect(v.requireRegime(null)).toBe("EXEMPT");
+    expect(v.requireRegime(undefined)).toBe("EXEMPT");
     expect(() => v.requireRegime("VATABLE")).toThrow(BadRequestException);
   });
 });

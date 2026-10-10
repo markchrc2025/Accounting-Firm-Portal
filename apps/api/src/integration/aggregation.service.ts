@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   PercentageTaxSummaryResponse,
   round2,
@@ -6,7 +6,21 @@ import {
 } from "@portal/shared";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { isExemptTaxType } from "../financial/regime-validator";
 import { buildVatSummary, quarterToRange } from "./aggregation";
+
+/**
+ * U8 (D39, R3): a client with no tax regime is exempt from business tax — it files
+ * no 2550Q and no 2551Q. The frozen contract shapes cannot say "exempt", and a
+ * summary would hand the Generator a VAT or percentage-tax base it must not tax,
+ * so both summaries refuse such a client and say why.
+ */
+function exemptConflict(businessName: string, form: "2550Q" | "2551Q"): ConflictException {
+  return new ConflictException(
+    `${businessName} has no tax regime: it is exempt from business tax and files no ${form}, ` +
+      `so there is no ${form === "2550Q" ? "VAT" : "percentage-tax"} summary.`,
+  );
+}
 
 /** ISO yyyy-mm-dd from a Prisma @db.Date value. */
 function toIsoDate(d: Date): string {
@@ -32,6 +46,7 @@ export class AggregationService {
       where: { id: clientId, firmId },
     });
     if (!client) throw new NotFoundException("Client not found");
+    if (isExemptTaxType(client.taxType)) throw exemptConflict(client.businessName, "2550Q");
 
     const { start, end } = quarterToRange(year, quarter);
     const range = { gte: new Date(start), lte: new Date(end) };
@@ -84,6 +99,7 @@ export class AggregationService {
       where: { id: clientId, firmId },
     });
     if (!client) throw new NotFoundException("Client not found");
+    if (isExemptTaxType(client.taxType)) throw exemptConflict(client.businessName, "2551Q");
 
     const { start, end } = quarterToRange(year, quarter);
     const income = await this.prisma.incomeTransaction.findMany({

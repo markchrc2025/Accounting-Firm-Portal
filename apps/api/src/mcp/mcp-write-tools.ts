@@ -128,8 +128,8 @@ const clientProfileFields = {
     .nullable()
     .optional()
     .describe(
-      "Business-tax regime. null = no regime (client exempt from business tax). " +
-        "Required before bookkeeping transactions can be recorded.",
+      "Business-tax regime. null = no regime: the client is exempt from business tax " +
+        "and still keeps books, under the non-VAT rules (no output or input VAT).",
     ),
   taxTypes: z
     .array(taxTypeRowShape)
