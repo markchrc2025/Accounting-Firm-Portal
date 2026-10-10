@@ -1,7 +1,9 @@
 #!/bin/sh
 # API container entrypoint. Boot order is tuned so the HTTP server binds its port as
 # fast as possible (Sliplane fails a deploy if the health check doesn't pass in time):
-#   1. Apply migrations (BLOCKING — the schema must exist before the app boots).
+#   1. Back up, then apply migrations (BLOCKING — the schema must exist before the app
+#      boots). In production the database is dumped to the bucket BEFORE any pending
+#      migration runs, and a failed dump stops the deploy (D38, docs/BACKUPS.md).
 #   2. Start the server in the background and give it the WHOLE CPU to cold-start
 #      (ts-node compilation is slow on small hosts).
 #   3. Only once /api/v1/health responds do we run the idempotent RBAC/admin seed, so
@@ -18,12 +20,21 @@ else
   echo "!!! DATABASE_URL is NOT set — the API cannot reach a database. Set it in Sliplane env vars."
 fi
 
-echo "==> Applying database migrations (prisma migrate deploy)"
-if ! pnpm --filter api prisma:deploy; then
-  echo "!!! Migration step failed. This almost always means DATABASE_URL is wrong or"
-  echo "!!! the database is unreachable. Check: correct host/port, the user owns the"
-  echo "!!! database, the db name exists, and SSL is enabled (append ?sslmode=require"
-  echo "!!! for a managed Postgres). See the target printed above."
+# D38: with NODE_ENV=production and the bucket configured (the four S3_* vars), the
+# database is dumped to backups/pre-migrate/ in the bucket BEFORE any pending migration
+# is applied, and a failed dump or upload stops the deploy right here, unmigrated.
+# Anywhere else the step prints one "skipped" line and migrates exactly as before.
+# BACKUP_ENABLED=false is the off switch. Restore procedure: docs/BACKUPS.md.
+echo "==> Backing up before migrating, then applying database migrations (prisma migrate deploy)"
+if ! pnpm --filter api migrate:with-backup; then
+  echo "!!! The backup-and-migrate step failed. Read the [backup] lines above:"
+  echo "!!!  'FAILED before migrating' — the dump or the upload failed and the database was"
+  echo "!!!    NOT migrated, on purpose. Check pg_dump's message, DATABASE_URL and the four"
+  echo "!!!    S3_* variables, then redeploy. docs/BACKUPS.md has the emergency off switch."
+  echo "!!!  'prisma migrate deploy failed' — the migration itself failed. This almost always"
+  echo "!!!    means DATABASE_URL is wrong or the database is unreachable. Check: correct"
+  echo "!!!    host/port, the user owns the database, the db name exists, and SSL is enabled"
+  echo "!!!    (append ?sslmode=require for a managed Postgres). See the target printed above."
   exit 1
 fi
 

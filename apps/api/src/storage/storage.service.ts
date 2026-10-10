@@ -90,6 +90,12 @@ export class StorageService {
     await this.putCor(key, body, contentType);
   }
 
+  /** Delete an arbitrary object by key (used by the backup module's retention). */
+  async deleteObject(key: string): Promise<void> {
+    const s3 = this.require();
+    await s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
   private require(): S3Client {
     if (!this.client) {
       throw new ServiceUnavailableException("COR storage not configured");
