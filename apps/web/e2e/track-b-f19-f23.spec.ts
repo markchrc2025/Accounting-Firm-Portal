@@ -348,15 +348,20 @@ test.describe("T10 F19 and F23 (hermetic)", () => {
     const dialogs: string[] = [];
     page.on("dialog", (d) => {
       dialogs.push(d.message());
-      void d.accept();
+      void d.dismiss();
     });
     await row.getByRole("button", { name: "Post" }).click();
+    // W10: the confirmation asks in the page.
+    await page
+      .getByRole("dialog", { name: /^Post DR-0777/ })
+      .getByRole("button", { name: "Post", exact: true })
+      .click();
 
     // The tab reads the list again and the row no longer says Held.
     await expect(row).not.toContainText("Held");
     await expect(row).not.toContainText("Needs review");
     expect(listReads()).toBeGreaterThan(before);
-    expect(dialogs).toHaveLength(1);
+    expect(dialogs).toEqual([]);
     expect(seen.filter((s) => s.method === "POST").map((s) => s.path)).toEqual([
       `/api/v1/purchase-transactions/${HELD_ID}/post`,
     ]);

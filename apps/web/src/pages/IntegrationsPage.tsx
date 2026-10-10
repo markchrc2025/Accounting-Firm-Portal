@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OAUTH_SCOPES } from "@portal/shared";
 import {
-  ApiError,
   createIntegration,
   disableMcpConnector,
   fetchIntegrations,
@@ -14,6 +13,7 @@ import {
 } from "../lib/api";
 import type { Integration, IntegrationReveal, McpConnector } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { useConfirmAction } from "../components/useConfirmAction";
 import {
   Button,
   Card,
@@ -146,6 +146,8 @@ export default function IntegrationsPage() {
  */
 function McpConnectorCard() {
   const qc = useQueryClient();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,17 +162,14 @@ function McpConnectorCard() {
     qc.setQueryData(["mcp-connector"], next);
     setShow(next.enabled); // show the fresh link right away after a rotate
   }
+  // Both run only from the in-app confirmation, which shows a refusal (W10 R1).
   const rotate = useMutation({
     mutationFn: () => rotateMcpConnector(),
     onSuccess: onDone,
-    onError: (err) =>
-      setError(err instanceof ApiError ? err.message : "Could not rotate the link."),
   });
   const disable = useMutation({
     mutationFn: () => disableMcpConnector(),
     onSuccess: onDone,
-    onError: (err) =>
-      setError(err instanceof ApiError ? err.message : "Could not turn the connector off."),
   });
   const busy = rotate.isPending || disable.isPending;
 
@@ -192,23 +191,39 @@ function McpConnectorCard() {
   }
 
   function confirmRotate() {
-    const started = data?.enabled
-      ? "This mints a NEW link and the current one stops working immediately — anyone using it (including Claude) must be given the new link.\n\nRotate now?"
-      : "This creates the connector link. Anyone holding it can read AND write portal data.\n\nCreate it?";
-    if (window.confirm(started)) rotate.mutate();
+    setError(null);
+    ask(
+      data?.enabled
+        ? {
+            question:
+              "This mints a NEW link and the current one stops working immediately — anyone using it (including Claude) must be given the new link.\n\nRotate now?",
+            confirmLabel: "Rotate",
+            failure: "Could not rotate the link.",
+            action: () => rotate.mutateAsync(),
+          }
+        : {
+            question:
+              "This creates the connector link. Anyone holding it can read AND write portal data.\n\nCreate it?",
+            confirmLabel: "Create",
+            failure: "Could not rotate the link.",
+            action: () => rotate.mutateAsync(),
+          },
+    );
   }
   function confirmDisable() {
-    if (
-      window.confirm(
+    setError(null);
+    ask({
+      question:
         "Turn the Claude connector OFF? The link stops working immediately. You can re-enable it later by rotating (which mints a new link).",
-      )
-    ) {
-      disable.mutate();
-    }
+      confirmLabel: "Turn off",
+      failure: "Could not turn the connector off.",
+      action: () => disable.mutateAsync(),
+    });
   }
 
   return (
     <Card className="mb-6">
+      {confirmDialog}
       <div className="space-y-4 px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -301,6 +316,8 @@ function IntegrationCard({
   canDelete: boolean;
 }) {
   const qc = useQueryClient();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const active = isActive(integration.status);
 
   const rotate = useMutation({
@@ -319,17 +336,17 @@ function IntegrationCard({
   });
 
   function handleRevoke() {
-    if (
-      window.confirm(
-        `Revoke access for "${integration.name}"? Its client key and secret will stop working immediately.`,
-      )
-    ) {
-      revoke.mutate();
-    }
+    ask({
+      question: `Revoke access for "${integration.name}"? Its client key and secret will stop working immediately.`,
+      confirmLabel: "Revoke",
+      failure: "Could not revoke access.",
+      action: () => revoke.mutateAsync(),
+    });
   }
 
   return (
     <Card className={cn("overflow-hidden", !active && "opacity-70")}>
+      {confirmDialog}
       {/* Header: name + status + last-used */}
       <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-5">
         <div className="flex items-start gap-3">

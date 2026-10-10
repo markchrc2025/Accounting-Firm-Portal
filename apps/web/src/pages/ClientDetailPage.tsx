@@ -7,6 +7,7 @@ import TransactionEntryModal, {
   type Regime,
 } from "../components/TransactionEntryModal";
 import { useAuth } from "../auth/AuthContext";
+import { useConfirmAction } from "../components/useConfirmAction";
 import { permittedFor } from "../lib/permissions";
 import { isVatRegistered } from "../lib/regime";
 import {
@@ -65,6 +66,8 @@ function initials(name: string): string {
 export default function ClientDetailPage() {
   const { clientId = "" } = useParams();
   const { user, permissions, hasPermission } = useAuth();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const queryClient = useQueryClient();
 
   const [kind, setKind] = useState<Kind>("income");
@@ -133,33 +136,38 @@ export default function ClientDetailPage() {
   }
 
   // F23 (W3 R6): posting a held expense here refreshes this tab's own list.
-  async function handlePost(t: PurchaseTxn) {
+  function handlePost(t: PurchaseTxn) {
     const what = [t.referenceNo, t.vendor].filter(Boolean).join(" · ") || "this record";
-    if (
-      !confirm(
-        `Post ${what}? It is held now and counts nowhere. Once posted it counts in the books.`,
-      )
-    )
-      return;
-    setPosting(t.id);
     setActionError(null);
-    try {
-      await postPurchase(t.id);
-      queryClient.invalidateQueries({ queryKey: ["expense", clientId] });
-      queryClient.invalidateQueries({ queryKey: ["purchases", clientId] });
-      queryClient.invalidateQueries({ queryKey: ["purchase-summary", clientId] });
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Could not post this record.");
-    } finally {
-      setPosting(null);
-    }
+    ask({
+      question: `Post ${what}? It is held now and counts nowhere. Once posted it counts in the books.`,
+      confirmLabel: "Post",
+      failure: "Could not post this record.",
+      action: async () => {
+        setPosting(t.id);
+        try {
+          await postPurchase(t.id);
+          queryClient.invalidateQueries({ queryKey: ["expense", clientId] });
+          queryClient.invalidateQueries({ queryKey: ["purchases", clientId] });
+          queryClient.invalidateQueries({ queryKey: ["purchase-summary", clientId] });
+        } finally {
+          setPosting(null);
+        }
+      },
+    });
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this record?")) return;
-    if (kind === "income") await deleteIncome(clientId, id);
-    else await deletePurchase(clientId, id);
-    refresh();
+  function handleDelete(id: string) {
+    ask({
+      question: "Delete this record?",
+      confirmLabel: "Delete",
+      failure: "Could not delete this record.",
+      action: async () => {
+        if (kind === "income") await deleteIncome(clientId, id);
+        else await deletePurchase(clientId, id);
+        refresh();
+      },
+    });
   }
 
   async function addCategory() {
@@ -187,6 +195,7 @@ export default function ClientDetailPage() {
 
   return (
     <div className="animate-fade-rise">
+      {confirmDialog}
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-4 text-[12px] text-content-secondary">
         <Link to="/" className="text-blue hover:underline">

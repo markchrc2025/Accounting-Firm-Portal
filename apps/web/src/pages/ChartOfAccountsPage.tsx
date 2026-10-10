@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
+import { useConfirmAction } from "../components/useConfirmAction";
 import {
   ApiError,
   archiveChartAccount,
@@ -64,6 +65,8 @@ function classTone(cls: string): ChipVariant {
 
 export default function ChartOfAccountsPage() {
   const { hasPermission } = useAuth();
+  // W10 R1: every confirmation asks in the page, never in a browser dialog.
+  const { ask, dialog: confirmDialog } = useConfirmAction();
   const canManage = hasPermission("ChartOfAccounts:Manage");
   const queryClient = useQueryClient();
 
@@ -150,20 +153,24 @@ export default function ChartOfAccountsPage() {
     }
   }
 
-  async function onDeleteMapping(accountCode: string) {
-    if (!confirm(`Remove the BIR mapping for account ${accountCode}?`)) return;
+  function onDeleteMapping(accountCode: string) {
     setRowError(null);
-    try {
-      await deleteAccountTaxMapping(accountCode);
-      invalidate();
-    } catch (e) {
-      // Typically the coverage rule: an active P&L account must stay mapped.
-      setRowError(e instanceof ApiError ? e.message : "Delete failed.");
-    }
+    ask({
+      question: `Remove the BIR mapping for account ${accountCode}?`,
+      confirmLabel: "Remove",
+      // A refusal is typically the coverage rule: an active P&L account must
+      // stay mapped. The server's words show in the dialog.
+      failure: "Delete failed.",
+      action: async () => {
+        await deleteAccountTaxMapping(accountCode);
+        invalidate();
+      },
+    });
   }
 
   return (
     <div className="animate-fade-rise">
+      {confirmDialog}
       <PageHeader
         title="Chart of Accounts"
         eyebrow="FIRM ADMIN"

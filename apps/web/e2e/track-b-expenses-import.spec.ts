@@ -819,17 +819,18 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
         ),
     );
 
-    // Post the held row, accepting the confirmation.
+    // Post the held row, confirming in the page (W10: never a browser dialog).
     await status.selectOption("held");
     const dialogs: string[] = [];
     page.on("dialog", (d) => {
       dialogs.push(d.message());
-      void d.accept();
+      void d.dismiss();
     });
     await body.locator("tr").first().getByRole("button", { name: "Post" }).click();
+    const ask = page.getByRole("dialog", { name: /^Post DR-0042/ });
+    await ask.getByRole("button", { name: "Post", exact: true }).click();
     await expect(body.locator("tr")).toHaveCount(0);
-    expect(dialogs).toHaveLength(1);
-    expect(dialogs[0]).toContain("DR-0042");
+    expect(dialogs).toEqual([]);
 
     const postCalls = seen.filter((s) => s.method === "POST" && s.path.endsWith("/post"));
     expect(postCalls.map((s) => s.path)).toEqual([
@@ -849,15 +850,18 @@ test.describe("T3 Expenses status filter, Post, and the portal (hermetic)", () =
       ],
     });
     await page.goto(`/clients/${NON_VAT_CLIENT.id}/expenses`);
-    let declined = 0;
+    let browserDialogs = 0;
     page.on("dialog", (d) => {
-      declined += 1;
+      browserDialogs += 1;
       void d.dismiss();
     });
     await page.getByRole("button", { name: "Post" }).click();
-    // Declined: the confirmation came and went, and the row is back at rest —
-    // still held, its button still "Post" (W6 R3).
-    await expect.poll(() => declined).toBe(1);
+    // Declined in the page (W10): the confirmation came and went, and the row
+    // is back at rest — still held, its button still "Post" (W6 R3).
+    const ask = page.getByRole("dialog", { name: /^Post / });
+    await ask.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(ask).toBeHidden();
+    expect(browserDialogs).toBe(0);
     await expect(page.getByRole("button", { name: "Post" })).toBeEnabled();
     await quiet();
     expect(seen.filter((s) => s.method === "POST")).toHaveLength(0);
