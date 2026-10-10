@@ -238,9 +238,116 @@ describe("U3 · the seal at the database (bir_forms)", () => {
     expect(truncated).not.toContain("_prisma_migrations");
     expect(truncated).toContain("bir_forms");
     expect(await count("_prisma_migrations")).toBe(migrationDirs);
-    const others = await tablesToTruncate(reader);
+    // Independent of the helper's own pg_class query: information_schema's list.
+    const others = (
+      await reader.$queryRawUnsafe<Array<{ t: string }>>(
+        `SELECT table_name AS t FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name <> '_prisma_migrations'`,
+      )
+    ).map((r) => r.t);
     expect(others.sort()).toEqual([...truncated].sort());
+    expect((await tablesToTruncate(reader)).sort()).toEqual(others.sort());
     for (const t of others) expect(`${t}=${await count(t)}`).toBe(`${t}=0`);
+  });
+
+  it("T2/T4: NOT VALID — rows the old schema allowed survive the CHECK, the trigger seals the filed one, and a set filedAt cannot change even on a non-filed row", async () => {
+    const valid = await reader.$queryRawUnsafe<Array<{ convalidated: boolean }>>(
+      `SELECT convalidated FROM pg_constraint WHERE conname = 'bir_forms_filed_at_check'`,
+    );
+    expect(valid).toEqual([{ convalidated: false }]);
+
+    const { firmId, clientId } = await seedClient();
+    const ROLLBACK = new Error(
+      "rollback: leave the schema exactly as the migration made it",
+    );
+    const seen: string[] = [];
+    /** Run one statement expected to fail, then carry on in the same transaction. */
+    const refused = async (
+      tx: { $executeRawUnsafe: PrismaClient["$executeRawUnsafe"] },
+      sql: string,
+      id: string,
+    ) => {
+      await tx.$executeRawUnsafe("SAVEPOINT s");
+      try {
+        await tx.$executeRawUnsafe(sql, id);
+        seen.push("accepted");
+      } catch (err) {
+        seen.push(
+          /BIR_FORM_SEALED/.test(String(err))
+            ? "sealed"
+            : /bir_forms_filed_at_check|23514/.test(String(err))
+              ? "check"
+              : `other: ${String(err).slice(0, 80)}`,
+        );
+      }
+      await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT s");
+    };
+    await expect(
+      writer.$transaction(async (tx) => {
+        // Recreate what production may hold: a form filed before "filedAt" existed (filed, NULL)
+        // and, for the trigger's second rule, a non-filed row whose filedAt is set (draft, set).
+        await tx.$executeRawUnsafe(
+          `ALTER TABLE bir_forms DROP CONSTRAINT bir_forms_filed_at_check`,
+        );
+        const ins = async (status: string, filedAt: string | null) =>
+          (
+            await tx.$queryRawUnsafe<Array<{ id: string }>>(
+              `INSERT INTO bir_forms (id, "firmId", "clientId", form, status, "filedAt", "updatedAt")
+               VALUES (gen_random_uuid(), $1::uuid, $2::uuid, '2551Q', $3, $4::timestamp, now()) RETURNING id`,
+              firmId,
+              clientId,
+              status,
+              filedAt,
+            )
+          )[0]!.id;
+        const legacyFiled = await ins("filed", null);
+        const legacyDraft = await ins("draft", "2026-01-15T00:00:00");
+        // The migration's own statement succeeds over them: NOT VALID does not re-check old rows.
+        await tx.$executeRawUnsafe(
+          `ALTER TABLE bir_forms ADD CONSTRAINT bir_forms_filed_at_check CHECK (("status" = 'filed') = ("filedAt" IS NOT NULL)) NOT VALID`,
+        );
+        await refused(
+          tx,
+          `UPDATE bir_forms SET "dataJson" = '{"x":1}'::jsonb WHERE id = $1::uuid`,
+          legacyFiled,
+        );
+        await refused(
+          tx,
+          `UPDATE bir_forms SET "filedAt" = now() WHERE id = $1::uuid`,
+          legacyFiled,
+        );
+        await refused(
+          tx,
+          `UPDATE bir_forms SET "filedAt" = NULL WHERE id = $1::uuid`,
+          legacyDraft,
+        );
+        await refused(
+          tx,
+          `UPDATE bir_forms SET "filedAt" = '2027-01-01T00:00:00' WHERE id = $1::uuid`,
+          legacyDraft,
+        );
+        await refused(
+          tx,
+          `UPDATE bir_forms SET "dataJson" = '{"x":1}'::jsonb WHERE id = $1::uuid`,
+          legacyDraft,
+        );
+        throw ROLLBACK;
+      }),
+    ).rejects.toBe(ROLLBACK);
+
+    expect(seen).toEqual([
+      "sealed", // (filed, NULL): sealed by the trigger although the CHECK never validated it
+      "sealed",
+      "sealed", // (draft, set): filedAt → NULL refused by the trigger's second rule, reached on its own
+      "sealed", //               filedAt → another value, same rule
+      "check", //                any other write is refused by the NOT VALID CHECK, now enforced on updates
+    ]);
+    // The rollback restored the migration's constraint exactly: still there, still NOT VALID.
+    expect(
+      await reader.$queryRawUnsafe(
+        `SELECT convalidated FROM pg_constraint WHERE conname = 'bir_forms_filed_at_check'`,
+      ),
+    ).toEqual([{ convalidated: false }]);
   });
 
   // -------------------------------------------------------------------------
@@ -500,6 +607,13 @@ describe("U3 · the service against the real database (far end)", () => {
       });
       expect(draft.dataJson).toEqual(data);
       expect(await rowOf(reader, created.id)).toEqual(before);
+      // The amendment keeps the period of the return it amends.
+      await expect(
+        svc.update(actor, res.id, { period: "2026-Q3" }),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(
+        (await reader.birForm.findUniqueOrThrow({ where: { id: res.id } })).period,
+      ).toBe("2026-Q2");
       const audit = await reader.auditLog.findFirst({
         where: { action: "bir-form.amended", entityId: res.id },
       });

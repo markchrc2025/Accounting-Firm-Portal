@@ -96,9 +96,13 @@ CI runs `test:db` in the `database` job, after `db:seed` — the only job that h
 PostgreSQL service. The `verify` job is untouched and stays hermetic.
 
 **The suite truncates the database (U3 R12).** `apps/api/test/db/helpers/truncate.ts`
-empties every table except `_prisma_migrations` — before each test, and once more after
-each file — and every test seeds only what it needs. So after `pnpm --filter api test:db`
-the local database holds no seed: run `bash scripts/local-db.sh` again to put it back.
+empties every table except `_prisma_migrations`, and refuses to unless `DATABASE_URL`'s host
+is local. Most files truncate before each test and once more after the file, and each test
+seeds only what it needs. The two expenses-import files (U6) build their fixtures once and
+share them across tests, so they truncate once before the file and once after it, and the
+helper puts back only the seeded rows they read: the Super Admin role with its grants, and,
+for one of them, the Chart of Accounts. So after `pnpm --filter api test:db` the local
+database holds no seed: run `bash scripts/local-db.sh` again to put it back.
 
 ## Gotcha: Prisma and `DATABASE_URL`
 

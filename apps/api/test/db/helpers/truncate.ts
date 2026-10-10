@@ -43,6 +43,26 @@ export interface RawDb {
 
 const KEEP = "_prisma_migrations";
 
+/** The hosts scripts/local-db.sh accepts; the live database holds real client data (D6). */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/** Truncation empties every table: refuse anything but a local database, as local-db.sh does. */
+export function assertLocalDatabase(): void {
+  let host = "";
+  try {
+    host = new URL(process.env.DATABASE_URL ?? "").hostname;
+  } catch {
+    throw new Error(
+      "DATABASE_URL is not set or not a URL; the db suite will not truncate an unknown database",
+    );
+  }
+  if (!LOCAL_HOSTS.has(host)) {
+    throw new Error(
+      `refusing to truncate the database at host "${host}": the db suite runs against a local database only`,
+    );
+  }
+}
+
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
@@ -67,6 +87,7 @@ export async function tablesToTruncate(db: RawDb): Promise<string[]> {
  * PrismaClient of its own. Returns the tables it truncated.
  */
 export async function truncateAll(db?: RawDb): Promise<string[]> {
+  assertLocalDatabase();
   const own = db ? null : new PrismaClient();
   const exec: RawDb = db ?? (own as PrismaClient);
   try {

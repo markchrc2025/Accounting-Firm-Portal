@@ -197,6 +197,13 @@ export class BirFormsService {
     // U3 (D11): a filed form is never modified — figures, status or filedAt. There
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
+    // An amendment corrects one filed return: it keeps that return's period (R2).
+    if (f.amendsId && input.period !== undefined && input.period !== f.period) {
+      throw new BadRequestException(
+        `This draft amends the ${f.form} for ${f.period} and keeps that period. ` +
+          "To correct a different period, amend that period's filed return.",
+      );
+    }
 
     // The draft → filed write carries filedAt and the taxpayer snapshot together (D12).
     const filedAt = input.status === "filed" ? new Date() : null;

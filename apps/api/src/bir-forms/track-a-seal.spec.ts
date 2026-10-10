@@ -11,6 +11,7 @@ import {
 import { BirFormsController } from "./bir-forms.controller";
 import { BirFormsService } from "./bir-forms.service";
 import { clientToTaxpayer } from "./client-mapping";
+import { CreateBirFormSchema, UpdateBirFormSchema } from "./dto/bir-form.schemas";
 import {
   R3_KEYS,
   readFiledSnapshot,
@@ -415,5 +416,52 @@ describe("U3 T3 · the amend route", () => {
     const perms = (fn: unknown) => Reflect.getMetadata(PERMISSIONS_KEY, fn as object);
     expect(perms(proto.amend)).toEqual(perms(proto.create));
     expect(perms(proto.amend)).toEqual(["BIRForms:Create"]);
+  });
+});
+
+describe("U3 T3 · an amendment keeps the period of the return it amends (review finding)", () => {
+  const AMENDMENT = { id: "bf2", sequence: 2, amendsId: "bf1", period: "2026-Q1" };
+
+  it("a PATCH moving an amendment draft to another period answers 400 and writes nothing", async () => {
+    const { svc, birForm } = build(formRow(AMENDMENT));
+    const err = await svc
+      .update(actor, "bf2", { period: "2026-Q2", data: {} })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as Error).message).toMatch(
+      /amends the 2551Q for 2026-Q1 and keeps that period/,
+    );
+    expect(birForm.update).not.toHaveBeenCalled();
+  });
+
+  it("the same period (every editor save sends it) and an original draft's period change are still accepted", async () => {
+    const a = build(formRow(AMENDMENT));
+    await a.svc.update(actor, "bf2", { period: "2026-Q1", data: { rows: [] } });
+    expect(a.birForm.update).toHaveBeenCalledTimes(1);
+    const o = build(formRow());
+    await o.svc.update(actor, "bf1", { period: "2026-Q3" });
+    expect(o.birForm.update.mock.calls[0][0].data.period).toBe("2026-Q3");
+  });
+});
+
+describe("U3 T3 · R6: the request schemas keep unknown dataJson keys", () => {
+  const data = {
+    rows: [{ atc: "WC010", desc: "row description" }],
+    payeeZip: "0000",
+    payeeForeignAddress: "1 Example Rd",
+    payeeBranch: "00000",
+    signatoryName: "S",
+    nested: { anything: [1, "two", null] },
+  };
+
+  it("UpdateBirFormSchema and CreateBirFormSchema pass dataJson through untouched", () => {
+    expect(UpdateBirFormSchema.parse({ data }).data).toEqual(data);
+    expect(
+      CreateBirFormSchema.parse({
+        clientId: "00000000-0000-4000-8000-000000000001",
+        form: "2307",
+        data,
+      }).data,
+    ).toEqual(data);
   });
 });
