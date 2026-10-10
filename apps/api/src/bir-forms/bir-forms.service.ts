@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
@@ -109,23 +110,40 @@ export const CLEAR_COPY_VERSION: Record<string, string> = {
 export const CLEAR_COPY_DRAFT =
   "Mark the return as filed first; a clear copy shows what was filed.";
 
-const printMapLoads = new Map<string, boolean>();
+const printMapsLoaded = new Set<string>();
+const mapLog = new Logger("BirFormsClearCopy");
 
-/** True when the print engine has a field map for this form's version. */
+/**
+ * True when the print engine has a usable field map for this form's version. A
+ * map that loads is remembered; a missing one is looked for again next time, and
+ * one that exists but cannot be read is logged, never thrown at a reader.
+ */
 export function clearCopyMapped(form: string): boolean {
   const version = CLEAR_COPY_VERSION[form];
   if (!version) return false;
   const key = `${form}-${version}`;
-  if (!printMapLoads.has(key)) {
-    try {
-      loadPrintMap(form, version);
-      printMapLoads.set(key, true);
-    } catch (err) {
-      if (!(err instanceof BirPdfError)) throw err;
-      printMapLoads.set(key, false);
-    }
+  if (printMapsLoaded.has(key)) return true;
+  try {
+    loadPrintMap(form, version);
+    printMapsLoaded.add(key);
+    return true;
+  } catch (err) {
+    if (!(err instanceof BirPdfError && /no field map for/.test(err.message)))
+      mapLog.error(`print map ${key} cannot be used: ${(err as Error).message}`);
+    return false;
   }
-  return printMapLoads.get(key)!;
+}
+
+/** True for a print-engine error that is the Portal's fault (a map, the package,
+ *  the export's shape), not the return's data: answered 500 and logged, never a
+ *  409 the user cannot act on. */
+export function isEngineFault(err: unknown): boolean {
+  return (
+    !(err instanceof BirPdfError) ||
+    /appears twice in the export|has no entry in the field map|^eBIRForms export:|^@portal\/bir-pdf:|^map |^field map:|no field map for|unknown form version/.test(
+      err.message,
+    )
+  );
 }
 
 /** The seven returns: a filed one is corrected by an amendment (U3 R2, D11). */
@@ -469,9 +487,13 @@ export class BirFormsService {
     try {
       pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, parseEbirExport(xml));
     } catch (err) {
-      // The engine names the field it cannot print; nothing is stored.
-      if (err instanceof BirPdfError) throw new ConflictException(err.message);
-      throw err;
+      // The engine names the field of the return it cannot print; nothing is
+      // stored. A fault of the Portal's own is a 500, not the user's to fix.
+      if (!isEngineFault(err)) throw new ConflictException((err as Error).message);
+      mapLog.error(`clear copy of form ${f.id} failed: ${(err as Error).message}`);
+      throw new InternalServerErrorException(
+        `The clear copy of this ${f.form} could not be printed. The error is logged.`,
+      );
     }
     const filename = xmlName.replace(/\.xml$/i, ".pdf");
     const key = this.storage.birFormExportKey(user.firmId, f.id, filename);
@@ -532,15 +554,18 @@ export class BirFormsService {
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
     // U13 F3: the 2550Q's filing date is a filed return's own (Manila), a draft's
     // export date. F4: its quarters follow the fiscal year start the return was
-    // filed with; a snapshot from before U13 has none, so the client's is read.
+    // filed with (the snapshot's, from U13 on) or, for a draft, the client's. A
+    // return filed before U13 keeps the calendar quarters it was filed with: a
+    // filed document is never re-dated (D12).
+    const fiscalYearStart =
+      f.status === "filed"
+        ? (snapshot?.fiscalYearStart ?? null)
+        : client.fiscalYearStart
+          ? client.fiscalYearStart.toISOString().slice(0, 10)
+          : null;
     const options: Build2550QOptions = {
       dateFiled: manilaDate(f.status === "filed" && f.filedAt ? f.filedAt : new Date()),
-      fiscalYearStart:
-        snapshot && snapshot.fiscalYearStart !== undefined
-          ? snapshot.fiscalYearStart
-          : client.fiscalYearStart
-            ? client.fiscalYearStart.toISOString().slice(0, 10)
-            : null,
+      fiscalYearStart,
     };
     const data = (f.dataJson ?? {}) as unknown as FilingData;
     const filing = {

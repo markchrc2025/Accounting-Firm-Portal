@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "start": "ts-node src/main.ts",
-    "build": "pnpm --filter @portal/shared build && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @portal/shared build && pnpm --filter @portal/bir-pdf build && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest",

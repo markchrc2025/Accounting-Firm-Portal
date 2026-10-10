@@ -98,8 +98,8 @@ function quarterRange(
     y1 += 1;
   }
   const lastDay = new Date(Date.UTC(y1, m1, 0)).getUTCDate();
-  // A period with no year keeps the text it has, as before.
-  if (!Number.isFinite(year)) {
+  // A period with no year keeps the text it has (often empty), as before.
+  if (!/^\d{4}$/.test(yyyy)) {
     return { from: `${m0}/01/${yyyy}`, to: `${m1}/${lastDay}/${yyyy}` };
   }
   return { from: `${m0}/01/${y0}`, to: `${m1}/${lastDay}/${y1}` };

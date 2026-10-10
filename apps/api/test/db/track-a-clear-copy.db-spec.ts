@@ -19,10 +19,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import type { Prisma } from "@prisma/client";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
 import { BIR_PDF, loadMap, overlay, printed, readPdfText } from "./helpers/pdf-text";
 import { AppModule } from "../../src/app.module";
+import { takeFiledSnapshot } from "../../src/bir-forms/filed-snapshot";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
 import { StorageService } from "../../src/storage/storage.service";
@@ -422,6 +424,53 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
         exported(xc, NS0 + "RtnPeriodToNo4"),
         exported(xc, NS0 + "selectedMonthNo2"),
       ]).toEqual(["7/01/2026", "9/30/2026", "12"]);
+    });
+
+    it("F4 · a filed return is never re-dated: one filed before U13 keeps calendar quarters; one filed under U13 keeps the fiscal year it was filed with", async () => {
+      const fiscal = await client({
+        kind: "non-individual",
+        regName: "INVENTED FISCAL TWO CORP",
+        fiscalYearStart: new Date("2026-07-01T00:00:00.000Z"),
+      });
+      const row = await writer.client.findUniqueOrThrow({ where: { id: fiscal } });
+      // Filed before U13: its snapshot has no fiscalYearStart key.
+      const { fiscalYearStart: _absent, ...preU13 } = takeFiledSnapshot(
+        row,
+        new Date("2026-07-20T02:00:00.000Z"),
+      );
+      const old = await writer.birForm.create({
+        data: {
+          firmId,
+          clientId: fiscal,
+          form: "2550Q",
+          period: "2026-Q2",
+          status: "filed",
+          filedAt: new Date("2026-07-20T02:00:00.000Z"),
+          filedSnapshotJson: preU13 as unknown as Prisma.InputJsonValue,
+          dataJson: { ...vat, quarter: "2nd" },
+        },
+      });
+      const x = (await exportXml(old.id)).xml;
+      expect([
+        exported(x, NS0 + "RtnPeriodFromNo4"),
+        exported(x, NS0 + "RtnPeriodToNo4"),
+        exported(x, NS0 + "selectedMonthNo2"),
+        exported(x, "dateFiled"),
+      ]).toEqual(["4/01/2026", "6/30/2026", "12", "2026/07/20"]);
+      // Filed under U13, then the client's fiscal year start changes: the return
+      // keeps the one it was filed with.
+      const now = await draftForm("2550Q", "2027-Q1", { ...vat, quarter: "1st" }, fiscal);
+      await markFiled(now);
+      await writer.client.update({
+        where: { id: fiscal },
+        data: { fiscalYearStart: new Date("2026-04-01T00:00:00.000Z") },
+      });
+      const y = (await exportXml(now)).xml;
+      expect([
+        exported(y, NS0 + "RtnPeriodFromNo4"),
+        exported(y, NS0 + "RtnPeriodToNo4"),
+        exported(y, NS0 + "selectedMonthNo2"),
+      ]).toEqual(["7/01/2026", "9/30/2026", "06"]);
     });
   });
 

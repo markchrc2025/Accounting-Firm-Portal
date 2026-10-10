@@ -8,6 +8,8 @@ import { build2551Q } from "./build2551Q";
 import { compute2550Q } from "./compute2550Q";
 import { compute2551Q } from "./compute2551Q";
 import { ExportRefusal, manilaDate } from "./export-refusal";
+import { BirPdfError, parseEbirExport, renderReturn } from "@portal/bir-pdf";
+import { isEngineFault } from "../bir-forms.service";
 
 const tp: Taxpayer = {
   id: "tp1",
@@ -147,5 +149,44 @@ describe("U13 F2 · item 13 needs an individual's first quarter", () => {
       field(corp, "frm2551Qv2018:taxRate1"),
       field(corp, "frm2551Qv2018:taxRate2"),
     ]).toEqual(["false", "false"]);
+  });
+});
+
+describe("U13 review follow-up", () => {
+  it("a 2550Q with no year keeps a blank year in its dates, as before", () => {
+    const f = filing("2550Q", "", {});
+    const xml = build2550Q(f, tp, compute2550Q(f.data), { dateFiled: "2026/10/25" });
+    expect([
+      field(xml, "frm2550qv2024:RtnPeriodFromNo4"),
+      field(xml, "frm2550qv2024:RtnPeriodToNo4"),
+    ]).toEqual(["1/01/", "3/31/"]);
+  });
+
+  it("the print engine's errors: the return's data is a 409; the Portal's own faults are not", async () => {
+    const f = filing("2551Q", "2026-Q3", {
+      rows: [{ atc: "PT010", taxable: "1", rate: "3" }],
+    });
+    const rows = parseEbirExport(build2551Q(f, tp, compute2551Q(f.data)));
+    const fails = async (r: Array<[string, string]>) =>
+      renderReturn("2551Q", "2018-01", r).then(
+        () => null,
+        (e: unknown) => e,
+      );
+    const withValue = (key: string, value: string) =>
+      rows.map(([k, v]) => [k, k === key ? value : v] as [string, string]);
+    // The return's data: an amount too large for its boxes.
+    const tooBig = await fails(withValue("frm2551Qv2018:txt14", "99,999,999,999,999.00"));
+    expect(tooBig).toBeInstanceOf(BirPdfError);
+    expect(isEngineFault(tooBig)).toBe(false);
+    // The Portal's own: a key the map does not know, or a map that does not exist.
+    const unknownKey = await fails([...rows, ["frm2551Qv2018:txtNew", "1"]]);
+    expect(isEngineFault(unknownKey)).toBe(true);
+    const noMap = await renderReturn("1701", "2018-01", rows).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(noMap).toBeInstanceOf(BirPdfError);
+    expect(isEngineFault(noMap)).toBe(true);
+    expect(isEngineFault(new Error("anything else"))).toBe(true);
   });
 });
