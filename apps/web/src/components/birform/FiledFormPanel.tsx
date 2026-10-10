@@ -14,6 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { amendBirForm, ApiError, type BirFormDetail } from "../../lib/api";
 import { filedBannerTitle, isCertificate } from "../../lib/birFiling";
 import { Button } from "../ui";
+import { ClearCopyButton } from "./ClearCopyButton";
 
 /** The green banner a filed form shows: "Filed on …" or "Issued on …". */
 export function FiledBanner({
@@ -65,22 +66,31 @@ export function FiledFormAction({ detail }: { detail: BirFormDetail }) {
       setError(e instanceof ApiError ? e.message : "Could not amend this form."),
   });
 
+  // W14 R1: a clear copy, wherever the server says the form has a print map.
+  const clearCopy = detail.clearCopyAvailable ? (
+    <ClearCopyButton formId={detail.id} />
+  ) : null;
+
   if (isCertificate(detail.form)) {
     return (
-      <Button
-        variant="outline"
-        onClick={() =>
-          navigate(
-            `/bir-forms/new?form=${encodeURIComponent(detail.form)}&correctFrom=${encodeURIComponent(detail.id)}`,
-          )
-        }
-      >
-        Issue a corrected certificate
-      </Button>
+      <>
+        {clearCopy}
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate(
+              `/bir-forms/new?form=${encodeURIComponent(detail.form)}&correctFrom=${encodeURIComponent(detail.id)}`,
+            )
+          }
+        >
+          Issue a corrected certificate
+        </Button>
+      </>
     );
   }
   return (
     <>
+      {clearCopy}
       <Button
         variant="outline"
         disabled={amend.isPending}

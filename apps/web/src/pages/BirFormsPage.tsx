@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchBirFormCatalog, fetchBirForms } from "../lib/api";
+import { ClearCopyButton } from "../components/birform/ClearCopyButton";
+import {
+  fetchBirForm,
+  fetchBirFormCatalog,
+  fetchBirForms,
+  type BirFormSummary,
+} from "../lib/api";
 import {
   Card,
   CardContent,
@@ -131,12 +137,14 @@ export default function BirFormsPage() {
                       <th className="px-6 py-2.5 font-semibold">Client</th>
                       <th className="px-6 py-2.5 font-semibold">Period</th>
                       <th className="px-6 py-2.5 font-semibold">Status</th>
+                      <th className="px-6 py-2.5 font-semibold">Clear copy</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-divider">
                     {forms.data.map((f) => (
                       <tr
                         key={f.id}
+                        data-form-id={f.id}
                         className="cursor-pointer text-[13px] transition-colors hover:bg-rowhover"
                         onClick={() => navigate(`/bir-forms/${f.id}`)}
                       >
@@ -159,6 +167,9 @@ export default function BirFormsPage() {
                           <Chip variant={f.status === "filed" ? "success" : "neutral"}>
                             {f.status}
                           </Chip>
+                        </td>
+                        <td className="px-6 py-3">
+                          <RowClearCopy row={f} />
                         </td>
                       </tr>
                     ))}
@@ -239,4 +250,23 @@ export default function BirFormsPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * W14 R1: "Download clear copy" on a filed return whose form has a print map.
+ * The server says so on the form's detail (U13); a list row that carries the
+ * flag itself is taken at its word, and otherwise the detail is asked for once
+ * per filed row (the same query the form's own page uses). Drafts ask nothing.
+ */
+function RowClearCopy({ row }: { row: BirFormSummary }) {
+  const filed = row.status === "filed";
+  const known = row.clearCopyAvailable;
+  const detail = useQuery({
+    queryKey: ["bir-form", row.id],
+    queryFn: () => fetchBirForm(row.id),
+    enabled: filed && known === undefined,
+    staleTime: 60_000,
+  });
+  const available = filed && (known ?? detail.data?.clearCopyAvailable ?? false);
+  return available ? <ClearCopyButton formId={row.id} size="sm" /> : null;
 }
