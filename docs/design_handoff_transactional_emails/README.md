@@ -101,7 +101,7 @@ Roles in the portal: **Super Admin, Manager, Accountant, Staff, Auditor** (inter
 8. **Account role changed** — from `no-reply@`. Eyebrow "ACCOUNT UPDATE". H "Your role was updated". Two-chip before→after: "Was `{oldRole}`" (light) → arrow → "Now `{newRole}`" (navy). CTA **View my permissions**. Fine print: contact admin if unexpected. Merge: oldRole, newRole.
 
 ### Group 3 — Documents & Signing
-9. **Document request** — from `notifications@`, sender "Angela Cruz · MCRC". Eyebrow "ACTION REQUESTED". H "We need a few documents". Checklist box: each row = empty checkbox + item + gold "Due `{date}`". CTA **Upload documents**. Merge: accountantName, items[]{label,due}.
+9. **Document request** — from `notifications@`, sender "Test Accountant · MCRC". Eyebrow "ACTION REQUESTED". H "We need a few documents". Checklist box: each row = empty checkbox + item + gold "Due `{date}`". CTA **Upload documents**. Merge: accountantName, items[]{label,due}.
 10. **Document ready** — from `notifications@`. Eyebrow "READY TO REVIEW". H "A document is ready for you". File card: navy "PDF" chip + `{fileName}` + size/date meta. CTA **View document**. Fine print: opens only inside portal. Merge: sharedBy, fileName, fileSize, sharedDate.
 11. **E-signature request** — from `esign@`. Eyebrow "SIGNATURE REQUIRED". H "Please sign your engagement letter". Detail box: Document / Requested by / **Sign by** (gold). CTA **Review & sign**. Merge: docName, requestedBy, signBy.
 

@@ -184,7 +184,10 @@ export class ExpenseImportService {
 
   /** Post a held record. 409 unless it is held; 400 while it has no account. */
   async postHeld(user: AuthUser, id: string) {
-    const row = await this.prisma.purchaseTransaction.findFirst({ where: { id } });
+    // U4-A1 (D42): another firm's record answers exactly like a missing one.
+    const row = await this.prisma.purchaseTransaction.findFirst({
+      where: { id, client: { firmId: user.firmId } },
+    });
     if (!row) throw new NotFoundException("Purchase transaction not found");
     await this.requireClient(user, row.clientId);
     if (row.status !== "held") {

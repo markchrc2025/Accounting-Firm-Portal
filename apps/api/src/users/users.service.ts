@@ -12,6 +12,7 @@ import { PasswordService } from "../auth/password.service";
 import { roleChangedEmail } from "../mail/email-templates";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RbacService } from "../rbac/rbac.service";
 import { EmailSettingsService } from "../settings/email-settings.service";
 import { StorageService } from "../storage/storage.service";
 import type {
@@ -48,6 +49,7 @@ export class UsersService {
     private readonly mail: MailService,
     private readonly emailSettings: EmailSettingsService,
     config: ConfigService,
+    private readonly rbac: RbacService,
   ) {
     this.webAppUrl = (
       config.get<string>("WEB_APP_URL", "https://acctgfirm.mcrctas.com") ?? ""
@@ -108,20 +110,51 @@ export class UsersService {
       select: { ...publicUserSelect, avatarPath: true },
       orderBy: { createdAt: "asc" },
     });
-    return Promise.all(rows.map((row) => this.withAvatarUrl(row)));
+    // U4-A1 (R2): how many clients each firm user is assigned to (additive field).
+    const counts = await this.prisma.firmClientAssignment.groupBy({
+      by: ["firmUserId"],
+      where: { firmUserId: { in: rows.map((r) => r.id) } },
+      _count: { _all: true },
+    });
+    const countOf = new Map(counts.map((c) => [c.firmUserId, c._count._all]));
+    return Promise.all(
+      rows.map(async (row) => ({
+        ...(await this.withAvatarUrl(row)),
+        assignedClientCount: countOf.get(row.id) ?? 0,
+      })),
+    );
   }
 
   async get(actor: AuthUser, id: string) {
+    return this.loadScoped(actor, id, "Users:Read");
+  }
+
+  /** A user of the actor's firm, or 404. No client scope: see loadScoped. */
+  private async load(actor: AuthUser, id: string) {
     const user = await this.prisma.user.findFirst({
       where: { id, firmId: actor.firmId },
-      select: publicUserSelect,
+      select: { ...publicUserSelect, clientProfile: { select: { clientId: true } } },
     });
     if (!user) throw new NotFoundException("User not found");
+    const { clientProfile, ...rest } = user;
+    return { user: rest, clientId: clientProfile?.clientId ?? null };
+  }
+
+  /**
+   * U4-A1 (D42): a portal (CLIENT) user belongs to one client; reading, changing or
+   * deleting them needs that client to be one the actor can act on with the
+   * route's permission (403 in the guard's words). Firm users are unchanged.
+   */
+  private async loadScoped(actor: AuthUser, id: string, permission: string) {
+    const { user, clientId } = await this.load(actor, id);
+    if (user.userType === "CLIENT" && clientId) {
+      await this.rbac.assertClient(actor, [permission], clientId);
+    }
     return user;
   }
 
   async update(actor: AuthUser, id: string, input: UpdateUserInput) {
-    await this.get(actor, id);
+    await this.loadScoped(actor, id, "Users:Update");
     const user = await this.prisma.user.update({
       where: { id },
       data: {
@@ -147,7 +180,7 @@ export class UsersService {
     if (id === actor.id) {
       throw new BadRequestException("You cannot delete your own account");
     }
-    await this.get(actor, id);
+    await this.loadScoped(actor, id, "Users:Delete");
     await this.prisma.user.delete({ where: { id } });
     await this.audit.record({
       userId: actor.id,
@@ -159,7 +192,7 @@ export class UsersService {
   }
 
   async setRoles(actor: AuthUser, id: string, input: SetRolesInput) {
-    const before = await this.get(actor, id);
+    const before = (await this.load(actor, id)).user;
     const roles = await this.resolveFirmRoles(input.roleNames);
     await this.prisma.$transaction([
       // Replace only firm-wide (unscoped) role grants.
@@ -175,7 +208,7 @@ export class UsersService {
       entityId: id,
       metadata: { roleNames: input.roleNames },
     });
-    const after = await this.get(actor, id);
+    const after = (await this.load(actor, id)).user;
     // Notify the affected user their role changed (best-effort; never blocks).
     await this.notifyRoleChange(
       actor.firmId,
@@ -217,6 +250,28 @@ export class UsersService {
     }
   }
 
+  /**
+   * U4-A1 (R2): a firm user's assigned clients, `{ userId, clients }` sorted by
+   * businessName. 404 for an unknown user or one of another firm; 400 for a
+   * portal (CLIENT) user, who is never assigned clients.
+   */
+  async assignedClients(actor: AuthUser, id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, firmId: actor.firmId },
+      select: { id: true, userType: true },
+    });
+    if (!user) throw new NotFoundException("User not found");
+    if (user.userType !== "FIRM") {
+      throw new BadRequestException("Only firm users are assigned clients.");
+    }
+    const rows = await this.prisma.firmClientAssignment.findMany({
+      where: { firmUserId: id },
+      select: { client: { select: { id: true, businessName: true } } },
+      orderBy: [{ client: { businessName: "asc" } }, { clientId: "asc" }],
+    });
+    return { userId: id, clients: rows.map((r) => r.client) };
+  }
+
   async assignClients(actor: AuthUser, id: string, input: AssignClientsInput) {
     const user = await this.prisma.user.findFirst({
       where: { id, firmId: actor.firmId, userType: "FIRM" },
@@ -224,12 +279,18 @@ export class UsersService {
     });
     if (!user?.firmProfile) throw new NotFoundException("Firm user not found");
 
-    // Only clients within the firm may be assigned.
+    // U4-A1 (D42): every client must belong to the firm; otherwise 400, nothing written.
+    const wanted = [...new Set(input.clientIds)];
     const clients = await this.prisma.client.findMany({
-      where: { id: { in: input.clientIds }, firmId: actor.firmId },
+      where: { id: { in: wanted }, firmId: actor.firmId },
       select: { id: true },
     });
-    const validIds = clients.map((c) => c.id);
+    const found = new Set(clients.map((c) => c.id));
+    const unknown = wanted.filter((c) => !found.has(c));
+    if (unknown.length > 0) {
+      throw new BadRequestException(`Not clients of this firm: ${unknown.join(", ")}`);
+    }
+    const validIds = wanted;
 
     await this.prisma.$transaction([
       this.prisma.firmClientAssignment.deleteMany({ where: { firmUserId: id } }),
@@ -244,7 +305,7 @@ export class UsersService {
       entityId: id,
       metadata: { clientIds: validIds },
     });
-    return { assignedClientIds: validIds };
+    return this.assignedClients(actor, id);
   }
 
   private async resolveFirmRoles(roleNames: string[]) {

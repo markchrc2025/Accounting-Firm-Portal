@@ -85,17 +85,36 @@ export class ClientsService {
 
   async create(user: AuthUser, input: CreateClientInput) {
     if (input.billingParentId) {
+      // U4-A1 (D42): the billing parent must be a client the caller can see.
+      await this.rbac.assertClient(user, ["Clients:Create"], input.billingParentId);
       await this.assertBillingLink(user.firmId, null, input.billingParentId);
     }
     if (input.defaultServiceId) {
       await this.assertDefaultService(user.firmId, input.defaultServiceId);
     }
-    const client = await this.prisma.client.create({
-      data: {
-        firmId: user.firmId,
-        businessName: input.businessName,
-        ...this.toClientData(input),
-      },
+    // U4-A1 (D42): a firm user who cannot see every client is assigned to the client
+    // they create, in the same transaction, so they can see what they created.
+    const assignCreator =
+      user.userType === "FIRM" && !(await this.rbac.getEffectivePermissions(user)).hasViewAll;
+    const client = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.client.create({
+        data: {
+          firmId: user.firmId,
+          businessName: input.businessName,
+          ...this.toClientData(input),
+        },
+      });
+      if (assignCreator) {
+        await tx.firmUserProfile.upsert({
+          where: { userId: user.id },
+          create: { userId: user.id },
+          update: {},
+        });
+        await tx.firmClientAssignment.create({
+          data: { firmUserId: user.id, clientId: created.id },
+        });
+      }
+      return created;
     });
     await this.audit.record({
       userId: user.id,
@@ -133,6 +152,8 @@ export class ClientsService {
   async update(user: AuthUser, clientId: string, input: UpdateClientInput) {
     await this.get(user, clientId); // 404 if not in firm
     if (input.billingParentId) {
+      // U4-A1 (D42): the new billing parent must be a client the caller can see.
+      await this.rbac.assertClient(user, ["Clients:Update"], input.billingParentId);
       await this.assertBillingLink(user.firmId, clientId, input.billingParentId);
     }
     if (input.defaultServiceId) {

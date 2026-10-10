@@ -14,7 +14,7 @@ import {
 describe("integration payloads accept the spec's sample JSON", () => {
   it("vat-summary", () => {
     const sample = {
-      client: { id: "cl_123", tin: "471522378", vatRegistered: true },
+      client: { id: "cl_123", tin: "000000000", vatRegistered: true },
       period: { year: 2026, quarter: 1, start: "2026-01-01", end: "2026-03-31" },
       sales: {
         vatable: { net: 400000.0, outputVAT: 48000.0 },
@@ -48,7 +48,7 @@ describe("integration payloads accept the spec's sample JSON", () => {
 
   it("percentage-tax-summary", () => {
     const sample = {
-      client: { id: "cl_123", tin: "471522378", vatRegistered: false },
+      client: { id: "cl_123", tin: "000000000", vatRegistered: false },
       period: { year: 2026, quarter: 1, start: "2026-01-01", end: "2026-03-31" },
       grossReceipts: 500000.0,
       byAtc: [{ atc: "PT010", grossReceipts: 500000.0 }],
@@ -69,7 +69,7 @@ describe("integration payloads accept the spec's sample JSON", () => {
         netVATPayable: -12000.0,
         amountPayable: 0.0,
       },
-      xmlFilename: "471522378000002550Q2026Q1.xml",
+      xmlFilename: "000000000000002550Q2026Q1.xml",
       xmlBase64: "PHhtbC8+",
       pdfUrl: "https://example.test/a4.pdf",
     };

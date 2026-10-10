@@ -3,6 +3,7 @@ import { ApiTags } from "@nestjs/swagger";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
+import { CLIENTS_VIEW_ALL } from "../rbac/permissions.constants";
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import {
   AssignClientsInput,
@@ -68,8 +69,16 @@ export class UsersController {
     return this.users.setRoles(user, id, body);
   }
 
+  /** U4-A1 (R2): a firm user's assigned clients, for the assignment screen. */
+  @Get(":id/clients")
+  @RequirePermissions("Users:Read", CLIENTS_VIEW_ALL)
+  assignedClients(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.users.assignedClients(user, id);
+  }
+
+  /** Replace-all. U4-A1 (D42): assigning clients needs Clients:ViewAll as well. */
   @Post(":id/assign-clients")
-  @RequirePermissions("Roles:Assign")
+  @RequirePermissions("Roles:Assign", CLIENTS_VIEW_ALL)
   assignClients(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,

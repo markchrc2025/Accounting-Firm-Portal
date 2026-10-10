@@ -20,7 +20,7 @@ describe("quarterToRange", () => {
   });
 });
 
-const CLIENT = { id: "cl_123", tin: "471522378" };
+const CLIENT = { id: "cl_123", tin: "000000000" };
 const PERIOD = { year: 2026, quarter: 1, start: "2026-01-01", end: "2026-03-31" };
 
 function income(partial: Partial<IncomeRowForVat>): IncomeRowForVat {

@@ -8,11 +8,11 @@ import { build1701Q, fileName1701Q } from "./build1701Q";
 describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   const tp: Taxpayer = {
     id: "tp1", kind: "individual", regName: "",
-    lastName: "CANLUBO", firstName: "CHRISTIAN", middleName: "R",
-    tin: "474079835", branch: "00000", rdo: "045",
-    address: "80 DRAGON ST BARANGAY SAN ROQUE", city: "MARIKINA CITY", zip: "1800",
-    birthdate: "1995-07-02", email: "mark.canlubo@gmail.com",
-    phone: "09190660794", citizenship: "FILIPINO", civilStatus: "single",
+    lastName: "TESTCASE", firstName: "JUAN", middleName: "T",
+    tin: "000000000", branch: "00000", rdo: "045",
+    address: "1 HALIMBAWA ST BARANGAY UNO", city: "LUNGSOD NG HALIMBAWA", zip: "0000",
+    birthdate: "1990-01-15", email: "test-taxpayer@example.com",
+    phone: "09000000000", citizenship: "FILIPINO", civilStatus: "single",
     taxpayerType: "single", classification: "", createdAt: 0,
   };
   const f: Filing = {
@@ -28,9 +28,9 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
 
   it("uses the frm1701q namespace and authentic background/TIN keys", () => {
     has("frm1701q:txtYear=2025frm1701q:txtYear=");
-    has("frm1701q:txtTIN1=474frm1701q:txtTIN1=");
-    has("frm1701q:txtTIN2=079frm1701q:txtTIN2=");
-    has("frm1701q:txtTIN3=835frm1701q:txtTIN3=");
+    has("frm1701q:txtTIN1=000frm1701q:txtTIN1=");
+    has("frm1701q:txtTIN2=000frm1701q:txtTIN2=");
+    has("frm1701q:txtTIN3=000frm1701q:txtTIN3=");
     has("frm1701q:txtBranchCode=000frm1701q:txtBranchCode=");
     has("frm1701q:txtRDOCode=045frm1701q:txtRDOCode=");
   });
@@ -42,17 +42,17 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   });
 
   it("encodes the page-1 name and emits the split birthdate", () => {
-    has("frm1701q:txtTaxpayerName=CANLUBO%2C%20CHRISTIAN%2C%20Rfrm1701q:txtTaxpayerName=");
-    has("frm1701q:txtBirthMonth=07frm1701q:txtBirthMonth=");
-    has("frm1701q:txtBirthDay=02frm1701q:txtBirthDay=");
-    has("frm1701q:txtBirthYear=1995frm1701q:txtBirthYear=");
+    has("frm1701q:txtTaxpayerName=TESTCASE%2C%20JUAN%2C%20Tfrm1701q:txtTaxpayerName=");
+    has("frm1701q:txtBirthMonth=01frm1701q:txtBirthMonth=");
+    has("frm1701q:txtBirthDay=15frm1701q:txtBirthDay=");
+    has("frm1701q:txtBirthYear=1990frm1701q:txtBirthYear=");
     has("frm1701q:txtCitizenship=FILIPINOfrm1701q:txtCitizenship=");
   });
 
   it("emits the page-2 header keys (raw last name)", () => {
-    has("frm1701q:txtPg2TIN1=474frm1701q:txtPg2TIN1=");
+    has("frm1701q:txtPg2TIN1=000frm1701q:txtPg2TIN1=");
     has("frm1701q:txtPg2BranchCode=000frm1701q:txtPg2BranchCode=");
-    has("frm1701q:txtPg2TaxpayerName=CANLUBOfrm1701q:txtPg2TaxpayerName=");
+    has("frm1701q:txtPg2TaxpayerName=TESTCASEfrm1701q:txtPg2TaxpayerName=");
   });
 
   it("emits the txtNN amount fields formatted as 0.00", () => {
@@ -63,7 +63,7 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   });
 
   it("emits the global (un-namespaced) txtEmail field", () => {
-    has("txtEmail=mark.canlubo@gmail.comtxtEmail=");
+    has("txtEmail=test-taxpayer@example.comtxtEmail=");
   });
 
   it("ends with the 1701Q package tail (BIR 2012.0)", () => {
@@ -72,6 +72,6 @@ describe("build1701Q — matches the authentic eBIRForms 1701Q export", () => {
   });
 
   it("produces the authentic filename", () => {
-    expect(fileName1701Q(f, tp)).toBe("4740798350001701Qv20182025Q2.xml");
+    expect(fileName1701Q(f, tp)).toBe("0000000000001701Qv20182025Q2.xml");
   });
 });

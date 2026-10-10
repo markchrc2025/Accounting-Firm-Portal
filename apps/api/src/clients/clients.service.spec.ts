@@ -23,7 +23,14 @@ function build() {
       count: jest.fn().mockResolvedValue(0),
     },
   } as unknown as PrismaService;
-  const rbac = {} as RbacService;
+  // U4-A1: create runs in a transaction (the creator's assignment, D42); the actor
+  // here sees every client, so no assignment is written.
+  (prisma as unknown as { $transaction: unknown }).$transaction = jest.fn(
+    async (fn: (tx: PrismaService) => unknown) => fn(prisma),
+  );
+  const rbac = {
+    getEffectivePermissions: jest.fn().mockResolvedValue({ hasViewAll: true }),
+  } as unknown as RbacService;
   const audit = { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
   const storage = {} as StorageService;
   return { svc: new ClientsService(prisma, rbac, audit, storage), prisma };
