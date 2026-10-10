@@ -18,12 +18,12 @@ const URL = "https://acctgfirm.mcrctas.com/x";
 function renderAll(theme: EmailTheme): Record<string, RenderedEmail> {
   return {
     staffInvite: EMAIL_TEMPLATES.staffInvite(
-      { inviterName: "Christian Canlubo", role: "Super Admin", acceptUrl: URL, expiryDate: "July 28, 2026" },
+      { inviterName: "Test Inviter", role: "Super Admin", acceptUrl: URL, expiryDate: "July 28, 2026" },
       theme,
     ),
     clientInvite: EMAIL_TEMPLATES.clientInvite({ setupUrl: URL }, theme),
     welcomeClient: EMAIL_TEMPLATES.welcomeClient(
-      { firstName: "Maria", accountantName: "Angela Cruz, CPA", accountantInitials: "AC", dashboardUrl: URL },
+      { firstName: "Test Client", accountantName: "Test Accountant, CPA", accountantInitials: "TA", dashboardUrl: URL },
       theme,
     ),
     welcomeStaff: EMAIL_TEMPLATES.welcomeStaff({ role: "Accountant", portalUrl: URL }, theme),
@@ -39,7 +39,7 @@ function renderAll(theme: EmailTheme): Record<string, RenderedEmail> {
     ),
     documentRequest: EMAIL_TEMPLATES.documentRequest(
       {
-        accountantName: "Angela Cruz",
+        accountantName: "Test Accountant",
         periodLabel: "2025",
         items: [
           { label: "2025 income statements", due: "Aug 1" },
@@ -50,11 +50,11 @@ function renderAll(theme: EmailTheme): Record<string, RenderedEmail> {
       theme,
     ),
     documentReady: EMAIL_TEMPLATES.documentReady(
-      { sharedBy: "Angela Cruz", fileName: "2025 Tax Return — Draft.pdf", fileSize: "1.4 MB", sharedDate: "Jul 21", viewUrl: URL },
+      { sharedBy: "Test Accountant", fileName: "2025 Tax Return — Draft.pdf", fileSize: "1.4 MB", sharedDate: "Jul 21", viewUrl: URL },
       theme,
     ),
     esignRequest: EMAIL_TEMPLATES.esignRequest(
-      { docName: "Engagement Letter 2025", requestedBy: "Angela Cruz, CPA", signBy: "July 30, 2026", signUrl: URL },
+      { docName: "Engagement Letter 2025", requestedBy: "Test Accountant, CPA", signBy: "July 30, 2026", signUrl: URL },
       theme,
     ),
     invoiceDue: EMAIL_TEMPLATES.invoiceDue(
@@ -88,7 +88,7 @@ function renderAll(theme: EmailTheme): Record<string, RenderedEmail> {
     ),
     appointmentConfirmation: EMAIL_TEMPLATES.appointmentConfirmation(
       {
-        staffName: "Angela Cruz",
+        staffName: "Test Accountant",
         tile: { month: "JUL", day: "28", weekday: "MON" },
         time: "2:00 – 2:45 PM",
         format: "Video call",
@@ -99,7 +99,7 @@ function renderAll(theme: EmailTheme): Record<string, RenderedEmail> {
       theme,
     ),
     messageNotification: EMAIL_TEMPLATES.messageNotification(
-      { senderName: "Angela Cruz, CPA", senderInitials: "AC", snippet: "Thanks for sending those over.", replyUrl: URL },
+      { senderName: "Test Accountant, CPA", senderInitials: "TA", snippet: "Thanks for sending those over.", replyUrl: URL },
       theme,
     ),
     returnFiled: EMAIL_TEMPLATES.returnFiled(
@@ -169,7 +169,7 @@ describe("email templates — design contract", () => {
 
   it("spot-checks the signature blocks of key emails", () => {
     // Staff invite: inviter, role, raw tokenized link, expiry.
-    expect(all.staffInvite!.html).toContain("Christian Canlubo");
+    expect(all.staffInvite!.html).toContain("Test Inviter");
     expect(all.staffInvite!.html).toContain("Super Admin");
     expect(all.staffInvite!.html).toContain("Or copy this link into your browser:");
     expect(all.staffInvite!.html).toContain("July 28, 2026");

@@ -1173,7 +1173,7 @@ Base `{PORTAL_BASE}/api/v1`; OAuth2 bearer; per-client RBAC enforced.
 
 ```json
 {
-  "client": { "id": "cl_123", "tin": "471522378", "vatRegistered": true },
+  "client": { "id": "cl_123", "tin": "000000000", "vatRegistered": true },
   "period": { "year": 2026, "quarter": 1, "start": "2026-01-01", "end": "2026-03-31" },
   "sales": {
     "vatable":   { "net": 400000.00, "outputVAT": 48000.00 },
@@ -1199,7 +1199,7 @@ Base `{PORTAL_BASE}/api/v1`; OAuth2 bearer; per-client RBAC enforced.
 
 ```json
 {
-  "client": { "id": "cl_123", "tin": "471522378", "vatRegistered": false },
+  "client": { "id": "cl_123", "tin": "000000000", "vatRegistered": false },
   "period": { "year": 2026, "quarter": 1, "start": "2026-01-01", "end": "2026-03-31" },
   "grossReceipts": 500000.00,
   "byAtc": [ { "atc": "PT010", "grossReceipts": 500000.00 } ]
@@ -1230,7 +1230,7 @@ Base `{PORTAL_BASE}/api/v1`; OAuth2 bearer; per-client RBAC enforced.
   "periodEnd": "2026-03-31",
   "status": "filed",
   "figures": { "outputVAT": 48000.00, "allowableInputVAT": 60000.00, "netVATPayable": -12000.00, "amountPayable": 0.00 },
-  "xmlFilename": "471522378000002550Q2026Q1.xml",
+  "xmlFilename": "000000000000002550Q2026Q1.xml",
   "xmlBase64": "<base64 of the eBIRForms XML>",
   "pdfUrl": "https://<signed-url-to-A4-pdf>"
 }

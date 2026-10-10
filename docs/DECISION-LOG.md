@@ -155,3 +155,9 @@ Decision (technical partner, under D15): MCP writes run as the firm's one active
 
 ## 2026-10-10 · C7 · Corrections to the record, from U8
 D39, as the technical partner dictated it, named a real client of the firm. In U4 the name was replaced in D39 with "an exempt client of the firm". It is the only edit ever made to an existing entry, made because real client data stays out of the repository (D16). In U4 the fixture in apps/api/src/mcp/mcp.service.spec.ts, which carried a real client's name and TIN, was also replaced with invented data. Git history keeps both, alongside D16's fixture, until the history-rewrite decision.
+
+## 2026-10-10 · D42 · Every client-owned route obeys assignment
+Decision (technical partner, extending D14): a firm user acts only on the clients they can see — every client with Clients:ViewAll, otherwise their assigned clients — on every route, whatever its parameters. This covers financial statements, COR files, the dashboard, client creation and billing parents, portal users and client assignment. The audit log is a firm record: reading it needs AuditLogs:Read and Clients:ViewAll. A firm user who creates a client is assigned to it. Assigning clients needs Clients:ViewAll. GET /users/:id/clients reads a user's assignments for the screen Track B builds. Built in U4-A1.
+
+## 2026-10-10 · C8 · Corrections to the record, from U4
+Ten test files carried names, TINs or addresses that could be real, some of them clients of the firm. They were replaced with invented data in U4-A1, and they stay in git history alongside D16's fixture until the history-rewrite decision. The Portal had no way to read or set client assignments from its screens, so D14's rule could not be administered. U4-A1 added the read, and Track B builds the screen.

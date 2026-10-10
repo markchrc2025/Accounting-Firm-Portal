@@ -10,18 +10,18 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
     id: "tp1",
     kind: "individual",
     regName: "",
-    lastName: "FLORES",
-    firstName: "RONORA GRACE",
-    middleName: "SEALANA",
-    tin: "652528538",
+    lastName: "TESTCASE",
+    firstName: "JUANA TEST",
+    middleName: "SAMPLE",
+    tin: "000000000",
     branch: "00000",
     rdo: "027",
-    address: "3723 Dahlia St., Sampaguita Subd., Brgy 178, Camarin",
-    city: "Caloocan",
-    zip: "1400",
+    address: "5 Halimbawa St., Barangay Lima",
+    city: "Lungsod ng Halimbawa",
+    zip: "0000",
     birthdate: "1990-01-01",
     email: "juana.halimbawa@example.com",
-    phone: "09190660794",
+    phone: "09000000000",
     citizenship: "FILIPINO",
     civilStatus: "single",
     taxpayerType: "single",
@@ -52,9 +52,9 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
   it("uses the frm2551Qv2018 namespace and authentic period/TIN keys", () => {
     has("frm2551Qv2018:rtnMonth=12frm2551Qv2018:rtnMonth=");
     has("frm2551Qv2018:txtYear=2026frm2551Qv2018:txtYear=");
-    has("frm2551Qv2018:txtTIN1=652frm2551Qv2018:txtTIN1=");
-    has("frm2551Qv2018:txtTIN2=528frm2551Qv2018:txtTIN2=");
-    has("frm2551Qv2018:txtTIN3=538frm2551Qv2018:txtTIN3=");
+    has("frm2551Qv2018:txtTIN1=000frm2551Qv2018:txtTIN1=");
+    has("frm2551Qv2018:txtTIN2=000frm2551Qv2018:txtTIN2=");
+    has("frm2551Qv2018:txtTIN3=000frm2551Qv2018:txtTIN3=");
     has("frm2551Qv2018:txtBranchCode=000frm2551Qv2018:txtBranchCode=");
     has("frm2551Qv2018:txtRDOCode=027frm2551Qv2018:txtRDOCode=");
   });
@@ -68,9 +68,9 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
 
   it("encodes the registered name + address and emits raw Pg2 name", () => {
     has(
-      "frm2551Qv2018:registeredName=FLORES%2C%20RONORA%20GRACE%20SEALANAfrm2551Qv2018:registeredName=",
+      "frm2551Qv2018:registeredName=TESTCASE%2C%20JUANA%20TEST%20SAMPLEfrm2551Qv2018:registeredName=",
     );
-    has("frm2551Qv2018:txtPg2TaxpayerName=FLORES, RONORA GRACE SEALANAfrm2551Qv2018:txtPg2TaxpayerName=");
+    has("frm2551Qv2018:txtPg2TaxpayerName=TESTCASE, JUANA TEST SAMPLEfrm2551Qv2018:txtPg2TaxpayerName=");
   });
 
   it("emits the Part II txtNN amounts formatted as 0.00", () => {
@@ -99,6 +99,6 @@ describe("build2551Q — matches the authentic eBIRForms 2551Q export", () => {
   });
 
   it("produces the authentic filename", () => {
-    expect(fileName2551Q(f, tp)).toBe("6525285380002551Qv2018122026Q1.xml");
+    expect(fileName2551Q(f, tp)).toBe("0000000000002551Qv2018122026Q1.xml");
   });
 });

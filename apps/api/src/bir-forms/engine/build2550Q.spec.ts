@@ -10,19 +10,19 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
   const tp: Taxpayer = {
     id: "tp1",
     kind: "non-individual",
-    regName: "ST. JOSEPH FOOD AND BEVERAGE CORP.",
+    regName: "INVENTED TEST FOOD AND BEVERAGE CORP.",
     lastName: "",
     firstName: "",
     middleName: "",
-    tin: "010812973",
+    tin: "000000000",
     branch: "00000",
     rdo: "038",
-    address: "17 ST JOSEPH ST PARADISE VILLAGE, SANGANDAAN",
-    city: "QUEZON CITY",
-    zip: "1116",
+    address: "4 HALIMBAWA ST BARANGAY APAT",
+    city: "LUNGSOD NG HALIMBAWA",
+    zip: "0000",
     birthdate: "",
     email: "juana.halimbawa@example.com",
-    phone: "09190660794",
+    phone: "09000000000",
     citizenship: "",
     civilStatus: "",
     taxpayerType: "",
@@ -50,9 +50,9 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
   const has = (line: string) => expect(xml).toContain(`<div>${line}</div>`);
 
   it("uses the frm2550qv2024 namespace and authentic TIN / RDO keys", () => {
-    has("frm2550qv2024:txtTIN1=010frm2550qv2024:txtTIN1=");
-    has("frm2550qv2024:txtTIN2=812frm2550qv2024:txtTIN2=");
-    has("frm2550qv2024:txtTIN3=973frm2550qv2024:txtTIN3=");
+    has("frm2550qv2024:txtTIN1=000frm2550qv2024:txtTIN1=");
+    has("frm2550qv2024:txtTIN2=000frm2550qv2024:txtTIN2=");
+    has("frm2550qv2024:txtTIN3=000frm2550qv2024:txtTIN3=");
     has("frm2550qv2024:branchCode=000frm2550qv2024:branchCode=");
     has("frm2550qv2024:txtRDOCode=038frm2550qv2024:txtRDOCode=");
   });
@@ -73,12 +73,12 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
 
   it("encodes the page-1 name + address, and emits Pg2TaxPayer RAW", () => {
     has(
-      "frm2550qv2024:taxpayerName=ST.%20JOSEPH%20FOOD%20AND%20BEVERAGE%20CORP.frm2550qv2024:taxpayerName=",
+      "frm2550qv2024:taxpayerName=INVENTED%20TEST%20FOOD%20AND%20BEVERAGE%20CORP.frm2550qv2024:taxpayerName=",
     );
     has(
-      "frm2550qv2024:taxpayerAddress=17%20ST%20JOSEPH%20ST%20PARADISE%20VILLAGE%2C%20SANGANDAAN%2C%20QUEZON%20CITYfrm2550qv2024:taxpayerAddress=",
+      "frm2550qv2024:taxpayerAddress=4%20HALIMBAWA%20ST%20BARANGAY%20APAT%2C%20LUNGSOD%20NG%20HALIMBAWAfrm2550qv2024:taxpayerAddress=",
     );
-    has("frm2550qv2024:Pg2TaxPayer=ST. JOSEPH FOOD AND BEVERAGE CORP.frm2550qv2024:Pg2TaxPayer=");
+    has("frm2550qv2024:Pg2TaxPayer=INVENTED TEST FOOD AND BEVERAGE CORP.frm2550qv2024:Pg2TaxPayer=");
   });
 
   it("sets the classification radios (Micro)", () => {
@@ -106,6 +106,6 @@ describe("build2550Q — matches the authentic eBIRForms 2550Q export", () => {
   });
 
   it("produces the authentic filename", () => {
-    expect(fileName2550Q(f, tp)).toBe("0108129730002550Qv2024122026Q1.xml");
+    expect(fileName2550Q(f, tp)).toBe("0000000000002550Qv2024122026Q1.xml");
   });
 });

@@ -11,19 +11,19 @@ import { build1702Q, fileName1702Q } from "./build1702Q";
 const tp: Taxpayer = {
   id: "tp1",
   kind: "non-individual",
-  regName: "WORKSCALE RESOURCES INC.",
+  regName: "INVENTED TEST RESOURCES INC.",
   lastName: "",
   firstName: "",
   middleName: "",
-  tin: "626-027-978",
+  tin: "000-000-000",
   branch: "0",
   rdo: "040",
-  address: "76 CAMBRIDGE ST BRGY E RODRIGUEZ",
-  city: "QUEZON CITY",
-  zip: "1102",
+  address: "2 HALIMBAWA ST BARANGAY DALAWA",
+  city: "LUNGSOD NG HALIMBAWA",
+  zip: "0000",
   birthdate: "",
   incorpDate: "2020-01-01",
-  email: "workscale.finance@gmail.com",
+  email: "test-corp@example.com",
   phone: "09000000000",
   citizenship: "",
   civilStatus: "",
@@ -54,9 +54,9 @@ function has(key: string, value: string): boolean {
 
 describe("build1702Q", () => {
   it("emits the frm1702q namespace with lowercase txtTin parts + RDO", () => {
-    expect(has("frm1702q:txtTin1", "626")).toBe(true);
-    expect(has("frm1702q:txtTin2", "027")).toBe(true);
-    expect(has("frm1702q:txtTin3", "978")).toBe(true);
+    expect(has("frm1702q:txtTin1", "000")).toBe(true);
+    expect(has("frm1702q:txtTin2", "000")).toBe(true);
+    expect(has("frm1702q:txtTin3", "000")).toBe(true);
     expect(has("frm1702q:txtBranchCode", "000")).toBe(true);
     expect(has("frm1702q:txtRdoCode", "040")).toBe(true);
     expect(has("frm1702q:txtYearEnded", "2025")).toBe(true);
@@ -84,9 +84,9 @@ describe("build1702Q", () => {
   });
 
   it("encodes the name / line of business / address", () => {
-    expect(has("frm1702q:txtTaxpayerName", "WORKSCALE%20RESOURCES%20INC.")).toBe(true);
+    expect(has("frm1702q:txtTaxpayerName", "INVENTED%20TEST%20RESOURCES%20INC.")).toBe(true);
     expect(has("frm1702q:txtDescription", "ACTIVITIES%20OF%20EMPLOYMENT%20PLACEMENT%20AGENCIES")).toBe(true);
-    expect(has("frm1702q:txtTaxPayerZip", "1102")).toBe(true);
+    expect(has("frm1702q:txtTaxPayerZip", "0000")).toBe(true);
   });
 
   it("emits the Codename globals (Codename1=true, rest false)", () => {
@@ -97,7 +97,7 @@ describe("build1702Q", () => {
 
   it("emits the global txtTaxRate, txtEmail and quarterly carry-forward", () => {
     expect(has("txtTaxRate", "2%")).toBe(true);
-    expect(has("txtEmail", "workscale.finance@gmail.com")).toBe(true);
+    expect(has("txtEmail", "test-corp@example.com")).toBe(true);
     expect(has("txt1stQtr", "0.00")).toBe(true);
     expect(has("txtTotal", "0.00")).toBe(true);
   });
@@ -108,6 +108,6 @@ describe("build1702Q", () => {
   });
 
   it("produces the canonical quarterly filename (no v2018, no mm)", () => {
-    expect(fileName1702Q(filing, tp)).toBe("6260279780001702Q2025Q2.xml");
+    expect(fileName1702Q(filing, tp)).toBe("0000000000001702Q2025Q2.xml");
   });
 });

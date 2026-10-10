@@ -7,9 +7,9 @@ import {
 import type { FsAccountMeta, FsEngineInput, FsPeriodMeta } from "./fs-engine";
 
 const CTX: NoteMergeContext = {
-  entityName: "Workscale Resources Inc.",
+  entityName: "Invented Test Resources Inc.",
   secRegistrationNo: "2023-0001",
-  registeredAddress: "76 Cambridge St, Quezon City",
+  registeredAddress: "1 Halimbawa St, Lungsod ng Halimbawa",
   businessDescription: "private employment agency services",
   framework: "PFRS for Small Entities",
   functionalCurrency: "Philippine Peso (₱)",
@@ -21,7 +21,7 @@ describe("fs-notes — token merge & library", () => {
   it("fills merge tokens from the report context", () => {
     const block = policyBlocksFor("PFRS for Small Entities").find((b) => b.key === "corporate-information")!;
     const text = renderTokens(block.body, CTX);
-    expect(text).toContain("Workscale Resources Inc.");
+    expect(text).toContain("Invented Test Resources Inc.");
     expect(text).toContain("Registration No. 2023-0001");
     expect(text).toContain("private employment agency services");
     expect(text).not.toMatch(/\{\{/); // no unresolved tokens
