@@ -172,11 +172,13 @@ const PERIOD = "2026-Q1";
 /**
  * The canonical download name, taken from the production helper rather than
  * hand-typed, so the assertion cannot drift from the code it is checking.
- * For this fixture it is "12345678900000-2307-2026-Q1.pdf" — note that the
- * prefix is 14 digits, not the 12 the helper's own doc comment claims; see the
- * report's finding on certificateFileName's 3-vs-5-digit branch padding.
+ * For this fixture it is "12345678900000-2307-2026-Q1.pdf": a 14-digit prefix,
+ * as R6 (W3) rules — pinned literally below so the helper cannot drift either.
  */
 const EXPECTED_PDF_NAME = certificateFileName("2307", PERIOD, CLIENT.tin);
+if (EXPECTED_PDF_NAME !== "12345678900000-2307-2026-Q1.pdf") {
+  throw new Error(`certificateFileName drifted: ${EXPECTED_PDF_NAME}`);
+}
 
 // ---------------------------------------------------------------------------
 // Mocking: every endpoint the editor touches, plus a catch-all that fails
@@ -258,7 +260,9 @@ async function fillSyntheticCertificate(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------
 
 test.describe("2307 Form view (hermetic)", () => {
-  test("T1 the replica renders on screen at long-bond 816 x 1248 px", async ({
+  // Renamed in W3 (R6): the assertion is the sheet's LAYOUT size, not its
+  // rendered box at fit-to-width.
+  test("T1 the replica's layout size is long-bond 816 x 1248 px, and it is on screen", async ({
     page,
   }) => {
     const unmocked = await mockApi(page);

@@ -1067,9 +1067,10 @@ test.describe("T4 Sales import regression guard (hermetic)", () => {
       "Date*",
       "Customer TIN*",
       "Customer Name*",
-      "Vendor Lastname",
-      "Vendor Firstname",
-      "Vendor Middlename",
+      // W3 F19: these three said "Vendor …" until W3.
+      "Customer Lastname",
+      "Customer Firstname",
+      "Customer Middlename",
       "Address",
       "City",
       "Postal Code*",

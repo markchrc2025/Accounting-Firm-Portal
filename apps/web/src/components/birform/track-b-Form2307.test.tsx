@@ -276,9 +276,10 @@ describe("T5 Form2307 renders its props and fetches nothing", () => {
 
     // Signatories — the printed lines under each signature.
     expect(text).toContain("RIVERA, JOSE MARIANO");
-    expect(text).toContain("TREASURER · 111-222-333-00000");
+    // W3 R6: "TITLE / TIN 000-000-000-00000" (was "TITLE · TIN" until W3).
+    expect(text).toContain("TREASURER / TIN 111-222-333-00000");
     expect(text).toContain("TA-0000-EXAMPLE");
-    expect(text).toContain("PROPRIETOR · 987-654-321-00000");
+    expect(text).toContain("PROPRIETOR / TIN 987-654-321-00000");
     expect(text).toContain("ROLL-00000");
     expect(digits("taxAgentDate", 0)).toBe("01152026");
     expect(digits("taxAgentDate", 1)).toBe("01142029");
@@ -313,5 +314,56 @@ describe("T5 Form2307 renders its props and fetches nothing", () => {
     });
     expect(groups(old, 1)).toEqual(["123", "456", "789", "00001"]);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T6 (W3) — the Part III description column prints rows[i].desc (F14)
+// ---------------------------------------------------------------------------
+
+describe("T6 Form2307 renders the description column from rows[i].desc", () => {
+  it("puts each row's desc in that row's description cell, and nowhere else", () => {
+    const sheet = sheetOf({
+      ...EMPTY,
+      rows: [
+        {
+          atc: "WI010",
+          desc: "Professional fees, Q2",
+          m1: "1000",
+          m2: "",
+          m3: "",
+          tax: "100",
+        },
+        { atc: "", desc: "", m1: "", m2: "", m3: "", tax: "" },
+        {
+          atc: "WI100",
+          desc: "Rental of office space",
+          m1: "5000",
+          m2: "",
+          m3: "",
+          tax: "250",
+        },
+      ],
+      rowTotals: [1000, 0, 5000],
+    });
+    const descs = Array.from(sheet.querySelectorAll('[data-p3-row="A"] .c-desc')).map(
+      (c) => norm(c.textContent),
+    );
+    expect(descs).toEqual([
+      "Professional fees, Q2",
+      "",
+      "Rental of office space",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
+    // Block B stays blank.
+    sheet
+      .querySelectorAll('[data-p3-row="B"] .c-desc')
+      .forEach((c) => expect(norm(c.textContent)).toBe(""));
   });
 });

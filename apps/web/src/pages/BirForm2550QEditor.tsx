@@ -22,6 +22,8 @@ import {
   cn,
   peso,
 } from "../components/ui";
+import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -55,6 +57,10 @@ export default function BirForm2550QEditor() {
     queryFn: () => fetchBirForm(id!),
     enabled: !isNew,
   });
+  const amendment = useAmendmentHeading(existing.data);
+  // An amendment draft is an amended return: the XML's "Amended Return?"
+  // box must say Yes (W3 F26). An original says No, as before.
+  const amendedFlag = existing.data?.amendsId ? "yes" : "no";
 
   const [clientId, setClientId] = useState("");
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -84,23 +90,28 @@ export default function BirForm2550QEditor() {
     () => ({
       year,
       periodType: "calendar",
-      amended: "no",
+      amended: amendedFlag,
       ...fields,
     }),
-    [year, fields],
+    [year, fields, amendedFlag],
   );
   const period = `${year}-${quarter}`;
 
   // Live authoritative totals (server compute — the browser never computes tax).
-  const [debounced, setDebounced] = useState(data);
+  // An existing form is computed only once it is hydrated: its first, empty
+  // state is never sent, so a freshly mounted form (after Mark as filed, an
+  // Amend, Back) never flashes zero totals; the stored figures show until
+  // the live compute returns (W3).
+  const [debounced, setDebounced] = useState<typeof data | null>(isNew ? data : null);
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(data), 350);
     return () => window.clearTimeout(t);
   }, [data]);
   const computed = useQuery({
     queryKey: ["bir-compute-2550q", debounced],
-    queryFn: () => computeBirForm<BirForm2550QComputed>("2550Q", debounced),
+    queryFn: () => computeBirForm<BirForm2550QComputed>("2550Q", debounced!),
     staleTime: Infinity,
+    enabled: debounced !== null,
   });
 
   const save = useMutation({
@@ -151,8 +162,18 @@ export default function BirForm2550QEditor() {
   }
 
   const clients = clientsQ.data ?? [];
-  const c = computed.data;
+  const c =
+    computed.data ??
+    (existing.data?.computed as typeof computed.data | null | undefined) ??
+    undefined;
   const isFiled = existing.data?.status === "filed";
+  // The server copies the amended return's data into the new draft, so it
+  // may still be stored as "not amended" until it is saved; until then it is
+  // neither exported nor filed (W3 F26). A filed form is never held back.
+  const needsAmendedSave =
+    !isFiled &&
+    !!existing.data?.amendsId &&
+    (existing.data.data as { amended?: unknown }).amended !== "yes";
   const filedAt = existing.data?.filedAt ?? null;
 
   return (
@@ -160,6 +181,7 @@ export default function BirForm2550QEditor() {
       <PageHeader
         title={isNew ? "New 2550Q" : "2550Q"}
         eyebrow="BIR Forms · Quarterly Value-Added Tax"
+        description={amendment}
         actions={
           <Button variant="ghost" onClick={() => navigate("/bir-forms")}>
             Back
@@ -174,7 +196,7 @@ export default function BirForm2550QEditor() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
+        <fieldset disabled={isFiled} className="min-w-0 space-y-6">
           {/* Filer + period */}
           <Card>
             <CardContent className="space-y-4">
@@ -300,7 +322,7 @@ export default function BirForm2550QEditor() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </fieldset>
 
         {/* Totals + actions */}
         <div className="space-y-4">
@@ -330,11 +352,26 @@ export default function BirForm2550QEditor() {
           </Card>
 
           <div className="flex flex-col gap-2">
-            <Button disabled={!clientId || save.isPending} onClick={() => save.mutate()}>
-              {save.isPending ? "Saving…" : isNew ? "Save draft" : "Save changes"}
-            </Button>
+            {isFiled ? null : (
+              <Button
+                disabled={!clientId || save.isPending || setStatus.isPending}
+                onClick={() => save.mutate()}
+              >
+                {save.isPending ? "Saving…" : isNew ? "Save draft" : "Save changes"}
+              </Button>
+            )}
+            {needsAmendedSave ? (
+              <p className="text-center text-[11.5px] text-content-muted">
+                Save this amendment first: saving records it as an amended return. Export
+                and filing wait until then.
+              </p>
+            ) : null}
             {!isNew ? (
-              <Button variant="outline" disabled={exportXml.isPending} onClick={() => exportXml.mutate()}>
+              <Button
+                variant="outline"
+                disabled={exportXml.isPending || needsAmendedSave}
+                onClick={() => exportXml.mutate()}
+              >
                 {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
               </Button>
             ) : (
@@ -343,12 +380,19 @@ export default function BirForm2550QEditor() {
               </p>
             )}
             {!isNew ? (
-              isFiled ? (
-                <Button variant="ghost" disabled={setStatus.isPending} onClick={() => setStatus.mutate("draft")}>
-                  {setStatus.isPending ? "Reopening…" : "Reopen to draft"}
-                </Button>
+              isFiled && existing.data ? (
+                <FiledFormAction detail={existing.data} />
               ) : (
-                <Button variant="outline" disabled={setStatus.isPending} onClick={() => setStatus.mutate("filed")}>
+                <Button
+                  variant="outline"
+                  disabled={
+                    setStatus.isPending ||
+                    save.isPending ||
+                    existing.isFetching ||
+                    needsAmendedSave
+                  }
+                  onClick={() => setStatus.mutate("filed")}
+                >
                   {setStatus.isPending ? "Marking…" : "Mark as filed"}
                 </Button>
               )
@@ -356,15 +400,10 @@ export default function BirForm2550QEditor() {
           </div>
 
           {isFiled ? (
-            <div className="rounded-card border border-success/40 bg-success-bg px-3.5 py-2.5 text-[12.5px] text-content">
-              <span className="font-semibold">Filed.</span> These figures are now the{" "}
-              <em>authoritative</em> VAT numbers on this client&apos;s tax view.
-              {filedAt ? (
-                <span className="mt-0.5 block font-mono text-[11px] text-content-secondary">
-                  Filed {new Date(filedAt).toLocaleString()}
-                </span>
-              ) : null}
-            </div>
+            <FiledBanner form="2550Q" filedAt={filedAt}>
+              These figures are now the <em>authoritative</em> VAT numbers on this
+              client&apos;s tax view.
+            </FiledBanner>
           ) : null}
 
           {!isNew && existing.data && existing.data.exports.length > 0 ? (

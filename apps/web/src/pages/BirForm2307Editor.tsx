@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ApiError,
@@ -16,6 +16,17 @@ import { certificateFileName, sheetsToPdf } from "../lib/sheetPdf";
 import { FormViewShell, type FormViewMode } from "../components/birform/FormViewShell";
 import { downloadSheetsPdf, type PagePt } from "../components/birform/sheetsPdf";
 import { Form2307, type Form2307Signatory } from "../components/birform/Form2307";
+import { tin14 } from "../components/birform/format";
+import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { printParty } from "../lib/birFiling";
+import {
+  issueBlockers,
+  type IssueBlocker,
+  PAYEE_BRANCH_CHOICES,
+  payeeBranchChoice,
+  payeeBranchFrom,
+  type PayeeBranchChoice,
+} from "../lib/certificateRules";
 import "../styles/bir-form.css";
 import {
   Button,
@@ -71,7 +82,8 @@ interface Row {
   m3: string;
   tax: string;
 }
-const emptyRow = (): Row => ({ atc: "WI010", desc: "", m1: "", m2: "", m3: "", tax: "" });
+/** A new row has no ATC: the accountant selects one (W3 R6). */
+const emptyRow = (): Row => ({ atc: "", desc: "", m1: "", m2: "", m3: "", tax: "" });
 
 /**
  * 2307 — Certificate of Creditable Tax Withheld at Source.
@@ -91,6 +103,16 @@ export default function BirForm2307Editor() {
     queryFn: () => fetchBirForm(id!),
     enabled: !isNew,
   });
+  // "Issue a corrected certificate" (W3 R2) opens a NEW certificate pre-filled
+  // from an issued one. Nothing links the two: the new one is saved as any new
+  // certificate is, and the old one stays issued.
+  const [params] = useSearchParams();
+  const correctFrom = isNew ? params.get("correctFrom") : null;
+  const source = useQuery({
+    queryKey: ["bir-form", correctFrom],
+    queryFn: () => fetchBirForm(correctFrom!),
+    enabled: !!correctFrom,
+  });
 
   const [clientId, setClientId] = useState("");
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -104,23 +126,38 @@ export default function BirForm2307Editor() {
   // sheet omitted. Optional; blank when empty (R7).
   const [payeeZip, setPayeeZip] = useState("");
   const [payeeForeignAddress, setPayeeForeignAddress] = useState("");
+  // The payee's branch code is required (W3 R4): head office is a choice the
+  // accountant confirms, never a default.
+  const [payeeBranchSel, setPayeeBranchSel] = useState<PayeeBranchChoice>("");
+  const [payeeBranchTyped, setPayeeBranchTyped] = useState("");
+  const payeeBranch = payeeBranchFrom(payeeBranchSel, payeeBranchTyped);
   const [payorSig, setPayorSig] = useState<SignatoryState>(emptySignatory);
   const [payeeSig, setPayeeSig] = useState<SignatoryState>(emptySignatory);
   const [mode, setMode] = useState<FormViewMode>("guided");
   const [error, setError] = useState<string | null>(null);
 
   // The withholding agent is the client (the payor issuing the certificate).
+  // Once the certificate is issued with its filing snapshot, the print reads
+  // the payor from the snapshot (W3 R3) and the client record is not read.
+  const sealedSnapshot =
+    existing.data?.status === "filed" && !!existing.data.filedSnapshot;
   const clientQ = useQuery({
     queryKey: ["client", clientId],
     queryFn: () => fetchClient(clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && !sealedSnapshot,
   });
 
+  // Only an ISSUED certificate of the same form is corrected (R2).
+  const usableSource =
+    source.data?.form === "2307" && source.data.status === "filed"
+      ? source.data
+      : undefined;
+  const seed = existing.data ?? usableSource;
   useEffect(() => {
-    const d = existing.data?.data as Record<string, unknown> | undefined;
+    const d = seed?.data as Record<string, unknown> | undefined;
     if (!d) return;
-    setClientId(existing.data!.clientId);
-    const m = /^(\d{4})-(Q[1-4])$/.exec(existing.data!.period || "");
+    setClientId(seed!.clientId);
+    const m = /^(\d{4})-(Q[1-4])$/.exec(seed!.period || "");
     if (m) {
       setYear(m[1]!);
       setQuarter(m[2]!);
@@ -129,7 +166,7 @@ export default function BirForm2307Editor() {
     setRows(
       dr.length
         ? dr.map((r) => ({
-            atc: r.atc || "WI010",
+            atc: r.atc || "",
             desc: r.desc || "",
             m1: r.m1 || "",
             m2: r.m2 || "",
@@ -143,6 +180,9 @@ export default function BirForm2307Editor() {
     setPayeeAddress(String(d.payeeAddress ?? ""));
     setPayeeZip(String(d.payeeZip ?? ""));
     setPayeeForeignAddress(String(d.payeeForeignAddress ?? ""));
+    const branch = payeeBranchChoice(String(d.payeeBranch ?? ""));
+    setPayeeBranchSel(branch.choice);
+    setPayeeBranchTyped(branch.typed);
     const readSig = (prefix: "payor" | "payee"): SignatoryState => {
       const out = emptySignatory();
       for (const k of SIGNATORY_KEYS) {
@@ -152,7 +192,7 @@ export default function BirForm2307Editor() {
     };
     setPayorSig(readSig("payor"));
     setPayeeSig(readSig("payee"));
-  }, [existing.data]);
+  }, [seed]);
 
   const data = useMemo(
     () => ({
@@ -163,6 +203,7 @@ export default function BirForm2307Editor() {
       payeeAddress,
       payeeZip,
       payeeForeignAddress,
+      payeeBranch,
       payorSignatoryName: payorSig.Name,
       payorSignatoryTitle: payorSig.Title,
       payorSignatoryTin: payorSig.Tin,
@@ -185,6 +226,7 @@ export default function BirForm2307Editor() {
       payeeAddress,
       payeeZip,
       payeeForeignAddress,
+      payeeBranch,
       payorSig,
       payeeSig,
       rows,
@@ -192,15 +234,20 @@ export default function BirForm2307Editor() {
   );
   const period = `${year}-${quarter}`;
 
-  const [debounced, setDebounced] = useState(data);
+  // An existing form is computed only once it is hydrated: its first, empty
+  // state is never sent, so a freshly mounted form (after Mark as filed, an
+  // Amend, Back) never flashes zero totals; the stored figures show until
+  // the live compute returns (W3).
+  const [debounced, setDebounced] = useState<typeof data | null>(isNew ? data : null);
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(data), 350);
     return () => window.clearTimeout(t);
   }, [data]);
   const computed = useQuery({
     queryKey: ["bir-compute-2307", debounced],
-    queryFn: () => computeBirForm<BirForm2307Computed>("2307", debounced),
+    queryFn: () => computeBirForm<BirForm2307Computed>("2307", debounced!),
     staleTime: Infinity,
+    enabled: debounced !== null,
   });
 
   const save = useMutation({
@@ -228,11 +275,12 @@ export default function BirForm2307Editor() {
   // ---- Print to PDF (the certificate's only output) ----
   /** The NEW replica's `.bir-doc` root — long bond, built from the official form. */
   const docRef = useRef<HTMLDivElement>(null);
-  /** The hand-written A4 sheet, kept one more unit behind "Print (legacy)". */
+  /** The hand-written A4 sheet, kept behind "Print (legacy)" until W4. */
   const legacySheetRef = useRef<HTMLDivElement>(null);
   const [printing, setPrinting] = useState(false);
   const [printingLegacy, setPrintingLegacy] = useState(false);
-  const pdfName = certificateFileName("2307", period, clientQ.data?.tin);
+  const party = printParty(existing.data, clientQ.data);
+  const pdfName = certificateFileName("2307", period, party.tin);
 
   async function printPdf() {
     const node = docRef.current;
@@ -248,8 +296,9 @@ export default function BirForm2307Editor() {
     }
   }
 
-  /** The pre-pass-2 path: the hand-written sheet, rasterised onto A4. Kept for
-   *  this unit only so a person can print both and compare them on paper. */
+  /** The pre-pass-2 path: the hand-written sheet, rasterised onto A4 through
+   *  the shared, fixed capture (W3 R5). Kept until W4 so a person can print
+   *  both and compare them on paper. */
   async function printLegacyPdf() {
     const node = legacySheetRef.current;
     if (!node) return;
@@ -281,9 +330,46 @@ export default function BirForm2307Editor() {
   }
 
   const clients = clientsQ.data ?? [];
-  const c = computed.data;
+  const c =
+    computed.data ??
+    (existing.data?.computed as typeof computed.data | null | undefined) ??
+    undefined;
   const isFiled = existing.data?.status === "filed";
-  const agent = clientQ.data;
+  // What stops a draft from being issued (W3 R4, R6). Issuing records the
+  // SAVED certificate, so the rules are checked on what is saved; the screen is
+  // used only to say "save first" when it already meets a rule the saved
+  // certificate does not.
+  const saved = (existing.data?.data ?? {}) as Record<string, unknown>;
+  const gate: IssueBlocker[] =
+    isFiled || isNew
+      ? []
+      : issueBlockers({
+          payorKnown: !!clientQ.data,
+          payorLoadFailed: clientQ.isError,
+          payorBranch: party.branch,
+          payeeBranch: String(saved.payeeBranch ?? ""),
+          payeeTin: String(saved.payeeTin ?? ""),
+          rows: (saved.rows as Row[] | undefined) ?? [],
+        });
+  const onScreen = issueBlockers({
+    payorBranch: party.branch,
+    payeeBranch,
+    payeeTin,
+    rows,
+  });
+  // Payee rules are one family: a screen that breaks a DIFFERENT payee rule
+  // does not "meet" the saved one.
+  const family = (r: IssueBlocker["rule"]) => (r.startsWith("payee") ? "payee" : r);
+  const blockers = gate.map((b) =>
+    b.rule !== "payor-branch" &&
+    b.rule !== "payor-unknown" &&
+    !onScreen.some((o) => family(o.rule) === family(b.rule))
+      ? {
+          ...b,
+          message: `${b.message} What is on screen meets this, but it is not saved yet: save the certificate first.`,
+        }
+      : b,
+  );
 
   // Item 1 From / To: the calendar bounds of the chosen quarter. Deterministic,
   // not a guess — a quarter has fixed first and last days.
@@ -293,7 +379,7 @@ export default function BirForm2307Editor() {
   const periodTo = year ? `${qTo}/${year}` : "";
 
   /** Re-render the PDF preview whenever anything the sheet shows changes. */
-  const revisionKey = JSON.stringify([debounced, agent?.id, c?.totalTax, c?.totalIncome]);
+  const revisionKey = JSON.stringify([debounced, party, c?.totalTax, c?.totalIncome]);
 
   return (
     <div className="animate-fade-rise">
@@ -316,6 +402,22 @@ export default function BirForm2307Editor() {
         <span className="font-semibold text-content">long bond (8.5 × 13 in)</span>.
       </div>
 
+      {correctFrom && usableSource ? (
+        <div className="mb-6 rounded-card border border-gold/50 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
+          <span className="font-semibold">A corrected certificate.</span> Pre-filled from
+          an issued certificate as a convenience. This is a new certificate; the issued
+          one stays as it is.
+        </div>
+      ) : correctFrom && (source.isError || (source.data && !usableSource)) ? (
+        <div
+          role="alert"
+          className="mb-6 rounded-input border border-danger/40 bg-danger-bg px-4 py-3 text-[12.5px] text-danger-ink"
+        >
+          The certificate to correct could not be loaded, so nothing is pre-filled. This
+          is a blank new certificate.
+        </div>
+      ) : null}
+
       {error ? (
         <div className="mb-5 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink">
           {error}
@@ -335,17 +437,18 @@ export default function BirForm2307Editor() {
             periodTo={periodTo}
             payee={{
               tin: payeeTin,
+              branch: payeeBranch,
               name: payeeName,
               address: payeeAddress,
               zip: payeeZip,
               foreignAddress: payeeForeignAddress,
             }}
             payor={{
-              tin: agent?.tin ?? "",
-              branch: agent?.branch ?? "",
-              name: agent?.businessName ?? "",
-              address: [agent?.address, agent?.city].filter(Boolean).join(", "),
-              zip: agent?.zip ?? "",
+              tin: party.tin,
+              branch: party.branch,
+              name: party.businessName,
+              address: [party.address, party.city].filter(Boolean).join(", "),
+              zip: party.zip,
             }}
             rows={rows}
             rowTotals={(c?.rows ?? []).map((r) => r.total)}
@@ -357,7 +460,11 @@ export default function BirForm2307Editor() {
               tax: c?.totalTax ?? 0,
             }}
             payorSignatory={toSignatory(payorSig)}
-            payeeSignatory={toSignatory(payeeSig, payeeName, payeeTin)}
+            payeeSignatory={toSignatory(
+              payeeSig,
+              payeeName,
+              tin14(payeeTin, payeeBranch),
+            )}
           />
         }
         actions={
@@ -369,8 +476,8 @@ export default function BirForm2307Editor() {
             >
               {printing ? "Preparing PDF…" : "Print certificate (PDF)"}
             </Button>
-            {/* Kept for W2 pass 2 only, so a person can print both paths and lay
-                them side by side against a blank BIR 2307. Removed in W3. */}
+            {/* Kept so a person can print both paths and lay them side by side
+                against a blank BIR 2307. Removed in W4. */}
             <Button
               variant="ghost"
               size="sm"
@@ -383,7 +490,7 @@ export default function BirForm2307Editor() {
         }
         guided={
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <div className="space-y-6">
+            <fieldset disabled={isFiled} className="min-w-0 space-y-6">
               {/* Withholding agent + period */}
               <Card>
                 <CardContent className="space-y-4">
@@ -395,7 +502,12 @@ export default function BirForm2307Editor() {
                       <select
                         className="input w-full"
                         value={clientId}
-                        disabled={!isNew}
+                        disabled={
+                          !isNew ||
+                          (!!correctFrom &&
+                            !source.isError &&
+                            !(source.data && !usableSource))
+                        }
                         onChange={(e) => setClientId(e.target.value)}
                       >
                         <option value="">Select client…</option>
@@ -464,6 +576,47 @@ export default function BirForm2307Editor() {
                       />
                     </label>
                   </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                        Payee branch code{" "}
+                        <span className="text-content-secondary">(required)</span>
+                      </span>
+                      <select
+                        className="input w-full"
+                        required
+                        value={payeeBranchSel}
+                        onChange={(e) =>
+                          setPayeeBranchSel(e.target.value as PayeeBranchChoice)
+                        }
+                      >
+                        {PAYEE_BRANCH_CHOICES.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {payeeBranchSel === "other" ? (
+                      <label className="block">
+                        <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                          Branch code (5 digits)
+                        </span>
+                        <input
+                          className="input w-full font-mono"
+                          required
+                          inputMode="numeric"
+                          maxLength={5}
+                          value={payeeBranchTyped}
+                          onChange={(e) =>
+                            setPayeeBranchTyped(
+                              e.target.value.replace(/\D/g, "").slice(0, 5),
+                            )
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
                     <label className="block">
                       <span className="mb-1.5 block text-[13px] font-semibold text-content">
@@ -531,59 +684,83 @@ export default function BirForm2307Editor() {
                           <th className="w-10 px-3 py-2.5" />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-line-divider">
+                      <tbody>
                         {rows.map((r, i) => (
-                          <tr key={i}>
-                            <td className="px-3 py-2">
-                              <select
-                                className="input w-full"
-                                value={r.atc}
-                                onChange={(e) => updateRow(i, { atc: e.target.value })}
-                              >
-                                {ATC_CODES.map((a) => (
-                                  <option key={a} value={a}>
-                                    {a}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            {(["m1", "m2", "m3"] as const).map((k) => (
-                              <td key={k} className="px-3 py-2">
+                          // Each line is two table rows: the ATC and amounts as
+                          // before, then its Part III description at full width,
+                          // so the added field squeezes no column (W3 F14).
+                          <Fragment key={i}>
+                            <tr
+                              className={
+                                i > 0 ? "border-t border-line-divider" : undefined
+                              }
+                            >
+                              <td className="px-3 py-2">
+                                <select
+                                  className="input w-full min-w-[8.5rem]"
+                                  aria-label={`ATC, row ${i + 1}`}
+                                  value={r.atc}
+                                  onChange={(e) => updateRow(i, { atc: e.target.value })}
+                                >
+                                  <option value="">Select ATC…</option>
+                                  {ATC_CODES.map((a) => (
+                                    <option key={a} value={a}>
+                                      {a}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              {(["m1", "m2", "m3"] as const).map((k) => (
+                                <td key={k} className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    className="input w-full text-right font-mono tabular-nums"
+                                    value={r[k]}
+                                    onChange={(e) =>
+                                      updateRow(i, { [k]: e.target.value })
+                                    }
+                                  />
+                                </td>
+                              ))}
+                              <td className="px-3 py-2 text-right font-mono tabular-nums text-content">
+                                {peso(c?.rows?.[i]?.total ?? 0)}
+                              </td>
+                              <td className="px-3 py-2">
                                 <input
                                   type="number"
                                   min={0}
                                   className="input w-full text-right font-mono tabular-nums"
-                                  value={r[k]}
-                                  onChange={(e) => updateRow(i, { [k]: e.target.value })}
+                                  value={r.tax}
+                                  onChange={(e) => updateRow(i, { tax: e.target.value })}
                                 />
                               </td>
-                            ))}
-                            <td className="px-3 py-2 text-right font-mono tabular-nums text-content">
-                              {peso(c?.rows?.[i]?.total ?? 0)}
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="number"
-                                min={0}
-                                className="input w-full text-right font-mono tabular-nums"
-                                value={r.tax}
-                                onChange={(e) => updateRow(i, { tax: e.target.value })}
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="px-2"
-                                disabled={rows.length === 1}
-                                onClick={() =>
-                                  setRows((prev) => prev.filter((_, j) => j !== i))
-                                }
-                              >
-                                ✕
-                              </Button>
-                            </td>
-                          </tr>
+                              <td className="px-3 py-2 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="px-2"
+                                  disabled={rows.length === 1}
+                                  onClick={() =>
+                                    setRows((prev) => prev.filter((_, j) => j !== i))
+                                  }
+                                >
+                                  ✕
+                                </Button>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td colSpan={7} className="px-3 pb-2.5 pt-0">
+                                <input
+                                  className="input w-full"
+                                  aria-label={`Income payment, row ${i + 1}`}
+                                  placeholder="Income payment — the description Part III prints for this line"
+                                  value={r.desc}
+                                  onChange={(e) => updateRow(i, { desc: e.target.value })}
+                                />
+                              </td>
+                            </tr>
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -627,7 +804,7 @@ export default function BirForm2307Editor() {
                   />
                 </CardContent>
               </Card>
-            </div>
+            </fieldset>
 
             {/* Totals + actions */}
             <div className="space-y-4">
@@ -665,26 +842,52 @@ export default function BirForm2307Editor() {
                 </CardContent>
               </Card>
 
-              <div className="flex flex-col gap-2">
-                <Button
-                  disabled={!clientId || save.isPending}
-                  onClick={() => save.mutate()}
+              {clientId && blockers.length > 0 ? (
+                <div
+                  data-testid="issue-blockers"
+                  className="space-y-1.5 rounded-card border border-gold/50 bg-warn-bg-2 px-3.5 py-2.5 text-[12.5px] text-content"
                 >
-                  {save.isPending ? "Saving…" : isNew ? "Save draft" : "Save changes"}
-                </Button>
+                  <div className="font-semibold">Not ready to issue</div>
+                  {blockers.map((b) => (
+                    <p key={b.rule}>
+                      {b.message}
+                      {b.rule === "payor-branch" ? (
+                        <>
+                          {" "}
+                          <Link
+                            to={`/clients/${clientId}/edit`}
+                            className="font-semibold text-blue underline-offset-2 hover:underline"
+                          >
+                            Edit the client
+                          </Link>
+                        </>
+                      ) : null}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-2">
+                {isFiled ? null : (
+                  <Button
+                    disabled={!clientId || save.isPending || setStatus.isPending}
+                    onClick={() => save.mutate()}
+                  >
+                    {save.isPending ? "Saving…" : isNew ? "Save draft" : "Save changes"}
+                  </Button>
+                )}
                 {!isNew ? (
-                  isFiled ? (
-                    <Button
-                      variant="ghost"
-                      disabled={setStatus.isPending}
-                      onClick={() => setStatus.mutate("draft")}
-                    >
-                      {setStatus.isPending ? "Reopening…" : "Reopen to draft"}
-                    </Button>
+                  isFiled && existing.data ? (
+                    <FiledFormAction detail={existing.data} />
                   ) : (
                     <Button
                       variant="outline"
-                      disabled={setStatus.isPending}
+                      disabled={
+                        setStatus.isPending ||
+                        save.isPending ||
+                        existing.isFetching ||
+                        blockers.length > 0
+                      }
                       onClick={() => setStatus.mutate("filed")}
                     >
                       {setStatus.isPending ? "Marking…" : "Mark as issued"}
@@ -694,27 +897,26 @@ export default function BirForm2307Editor() {
               </div>
 
               {isFiled ? (
-                <div className="rounded-card border border-success/40 bg-success-bg px-3.5 py-2.5 text-[12.5px] text-content">
-                  <span className="font-semibold">Issued.</span> This certificate is
-                  recorded as handed to the payee.
-                </div>
+                <FiledBanner form="2307" filedAt={existing.data?.filedAt}>
+                  This certificate is recorded as handed to the payee.
+                </FiledBanner>
               ) : null}
             </div>
           </div>
         }
       />
 
-      {/* The pre-pass-2 hand-written A4 sheet. Kept off-screen for this unit
-          only, reachable through "Print (legacy)" so the two printouts can be
-          compared on paper. Removed in W3. */}
+      {/* The pre-pass-2 hand-written A4 sheet. Kept off-screen until W4,
+          reachable through "Print (legacy)" so the two printouts can be
+          compared on paper. Prints from the same payor source (W3 R3). */}
       <div className="bir-sheet-stage" aria-hidden="true">
         <div ref={legacySheetRef} className="bir-sheet">
           <Sheet2307
             year={year}
             quarter={quarter}
-            agentName={agent?.businessName ?? ""}
-            agentTin={agent?.tin ?? ""}
-            agentAddress={[agent?.address, agent?.city].filter(Boolean).join(", ")}
+            agentName={party.businessName}
+            agentTin={party.tin}
+            agentAddress={[party.address, party.city].filter(Boolean).join(", ")}
             payeeName={payeeName}
             payeeTin={payeeTin}
             payeeAddress={payeeAddress}

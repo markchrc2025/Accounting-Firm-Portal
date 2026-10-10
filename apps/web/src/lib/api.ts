@@ -727,6 +727,11 @@ export interface BirFormSummary {
   filedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** U3 (W3 R3): the filed form this one amends; null for an original.
+   *  Absent on an API without U3. */
+  amendsId?: string | null;
+  /** U3 (W3 R3): 1 for an original, 2 and up for each amendment. */
+  sequence?: number;
 }
 export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
   return apiFetch<BirFormCatalogItem[]>("/bir-forms/catalog");
@@ -956,8 +961,23 @@ export interface BirFormExportRef {
   filename: string;
   createdAt: string;
 }
+/**
+ * U3 (W3 R3): the payor / employer block as it stood when the form was filed.
+ * Carries other keys too; the web reads only these.
+ */
+export interface BirFiledSnapshot {
+  businessName?: string | null;
+  tin?: string | null;
+  branch?: string | null;
+  address?: string | null;
+  city?: string | null;
+  zip?: string | null;
+  rdo?: string | null;
+}
 export interface BirFormDetail extends BirFormSummary {
   data: Record<string, unknown>;
+  /** Present once a form is filed under U3; null on rows filed before it. */
+  filedSnapshot?: BirFiledSnapshot | null;
   computed:
     | BirForm2551QComputed
     | BirForm2550QComputed
@@ -987,6 +1007,12 @@ export function updateBirForm(
   body: { period?: string; status?: "draft" | "filed"; data?: Record<string, unknown> },
 ): Promise<BirFormDetail> {
   return apiFetch(`/bir-forms/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+/** U3 (W3 R2): open a new draft that amends a filed return. */
+export function amendBirForm(
+  id: string,
+): Promise<{ id: string; status: "draft"; sequence: number; amendsId: string }> {
+  return apiFetch(`/bir-forms/${encodeURIComponent(id)}/amend`, { method: "POST" });
 }
 export function computeBirForm<T = BirForm2551QComputed>(
   form: string,
