@@ -1,5 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Res,
+  StreamableFile,
+} from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
@@ -14,6 +27,7 @@ import {
   UpdateBirFormInput,
   UpdateBirFormSchema,
 } from "./dto/bir-form.schemas";
+import { attachment } from "../storage/storage.service";
 import { BIR_FORMS_PERMISSION, BirFormsService } from "./bir-forms.service";
 
 /**
@@ -121,6 +135,30 @@ export class BirFormsController {
   @RequirePermissions(BIR_FORMS_PERMISSION.file)
   clearCopy(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.birForms.clearCopy(user, id);
+  }
+
+  /**
+   * C3 R2 (D52): "Preview PDF" — a draft return printed on the BIR's own blank
+   * form, stamped "DRAFT — NOT FILED". BIRForms:Read, with the same firm and client
+   * checks as GET :id. 200 with the PDF itself, an attachment named like the XML
+   * with "-DRAFT.pdf". Never stored. 409: a filed return, a form with no print map
+   * yet, or a field the builder or the engine refuses (its own words).
+   */
+  @Post(":id/preview-pdf")
+  @HttpCode(200)
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
+  async previewPdf(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { pdf, filename } = await this.birForms.previewPdf(user, id);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": attachment(filename),
+      "Cache-Control": "no-store",
+    });
+    return new StreamableFile(Buffer.from(pdf));
   }
 
   @Get(":id/exports/:exportId/url")

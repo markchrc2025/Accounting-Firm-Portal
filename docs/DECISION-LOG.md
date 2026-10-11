@@ -194,3 +194,6 @@ Decision (domain owner and technical partner): D41 is unchanged — connector wr
 
 ## 2026-10-11 · D51 · Receipt photos can stay in Google Drive; a draft return can be deleted
 Decision (domain owner and technical partner): the Portal reads receipt photos from Google Drive folders shared with its read-only robot account (GOOGLE_SERVICE_ACCOUNT_JSON, API service only) and keeps only each file's link; nothing from Drive is copied to the bucket, and the Portal never writes, moves or deletes anything in Drive. Every pile is prepared in the background, so a large pile of iPhone photos no longer holds a request open. A draft return can be deleted with its exports, an audit row keeping its data; a filed return can never be deleted. Built in U14 and W15.
+
+## 2026-10-11 · D52 · A draft return can be previewed on the BIR's form, stamped DRAFT
+Decision (domain owner): before filing, a draft return whose form has a print map (today 2551Q and 2550Q) can be downloaded as a preview — the same eBIRForms export printed by @portal/bir-pdf on the BIR's blank form, stamped "DRAFT — NOT FILED" on every page. The preview is made on request and never stored. A filed return keeps its clean clear copy (D50); no one should mark a return filed just to see it. Built in C3.

@@ -760,6 +760,8 @@ export interface BirFormSummary {
   clearCopyAvailable?: boolean;
   /** U14 (W15 R1): a draft the caller may delete. */
   canDelete?: boolean;
+  /** C3 (D52): a draft whose form has a print map, so it can be previewed. */
+  previewAvailable?: boolean;
 }
 export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
   return apiFetch<BirFormCatalogItem[]>("/bir-forms/catalog");
@@ -1063,6 +1065,24 @@ export function exportBirForm(
  *  message for a draft, a form with no print map, or an engine error. */
 export function createClearCopy(id: string): Promise<BirFormExportRef> {
   return apiFetch(`/bir-forms/${encodeURIComponent(id)}/clear-copy`, { method: "POST" });
+}
+/**
+ * C3 (D52): a draft printed on the BIR's own blank form, stamped "DRAFT — NOT
+ * FILED" — the PDF itself and the server's filename (the XML's name with
+ * "-DRAFT.pdf"). Never stored. A 409 (a filed return, no print map yet, a field
+ * the export or the engine refuses) is thrown with the server's message.
+ */
+export async function previewBirFormPdf(id: string): Promise<{ blob: Blob; filename: string }> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}/bir-forms/${encodeURIComponent(id)}/preview-pdf`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw await errorFrom(res, "Could not prepare the preview");
+  return {
+    blob: await res.blob(),
+    filename: dispositionFilename(res.headers.get("Content-Disposition"), "preview-DRAFT.pdf"),
+  };
 }
 /** U14 (W15 R1): delete a draft return. 409 for a filed one; 403 without
  *  permission. Both carry a message the dialog shows word for word. */

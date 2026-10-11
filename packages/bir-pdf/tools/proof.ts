@@ -10,7 +10,10 @@
 //
 // It also writes <form>-<version>-longname-proof.pdf: the form's sample export
 // (fixtures/<form>-sample.xml) with every "squeeze" field given an invented
-// value too long for its boxes, so the squeezed lines can be inspected too.
+// value too long for its boxes, so the squeezed lines can be inspected too;
+// and <form>-<version>-draft-proof.pdf: the same sample export as a draft's
+// preview (C3), stamped "DRAFT — NOT FILED", printed at a fixed invented time
+// so the committed file never changes.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,4 +65,16 @@ for (const version of versions) {
   const long = join(root, "proofs", `${form}-${version}-longname-proof.pdf`);
   writeFileSync(long, await renderReturn(form, version, rows, { root }));
   console.log(`wrote proofs/${form}-${version}-longname-proof.pdf`);
+
+  const draft = join(root, "proofs", `${form}-${version}-draft-proof.pdf`);
+  const sample = parseEbirExport(readFileSync(fixture, "utf8"));
+  writeFileSync(
+    draft,
+    await renderReturn(form, version, sample, {
+      root,
+      watermark: "DRAFT",
+      printedAt: new Date("2026-10-25T02:05:00.000Z"),
+    }),
+  );
+  console.log(`wrote proofs/${form}-${version}-draft-proof.pdf`);
 }
