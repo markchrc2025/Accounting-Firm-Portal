@@ -22,6 +22,8 @@ import {
   cn,
   peso,
 } from "../components/ui";
+import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
+import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
@@ -133,7 +135,8 @@ export default function BirForm2550QEditor() {
     mutationFn: () => exportBirForm(id!),
     onSuccess: (res) => {
       setError(null);
-      window.open(res.url, "_blank", "noopener");
+      // W15 R2: the link is an attachment; it downloads in place, no new tab.
+      downloadFromUrl(res.url, res.filename);
       void existing.refetch();
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : "Could not export the XML."),
@@ -413,6 +416,8 @@ export default function BirForm2550QEditor() {
                 </Button>
               )
             ) : null}
+            {/* W15 R1: a draft the caller may delete. */}
+            {existing.data ? <DeleteDraftButton detail={existing.data} /> : null}
           </div>
 
           {isFiled ? (

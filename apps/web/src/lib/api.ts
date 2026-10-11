@@ -471,6 +471,8 @@ export function refreshSession(): Promise<{ accessToken: string }> {
 export interface ClientSummary {
   id: string;
   businessName: string;
+  /** U14 (W15 R4): the client's linked Google Drive folder, or null. */
+  driveFolder?: { id: string; name: string; link: string } | null;
   tin?: string | null;
   taxType?: string | null;
   currency: string;
@@ -753,9 +755,11 @@ export interface BirFormSummary {
   amendsId?: string | null;
   /** U3 (W3 R3): 1 for an original, 2 and up for each amendment. */
   sequence?: number;
-  /** U13 (W14): a filed return whose form has a print map. The detail carries
-   *  it; a list row may not, and then the detail decides. */
+  /** U13 (W14): a filed return whose form has a print map. U14: list rows
+   *  carry it too. */
   clearCopyAvailable?: boolean;
+  /** U14 (W15 R1): a draft the caller may delete. */
+  canDelete?: boolean;
 }
 export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
   return apiFetch<BirFormCatalogItem[]>("/bir-forms/catalog");
@@ -1059,6 +1063,11 @@ export function exportBirForm(
  *  message for a draft, a form with no print map, or an engine error. */
 export function createClearCopy(id: string): Promise<BirFormExportRef> {
   return apiFetch(`/bir-forms/${encodeURIComponent(id)}/clear-copy`, { method: "POST" });
+}
+/** U14 (W15 R1): delete a draft return. 409 for a filed one; 403 without
+ *  permission. Both carry a message the dialog shows word for word. */
+export function deleteBirForm(id: string): Promise<{ deleted: true; id: string }> {
+  return apiFetch(`/bir-forms/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 /** A signed download URL for one of a form's exports (XML or clear copy). */
 export function fetchBirFormExportUrl(
