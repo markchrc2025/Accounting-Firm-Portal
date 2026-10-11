@@ -39,6 +39,7 @@ const CASES: Case[] = [
   { form: "1702Q", version: "2018-01", instructionPages: [3] },
   { form: "1701", version: "2018-01", instructionPages: [] },
   { form: "1701A", version: "2018-01", instructionPages: [] },
+  { form: "1702RT", version: "2018-01", instructionPages: [] },
 ];
 
 /**

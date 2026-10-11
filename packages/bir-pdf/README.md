@@ -100,6 +100,12 @@ used in error messages and proofs.
 | `text` | free text on a line or in a table cell, `align` left/center/right; shrinks from `size` to `minSize`, then it is an error | `{"key": "frm2551Qv2018:txt17Specify", "item": "17 specify", "kind": "text", "page": 1, "y": 495.8, "x0": 224.1, "x1": 375.2, "size": 8, "minSize": 5}` |
 | `none` | nothing: a key with no place on the paper, with its `reason`; optional `expect` (a regular expression) makes any other value an error | `{"key": "txtFinalFlag", "kind": "none", "reason": "eBIRForms package flag (1 = final copy), not printed on the return"}` |
 
+`strip` (comb, C2): a prefix the paper pre-prints, such as the "20" of the 1702Q/1702-RT
+"/20YY" year-ended boxes; the value must start with it and it is removed before
+placing. `amount` (text, C2): the cell is a table cell with no digit boxes (the 1701's
+NOLCO table) and holds whole pesos; "0.00" prints "0", centavos other than zero are an
+error.
+
 `blankIf` (any placed kind) is a list of `{ "key", "equals" }`; when **all** hold the
 field prints nothing. It keeps unused schedule rows clean (an unused 2551Q Schedule 1
 row has ATC index `0` and `0.00` amounts) without ever hiding a figure that was filed.
@@ -153,6 +159,15 @@ borders.
 How much fits at 5.5 pt (2551Q, measured with ordinary capitals; wide letters such as
 M, W, B fit fewer): a 5-box bank about 17, a 7-box number about 25, the 8-box
 particulars about 28, a 26-box page-2 name about 88.
+
+## The seven returns
+
+Every return the Portal files has a map: 2551Q (2018-01), 2550Q (2024-04) and, from C2
+(D53), 1701Q, 1702Q, 1701, 1701A and 1702-RT (all 2018-01). The eBIRForms "Account
+Information" attachment keys of the 1701 (Pg1m to Pg4m), which the four-page form has no
+place for, are `none` with the zero/empty value they must carry. Where the paper has no
+centavo boxes (all five annual and quarterly income-tax returns: "DO NOT enter
+Centavos") an amount prints as whole pesos and an amount with centavos is refused.
 
 ## Adding a new form version
 
