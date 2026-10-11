@@ -296,7 +296,7 @@ const DRIVE_FILES = [
     driveFileId: "drv-bad",
     name: "Notes about receipts",
     mimeType: "application/vnd.google-apps.document",
-    bytes: 0,
+    bytes: null,
     problem: "A Google Docs file, not a photo or PDF.",
   }),
   driveFile({ driveFileId: "drv-old-1", name: "IMG_0001.JPG", alreadyRead: true }),
@@ -493,6 +493,10 @@ test.describe("T1 the From Google Drive tab (hermetic)", () => {
     await expect(box("Notes about receipts")).not.toBeChecked();
     await expect(box("Notes about receipts")).toBeDisabled();
     await expect(tab.getByText("A Google Docs file, not a photo or PDF.")).toBeVisible();
+    // Drive gives a Google Docs file no size: none is shown.
+    await expect(
+      tab.locator("li", { hasText: "Notes about receipts" }),
+    ).not.toContainText("KB");
     await expect(tab.getByText("September/Suppliers")).toBeVisible();
     // Already read: folded away, and not ticked.
     const read = tab.locator("details[data-already-read]");

@@ -26,7 +26,8 @@ export interface DriveFile {
   /** The subfolder path inside the linked folder; "" at its top. */
   path: string;
   mimeType: string;
-  bytes: number;
+  /** null where Drive gives no size (a Google Docs file, for one). */
+  bytes: number | null;
   modifiedTime: string;
   /** An earlier pile of this client already sent it, or matched it as a copy. */
   alreadyRead: boolean;

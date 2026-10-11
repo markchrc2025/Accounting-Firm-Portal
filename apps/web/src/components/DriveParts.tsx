@@ -285,7 +285,7 @@ function DriveRow({
         <div className="text-[11.5px] text-content-muted">
           {file.path ? <span className="mr-2">{file.path}</span> : null}
           <span className="mr-2">{day(file.modifiedTime)}</span>
-          <span>{fileSize(file.bytes)}</span>
+          {file.bytes !== null ? <span>{fileSize(file.bytes)}</span> : null}
         </div>
         {blocked ? (
           <div className="text-[11.5px] text-danger-ink">{file.problem}</div>
