@@ -9,4 +9,5 @@ export { parseEbirExport, ENCODED_KEYS } from "./parse";
 export { renderReturn, renderProof, loadMap, type RenderOptions } from "./render";
 export { layoutReturn, layoutGhost, type Metrics } from "./layout";
 export { validateMap } from "./validate";
+export { DRAFT_STAMP, manilaStamp, previewFooter } from "./watermark";
 export * from "./types";

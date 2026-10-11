@@ -62,6 +62,13 @@ else. `pdfjs-dist` (reading text back in tests), `tsx`, `vitest` and Python
    - Fixed metadata (title, subject, creator, producer; no dates, no ids): the same
      export always gives byte-identical PDFs.
 3. **`renderProof(form, version)`** draws a ghost value in every mapped field (below).
+4. **A draft's preview** (C3, D52): `renderReturn(form, version, rows, { watermark:
+   "DRAFT", printedAt })` draws the same figures, then stamps every page with a large
+   diagonal "DRAFT — NOT FILED" (black at 15% opacity, so it prints light grey and
+   every figure stays readable through it) and a small footer: "Preview printed
+   <dd Mon yyyy, h:mm a> (Manila) from the Portal. Not the filed return." The engine
+   reads no clock: the caller passes `printedAt`, and a watermark without it is an
+   error. Without `watermark` the output is byte-for-byte what it was before.
 
 In CommonJS (the API under ts-node) and vitest the package finds its own files through
 `__dirname`. A plain-ESM caller (a `tsx` script) passes `{ root: <package dir> }` as the
@@ -134,7 +141,11 @@ label on every free-text line. Rasterize every page (`pdftoppm -r 300`) and chec
 every character sits inside its box, centred, and covers no printed text. Commit the
 proof with the map.
 
-It also writes `proofs/<form>-<version>-longname-proof.pdf`: the form's sample export
+It also writes `proofs/<form>-<version>-draft-proof.pdf`: the sample export as a
+draft's preview, stamped DRAFT, printed at a fixed invented time so the file never
+changes. Check that the stamp reads and every figure reads through it.
+
+And `proofs/<form>-<version>-longname-proof.pdf`: the form's sample export
 with every `squeeze` field given an invented value too long for its boxes. Check that
 each squeezed line is complete, inside its comb, and clear of the frame and cell
 borders.

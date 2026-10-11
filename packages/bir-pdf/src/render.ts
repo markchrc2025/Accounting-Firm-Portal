@@ -1,4 +1,5 @@
-// renderReturn — write a filed return onto the BIR's own blank form.
+// renderReturn — write a filed return onto the BIR's own blank form; with the
+// DRAFT watermark (C3), a draft's preview.
 //
 // Loads the template PDF (never changed), lays out every mapped key of the
 // export, draws each piece of text in Liberation Sans Bold, black, and returns
@@ -11,6 +12,7 @@ import { PDFDict, PDFDocument, PDFName, rgb, type PDFFont } from "pdf-lib";
 import { layoutGhost, layoutReturn, type Metrics } from "./layout";
 import { BirPdfError, type DrawOp, type FormMap } from "./types";
 import { validateMap } from "./validate";
+import { stampDraft } from "./watermark";
 
 export interface RenderOptions {
   /**
@@ -19,6 +21,14 @@ export interface RenderOptions {
    * pass it explicitly.
    */
   root?: string;
+  /**
+   * C3 (D52): "DRAFT" stamps every page "DRAFT — NOT FILED" (diagonal, light
+   * grey) and adds the preview footer. Absent: the output is exactly as before.
+   */
+  watermark?: "DRAFT";
+  /** When the preview was printed, for its footer. Required with `watermark`:
+   *  the engine reads no clock, so the caller says what time it is. */
+  printedAt?: Date;
 }
 
 const FONT_FILE = "fonts/LiberationSans-Bold.ttf";
@@ -97,7 +107,8 @@ async function draw(
   doc.registerFontkit(fontkit);
   const fontBytes = readFileSync(join(root, FONT_FILE));
   const font = await doc.embedFont(fontBytes, { subset: true, customName: FONT_NAME });
-  const ops = plan(map, metricsOf(font, fontkit.create(fontBytes)));
+  const metrics = metricsOf(font, fontkit.create(fontBytes));
+  const ops = plan(map, metrics);
 
   const black = rgb(0, 0, 0);
   for (const op of ops)
@@ -108,6 +119,12 @@ async function draw(
       font,
       color: black,
     });
+  if (opts?.watermark === "DRAFT") {
+    if (!(opts.printedAt instanceof Date) || Number.isNaN(opts.printedAt.getTime())) {
+      throw new BirPdfError("@portal/bir-pdf: a DRAFT preview needs printedAt, the time it is printed");
+    }
+    for (const page of pages) stampDraft(page, font, metrics.capHeight, opts.printedAt);
+  }
 
   // Fixed metadata: no dates, no ids, nothing that changes between runs.
   doc.setTitle(map.title);

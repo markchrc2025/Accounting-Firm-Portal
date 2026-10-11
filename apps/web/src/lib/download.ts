@@ -15,3 +15,12 @@ export function downloadFromUrl(url: string, filename: string): void {
   a.click();
   a.remove();
 }
+
+/** Download a file the page already holds (C3: a draft's preview PDF), through
+ *  the same in-page link: no new tab. */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  downloadFromUrl(url, filename);
+  // Let the click start the download before the object URL goes.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
