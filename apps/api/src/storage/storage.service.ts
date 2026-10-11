@@ -143,12 +143,24 @@ export class StorageService {
     return out;
   }
 
-  /** A short-lived (1 hour) presigned GET URL for an arbitrary stored object. */
-  async signedGetUrl(key: string): Promise<string> {
+  /**
+   * A short-lived (1 hour) presigned GET URL for an arbitrary stored object. With a
+   * filename (U14 R5), the link downloads: the response carries Content-Disposition
+   * attachment under that name.
+   */
+  async signedGetUrl(key: string, opts?: { filename?: string }): Promise<string> {
     const s3 = this.require();
-    return getSignedUrl(s3, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
-      expiresIn: 3600,
-    });
+    return getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ...(opts?.filename
+          ? { ResponseContentDisposition: attachment(opts.filename) }
+          : {}),
+      }),
+      { expiresIn: 3600 },
+    );
   }
 
   /** A short-lived (1 hour) presigned GET URL for the stored COR. */
@@ -180,4 +192,11 @@ export class StorageService {
     const s3 = this.require();
     await s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
+}
+
+/** Content-Disposition for a download: an ASCII name for every browser, and the
+ *  exact name (RFC 6266 / 5987) for those that read filename*. */
+export function attachment(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }

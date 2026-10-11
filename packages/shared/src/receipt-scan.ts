@@ -108,21 +108,39 @@ export const ScanFileResult = z.enum([
 ]);
 export type ScanFileResult = z.infer<typeof ScanFileResult>;
 
+/** U14: where a scanned file came from. */
+export const ScanFileSource = z.enum(["upload", "drive"]);
+export type ScanFileSource = z.infer<typeof ScanFileSource>;
+
 export const ScanFile = z.object({
   id: z.string().uuid(),
   name: z.string(),
   contentType: z.string(),
   bytes: z.number().int().nonnegative(),
-  /** A signed GET valid for 1 hour; null when nothing is stored for the file. */
+  /** A short-lived signed link that loads in an <img> or a link with no auth
+   *  header (1 hour); null when there is nothing to show. For a Drive file it is
+   *  read from Drive as it is opened (a JPEG for a photo, the PDF for a PDF) and
+   *  answers 404 once Drive no longer has it or no longer shares it (U14). */
   imageUrl: z.string().nullable(),
+  source: ScanFileSource,
+  /** The file's Google Drive page; null for an upload. */
+  driveLink: z.string().nullable(),
   result: ScanFileResult,
   problem: z.string().nullable(),
   rows: z.array(ScanRow),
 });
 export type ScanFile = z.infer<typeof ScanFile>;
 
-/** "approved" and "discarded" are reserved for U12. */
-export const ReceiptScanStatus = z.enum(["reading", "ready", "failed", "approved", "discarded"]);
+/** "approved" and "discarded" are reserved for U12. "preparing" (U14): the files are
+ *  being fetched and prepared in the background; nothing has been sent yet. */
+export const ReceiptScanStatus = z.enum([
+  "preparing",
+  "reading",
+  "ready",
+  "failed",
+  "approved",
+  "discarded",
+]);
 export type ReceiptScanStatus = z.infer<typeof ReceiptScanStatus>;
 
 export const ReceiptScanSummary = z.object({
@@ -143,6 +161,15 @@ export const ReceiptScanSummary = z.object({
   problem: z.string().nullable(),
 });
 export type ReceiptScanSummary = z.infer<typeof ReceiptScanSummary>;
+
+/** U14: POST /receipt-scans and POST /receipt-scans/drive answer 202 with this; the
+ *  pile is then prepared in the background. */
+export const ReceiptScanAccepted = z.object({
+  id: z.string().uuid(),
+  status: z.literal("preparing"),
+  files: z.number().int().positive(),
+});
+export type ReceiptScanAccepted = z.infer<typeof ReceiptScanAccepted>;
 
 export const ReceiptScanDetail = z.object({
   scan: ReceiptScanSummary,
@@ -185,3 +212,52 @@ export type AiEstimate = z.infer<typeof AiEstimate>;
 /** The two models U11 allows; U12's test decides between them. */
 export const AiModel = z.enum(["claude-sonnet-5-5", "claude-haiku-5-5"]);
 export type AiModel = z.infer<typeof AiModel>;
+
+/**
+ * ============================================================================
+ * GOOGLE DRIVE (U14, D51) — receipt photos that stay where the client put them
+ * ----------------------------------------------------------------------------
+ * The Portal reads a client's Drive folder through its read-only robot account
+ * and keeps only links; nothing from Drive is copied to the bucket.
+ * ============================================================================
+ */
+
+/** GET /drive/status. Only the robot's email is ever shown, never its key. */
+export const DriveStatus = z.object({
+  configured: z.boolean(),
+  robotEmail: z.string().nullable(),
+  problem: z.string().nullable(),
+});
+export type DriveStatus = z.infer<typeof DriveStatus>;
+
+/** A client's linked folder (GET /clients/:clientId driveFolder; PUT drive-folder). */
+export const DriveFolder = z.object({
+  id: z.string(),
+  name: z.string(),
+  link: z.string(),
+});
+export type DriveFolder = z.infer<typeof DriveFolder>;
+
+export const DriveFile = z.object({
+  driveFileId: z.string(),
+  name: z.string(),
+  /** The subfolder path inside the linked folder; "" at its top. */
+  path: z.string(),
+  mimeType: z.string(),
+  bytes: z.number().int().nonnegative().nullable(),
+  modifiedTime: z.string(),
+  /** An earlier pile of this client already sent it, or matched it as a copy. */
+  alreadyRead: z.boolean(),
+  /** Why it cannot be sent; null when it can. */
+  problem: z.string().nullable(),
+});
+export type DriveFile = z.infer<typeof DriveFile>;
+
+/** GET /receipt-scans/drive?clientId — newest first, the linked folder and its
+ *  subfolders three levels deep, at most 500 files (truncated beyond). */
+export const DriveListing = z.object({
+  folder: DriveFolder.nullable(),
+  files: z.array(DriveFile),
+  truncated: z.boolean(),
+});
+export type DriveListing = z.infer<typeof DriveListing>;

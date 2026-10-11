@@ -36,6 +36,7 @@ import { StorageModule } from "./storage/storage.module";
 import { TaxRulesModule } from "./tax-rules/tax-rules.module";
 import { TaxEstimateModule } from "./tax-estimate/tax-estimate.module";
 import { AiModule } from "./ai/ai.module";
+import { DriveModule } from "./drive/drive.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -67,6 +68,7 @@ import { UsersModule } from "./users/users.module";
     TaxRulesModule,
     TaxEstimateModule,
     AiModule,
+    DriveModule,
     BirModule,
     CoaModule,
     FsModule,

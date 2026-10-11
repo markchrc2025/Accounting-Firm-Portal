@@ -178,30 +178,41 @@ async function open(
   return sharp(data, { raw: { width, height, channels } });
 }
 
+/** The refusal for a file that is no photo or PDF the Portal reads. */
+export function notPhotoOrPdf(name: string, bytes: Uint8Array): string {
+  return `${name} is not a photo or PDF the Portal can read (it looks like ${looksLike(bytes)}).`;
+}
+
+/** A PDF's page count, or the sentence refusing it (U11 R4; checked when a pile is
+ *  sent as well as when it is prepared, U14 R3). */
+export async function pdfPages(
+  name: string,
+  bytes: Buffer,
+): Promise<{ pages: number } | { message: string }> {
+  let pages: number;
+  try {
+    pages = (await PDFDocument.load(bytes, { updateMetadata: false })).getPageCount();
+  } catch {
+    return {
+      message: `${name} could not be opened as a PDF (it may be password-protected).`,
+    };
+  }
+  if (pages > MAX_PDF_PAGES) {
+    return {
+      message: `${name} has ${pages} pages; a PDF in a pile may have at most ${MAX_PDF_PAGES}.`,
+    };
+  }
+  return { pages };
+}
+
 /** Check and prepare one upload; a refusal carries the sentence the user reads. */
 export async function prepareUpload(name: string, bytes: Buffer): Promise<Prepared> {
   const type = sniff(bytes);
-  if (!type)
-    return {
-      ok: false,
-      message: `${name} is not a photo or PDF the Portal can read (it looks like ${looksLike(bytes)}).`,
-    };
+  if (!type) return { ok: false, message: notPhotoOrPdf(name, bytes) };
   if (type === "pdf") {
-    let pages: number;
-    try {
-      pages = (await PDFDocument.load(bytes, { updateMetadata: false })).getPageCount();
-    } catch {
-      return {
-        ok: false,
-        message: `${name} could not be opened as a PDF (it may be password-protected).`,
-      };
-    }
-    if (pages > MAX_PDF_PAGES) {
-      return {
-        ok: false,
-        message: `${name} has ${pages} pages; a PDF in a pile may have at most ${MAX_PDF_PAGES}.`,
-      };
-    }
+    const checked = await pdfPages(name, bytes);
+    if ("message" in checked) return { ok: false, message: checked.message };
+    const { pages } = checked;
     return {
       ok: true,
       kind: "pdf",

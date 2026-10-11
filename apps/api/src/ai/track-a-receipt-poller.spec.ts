@@ -5,6 +5,7 @@
  */
 import type { PrismaService } from "../prisma/prisma.service";
 import { POLL_EVERY_MS, ReceiptScanPoller } from "./receipt-scan.poller";
+import type { ReceiptScanPreparer } from "./receipt-scan.preparer";
 import type { ReceiptScanService } from "./receipt-scan.service";
 
 function setup(reading: () => boolean) {
@@ -13,6 +14,8 @@ function setup(reading: () => boolean) {
   const scans = {
     collectAll: jest.fn(() => new Promise<void>((r) => (release = r))),
     anyReading: jest.fn(async () => reading()),
+    // U14 R3: each tick also ends piles a restart left preparing.
+    endStalePreparing: jest.fn(async () => 0),
   } as unknown as ReceiptScanService;
   const poller = new ReceiptScanPoller(
     { isConnected: true } as unknown as PrismaService,
@@ -27,6 +30,7 @@ function setup(reading: () => boolean) {
         (h as { cleared: boolean }).cleared = true;
       },
     },
+    { activeIds: () => new Set<string>() } as unknown as ReceiptScanPreparer,
   );
   const live = () => armed.filter((t) => !t.cleared);
   return { poller, armed, live, release: () => release(), scans };
