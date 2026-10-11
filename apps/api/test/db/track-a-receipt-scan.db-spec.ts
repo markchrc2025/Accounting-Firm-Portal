@@ -20,6 +20,7 @@ import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
+import { ReceiptScanPreparer } from "../../src/ai/receipt-scan.preparer";
 import { ReceiptScanService } from "../../src/ai/receipt-scan.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
 import { ExpenseImportService } from "../../src/purchase-transactions/import/expense-import.service";
@@ -179,7 +180,9 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
 
   const http = () => request(app.getHttpServer());
   const auth = (r: request.Test) => r.set("Authorization", `Bearer ${saToken}`);
-  const pile = (
+  /** POST a pile; U14 R3: it answers 202 "preparing", so wait for the background
+   *  step before the test looks at what was sent. */
+  const pile = async (
     files: Array<{ name: string; body: Buffer; type?: string }>,
     query?: string,
   ) => {
@@ -193,7 +196,9 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         filename: f.name,
         contentType: f.type ?? "image/jpeg",
       });
-    return r;
+    const res = await r;
+    if (res.status === 202) await app.get(ReceiptScanPreparer).idle();
+    return res;
   };
   /** Fire timers a test held back, so the poller is never left "armed" with a
    *  timer nobody will fire; then give the tick a moment to finish. */
@@ -344,8 +349,15 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
       { name: "c-nonvat.jpg", body: await image([30, 30, 200]) },
       { name: "d-copy-of-a.jpg", body: a },
     ]);
-    expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ clientId, status: "reading", fileCount: 4 });
+    // U14 R3: 202 "preparing"; once prepared in the background the pile is reading.
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ id: expect.any(String), status: "preparing", files: 4 });
+    expect(
+      await writer.receiptScan.findUniqueOrThrow({
+        where: { id: res.body.id },
+        select: { status: true, clientId: true, _count: { select: { files: true } } },
+      }),
+    ).toEqual({ status: "reading", clientId, _count: { files: 4 } });
     // The fake was asked once, for 3 requests: the copy is not sent.
     expect(fake.creates).toHaveLength(1);
     expect(fake.creates[0]).toHaveLength(3);
@@ -519,7 +531,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         { name: "f-november.jpg", body: await image([10, 120, 10]) },
       ]);
       clockNow = new Date("2026-10-10T02:00:00.000Z");
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202); // U14 R3
       const s = await writer.receiptScan.findUniqueOrThrow({
         where: { id: res.body.id },
       });
@@ -660,7 +672,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         [{ name: "h-other.jpg", body: await image([105, 206, 8]) }],
         `clientId=${otherClientId}&periodFrom=2026-07-01&periodTo=2026-09-30`,
       );
-      expect(other.status).toBe(201);
+      expect(other.status).toBe(202); // U14 R3
     });
 
     it("a client principal gets 403", async () => {
@@ -813,7 +825,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         receipts: [],
       });
       const res = await pile([{ name: "j-expire.jpg", body: await image([20, 21, 22]) }]);
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202); // U14 R3
       expect(fake.creates.length).toBe(before + 1);
       const f = await writer.receiptScanFile.findFirstOrThrow({
         where: { scanId: res.body.id },
@@ -840,7 +852,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
         ],
       });
       const res = await pile([{ name, body: await image([140, 60, 200]) }]);
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202); // U14 R3
       await collect(res.body.id);
       const d = await auth(http().get(`${API}/receipt-scans/${res.body.id}`));
       expect(d.body.files[0].name).toBe(name);
@@ -895,7 +907,7 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
     });
     fake.status = "in_progress";
     const res = await pile([{ name: "m-restart.jpg", body: await image([50, 51, 52]) }]);
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(202); // U14 R3
     const parked = timers.splice(0); // the first app's timer is held back: it "stopped"
     const timers2: Array<{ fn: () => void; ms: number }> = [];
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -969,12 +981,6 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
       Buffer.from("ftypheic"),
       Buffer.alloc(32),
     ]);
-    const iphone = await pile([
-      { name: "IMG_0002.HEIC", body: heic, type: "image/heic" },
-    ]);
-    // U11-A1: HEIC is read now; a HEIC header with no picture in it cannot be.
-    expect(iphone.status).toBe(400);
-    expect(iphone.body.message).toBe("IMG_0002.HEIC could not be read as an image.");
     const none = await pile([]);
     expect([none.status, none.body.message]).toEqual([
       400,
@@ -989,6 +995,30 @@ describe("U11 · AI reads receipts overnight (real app over HTTP, db, fake Anthr
       scans: await writer.receiptScan.count(),
       objects: storage.objects.size,
     }).toEqual(before);
+    // U11-A1: HEIC is read now; a HEIC header with no picture in it cannot be.
+    // U14 R3: that is only known once the pile is prepared in the background, so
+    // the pile is accepted (202) and the file ends unreadable with that sentence;
+    // nothing is stored or sent.
+    const creates = fake.creates.length;
+    const iphone = await pile([
+      { name: "IMG_0002.HEIC", body: heic, type: "image/heic" },
+    ]);
+    expect(iphone.status).toBe(202);
+    const file = await writer.receiptScanFile.findFirstOrThrow({
+      where: { scanId: iphone.body.id },
+    });
+    expect([file.result, file.problem]).toEqual([
+      "unreadable",
+      "IMG_0002.HEIC could not be read as an image.",
+    ]);
+    expect(
+      (await writer.receiptScan.findUniqueOrThrow({ where: { id: iphone.body.id } }))
+        .status,
+    ).toBe("ready");
+    expect([fake.creates.length, storage.objects.size]).toEqual([
+      creates,
+      before.objects,
+    ]);
   });
 
   // --- T9 (parity with the workbook import) ----------------------------------------
@@ -1162,12 +1192,18 @@ describe("T4 · the key never leaks (real client, closed local port)", () => {
         filename: "key-test.jpg",
         contentType: "image/jpeg",
       });
-    // The real client could not reach the closed port: the pile is not kept.
-    expect(sent.status).toBe(502);
-    expect(sent.body.message).toBe(
+    // U14 R3: the pile is accepted (202) and prepared in the background. The real
+    // client could not reach the closed port, so the pile ends failed with R6's
+    // sentence, nothing charged, and its stored files removed.
+    expect(sent.status).toBe(202);
+    await app4.get(ReceiptScanPreparer).idle();
+    const failed = await writer4.receiptScan.findUniqueOrThrow({
+      where: { id: sent.body.id },
+    });
+    expect([failed.status, failed.problem]).toEqual([
+      "failed",
       "The AI service could not take the pile just now. Nothing was charged; try again later.",
-    );
-    expect(await writer4.receiptScan.count({ where: { firmId: firm4 } })).toBe(0);
+    ]);
     expect(storage4.objects.size).toBe(0);
     const audits = await writer4.auditLog.findMany({});
     const everything = [
@@ -1175,6 +1211,7 @@ describe("T4 · the key never leaks (real client, closed local port)", () => {
       JSON.stringify(estimate.body),
       JSON.stringify(sent.body),
       sent.text,
+      JSON.stringify(failed),
       JSON.stringify(audits),
       ...captured,
     ].join("\n");

@@ -9,7 +9,7 @@
 // NEVER a tool input, and every lookup is firm-scoped.
 //
 // Attribution: service-layer audit rows are attributed to the firm's Super
-// Admin, chosen by role (U4 R3, D41; see McpService.getActor); each write ALSO records an
+// Admin, chosen by role (U4 R3, D41; see McpService.resolveActor); each write ALSO records an
 // `mcp.<tool>` audit row with `metadata.actor = "Claude (MCP)"` so the trail
 // shows the change came through the MCP connector.
 
@@ -617,11 +617,15 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
           // Withholding can coexist with VAT and applies regardless of regime.
           ...(args.atc ? { atc: args.atc.toUpperCase() } : {}),
           ...(args.whtAmount ? { whtAmount: round2(args.whtAmount) } : {}),
+          // The web app's rule (W8 R4, TransactionEntryModal.tsx): a VAT client's
+          // purchase with input VAT is a domestic purchase; one with none is
+          // DOMESTIC_NO_INPUT_TAX (2550Q item 48), as the importer books it
+          // (expense-import.constants.ts NO_VAT_CATEGORY). A non-VAT client's
+          // purchase carries no category (the regime validator requires that).
           ...(isVatClient
-            ? {
-                inputVATCategory: "DOMESTIC_PURCHASES",
-                ...(vat ? { inputVAT: vat, taxAmount: vat } : {}),
-              }
+            ? vat
+              ? { inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: vat, taxAmount: vat }
+              : { inputVATCategory: "DOMESTIC_NO_INPUT_TAX", inputVAT: 0, taxAmount: 0 }
             : {}),
         })) as unknown as Record<string, unknown>;
       }
@@ -633,6 +637,8 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
         { clientId: client.id, netAmount: base.netAmount, category },
       );
       return ok({
+        // M1 R5: the new record's id up front, ready for portal_delete_transaction.
+        id: (dto.id as string) ?? null,
         transaction: { ...dto, categoryName: category },
         ...(args.txnDate > todayIso()
           ? { warning: `txnDate ${args.txnDate} is in the future.` }
@@ -650,7 +656,8 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
       description:
         "Record one sales/income bookkeeping entry for a client (PHP, amount NET of VAT — " +
         "12% output VAT is computed automatically for VAT-registered clients). Creates a " +
-        "permanent record; use portal_delete_transaction to remove a mistake.",
+        "permanent record; the result's top-level id goes straight to " +
+        "portal_delete_transaction to remove a mistake.",
       inputSchema: {
         ...recordFields("income"),
         vatClass: z
@@ -672,8 +679,9 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
       title: "Record expense (client purchase)",
       description:
         "Record one expense/purchase bookkeeping entry for a client (PHP, amount NET of VAT — " +
-        "pass the input VAT separately via vatAmount for VAT-registered clients). Creates a " +
-        "permanent record; use portal_delete_transaction to remove a mistake.",
+        "pass the input VAT separately via vatAmount for VAT-registered clients; without it " +
+        "the purchase is recorded as having no input tax). Creates a permanent record; the " +
+        "result's top-level id goes straight to portal_delete_transaction to remove a mistake.",
       inputSchema: {
         ...recordFields("expense"),
         vatAmount: z

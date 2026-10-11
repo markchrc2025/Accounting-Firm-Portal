@@ -5,7 +5,12 @@ import { AiSettingsService } from "./ai-settings.service";
 import { AI_BATCH_CLIENT, AI_CLOCK, AI_POLLER_TIMER } from "./ai.tokens";
 import { AiController } from "./ai.controller";
 import { AnthropicBatchClient } from "./batch-client";
-import { ReceiptScanController } from "./receipt-scan.controller";
+import {
+  ReceiptScanController,
+  ReceiptScanFileController,
+} from "./receipt-scan.controller";
+import { ReceiptScanPreparer } from "./receipt-scan.preparer";
+import { DriveModule } from "../drive/drive.module";
 import { ReceiptScanPoller, realPollerTimer } from "./receipt-scan.poller";
 import { ReceiptScanService } from "./receipt-scan.service";
 
@@ -14,12 +19,13 @@ import { ReceiptScanService } from "./receipt-scan.service";
  * environment once, here, and handed only to the SDK.
  */
 @Module({
-  imports: [FinancialModule, PurchaseTransactionsModule],
-  controllers: [AiController, ReceiptScanController],
+  imports: [FinancialModule, PurchaseTransactionsModule, DriveModule],
+  controllers: [AiController, ReceiptScanController, ReceiptScanFileController],
   providers: [
     AiSettingsService,
     ReceiptScanService,
     ReceiptScanPoller,
+    ReceiptScanPreparer,
     {
       provide: AI_BATCH_CLIENT,
       useFactory: () => new AnthropicBatchClient(process.env.ANTHROPIC_API_KEY),

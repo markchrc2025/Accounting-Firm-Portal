@@ -7,6 +7,7 @@ import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import type { CreateClientInput, UpdateClientInput } from "./dto/client.schemas";
 import { billingLinkError } from "./billing-link";
+import { driveFolderOf } from "../drive/drive-links";
 
 /** Writable client columns (excludes server-managed + caller-provided keys). */
 type ClientWritable = Omit<
@@ -162,7 +163,8 @@ export class ClientsService {
       where: { id: clientId, firmId: user.firmId },
     });
     if (!client) throw new NotFoundException("Client not found");
-    return client;
+    // U14 (D51), additive: the client's Google Drive folder of receipt photos.
+    return { ...client, driveFolder: driveFolderOf(client) };
   }
 
   async update(user: AuthUser, clientId: string, input: UpdateClientInput) {

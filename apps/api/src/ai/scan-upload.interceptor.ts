@@ -47,12 +47,15 @@ export async function sweepStaleUploads(
   now = Date.now(),
 ): Promise<number> {
   let removed = 0;
-  for (const name of await readdir(dir).catch(() => [] as string[])) {
-    const path = join(dir, name);
-    const info = await stat(path).catch(() => null);
-    if (info?.isFile() && now - info.mtimeMs > STALE_UPLOAD_MS) {
-      await rm(path, { force: true }).catch(() => undefined);
-      removed++;
+  // The folder itself, and "views" (a Drive image read for a signed link, U14).
+  for (const folder of [dir, join(dir, "views")]) {
+    for (const name of await readdir(folder).catch(() => [] as string[])) {
+      const path = join(folder, name);
+      const info = await stat(path).catch(() => null);
+      if (info?.isFile() && now - info.mtimeMs > STALE_UPLOAD_MS) {
+        await rm(path, { force: true }).catch(() => undefined);
+        removed++;
+      }
     }
   }
   return removed;
