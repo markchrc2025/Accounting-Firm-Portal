@@ -8,7 +8,9 @@
 // free-text line. Rasterize it and look: every character must sit inside its
 // box, centred, and nothing may cover printed text. Invented data only.
 //
-// It also writes <form>-<version>-longname-proof.pdf: the form's sample export
+// It also writes <form>-<version>-filled-proof.pdf: the form's sample export (an
+// invented filled return) printed as a filed return's clear copy;
+// <form>-<version>-longname-proof.pdf: the form's sample export
 // (fixtures/<form>-sample.xml) with every "squeeze" field given an invented
 // value too long for its boxes, so the squeezed lines can be inspected too;
 // and <form>-<version>-draft-proof.pdf: the same sample export as a draft's
@@ -33,13 +35,22 @@ if (versions.length === 0) {
   process.exit(1);
 }
 /** Invented values too long for their boxes, by what the field holds. */
-function longValue(key: string): string {
+function longValue(key: string, boxes: number): string {
+  const v = longText(key);
+  // What a squeeze can hold at 5.5 pt is about 3.4 capitals per box (measured, README).
+  const cap = Math.floor(boxes * 3.2);
+  return v.length > cap ? v.slice(0, cap).trim() : v;
+}
+function longText(key: string): string {
   const k = key.split(":").pop()!;
   // E-mail first: "taxpayerEmailAddress" also contains "Address".
   if (/Email/i.test(k))
     return "accounts.receivable.department@invented-sample-company.example";
   if (/Address/i.test(k))
     return "UNIT 12 SAMPLE TOWER ONE, 5 INVENTED AVENUE CORNER EXAMPLE STREET, SAMPLE CITY, METRO 0000";
+  // 16-box fields (treaty name, citizenship): long, but a squeeze can hold it.
+  if (/Specify|Treaty|Citizenship/.test(k))
+    return "TREATY BETWEEN INVENTED REPUBLICS SAMPLE";
   if (/Agency/.test(k)) return "SAMPLE BANK INC";
   if (/Number/.test(k)) return "CHK-0001234567890";
   if (/Particular/.test(k)) return "INVENTED OTHER PAYMENT";
@@ -54,14 +65,28 @@ for (const version of versions) {
 
   const fixture = join(root, "fixtures", `${form}-sample.xml`);
   if (!existsSync(fixture)) continue;
-  const squeezed = new Set(
-    loadMap(form, version, { root })
-      .fields.filter((f) => f.kind === "comb" && f.squeeze)
-      .map((f) => f.key),
-  );
+  // Every squeeze field, with the boxes it has (the smallest, where a key prints twice).
+  const squeezed = new Map<string, number>();
+  for (const f of loadMap(form, version, { root }).fields) {
+    if (f.kind !== "comb" || !f.squeeze) continue;
+    const boxes = f.rows.reduce((t, r) => t + r.cells.length - 1, 0);
+    squeezed.set(f.key, Math.min(boxes, squeezed.get(f.key) ?? boxes));
+  }
   const rows = parseEbirExport(readFileSync(fixture, "utf8")).map(
-    ([k, v]): [string, string] => [k, squeezed.has(k) ? longValue(k) : v],
+    ([k, v]): [string, string] => [
+      k,
+      squeezed.has(k) ? longValue(k, squeezed.get(k)!) : v,
+    ],
   );
+  const filled = join(root, "proofs", `${form}-${version}-filled-proof.pdf`);
+  writeFileSync(
+    filled,
+    await renderReturn(form, version, parseEbirExport(readFileSync(fixture, "utf8")), {
+      root,
+    }),
+  );
+  console.log(`wrote proofs/${form}-${version}-filled-proof.pdf`);
+
   const long = join(root, "proofs", `${form}-${version}-longname-proof.pdf`);
   writeFileSync(long, await renderReturn(form, version, rows, { root }));
   console.log(`wrote proofs/${form}-${version}-longname-proof.pdf`);

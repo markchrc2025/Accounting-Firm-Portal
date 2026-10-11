@@ -197,3 +197,6 @@ Decision (domain owner and technical partner): the Portal reads receipt photos f
 
 ## 2026-10-11 · D52 · A draft return can be previewed on the BIR's form, stamped DRAFT
 Decision (domain owner): before filing, a draft return whose form has a print map (today 2551Q and 2550Q) can be downloaded as a preview — the same eBIRForms export printed by @portal/bir-pdf on the BIR's blank form, stamped "DRAFT — NOT FILED" on every page. The preview is made on request and never stored. A filed return keeps its clean clear copy (D50); no one should mark a return filed just to see it. Built in C3.
+
+## 2026-10-11 · D53 · All seven returns print on the BIR's form
+Decision (domain owner): the 1701Q, 1702Q, 1701, 1701A and 1702RT join the 2551Q and 2550Q. Each has a print map, a stamped Preview PDF for drafts and a clean clear copy for filed returns, made by @portal/bir-pdf from the same eBIRForms export. Built in C2.

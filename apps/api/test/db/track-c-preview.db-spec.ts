@@ -10,7 +10,7 @@
  *     14–24 and both rows exactly as the eBIRForms export does, plus
  *     "DRAFT — NOT FILED" and the preview footer on every page;
  *   - nothing stored: no BirFormExport row, no bucket write, no audit row.
- * Refusals: a filed return and a draft 1701 (no map yet) get 409 with their
+ * Refusals: a filed return and a draft 2307 (a certificate: no print map) get 409 with their
  * sentences; a builder refusal keeps its own message. A client principal and a
  * firm user not assigned to the client get 403. GET :id and the list say
  * previewAvailable.
@@ -240,26 +240,26 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
     expect(printed(ink, field("txtATCAmt2"))).toBe("80000.50");
   });
 
-  it("GET :id and the list say previewAvailable: true for a draft with a map, false for a filed return and for a 1701", async () => {
-    const f1701 = await draftForm("1701", "2026", { year: "2026" });
+  it("GET :id and the list say previewAvailable: true for a draft with a map, false for a filed return and for a 2307", async () => {
+    const f2307 = await draftForm("2307", "2026-Q3", {});
     const filed = await draftForm("2551Q", "2026-Q1", { year: "2026", quarter: "1st" });
     expect((await as(http().patch(`${API}/bir-forms/${filed}`)).send({ status: "filed" })).status).toBe(200);
     const one = async (id: string) =>
       (await as(http().get(`${API}/bir-forms/${id}`))).body.previewAvailable;
-    expect({ draft: await one(draftId), filed: await one(filed), f1701: await one(f1701) }).toEqual({
+    expect({ draft: await one(draftId), filed: await one(filed), f2307: await one(f2307) }).toEqual({
       draft: true,
       filed: false,
-      f1701: false,
+      f2307: false,
     });
     const list = (await as(http().get(`${API}/bir-forms?clientId=${clientId}`))).body as {
       id: string;
       previewAvailable: boolean;
     }[];
     const byId = new Map(list.map((r) => [r.id, r.previewAvailable]));
-    expect([byId.get(draftId), byId.get(filed), byId.get(f1701)]).toEqual([true, false, false]);
+    expect([byId.get(draftId), byId.get(filed), byId.get(f2307)]).toEqual([true, false, false]);
   });
 
-  it("refusals, each 409 with its sentence: a filed return; a draft 1701; a builder refusal keeps its own words", async () => {
+  it("refusals, each 409 with its sentence: a filed return; a draft 2307; a builder refusal keeps its own words", async () => {
     const filed = await draftForm("2551Q", "2026-Q2", {
       year: "2026",
       quarter: "2nd",
@@ -272,11 +272,11 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
       "This return is filed. Use Download clear copy.",
     ]);
 
-    const f1701 = await draftForm("1701", "2025", { year: "2025" });
-    const b = await preview(f1701);
+    const f2307 = await draftForm("2307", "2025-Q4", {});
+    const b = await preview(f2307);
     expect([b.status, JSON.parse((b.body as Buffer).toString("utf8")).message]).toEqual([
       409,
-      "A preview of the 1701 is not available yet.",
+      "A preview of the 2307 is not available yet.",
     ]);
 
     // An ATC the export cannot encode: the builder's refusal, word for word.
