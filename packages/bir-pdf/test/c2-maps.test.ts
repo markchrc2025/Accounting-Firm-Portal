@@ -33,7 +33,11 @@ interface Case {
   /** 1-based template pages that carry no field (the BIR's instructions). */
   instructionPages: number[];
 }
-const CASES: Case[] = [{ form: "1701Q", version: "2018-01", instructionPages: [] }];
+const CASES: Case[] = [
+  { form: "1701Q", version: "2018-01", instructionPages: [] },
+  // Page 3 of the 1702Q is the BIR's ATC table and instructions: nothing to fill in.
+  { form: "1702Q", version: "2018-01", instructionPages: [3] },
+];
 
 /** Page-frame bounds (the BIR's forms draw a 1.4 pt border about 15-16 pt in). */
 const FRAME = { left: 16.5, right: 595.5 };

@@ -11,9 +11,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   build1701Q,
+  build1702Q,
   build2550Q,
   build2551Q,
   compute1701Q,
+  compute1702Q,
   compute2550Q,
   compute2551Q,
   type Filing,
@@ -191,6 +193,55 @@ const f1701Q = filing(
 writeFileSync(
   join(here, "../fixtures/1701Q-sample.xml"),
   build1701Q(f1701Q, TEST_INDIVIDUAL, compute1701Q(f1701Q.data)),
+);
+
+// 1702Q, Q3 2026: a company with figures in Schedule 1 (exempt and special at 10%),
+// Schedule 2 at 25%, Schedule 3 for two quarters and every Schedule 4 line.
+const f1702Q = filing("1702Q", {
+  year: "2026",
+  quarter: "3rd",
+  periodType: "calendar",
+  method: "itemized",
+  amended: "no",
+  attachments: "1",
+  atc: "IC010",
+  sch1_1A: "100000",
+  sch1_2A: "40000",
+  sch1_4A: "5000",
+  sch1_6A: "10000",
+  sch1_8A: "20000",
+  sch1Rate: "10",
+  sch1_1B: "200000",
+  sch1_2B: "80000",
+  sch1_4B: "3000",
+  sch1_6B: "20000",
+  sch1_8B: "15000",
+  sch1_12B: "100",
+  s2_1: "1500000",
+  s2_2: "700000",
+  s2_4: "25000",
+  s2_6: "300000",
+  s2_8: "50000",
+  rate: "25",
+  sch3_1: "400000",
+  sch3_2: "500000",
+  sch4_1: "1000",
+  sch4_2: "2000",
+  sch4_3: "3000",
+  sch4_4: "4000",
+  sch4_5: "5000",
+  sch4_6: "600",
+  sch4_6a: "700",
+  sch4_6b: "800",
+  i15: "500",
+  i21: "1000",
+  i22: "500",
+  i23: "250",
+});
+
+writeFileSync(
+  join(here, "../fixtures/1702Q-sample.xml"),
+  build1702Q(f1702Q, TEST_TAXPAYER, compute1702Q(f1702Q.data)),
 );
 
 // The 2551Q and 2550Q fixtures are committed and their proofs pinned; they are

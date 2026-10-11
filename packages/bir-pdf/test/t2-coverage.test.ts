@@ -11,6 +11,7 @@ const FORMS = [
   { form: "2551Q", version: "2018-01" },
   { form: "2550Q", version: "2024-04" },
   { form: "1701Q", version: "2018-01" },
+  { form: "1702Q", version: "2018-01" },
 ] as const;
 
 describe("T2 · every exported key is mapped", () => {
