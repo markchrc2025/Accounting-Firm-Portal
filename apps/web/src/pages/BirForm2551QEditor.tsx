@@ -22,6 +22,7 @@ import {
   peso,
 } from "../components/ui";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 import { formRegimeWarning } from "../lib/regime";
 
@@ -463,9 +464,7 @@ export default function BirForm2551QEditor() {
                 <div className="eyebrow mb-2">Exports</div>
                 <ul className="space-y-1.5">
                   {existing.data.exports.map((e) => (
-                    <li key={e.id} className="font-mono text-[11.5px] text-content-secondary">
-                      {e.filename}
-                    </li>
+                    <ExportListItem key={e.id} item={e} />
                   ))}
                 </ul>
               </CardContent>

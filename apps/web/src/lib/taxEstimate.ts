@@ -7,13 +7,28 @@ const METHOD_LABELS: Record<string, string> = {
   graduated: "Graduated rates",
   simplified8: "Optional rate on gross receipts",
   flat: "Flat rate on taxable income",
-  percentage: "Rate on gross receipts",
+  // U10-A1: a saved "percentage" rule is percentage tax (a business tax), not an
+  // income-tax method; the API estimates income tax on the graduated rates and
+  // says so in an assumption, which methodNote finds (W12-A1 R3).
+  percentage: "Percentage",
 };
 
 /** The method as the reader sees it, with the API's rate when it has one. */
 export function methodLabel(method: TaxEstimate["method"]): string {
   const name = METHOD_LABELS[method.name] ?? method.name;
   return method.rate === null ? name : `${name} · ${method.rate}%`;
+}
+
+/**
+ * The API's own sentence about the method, word for word, when the method
+ * needs one: a saved "percentage" rule (U10-A1). The response carries it among
+ * the assumptions; null when there is none.
+ */
+export function methodNote(
+  estimate: Pick<TaxEstimate, "method" | "assumptions">,
+): string | null {
+  if (estimate.method.name !== "percentage") return null;
+  return estimate.assumptions.find((a) => /\bsaved rule is 'Percentage'/.test(a)) ?? null;
 }
 
 /** Where the rule came from: saved on Tax Rules, or the TRAIN default. */

@@ -753,6 +753,9 @@ export interface BirFormSummary {
   amendsId?: string | null;
   /** U3 (W3 R3): 1 for an original, 2 and up for each amendment. */
   sequence?: number;
+  /** U13 (W14): a filed return whose form has a print map. The detail carries
+   *  it; a list row may not, and then the detail decides. */
+  clearCopyAvailable?: boolean;
 }
 export function fetchBirFormCatalog(): Promise<BirFormCatalogItem[]> {
   return apiFetch<BirFormCatalogItem[]>("/bir-forms/catalog");
@@ -1051,6 +1054,20 @@ export function exportBirForm(
   id: string,
 ): Promise<{ id: string; kind: string; filename: string; url: string }> {
   return apiFetch(`/bir-forms/${id}/export`, { method: "POST" });
+}
+/** U13 (W14): print the filed return on the BIR's own blank form. 409 with a
+ *  message for a draft, a form with no print map, or an engine error. */
+export function createClearCopy(id: string): Promise<BirFormExportRef> {
+  return apiFetch(`/bir-forms/${encodeURIComponent(id)}/clear-copy`, { method: "POST" });
+}
+/** A signed download URL for one of a form's exports (XML or clear copy). */
+export function fetchBirFormExportUrl(
+  id: string,
+  exportId: string,
+): Promise<{ url: string }> {
+  return apiFetch(
+    `/bir-forms/${encodeURIComponent(id)}/exports/${encodeURIComponent(exportId)}/url`,
+  );
 }
 
 // --- SSO sign-in (Google / Microsoft) --------------------------------------------

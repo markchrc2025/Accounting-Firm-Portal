@@ -185,6 +185,7 @@ function UploadPanel() {
         </div>
 
         <div
+          data-drop-zone
           onDragOver={(e) => {
             e.preventDefault();
             if (!off) setDragging(true);
@@ -200,9 +201,9 @@ function UploadPanel() {
                 : "border-line-strong bg-card text-content-secondary",
           )}
         >
-          <p>
-            Drop receipt photos here: JPEG, PNG, WebP, PDF or HEIC, up to 100 files of 10
-            MB each.
+          <p data-drop-line>
+            Drop receipt photos or PDFs here: any photo format, iPhone photos included. Up
+            to 100 files of 10 MB each.
           </p>
           <input
             ref={inputRef}
