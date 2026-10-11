@@ -38,6 +38,7 @@ const CASES: Case[] = [
   // Page 3 of the 1702Q is the BIR's ATC table and instructions: nothing to fill in.
   { form: "1702Q", version: "2018-01", instructionPages: [3] },
   { form: "1701", version: "2018-01", instructionPages: [] },
+  { form: "1701A", version: "2018-01", instructionPages: [] },
 ];
 
 /**
