@@ -1,15 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Put } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Put, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
+import { FirmUserGuard } from "../common/guards/firm-user.guard";
 import { DriveService } from "./drive.service";
 
 /**
  * U14 (D51): the Portal's read-only Google Drive robot, and each client's folder of
- * receipt photos. Every error body is { message }.
+ * receipt photos. Firm staff only. Every error body is { message }.
  */
 @ApiTags("drive")
+@UseGuards(FirmUserGuard)
 @Controller()
 export class DriveController {
   constructor(private readonly drive: DriveService) {}

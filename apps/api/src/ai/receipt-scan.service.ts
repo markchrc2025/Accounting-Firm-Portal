@@ -18,7 +18,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
@@ -35,7 +35,7 @@ import {
   type ScanRow,
 } from "@portal/shared";
 import { AuditService } from "../audit/audit.service";
-import { DRIVE_API, type DriveApi } from "../drive/drive-api";
+import { DRIVE_API, DriveError, type DriveApi } from "../drive/drive-api";
 import { fileLink } from "../drive/drive-links";
 import {
   DriveService,
@@ -133,6 +133,8 @@ const LEASE_MS = 15 * 60 * 1000;
 const GIVE_UP_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 /** A pile left "preparing" this long by a restart is ended (U14 R3). */
 const PREPARING_FOR_MS = 30 * 60 * 1000;
+/** A pile folder younger than this is never swept (it may be mid-accept). */
+const YOUNG_FOLDER_MS = 10 * 60 * 1000;
 /** A pile still without a batch after this long was never sent. */
 const UNSENT_AFTER_MS = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -538,10 +540,34 @@ export class ReceiptScanService {
     });
     if (!scan || scan.status !== "preparing") return;
     const dir = pileDir(scanId);
-    const fail = (problem: string) =>
-      this.prisma.receiptScan.updateMany({
+    // Uploads put in the bucket so far, and the batch once it is out.
+    const stored: string[] = [];
+    let batchId: string | null = null;
+    const unstore = async () => {
+      for (const key of stored)
+        await this.storage.deleteObject(key).catch(() => undefined);
+      if (stored.length > 0)
+        await this.prisma.receiptScanFile
+          .updateMany({
+            where: { scanId, storageKey: { in: stored } },
+            data: { storageKey: null },
+          })
+          .catch(() => undefined);
+      stored.length = 0;
+    };
+    const fail = async (problem: string) => {
+      await unstore();
+      await this.prisma.receiptScan.updateMany({
         where: { id: scanId, status: "preparing" },
         data: { status: "failed", problem, inputJson: Prisma.DbNull },
+      });
+    };
+    /** The batch is out: the pile is reading, whatever else failed (and even if a
+     *  sweep wrongly ended it meanwhile); it is never "nothing was sent". */
+    const reading = (id: string) =>
+      this.prisma.receiptScan.update({
+        where: { id: scanId },
+        data: { status: "reading", batchId: id, problem: null, inputJson: Prisma.DbNull },
       });
     try {
       const input = (scan.inputJson ?? { files: [] }) as unknown as PileInput;
@@ -605,6 +631,12 @@ export class ReceiptScanService {
       const now = this.settings.now();
       const planned = await this.prisma.$transaction(async (tx) => {
         await this.lockBudget(tx, scan.firmId);
+        // Still ours to prepare (another instance's sweep may have ended it).
+        const current = await tx.receiptScan.findUnique({
+          where: { id: scanId },
+          select: { status: true },
+        });
+        if (current?.status !== "preparing") return null;
         const readable = items.filter((x) => x.prepared);
         const earlier = await tx.receiptScanFile.findMany({
           where: {
@@ -710,11 +742,6 @@ export class ReceiptScanService {
 
       // 3. Store the uploads, then send one batch.
       const toSend = planned.rows.filter((r) => r.prepared && !r.copy);
-      const stored: string[] = [];
-      const unstore = async () => {
-        for (const key of stored)
-          await this.storage.deleteObject(key).catch(() => undefined);
-      };
       try {
         for (const r of toSend) {
           if (!r.key) continue;
@@ -725,7 +752,6 @@ export class ReceiptScanService {
         this.logger.error(
           `pile ${scanId}: storing failed (${(err as Error).name}); nothing sent`,
         );
-        await unstore();
         await fail(STORE_FAILED);
         return;
       }
@@ -746,27 +772,39 @@ export class ReceiptScanService {
           textFor(r.file.name),
         ),
       }));
-      let batchId: string;
       try {
         batchId = (await this.ai.createBatch(requests)).id;
       } catch (err) {
         this.logger.error(
           `pile ${scanId}: the batch was refused (${(err as Error).name}); files removed`,
         );
-        await unstore();
         await fail(BATCH_REFUSED);
         return;
       }
-      await this.prisma.receiptScan.update({
-        where: { id: scanId },
-        data: { status: "reading", batchId, inputJson: Prisma.DbNull },
-      });
+      await reading(batchId);
       this.logger.log(
         `pile ${scanId}: ${planned.rows.length} file(s), ${toSend.length} sent, estimate US$${planned.total.toFixed(6)}`,
       );
     } catch (err) {
-      this.logger.error(`pile ${scanId}: preparing failed (${(err as Error).name})`);
-      await fail(PREPARE_FAILED).catch(() => undefined);
+      if (batchId) {
+        // Sent: record it as reading (it will be collected and charged).
+        this.logger.error(
+          `pile ${scanId}: sent as ${batchId}, but recording it failed (${(err as Error).name}); retrying`,
+        );
+        await reading(batchId).catch((again: unknown) =>
+          this.logger.error(
+            `pile ${scanId}: batch ${batchId} is out but the pile could not be marked reading (${(again as Error).name})`,
+          ),
+        );
+      } else {
+        this.logger.error(`pile ${scanId}: preparing failed (${(err as Error).name})`);
+        // A Drive refusal says what it was (busy, key refused, API off).
+        const why =
+          err instanceof DriveError
+            ? `${err.message} Nothing was sent or charged; send the files again.`
+            : PREPARE_FAILED;
+        await fail(why).catch(() => undefined);
+      }
     } finally {
       await rm(dir, { recursive: true, force: true }).catch(() => undefined);
     }
@@ -823,9 +861,15 @@ export class ReceiptScanService {
         })
       ).map((s) => s.id),
     );
-    for (const id of ids)
-      if (!preparing.has(id))
-        await rm(join(root, id), { recursive: true, force: true }).catch(() => undefined);
+    const now = Date.now();
+    for (const id of ids) {
+      if (preparing.has(id)) continue;
+      // A folder made in the last 10 minutes may belong to a pile still being
+      // accepted (its row not yet committed): left for a later tick.
+      const info = await stat(join(root, id)).catch(() => null);
+      if (!info || now - info.mtimeMs < YOUNG_FOLDER_MS) continue;
+      await rm(join(root, id), { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 
   /** One request: the cached instructions, then the file and the request's own text. */
@@ -1260,6 +1304,8 @@ export class ReceiptScanService {
       const got = await this.driveApi.download(f.driveFileId, path, MAX_DRIVE_FILE_BYTES);
       if (got !== "ok") return null;
       const bytes = await readFile(path);
+      // Only what the AI read: a file changed in Drive since is not shown.
+      if (sha256(bytes) !== f.sha256) return null;
       const p = await prepareUpload(f.name, bytes);
       if (!p.ok) return null;
       return { body: p.body, contentType: p.contentType };

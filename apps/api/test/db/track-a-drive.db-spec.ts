@@ -20,7 +20,14 @@
  *     with nothing sent.
  */
 import { createVerify, generateKeyPairSync, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
@@ -31,6 +38,7 @@ import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { pileDir } from "../../src/ai/receipt-scan.service";
+import { DriveError } from "../../src/drive/drive-api";
 import { PrismaService } from "../../src/prisma/prisma.service";
 import { StorageService } from "../../src/storage/storage.service";
 
@@ -110,8 +118,11 @@ class FakeDrive {
     const it = this.items.get(id);
     return it ? this.view(it) : null;
   }
+  /** When set, every listing is refused by Google with this. */
+  refuse: Error | null = null;
   async listFolder(id: string) {
     this.calls.push(`listFolder ${id}`);
+    if (this.refuse) throw this.refuse;
     return [...this.items.values()]
       .filter((i) => i.parent === id)
       .map((i) => this.view(i));
@@ -131,6 +142,7 @@ class FakeDrive {
       mimeType: i.mimeType,
       size: i.size,
       modifiedTime: i.modifiedTime,
+      parents: i.parent ? [i.parent] : [],
     };
   }
 }
@@ -421,6 +433,87 @@ describe("U14 · receipt photos stay in Google Drive (real app over HTTP, db, fa
     ]);
   });
 
+  // --- review follow-up -----------------------------------------------------------
+
+  describe("review follow-up · one folder, one client; Google's refusals in words", () => {
+    let otherClient = "";
+    const link = (client: string, l: string) =>
+      as(http().put(`${API}/clients/${client}/drive-folder`)).send({ link: l });
+    beforeAll(async () => {
+      otherClient = (
+        await writer.client.create({
+          data: { firmId, businessName: `${TAG} Another Invented Co`, tin: "000555222" },
+        })
+      ).id;
+      drive.add({
+        id: "1InventedParentOfAllxyz",
+        name: "All clients",
+        mimeType: "application/vnd.google-apps.folder",
+        modifiedTime: "2026-09-01T00:00:00.000Z",
+        parent: null,
+      });
+      // The linked folder now sits inside "All clients".
+      drive.items.get(FOLDER)!.parent = "1InventedParentOfAllxyz";
+    });
+    afterAll(() => {
+      drive.items.get(FOLDER)!.parent = null;
+      drive.refuse = null;
+    });
+
+    it("another client cannot link the same folder, a folder inside it, or one holding it (409)", async () => {
+      expect(
+        (await as(http().get(`${API}/clients/${clientId}`))).body.driveFolder.id,
+      ).toBe(FOLDER);
+      const same = await link(otherClient, FOLDER);
+      expect([same.status, same.body.message]).toEqual([
+        409,
+        "That folder is already linked to another client. A folder can belong to one client only.",
+      ]);
+      const inside = await link(otherClient, SUB);
+      expect([inside.status, inside.body.message]).toEqual([
+        409,
+        "That folder is inside a folder already linked to another client. A folder can belong to one client only.",
+      ]);
+      const holding = await link(otherClient, "1InventedParentOfAllxyz");
+      expect([holding.status, holding.body.message]).toEqual([
+        409,
+        "That folder holds a folder already linked to another client. A folder can belong to one client only.",
+      ]);
+      expect(
+        (await writer.client.findUniqueOrThrow({ where: { id: otherClient } }))
+          .driveFolderId,
+      ).toBeNull();
+      // The client's own folder may be linked again (to itself).
+      expect((await link(clientId, FOLDER)).status).toBe(200);
+    });
+
+    it("Google refusing (API off, busy) answers 503 with its sentence, never a 500", async () => {
+      drive.refuse = new DriveError(
+        "api-disabled",
+        "Turn on the Google Drive API for the robot's project (Google Cloud → APIs & Services → Library).",
+      );
+      const off = await as(http().get(`${API}/receipt-scans/drive?clientId=${clientId}`));
+      expect([off.status, off.body.message]).toEqual([
+        503,
+        "Turn on the Google Drive API for the robot's project (Google Cloud → APIs & Services → Library).",
+      ]);
+      drive.refuse = new DriveError(
+        "unreachable",
+        "Google Drive is busy just now (too many requests). Try again in a few minutes.",
+      );
+      const busy = await as(
+        http().post(
+          `${API}/receipt-scans/drive?clientId=${clientId}&periodFrom=2026-07-01&periodTo=2026-09-30`,
+        ),
+      ).send({ driveFileIds: [JPEG] });
+      expect([busy.status, busy.body.message]).toEqual([
+        503,
+        "Google Drive is busy just now (too many requests). Try again in a few minutes.",
+      ]);
+      drive.refuse = null;
+    });
+  });
+
   // --- T4 -------------------------------------------------------------------------
 
   describe("T4 · every pile is prepared in the background", () => {
@@ -493,6 +586,11 @@ describe("U14 · receipt photos stay in Google Drive (real app over HTTP, db, fa
       const orphan = randomUUID();
       mkdirSync(pileDir(orphan), { recursive: true });
       writeFileSync(join(pileDir(orphan), "0"), "left behind");
+      const old = (Date.now() - 11 * 60_000) / 1000; // older than a pile mid-accept
+      utimesSync(pileDir(orphan), old, old);
+      // A folder of a pile still being accepted (no row yet, made just now) stays.
+      const young = randomUUID();
+      mkdirSync(pileDir(young), { recursive: true });
       const reserved = async () =>
         (await as(http().get(`${API}/ai/status`))).body.reservedUsd as number;
       const before = await reserved();
@@ -515,6 +613,8 @@ describe("U14 · receipt photos stay in Google Drive (real app over HTTP, db, fa
       clockNow = new Date("2026-10-11T02:00:00.000Z");
       const s = await writer.receiptScan.findUniqueOrThrow({ where: { id } });
       expect(existsSync(pileDir(orphan))).toBe(false);
+      expect(existsSync(pileDir(young))).toBe(true);
+      rmSync(pileDir(young), { recursive: true, force: true });
       expect([s.status, s.problem, Number(s.actualUsd)]).toEqual([
         "failed",
         "The Portal restarted while preparing these files. Nothing was sent or charged; send them again.",
@@ -609,6 +709,8 @@ describe("U14 · receipt photos stay in Google Drive (real app over HTTP, db, fa
 
 describe("U14 T3 · the robot's key (the real Google client, a fake fetch for Google)", () => {
   const ROBOT_EMAIL = "portal-robot@invented-project.iam.gserviceaccount.com";
+  // This firm's own folder (a folder belongs to one client, across firms).
+  const KEY_FOLDER = "1InventedKeyFirmFolderXyz";
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
   const pemBody = pem.split("\n").slice(1, -2).join("");
@@ -668,9 +770,9 @@ describe("U14 T3 · the robot's key (the real Google client, a fake fetch for Go
         },
       });
     if (url.includes("/about")) return json(200, { user: { emailAddress: ROBOT_EMAIL } });
-    if (url.includes(`/files/${FOLDER}?`))
+    if (url.includes(`/files/${KEY_FOLDER}?`))
       return json(200, {
-        id: FOLDER,
+        id: KEY_FOLDER,
         name: "Invented Receipts 2026",
         mimeType: "application/vnd.google-apps.folder",
         modifiedTime: "2026-09-01T00:00:00.000Z",
@@ -820,8 +922,8 @@ describe("U14 T3 · the robot's key (the real Google client, a fake fetch for Go
     const linked = await http3()
       .put(`${API}/clients/${clientId3}/drive-folder`)
       .set("Authorization", `Bearer ${token3}`)
-      .send({ link: `https://drive.google.com/open?id=${FOLDER}` });
-    expect([linked.status, linked.body.id]).toEqual([200, FOLDER]);
+      .send({ link: `https://drive.google.com/open?id=${KEY_FOLDER}` });
+    expect([linked.status, linked.body.id]).toEqual([200, KEY_FOLDER]);
     // Only reads ever went to Drive.
     const drive = requests.filter((r) => r.url.startsWith("https://www.googleapis.com/"));
     expect(drive.length).toBeGreaterThan(0);

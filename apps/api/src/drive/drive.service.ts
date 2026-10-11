@@ -19,6 +19,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import {
   DRIVE_API,
+  DriveError,
   FOLDER_MIME,
   UNREACHABLE,
   type DriveApi,
@@ -39,6 +40,15 @@ export const FILE_NOT_FOLDER = "That link is a file, not a folder.";
 export const ROBOT_CANT_SEE = (robotEmail: string) =>
   `The Portal's robot can't see that folder. Share it with ${robotEmail} as Viewer, then try again.`;
 export const TOO_LARGE = "Larger than 10 MB.";
+/** One folder, one client: a link may never reach another client's receipts. */
+export const FOLDER_TAKEN =
+  "That folder is already linked to another client. A folder can belong to one client only.";
+export const FOLDER_INSIDE_LINKED =
+  "That folder is inside a folder already linked to another client. A folder can belong to one client only.";
+export const FOLDER_HOLDS_LINKED =
+  "That folder holds a folder already linked to another client. A folder can belong to one client only.";
+/** How far up a folder's parents are followed when it is linked. */
+const ANCESTOR_LEVELS = 20;
 
 /** The largest file a pile takes (the upload's limit). */
 export const MAX_DRIVE_FILE_BYTES = 10 * 1024 * 1024;
@@ -113,6 +123,22 @@ export class DriveService {
     return value;
   }
 
+  /**
+   * A call to Drive, its refusals in plain words: a refused key or a disabled API
+   * (forgotten from the status memory, so the next status check sees it), Google
+   * busy or unreachable — each a 503 with its sentence, never a 500. "Not found"
+   * is the caller's to word, so it passes through.
+   */
+  async call<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!(err instanceof DriveError) || err.kind === "not-found") throw err;
+      if (err.kind !== "unreachable") this.cached = null;
+      throw new ServiceUnavailableException(err.message);
+    }
+  }
+
   /** The robot, set up and working; otherwise 503 with what is wrong. */
   async requireDrive(): Promise<{ robotEmail: string }> {
     const s = await this.status();
@@ -131,13 +157,21 @@ export class DriveService {
     const { robotEmail } = await this.requireDrive();
     const id = typeof link === "string" ? driveIdFromLink(link) : null;
     if (!id) throw new BadRequestException(NOT_A_FOLDER_LINK);
-    const item = await this.drive.getFile(id);
+    const item = await this.call(() => this.drive.getFile(id));
     if (!item) throw new ConflictException(ROBOT_CANT_SEE(robotEmail));
     if (item.mimeType !== FOLDER_MIME) throw new ConflictException(FILE_NOT_FOLDER);
-    await this.prisma.client.update({
-      where: { id: client.id },
-      data: { driveFolderId: item.id, driveFolderName: item.name },
-    });
+    await this.assertFolderFree(client.id, item);
+    try {
+      await this.prisma.client.update({
+        where: { id: client.id },
+        data: { driveFolderId: item.id, driveFolderName: item.name },
+      });
+    } catch (err) {
+      // Linked to another client between the check and this write (unique index).
+      if ((err as { code?: unknown })?.code === "P2002")
+        throw new ConflictException(FOLDER_TAKEN);
+      throw err;
+    }
     await this.audit.record({
       userId: user.id,
       action: "client.drive-folder.link",
@@ -146,6 +180,41 @@ export class DriveService {
       metadata: { folderId: item.id, folderName: item.name },
     });
     return { id: item.id, name: item.name, link: folderLink(item.id) };
+  }
+
+  /**
+   * One folder, one client (review of U14): the folder is no other client's, is
+   * not inside another client's folder (its parents, followed up), and holds none
+   * (its subfolders as deep as a listing reads). Across every firm: the robot is
+   * the deployment's one robot, so a folder id never reaches two clients' lists.
+   */
+  private async assertFolderFree(clientId: string, folder: DriveItem): Promise<void> {
+    const linked = new Set(
+      (
+        await this.prisma.client.findMany({
+          where: { driveFolderId: { not: null }, NOT: { id: clientId } },
+          select: { driveFolderId: true },
+        })
+      ).map((c) => c.driveFolderId!),
+    );
+    if (linked.size === 0) return;
+    if (linked.has(folder.id)) throw new ConflictException(FOLDER_TAKEN);
+    let frontier = folder.parents ?? [];
+    const seen = new Set<string>([folder.id]);
+    for (let level = 0; level < ANCESTOR_LEVELS && frontier.length > 0; level++) {
+      const next: string[] = [];
+      for (const parent of frontier) {
+        if (seen.has(parent)) continue;
+        seen.add(parent);
+        if (linked.has(parent)) throw new ConflictException(FOLDER_INSIDE_LINKED);
+        const p = await this.call(() => this.drive.getFile(parent));
+        next.push(...(p?.parents ?? []));
+      }
+      frontier = next;
+    }
+    const { folderIds } = await this.walk(folder.id);
+    if (folderIds.some((id) => linked.has(id)))
+      throw new ConflictException(FOLDER_HOLDS_LINKED);
   }
 
   /** DELETE /clients/:clientId/drive-folder. Nothing in Drive changes. */
@@ -173,7 +242,23 @@ export class DriveService {
   async listFolderTree(
     folderId: string,
   ): Promise<{ files: ListedFile[]; truncated: boolean }> {
+    const { files, truncated } = await this.walk(folderId);
+    files.sort((a, b) =>
+      a.modifiedTime < b.modifiedTime ? 1 : a.modifiedTime > b.modifiedTime ? -1 : 0,
+    );
+    return {
+      files: files.slice(0, LIST_MAX_FILES),
+      truncated: truncated || files.length > LIST_MAX_FILES,
+    };
+  }
+
+  /** The folder's tree, breadth first, LIST_DEPTH levels deep: its files (with
+   *  their path) and its subfolders' ids. */
+  private async walk(
+    folderId: string,
+  ): Promise<{ files: ListedFile[]; folderIds: string[]; truncated: boolean }> {
     const files: ListedFile[] = [];
+    const folderIds: string[] = [];
     const queue: Array<{ id: string; path: string; depth: number }> = [
       { id: folderId, path: "", depth: 0 },
     ];
@@ -186,10 +271,11 @@ export class DriveService {
         truncated = true;
         break;
       }
-      for (const item of await this.drive.listFolder(folder.id)) {
+      for (const item of await this.call(() => this.drive.listFolder(folder.id))) {
         if (item.mimeType === FOLDER_MIME) {
           if (folder.depth < LIST_DEPTH && !seen.has(item.id)) {
             seen.add(item.id);
+            folderIds.push(item.id);
             queue.push({
               id: item.id,
               path: folder.path ? `${folder.path}/${item.name}` : item.name,
@@ -201,11 +287,7 @@ export class DriveService {
         files.push({ ...item, path: folder.path });
       }
     }
-    files.sort((a, b) =>
-      a.modifiedTime < b.modifiedTime ? 1 : a.modifiedTime > b.modifiedTime ? -1 : 0,
-    );
-    if (files.length > LIST_MAX_FILES) truncated = true;
-    return { files: files.slice(0, LIST_MAX_FILES), truncated };
+    return { files, folderIds, truncated };
   }
 
   /** The client (in the caller's firm) with its folder. */

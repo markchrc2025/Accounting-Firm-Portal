@@ -157,7 +157,8 @@ model Client {
   billingParentId String?       @db.Uuid
   /// U14 (D51): the client's Google Drive folder of receipt photos, shared with the
   /// Portal's read-only robot. Only the id and its name are kept.
-  driveFolderId   String?
+  /// One folder, one client (unique): a folder never lists for two clients.
+  driveFolderId   String?       @unique
   driveFolderName String?
 
   createdAt DateTime @default(now())

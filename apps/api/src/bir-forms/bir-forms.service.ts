@@ -322,8 +322,18 @@ export class BirFormsService {
   async remove(user: AuthUser, id: string): Promise<{ deleted: true; id: string }> {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.create);
     if (f.status === "filed") throw new ConflictException(FILED_NOT_DELETABLE);
+    let removed: Array<{ id: string; storageKey: string; filename: string }>;
     try {
-      await this.prisma.birForm.delete({ where: { id } });
+      // Its exports read in the same transaction as the delete, so one made a
+      // moment ago is removed from storage too.
+      removed = await this.prisma.$transaction(async (tx) => {
+        const rows = await tx.birFormExport.findMany({
+          where: { birFormId: id },
+          select: { id: true, storageKey: true, filename: true },
+        });
+        await tx.birForm.delete({ where: { id } });
+        return rows;
+      });
     } catch (err) {
       // Filed by someone else between the read above and this delete.
       if (isSealError(err)) throw new ConflictException(FILED_NOT_DELETABLE);
@@ -331,22 +341,29 @@ export class BirFormsService {
         throw new NotFoundException("Form not found");
       throw err;
     }
-    await this.audit.record({
-      userId: user.id,
-      action: "bir-form.draft-deleted",
-      entityType: "BirForm",
-      entityId: id,
-      metadata: {
-        form: f.form,
-        period: f.period,
-        sequence: f.sequence ?? 1,
-        amendsId: f.amendsId ?? null,
-        clientId: f.clientId,
-        dataJson: (f.dataJson ?? {}) as Prisma.InputJsonValue,
-        exports: f.exports.map((e) => e.filename),
-      },
-    });
-    for (const e of f.exports) {
+    // The draft is gone: what follows is logged if it fails, never a 500.
+    await this.audit
+      .record({
+        userId: user.id,
+        action: "bir-form.draft-deleted",
+        entityType: "BirForm",
+        entityId: id,
+        metadata: {
+          form: f.form,
+          period: f.period,
+          sequence: f.sequence ?? 1,
+          amendsId: f.amendsId ?? null,
+          clientId: f.clientId,
+          dataJson: (f.dataJson ?? {}) as Prisma.InputJsonValue,
+          exports: removed.map((e) => e.filename),
+        },
+      })
+      .catch((err: unknown) =>
+        birLog.error(
+          `draft ${id}: deleted, but its audit row failed (${(err as Error).name})`,
+        ),
+      );
+    for (const e of removed) {
       await this.storage
         .deleteObject(e.storageKey)
         .catch((err: unknown) =>

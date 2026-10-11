@@ -34,6 +34,10 @@ export const KEY_REFUSED =
   "Google refused the robot's key. Make a new key for the robot in Google Cloud and put it in GOOGLE_SERVICE_ACCOUNT_JSON.";
 export const UNREACHABLE =
   "Google Drive could not be reached just now. Try again in a few minutes.";
+export const DRIVE_BUSY =
+  "Google Drive is busy just now (too many requests). Try again in a few minutes.";
+/** How long one call to Google may take before it is given up. */
+export const CALL_TIMEOUT_MS = 60_000;
 export { KEY_UNREADABLE };
 
 export type { DriveStatus };
@@ -45,6 +49,8 @@ export interface DriveItem {
   /** Bytes; null for Google Docs, Sheets and other files Drive keeps no size for. */
   size: number | null;
   modifiedTime: string;
+  /** Its parent folders, as getFile reads them (for the link's nesting check). */
+  parents?: string[];
 }
 
 export type DownloadResult = "ok" | "gone" | "too-large";
@@ -123,6 +129,14 @@ async function refusal(res: Response): Promise<DriveError> {
   if (reasons.some((r) => r === "accessNotConfigured" || r === "SERVICE_DISABLED"))
     return new DriveError("api-disabled", API_DISABLED);
   if (res.status === 401) return new DriveError("key-refused", KEY_REFUSED);
+  // A rate or quota limit is for later, never "not shared" or "gone".
+  if (
+    res.status === 429 ||
+    reasons.some((r) =>
+      /rateLimitExceeded|dailyLimitExceeded|quotaExceeded/i.test(r ?? ""),
+    )
+  )
+    return new DriveError("unreachable", DRIVE_BUSY);
   if (res.status === 404 || res.status === 403)
     return new DriveError("not-found", "not visible to the robot");
   return new DriveError("unreachable", UNREACHABLE);
@@ -149,6 +163,7 @@ export class GoogleDriveApi implements DriveApi {
     let res: Response;
     try {
       res = await this.fetcher(TOKEN_URL, {
+        signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -184,6 +199,7 @@ export class GoogleDriveApi implements DriveApi {
     let res: Response;
     try {
       res = await this.fetcher(`${DRIVE_URL}${path}`, {
+        signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
         method: "GET",
         headers: { authorization: `Bearer ${token}` },
       });
@@ -217,13 +233,14 @@ export class GoogleDriveApi implements DriveApi {
       mimeType: String(f.mimeType ?? ""),
       size: f.size === undefined || f.size === null ? null : Number(f.size),
       modifiedTime: String(f.modifiedTime ?? ""),
+      ...(Array.isArray(f.parents) ? { parents: f.parents.map(String) } : {}),
     };
   }
 
   async getFile(id: string): Promise<DriveItem | null> {
     try {
       const res = await this.get(
-        `/files/${encodeURIComponent(id)}?fields=id,name,mimeType,size,modifiedTime,trashed&supportsAllDrives=true`,
+        `/files/${encodeURIComponent(id)}?fields=id,name,mimeType,size,modifiedTime,trashed,parents&supportsAllDrives=true`,
       );
       const f = (await res.json()) as Record<string, unknown>;
       return f.trashed ? null : GoogleDriveApi.item(f);

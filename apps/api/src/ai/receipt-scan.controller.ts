@@ -149,7 +149,7 @@ export class ReceiptScanFileController {
     const file = await this.scans.driveFileContent(fileId);
     if (!file)
       throw new NotFoundException(
-        "This file is no longer in Google Drive, or no longer shared with the Portal.",
+        "This file is no longer in Google Drive as it was read, or no longer shared with the Portal.",
       );
     res.setHeader("Content-Type", file.contentType);
     res.setHeader("Cache-Control", "private, max-age=300");

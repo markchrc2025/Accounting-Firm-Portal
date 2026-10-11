@@ -39,5 +39,9 @@ describe("U14 T5 · signed links that download", () => {
     expect(attachment('Resibo "Peña".pdf')).toBe(
       `attachment; filename="Resibo _Pe_a_.pdf"; filename*=UTF-8''Resibo%20%22Pe%C3%B1a%22.pdf`,
     );
+    // RFC 5987: ' ( ) * are encoded in filename* as well.
+    expect(attachment("O'Brien (copy)*.pdf")).toBe(
+      `attachment; filename="O'Brien (copy)*.pdf"; filename*=UTF-8''O%27Brien%20%28copy%29%2A.pdf`,
+    );
   });
 });

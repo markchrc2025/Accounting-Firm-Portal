@@ -198,5 +198,10 @@ export class StorageService {
  *  exact name (RFC 6266 / 5987) for those that read filename*. */
 export function attachment(filename: string): string {
   const ascii = filename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  // RFC 5987: encodeURIComponent leaves ' ( ) * as they are; they must be encoded.
+  const exact = encodeURIComponent(filename).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${exact}`;
 }
