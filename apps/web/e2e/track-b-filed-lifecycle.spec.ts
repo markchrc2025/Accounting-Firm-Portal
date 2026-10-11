@@ -910,12 +910,6 @@ test("T2 the forms list marks an amendment with its sequence", async ({ page }) 
       /^\/api\/v1\/bir-forms$/,
       (r) => json(r, [summary(amendmentDraft()), summary(form2551Q())]),
     ],
-    // W14: the list asks a filed row's detail whether it has a clear copy.
-    [
-      "GET",
-      new RegExp(`^/api/v1/bir-forms/${FILED_2551Q_ID}$`),
-      (r) => json(r, form2551Q()),
-    ],
   ]);
   await page.goto("/bir-forms");
   const rows = page.locator("table tbody tr");

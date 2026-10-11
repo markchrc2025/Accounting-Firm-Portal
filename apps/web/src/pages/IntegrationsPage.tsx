@@ -13,6 +13,7 @@ import {
 } from "../lib/api";
 import type { Integration, IntegrationReveal, McpConnector } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
+import { GoogleDriveCard } from "../components/DriveParts";
 import { useConfirmAction } from "../components/useConfirmAction";
 import {
   Button,
@@ -74,6 +75,12 @@ export default function IntegrationsPage() {
       {/* Claude connector — Super Admin only (the API 403s everyone else, and
           only Super Admin holds IntegrationClient:Update). */}
       {canUpdate && <McpConnectorCard />}
+      {/* W15 R3: the robot account that reads receipt photos from Google Drive. */}
+      {/* Shown where the Integrations tab is (Users:Read); its status route asks
+          for Expenses:Create. */}
+      {hasPermission("Users:Read") && hasPermission("Expenses:Create") && (
+        <GoogleDriveCard />
+      )}
 
       {integrations.isPending && (
         <div className="space-y-6">
