@@ -155,6 +155,11 @@ model Client {
   /// client (invoices are recorded against the parent; the bill is addressed
   /// to it). One level deep, billing/AR only — sales & expenses stay separate.
   billingParentId String?       @db.Uuid
+  /// U14 (D51): the client's Google Drive folder of receipt photos, shared with the
+  /// Portal's read-only robot. Only the id and its name are kept.
+  /// One folder, one client (unique): a folder never lists for two clients.
+  driveFolderId   String?       @unique
+  driveFolderName String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -979,7 +984,7 @@ model ReceiptScan {
   clientId      String    @db.Uuid
   periodFrom    DateTime  @db.Date
   periodTo      DateTime  @db.Date
-  /// reading | ready | failed | approved | discarded (the last two are U12's)
+  /// preparing | reading | ready | failed | approved | discarded (the last two are U12's)
   status        String    @default("reading")
   model         String
   promptVersion String
@@ -996,6 +1001,9 @@ model ReceiptScan {
   readyAt       DateTime?
   /// Set by the one API instance collecting the results (a lease, so two never do).
   collectingAt  DateTime?
+  /// U14: what the background step prepares while the pile is "preparing" (the
+  /// uploads' temporary files, or the Drive files' ids); cleared once it is done.
+  inputJson     Json?
 
   firm      Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -1038,12 +1046,17 @@ model ReceiptScanFile {
   outputTokens     Int?
   costUsd          Decimal? @db.Decimal(14, 6)
   createdAt        DateTime @default(now())
+  /// U14: "upload" (stored in the bucket) or "drive" (read from Google Drive;
+  /// storageKey stays null and nothing is stored).
+  source           String   @default("upload")
+  driveFileId      String?
 
   scan ReceiptScan      @relation(fields: [scanId], references: [id], onDelete: Cascade)
   rows ReceiptScanRow[]
 
   @@index([scanId])
   @@index([clientId, sha256])
+  @@index([clientId, driveFileId])
   @@map("receipt_scan_files")
 }
 

@@ -111,7 +111,7 @@ export const CLEAR_COPY_DRAFT =
   "Mark the return as filed first; a clear copy shows what was filed.";
 
 const printMapsLoaded = new Set<string>();
-const mapLog = new Logger("BirFormsClearCopy");
+const birLog = new Logger("BirForms");
 
 /**
  * True when the print engine has a usable field map for this form's version. A
@@ -129,7 +129,7 @@ export function clearCopyMapped(form: string): boolean {
     return true;
   } catch (err) {
     if (!(err instanceof BirPdfError && /no field map for/.test(err.message)))
-      mapLog.error(`print map ${key} cannot be used: ${(err as Error).message}`);
+      birLog.error(`print map ${key} cannot be used: ${(err as Error).message}`);
     return false;
   }
 }
@@ -145,6 +145,10 @@ export function isEngineFault(err: unknown): boolean {
     )
   );
 }
+
+/** U14 R4: a filed return is the record of what was filed; it is never deleted. */
+export const FILED_NOT_DELETABLE =
+  "A filed return can't be deleted; it is the record of what was filed.";
 
 /** The seven returns: a filed one is corrected by an amendment (U3 R2, D11). */
 export const RETURN_FORMS = XML_EXPORT_FORMS;
@@ -213,7 +217,16 @@ export class BirFormsService {
       orderBy: { updatedAt: "desc" },
       include: { client: { select: { businessName: true } } },
     });
-    return rows.map((f) => this.toSummary(f));
+    // U14 R5, additive: what the list needs without fetching each row's detail.
+    const deletable = await this.rbac.authorizedClients(user, [
+      BIR_FORMS_PERMISSION.create,
+    ]);
+    return rows.map((f) => ({
+      ...this.toSummary(f),
+      clearCopyAvailable: f.status === "filed" && clearCopyMapped(f.form),
+      canDelete:
+        f.status === "draft" && (deletable === "all" || deletable.has(f.clientId)),
+    }));
   }
 
   /**
@@ -285,7 +298,81 @@ export class BirFormsService {
 
   /** One form with its raw data, computed figures, and export list. */
   async getOne(user: AuthUser, id: string) {
-    return this.detail(await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read));
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
+    return {
+      ...this.detail(f),
+      // U14, additive: a draft the caller may delete.
+      canDelete: f.status === "draft" && (await this.mayDelete(user, f.clientId)),
+    };
+  }
+
+  /** Whether the caller holds BIRForms:Create on this client (the list's question). */
+  private async mayDelete(user: AuthUser, clientId: string): Promise<boolean> {
+    const scope = await this.rbac.authorizedClients(user, [BIR_FORMS_PERMISSION.create]);
+    return scope === "all" || scope.has(clientId);
+  }
+
+  /**
+   * U14 R4 (D51): delete a draft return, an amendment draft included. Its exports'
+   * rows go with it (the relation cascades); their stored files are removed after
+   * the delete commits, a failed removal logged, not raised. The audit row keeps
+   * the draft's data. A filed return is never deleted: 409 here, and the database
+   * seal (bir_forms_seal) refuses it below us too.
+   */
+  async remove(user: AuthUser, id: string): Promise<{ deleted: true; id: string }> {
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.create);
+    if (f.status === "filed") throw new ConflictException(FILED_NOT_DELETABLE);
+    let removed: Array<{ id: string; storageKey: string; filename: string }>;
+    try {
+      // Its exports read in the same transaction as the delete, so one made a
+      // moment ago is removed from storage too.
+      removed = await this.prisma.$transaction(async (tx) => {
+        const rows = await tx.birFormExport.findMany({
+          where: { birFormId: id },
+          select: { id: true, storageKey: true, filename: true },
+        });
+        await tx.birForm.delete({ where: { id } });
+        return rows;
+      });
+    } catch (err) {
+      // Filed by someone else between the read above and this delete.
+      if (isSealError(err)) throw new ConflictException(FILED_NOT_DELETABLE);
+      if ((err as { code?: unknown })?.code === "P2025")
+        throw new NotFoundException("Form not found");
+      throw err;
+    }
+    // The draft is gone: what follows is logged if it fails, never a 500.
+    await this.audit
+      .record({
+        userId: user.id,
+        action: "bir-form.draft-deleted",
+        entityType: "BirForm",
+        entityId: id,
+        metadata: {
+          form: f.form,
+          period: f.period,
+          sequence: f.sequence ?? 1,
+          amendsId: f.amendsId ?? null,
+          clientId: f.clientId,
+          dataJson: (f.dataJson ?? {}) as Prisma.InputJsonValue,
+          exports: removed.map((e) => e.filename),
+        },
+      })
+      .catch((err: unknown) =>
+        birLog.error(
+          `draft ${id}: deleted, but its audit row failed (${(err as Error).name})`,
+        ),
+      );
+    for (const e of removed) {
+      await this.storage
+        .deleteObject(e.storageKey)
+        .catch((err: unknown) =>
+          birLog.error(
+            `draft ${id}: its export ${e.id} could not be removed from storage (${(err as Error).name})`,
+          ),
+        );
+    }
+    return { deleted: true, id };
   }
 
   /** The detail view of a loaded form (no authorization: callers have done it). */
@@ -466,7 +553,8 @@ export class BirFormsService {
       id: exportRow.id,
       kind: "xml",
       filename,
-      url: await this.storage.signedGetUrl(key),
+      // U14 R5: a link that downloads, under the export's own name.
+      url: await this.storage.signedGetUrl(key, { filename }),
     };
   }
 
@@ -490,7 +578,7 @@ export class BirFormsService {
       // The engine names the field of the return it cannot print; nothing is
       // stored. A fault of the Portal's own is a 500, not the user's to fix.
       if (!isEngineFault(err)) throw new ConflictException((err as Error).message);
-      mapLog.error(`clear copy of form ${f.id} failed: ${(err as Error).message}`);
+      birLog.error(`clear copy of form ${f.id} failed: ${(err as Error).message}`);
       throw new InternalServerErrorException(
         `The clear copy of this ${f.form} could not be printed. The error is logged.`,
       );
@@ -593,7 +681,10 @@ export class BirFormsService {
       where: { id: exportId, birFormId: id },
     });
     if (!exp) throw new NotFoundException("Export not found");
-    return { url: await this.storage.signedGetUrl(exp.storageKey) };
+    // U14 R5: a link that downloads, under the export's own name.
+    return {
+      url: await this.storage.signedGetUrl(exp.storageKey, { filename: exp.filename }),
+    };
   }
 
   // --- internals -------------------------------------------------------------

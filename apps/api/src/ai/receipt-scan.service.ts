@@ -9,7 +9,6 @@
  * answer, never the key (R11).
  */
 import {
-  BadGatewayException,
   BadRequestException,
   ConflictException,
   Inject,
@@ -19,7 +18,9 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import {
   ReceiptScanStatus,
@@ -34,6 +35,14 @@ import {
   type ScanRow,
 } from "@portal/shared";
 import { AuditService } from "../audit/audit.service";
+import { DRIVE_API, DriveError, type DriveApi } from "../drive/drive-api";
+import { fileLink } from "../drive/drive-links";
+import {
+  DriveService,
+  MAX_DRIVE_FILE_BYTES,
+  TOO_LARGE,
+  listingProblem,
+} from "../drive/drive.service";
 import type { AuthUser } from "../common/auth/auth-user";
 import { RegimeValidator } from "../financial/regime-validator";
 import { isoToDate } from "../financial/serialization";
@@ -44,6 +53,7 @@ import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import {
   AiSettingsService,
+  RESERVING,
   aiKeyConfigured,
   manilaMonth,
   money,
@@ -62,7 +72,16 @@ import {
 } from "./estimate";
 import { RECEIPTS_PROMPT_VERSION, buildInstructions } from "./instructions";
 import { mapReceipt } from "./mapping";
-import { prepareUpload, sha256, type Prepared } from "./prepare";
+import { imageLink, imageLinkSecret } from "./image-link";
+import {
+  notPhotoOrPdf,
+  pdfPages,
+  prepareUpload,
+  sha256,
+  sniff,
+  type Prepared,
+} from "./prepare";
+import { SCAN_UPLOAD_DIR } from "./scan-upload.interceptor";
 import { costOfUsage, round6 } from "./prices";
 
 // --- every sentence a user reads (R3, R5, R6, R9) --------------------------------
@@ -90,6 +109,18 @@ export const FILE_MALFORMED =
 export const NO_FILES = "Choose at least one receipt photo or PDF.";
 export const BAD_PILE_QUERY =
   "Choose a client and a period: clientId, and periodFrom and periodTo as dates (YYYY-MM-DD), with periodFrom on or before periodTo.";
+// U14 (R2, R3)
+export const PREPARING_RESTARTED =
+  "The Portal restarted while preparing these files. Nothing was sent or charged; send them again.";
+export const PREPARE_FAILED =
+  "These files could not be prepared. Nothing was sent or charged; send them again.";
+export const DRIVE_FILE_GONE =
+  "This file is no longer in the client's Google Drive folder, or no longer shared with the Portal's robot.";
+export const NO_DRIVE_FOLDER = "This client has no Google Drive folder linked yet.";
+export const NOT_IN_FOLDER =
+  "Some of these files are not in this client's Google Drive folder. Refresh the list and choose again.";
+export const DRIVE_PILE_IDS =
+  "Choose 1 to 100 different files from the client's Google Drive folder, sent as driveFileIds.";
 const COPY_IN_PILE = (name: string) =>
   `An exact copy of ${name} in this pile; it was not sent again.`;
 const COPY_EARLIER = (name: string, on: string) =>
@@ -100,6 +131,10 @@ const MAX_FILES = 100;
 const LEASE_MS = 15 * 60 * 1000;
 /** A pile whose results cannot be collected for this long ends as failed. */
 const GIVE_UP_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+/** A pile left "preparing" this long by a restart is ended (U14 R3). */
+const PREPARING_FOR_MS = 30 * 60 * 1000;
+/** A pile folder younger than this is never swept (it may be mid-accept). */
+const YOUNG_FOLDER_MS = 10 * 60 * 1000;
 /** A pile still without a batch after this long was never sent. */
 const UNSENT_AFTER_MS = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -113,6 +148,65 @@ export interface UploadedScanFile {
 }
 
 class AlreadyCollected extends Error {}
+
+/** One file of a pile waiting to be prepared (receipt_scans.inputJson, U14). */
+export interface PileInputFile {
+  name: string;
+  source: "upload" | "drive";
+  bytes: number;
+  /** Its temporary file's name in the pile's folder. */
+  tmp: string;
+  driveFileId?: string;
+  mimeType?: string;
+  /** Why it cannot be sent, known before it is fetched (a Drive listing's). */
+  problem?: string | null;
+}
+interface PileInput {
+  files: PileInputFile[];
+}
+interface PreparedItem {
+  file: PileInputFile;
+  id: string;
+  sha: string;
+  prepared?: Extract<Prepared, { ok: true }>;
+  problem?: string;
+}
+
+/** POST /receipt-scans and POST /receipt-scans/drive answer 202 with this. */
+export interface PileAccepted {
+  id: string;
+  status: "preparing";
+  files: number;
+}
+
+/** A pile's own private temporary folder while it is prepared. */
+export const pileDir = (scanId: string) => join(SCAN_UPLOAD_DIR, "piles", scanId);
+
+/** A file's first 64 KB: enough for its type (prepare.ts sniff). */
+async function readHead(path: string): Promise<Buffer> {
+  const fh = await open(path, "r");
+  try {
+    const buf = Buffer.alloc(64 * 1024);
+    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    await fh.close();
+  }
+}
+
+/** The 409 over budget (R5), used before answering and again after preparing. */
+function overBudget(
+  total: number,
+  used: number,
+  settings: { budget: number; usdToPhp: number },
+): string {
+  const left = Math.max(0, settings.budget - used);
+  return (
+    `This pile would cost about ${money(total, settings.usdToPhp, "up")}, but only ` +
+    `${money(left, settings.usdToPhp, "down")} is left of this month's ` +
+    `US$${settings.budget.toFixed(2)} AI budget. Nothing was sent.`
+  );
+}
 
 /** A Message Batch holds at most 256 MB (batch docs); a pile sends at most 200 MB
  *  of base64 file data, leaving room for the instructions and the JSON. */
@@ -163,16 +257,21 @@ export class ReceiptScanService {
     private readonly expenseImport: ExpenseImportService,
     private readonly audit: AuditService,
     @Inject(AI_BATCH_CLIENT) private readonly ai: AiBatchClient,
+    private readonly drive: DriveService,
+    @Inject(DRIVE_API) private readonly driveApi: DriveApi,
+    private readonly config: ConfigService,
   ) {}
 
   // ------------------------------------------------------------ availability
 
-  /** 503 unless the key is set, AI is switched on, and storage is set up (R3). */
-  private async requireAvailable(firmId: string) {
+  /** 503 unless the key is set, AI is switched on, and storage is set up (R3). A
+   *  Drive pile (U14) keeps nothing in the bucket, so it needs no storage. */
+  private async requireAvailable(firmId: string, needsStorage = true) {
     const s = await this.settings.settings(firmId);
     if (!aiKeyConfigured()) throw new ServiceUnavailableException(AI_NOT_SET_UP);
     if (!s.enabled) throw new ServiceUnavailableException(AI_SWITCHED_OFF);
-    if (!this.storage.isEnabled()) throw new ServiceUnavailableException(STORAGE_OFF);
+    if (needsStorage && !this.storage.isEnabled())
+      throw new ServiceUnavailableException(STORAGE_OFF);
     return s;
   }
 
@@ -195,11 +294,16 @@ export class ReceiptScanService {
 
   // ------------------------------------------------------------ create (route 3)
 
-  async create(
+  /**
+   * The checks every pile's POST makes before anything else (R10, D42): the query,
+   * Expenses:Create on this assigned client, and AI (and, for uploads, storage)
+   * set up.
+   */
+  private async pileCheck(
     user: AuthUser,
     query: { clientId?: string; periodFrom?: string; periodTo?: string },
-    uploads: UploadedScanFile[],
-  ): Promise<ReceiptScanSummary> {
+    needsStorage: boolean,
+  ) {
     const { clientId, periodFrom, periodTo } = query;
     if (
       !clientId ||
@@ -212,133 +316,148 @@ export class ReceiptScanService {
     ) {
       throw new BadRequestException(BAD_PILE_QUERY);
     }
-    // R10 (D42): Expenses:Create for this client, which also means assigned to it.
     await this.rbac.assertClient(user, ["Expenses:Create"], clientId);
     const client = await this.prisma.client.findFirst({
       where: { id: clientId, firmId: user.firmId },
-      select: { id: true, businessName: true, regName: true, tin: true },
+      select: { id: true, driveFolderId: true },
     });
     if (!client) throw new NotFoundException("Client not found");
-    const settings = await this.requireAvailable(user.firmId);
+    const settings = await this.requireAvailable(user.firmId, needsStorage);
+    return { client, clientId, periodFrom, periodTo, settings };
+  }
+
+  /**
+   * POST /receipt-scans (U14 R3): the uploads are on disk; what comes back at once
+   * is the file count, each file's type by its bytes and a PDF's pages, and the
+   * budget. The files move to the pile's own private folder and the pile answers
+   * "preparing"; the preparer does the rest in the background.
+   */
+  async createUpload(
+    user: AuthUser,
+    query: { clientId?: string; periodFrom?: string; periodTo?: string },
+    uploads: UploadedScanFile[],
+  ): Promise<PileAccepted> {
+    const checked = await this.pileCheck(user, query, true);
     if (uploads.length === 0) throw new BadRequestException(NO_FILES);
     if (uploads.length > MAX_FILES)
       throw new BadRequestException(`A pile holds at most ${MAX_FILES} files.`);
-
-    // Prepare every file first, one at a time from disk, so at most one decoded
-    // picture is in memory; one refusal refuses the pile (R4).
-    const prepared: Array<{
-      upload: UploadedScanFile;
-      name: string;
-      prepared: Extract<Prepared, { ok: true }>;
-      id: string;
-      sha: string;
-    }> = [];
-    for (const u of uploads) {
-      const name = uploadName(u.originalname);
-      const bytes = await readFile(u.path);
-      const p = await prepareUpload(name, bytes);
-      if (!p.ok) throw new BadRequestException(p.message);
-      prepared.push({
-        upload: u,
-        name,
-        prepared: p,
-        id: randomUUID(),
-        sha: sha256(bytes),
-      });
-      // Refused as soon as it is too large, not after every file is held.
-      const tooLarge = pileTooLarge(prepared.map((f) => f.prepared.body.length));
-      if (tooLarge) throw new BadRequestException(tooLarge);
+    let images = 0;
+    let pdfs = 0;
+    const names = uploads.map((u) => uploadName(u.originalname));
+    for (const [i, u] of uploads.entries()) {
+      const head = await readHead(u.path);
+      const type = sniff(head);
+      if (!type) throw new BadRequestException(notPhotoOrPdf(names[i]!, head));
+      if (type === "pdf") {
+        const pages = await pdfPages(names[i]!, await readFile(u.path));
+        if ("message" in pages) throw new BadRequestException(pages.message);
+        pdfs++;
+      } else images++;
     }
+    const scanId = randomUUID();
+    const dir = pileDir(scanId);
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    try {
+      const files: PileInputFile[] = [];
+      for (const [i, u] of uploads.entries()) {
+        await rename(u.path, join(dir, String(i)));
+        files.push({ name: names[i]!, source: "upload", bytes: u.size, tmp: String(i) });
+      }
+      await this.accept(user, scanId, checked, files, images, pdfs);
+      return { id: scanId, status: "preparing", files: files.length };
+    } catch (err) {
+      await rm(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
 
-    const instructions = await this.instructions();
-    const instr = instructionTokens(instructions);
-    const textFor = (fileName: string) =>
-      requestText({
-        buyer: client.regName?.trim() || client.businessName,
-        tin: client.tin,
-        periodFrom,
-        periodTo,
-        fileName,
-      });
+  /**
+   * POST /receipt-scans/drive (U14 R2): files chosen from the client's linked Drive
+   * folder. Each must be in that folder (its listing), so a pile can never read a
+   * file the client did not share. A file that is no photo or PDF does not stop
+   * the pile: it ends "unreadable" with its sentence.
+   */
+  async createDrive(
+    user: AuthUser,
+    query: { clientId?: string; periodFrom?: string; periodTo?: string },
+    body: unknown,
+  ): Promise<PileAccepted> {
+    const ids = (body as { driveFileIds?: unknown } | undefined)?.driveFileIds;
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      ids.length > MAX_FILES ||
+      !ids.every((id) => typeof id === "string" && id.length > 0) ||
+      new Set(ids).size !== ids.length
+    ) {
+      throw new BadRequestException(DRIVE_PILE_IDS);
+    }
+    const checked = await this.pileCheck(user, query, false);
+    await this.drive.requireDrive();
+    if (!checked.client.driveFolderId) throw new ConflictException(NO_DRIVE_FOLDER);
+    const { files: listed } = await this.drive.listFolderTree(
+      checked.client.driveFolderId,
+    );
+    const byId = new Map(listed.map((f) => [f.id, f]));
+    if (!(ids as string[]).every((id) => byId.has(id)))
+      throw new BadRequestException(NOT_IN_FOLDER);
+    let images = 0;
+    let pdfs = 0;
+    const files: PileInputFile[] = (ids as string[]).map((id, i) => {
+      const f = byId.get(id)!;
+      const problem = listingProblem(f);
+      if (!problem) {
+        if (f.mimeType === "application/pdf") pdfs++;
+        else images++;
+      }
+      return {
+        name: f.name,
+        source: "drive",
+        bytes: f.size ?? 0,
+        tmp: String(i),
+        driveFileId: id,
+        mimeType: f.mimeType,
+        problem,
+      };
+    });
+    const scanId = randomUUID();
+    const dir = pileDir(scanId);
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    try {
+      await this.accept(user, scanId, checked, files, images, pdfs);
+      return { id: scanId, status: "preparing", files: files.length };
+    } catch (err) {
+      await rm(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
 
-    // R5: copies, the estimate and the budget are decided under a per-firm lock,
-    // before anything is stored or sent. A refusal stores nothing.
+  /**
+   * R3: the budget, checked before answering with the estimate GET /ai/estimate
+   * gives for these counts (an upper bound), which the pile holds as its
+   * reservation while it is prepared. 409 over budget; nothing kept.
+   */
+  private async accept(
+    user: AuthUser,
+    scanId: string,
+    checked: Awaited<ReturnType<ReceiptScanService["pileCheck"]>>,
+    files: PileInputFile[],
+    images: number,
+    pdfs: number,
+  ): Promise<void> {
+    const { settings, clientId, periodFrom, periodTo } = checked;
+    const instr = instructionTokens(await this.instructions());
+    const bound = round6(
+      images * fileEstimateUsd(settings.model, MAX_IMAGE_TOKENS, instr) +
+        pdfs * fileEstimateUsd(settings.model, pdfTokens(MAX_PDF_PAGES), instr),
+    );
     const now = this.settings.now();
     const month = manilaMonth(now);
-    const scanId = randomUUID();
-    const { files, estimate } = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`ai-budget:${user.firmId}`}))) AS l`;
-
-      // Exact copies: the same uploaded bytes as an earlier file of this client that
-      // was read (or is being read). A file that was never read is no original: it
-      // may be sent again.
-      const earlier = await tx.receiptScanFile.findMany({
-        where: {
-          clientId,
-          sha256: { in: prepared.map((p) => p.sha) },
-          result: { in: ["pending", "read", "not-a-receipt", "unreadable"] },
-          scan: { status: { in: ["reading", "ready", "approved"] } },
-        },
-        orderBy: [{ createdAt: "asc" }, { position: "asc" }],
-        select: { id: true, sha256: true, name: true, createdAt: true },
-      });
-      const firstEarlier = new Map<string, (typeof earlier)[number]>();
-      for (const e of earlier)
-        if (!firstEarlier.has(e.sha256)) firstEarlier.set(e.sha256, e);
-      const firstInPile = new Map<string, { id: string; name: string }>();
-      const planned = prepared.map((p, position) => {
-        const prior = firstEarlier.get(p.sha);
-        const inPile = firstInPile.get(p.sha);
-        const copy = prior
-          ? {
-              of: prior.id,
-              problem: COPY_EARLIER(
-                prior.name,
-                prior.createdAt.toISOString().slice(0, 10),
-              ),
-            }
-          : inPile
-            ? { of: inPile.id, problem: COPY_IN_PILE(inPile.name) }
-            : null;
-        if (!copy) firstInPile.set(p.sha, { id: p.id, name: p.name });
-        const ext = p.prepared.kind === "pdf" ? "pdf" : "jpg";
-        return {
-          ...p,
-          position,
-          copy,
-          key: copy ? null : `receipt-scans/${user.firmId}/${scanId}/${p.id}.${ext}`,
-          estimate: copy
-            ? 0
-            : fileEstimateUsd(
-                settings.model,
-                p.prepared.contentTokens,
-                instr,
-                textTokens(textFor(p.name)),
-              ),
-        };
-      });
-      const total = round6(planned.reduce((a, f) => a + f.estimate, 0));
-
-      const [spentAgg, reservedAgg] = await Promise.all([
-        tx.receiptScan.aggregate({
-          where: { firmId: user.firmId, month },
-          _sum: { actualUsd: true },
-        }),
-        tx.receiptScan.aggregate({
-          where: { firmId: user.firmId, month, status: "reading" },
-          _sum: { estimatedUsd: true },
-        }),
-      ]);
-      const used =
-        Number(spentAgg._sum.actualUsd ?? 0) + Number(reservedAgg._sum.estimatedUsd ?? 0);
-      if (used + total > settings.budget + 1e-9) {
-        const left = Math.max(0, settings.budget - used);
-        throw new ConflictException(
-          `This pile would cost about ${money(total, settings.usdToPhp, "up")}, but only ` +
-            `${money(left, settings.usdToPhp, "down")} is left of this month's ` +
-            `US$${settings.budget.toFixed(2)} AI budget. Nothing was sent.`,
-        );
-      }
+    await this.prisma.$transaction(async (tx) => {
+      await this.lockBudget(tx, user.firmId);
+      const used = await this.budgetUsed(tx, user.firmId, month);
+      if (used + bound > settings.budget + 1e-9)
+        throw new ConflictException(overBudget(bound, used, settings));
       await tx.receiptScan.create({
         data: {
           id: scanId,
@@ -346,94 +465,17 @@ export class ReceiptScanService {
           clientId,
           periodFrom: isoToDate(periodFrom),
           periodTo: isoToDate(periodTo),
-          status: "reading",
+          status: "preparing",
           model: settings.model,
           promptVersion: RECEIPTS_PROMPT_VERSION,
           month,
-          estimatedUsd: total,
+          estimatedUsd: bound,
           createdById: user.id,
           createdAt: now,
+          inputJson: { files } as unknown as Prisma.InputJsonValue,
         },
       });
-      await tx.receiptScanFile.createMany({
-        data: planned.map((f) => ({
-          id: f.id,
-          scanId,
-          clientId,
-          position: f.position,
-          name: f.name,
-          contentType: f.prepared.contentType,
-          bytes: f.upload.size,
-          sha256: f.sha,
-          storageKey: f.key,
-          result: f.copy ? "copy-of-another-file" : "pending",
-          problem: f.copy?.problem ?? null,
-          copyOfFileId: f.copy?.of ?? null,
-          promptVersion: RECEIPTS_PROMPT_VERSION,
-          width: f.prepared.kind === "image" ? f.prepared.width : null,
-          height: f.prepared.kind === "image" ? f.prepared.height : null,
-          pages: f.prepared.kind === "pdf" ? f.prepared.pages : null,
-          estimatedUsd: f.estimate,
-          createdAt: now,
-        })),
-      });
-      return { files: planned, estimate: total };
     });
-
-    const toSend = files.filter((f) => !f.copy);
-    const stored: string[] = [];
-    const discard = async () => {
-      for (const key of stored)
-        await this.storage.deleteObject(key).catch(() => undefined);
-      await this.prisma.receiptScan
-        .delete({ where: { id: scanId } })
-        .catch(() => undefined);
-    };
-
-    try {
-      for (const f of toSend) {
-        const key = f.key!;
-        await this.storage.putObject(key, f.prepared.body, f.prepared.contentType);
-        stored.push(key);
-      }
-    } catch (err) {
-      this.logger.error(
-        `pile ${scanId}: storing failed (${(err as Error).name}); nothing sent`,
-      );
-      await discard();
-      throw new BadGatewayException(STORE_FAILED);
-    }
-
-    if (toSend.length === 0) {
-      // Every file was a copy: nothing to read, nothing charged.
-      await this.prisma.receiptScan.update({
-        where: { id: scanId },
-        data: { status: "ready", actualUsd: 0, readyAt: now },
-      });
-    } else {
-      const requests: BatchRequest[] = toSend.map((f) => ({
-        custom_id: f.id,
-        params: this.requestParams(
-          settings.model,
-          instructions,
-          f.prepared,
-          textFor(f.name),
-        ),
-      }));
-      let batchId: string;
-      try {
-        batchId = (await this.ai.createBatch(requests)).id;
-      } catch (err) {
-        // R6: the pile is not kept; nothing was charged.
-        this.logger.error(
-          `pile ${scanId}: the batch was refused (${(err as Error).name}); files removed`,
-        );
-        await discard();
-        throw new BadGatewayException(BATCH_REFUSED);
-      }
-      await this.prisma.receiptScan.update({ where: { id: scanId }, data: { batchId } });
-    }
-
     await this.audit.record({
       userId: user.id,
       action: "ai.receipt-scan.create",
@@ -441,15 +483,393 @@ export class ReceiptScanService {
       entityId: scanId,
       metadata: {
         clientId,
+        source: files[0]?.source ?? "upload",
         fileCount: files.length,
-        sentCount: toSend.length,
-        estimatedUsd: estimate,
+        reservedUsd: bound,
       },
     });
     this.logger.log(
-      `pile ${scanId}: ${files.length} file(s), ${toSend.length} sent, estimate US$${estimate.toFixed(6)}`,
+      `pile ${scanId}: ${files.length} file(s) accepted, preparing; reserved US$${bound.toFixed(6)}`,
     );
-    return this.summary(user, scanId);
+  }
+
+  private async lockBudget(tx: Prisma.TransactionClient, firmId: string): Promise<void> {
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${`ai-budget:${firmId}`}))) AS l`;
+  }
+
+  /** This month's spent plus reserved, leaving out one pile's own reservation. */
+  private async budgetUsed(
+    tx: Prisma.TransactionClient,
+    firmId: string,
+    month: string,
+    except?: string,
+  ): Promise<number> {
+    const [spentAgg, reservedAgg] = await Promise.all([
+      tx.receiptScan.aggregate({
+        where: { firmId, month },
+        _sum: { actualUsd: true },
+      }),
+      tx.receiptScan.aggregate({
+        where: {
+          firmId,
+          month,
+          status: { in: [...RESERVING] },
+          ...(except ? { id: { not: except } } : {}),
+        },
+        _sum: { estimatedUsd: true },
+      }),
+    ]);
+    return (
+      Number(spentAgg._sum.actualUsd ?? 0) + Number(reservedAgg._sum.estimatedUsd ?? 0)
+    );
+  }
+
+  /**
+   * The background step (R3), run by ReceiptScanPreparer one pile at a time: each
+   * file fetched (an upload from the pile's folder, a Drive file downloaded into it)
+   * and prepared exactly as U11 prepares an upload, one at a time; then copies, the
+   * exact estimate and the budget again under the lock; then uploads are stored
+   * (never a Drive file) and one Message Batch is sent. The pile's temporary folder
+   * is removed whatever happens. A pile that cannot go on ends "failed" with its
+   * reason, nothing sent and nothing charged.
+   */
+  async prepare(scanId: string): Promise<void> {
+    const scan = await this.prisma.receiptScan.findUnique({
+      where: { id: scanId },
+      include: { client: { select: { businessName: true, regName: true, tin: true } } },
+    });
+    if (!scan || scan.status !== "preparing") return;
+    const dir = pileDir(scanId);
+    // Uploads put in the bucket so far, and the batch once it is out.
+    const stored: string[] = [];
+    let batchId: string | null = null;
+    const unstore = async () => {
+      for (const key of stored)
+        await this.storage.deleteObject(key).catch(() => undefined);
+      if (stored.length > 0)
+        await this.prisma.receiptScanFile
+          .updateMany({
+            where: { scanId, storageKey: { in: stored } },
+            data: { storageKey: null },
+          })
+          .catch(() => undefined);
+      stored.length = 0;
+    };
+    const fail = async (problem: string) => {
+      await unstore();
+      await this.prisma.receiptScan.updateMany({
+        where: { id: scanId, status: "preparing" },
+        data: { status: "failed", problem, inputJson: Prisma.DbNull },
+      });
+    };
+    /** The batch is out: the pile is reading, whatever else failed (and even if a
+     *  sweep wrongly ended it meanwhile); it is never "nothing was sent". */
+    const reading = (id: string) =>
+      this.prisma.receiptScan.update({
+        where: { id: scanId },
+        data: { status: "reading", batchId: id, problem: null, inputJson: Prisma.DbNull },
+      });
+    try {
+      const input = (scan.inputJson ?? { files: [] }) as unknown as PileInput;
+      const settings = await this.settings.settings(scan.firmId);
+      const periodFrom = scan.periodFrom.toISOString().slice(0, 10);
+      const periodTo = scan.periodTo.toISOString().slice(0, 10);
+      const textFor = (fileName: string) =>
+        requestText({
+          buyer: scan.client.regName?.trim() || scan.client.businessName,
+          tin: scan.client.tin,
+          periodFrom,
+          periodTo,
+          fileName,
+        });
+
+      // 1. Fetch and prepare each file, one at a time.
+      const items: PreparedItem[] = [];
+      for (const f of input.files) {
+        const path = join(dir, f.tmp);
+        let problem = f.problem ?? null;
+        if (!problem && f.source === "drive") {
+          const got = await this.driveApi.download(
+            f.driveFileId!,
+            path,
+            MAX_DRIVE_FILE_BYTES,
+          );
+          if (got === "gone") problem = DRIVE_FILE_GONE;
+          else if (got === "too-large") problem = TOO_LARGE;
+        }
+        let bytes: Buffer | null = null;
+        if (!problem) {
+          // One file in memory at a time; the file itself stays in the pile's folder
+          // until the pile is done, then the folder goes (finally, below).
+          bytes = await readFile(path);
+          const p = await prepareUpload(f.name, bytes);
+          if (p.ok) {
+            items.push({ file: f, id: randomUUID(), sha: sha256(bytes), prepared: p });
+            const tooLarge = pileTooLarge(
+              items.flatMap((x) => (x.prepared ? [x.prepared.body.length] : [])),
+            );
+            if (tooLarge) {
+              await fail(tooLarge);
+              return;
+            }
+            continue;
+          }
+          problem = p.message;
+        }
+        items.push({
+          file: f,
+          id: randomUUID(),
+          // Never sent, so never anyone's original: a digest of nothing it holds.
+          sha: sha256(bytes ?? Buffer.from(`not-read:${scanId}:${f.tmp}`)),
+          problem,
+        });
+      }
+
+      // 2. Copies, the exact estimate and the budget, under the per-firm lock.
+      const instructions = await this.instructions();
+      const instr = instructionTokens(instructions);
+      const now = this.settings.now();
+      const planned = await this.prisma.$transaction(async (tx) => {
+        await this.lockBudget(tx, scan.firmId);
+        // Still ours to prepare (another instance's sweep may have ended it).
+        const current = await tx.receiptScan.findUnique({
+          where: { id: scanId },
+          select: { status: true },
+        });
+        if (current?.status !== "preparing") return null;
+        const readable = items.filter((x) => x.prepared);
+        const earlier = await tx.receiptScanFile.findMany({
+          where: {
+            clientId: scan.clientId,
+            sha256: { in: readable.map((x) => x.sha) },
+            estimatedUsd: { gt: 0 },
+            result: { in: ["pending", "read", "not-a-receipt", "unreadable"] },
+            scan: { status: { in: ["reading", "ready", "approved"] } },
+          },
+          orderBy: [{ createdAt: "asc" }, { position: "asc" }],
+          select: { id: true, sha256: true, name: true, createdAt: true },
+        });
+        const firstEarlier = new Map<string, (typeof earlier)[number]>();
+        for (const e of earlier)
+          if (!firstEarlier.has(e.sha256)) firstEarlier.set(e.sha256, e);
+        const firstInPile = new Map<string, { id: string; name: string }>();
+        const rows = items.map((x, position) => {
+          if (!x.prepared) return { ...x, position, copy: null, key: null, estimate: 0 };
+          const prior = firstEarlier.get(x.sha);
+          const inPile = firstInPile.get(x.sha);
+          const copy = prior
+            ? {
+                of: prior.id,
+                problem: COPY_EARLIER(
+                  prior.name,
+                  prior.createdAt.toISOString().slice(0, 10),
+                ),
+              }
+            : inPile
+              ? { of: inPile.id, problem: COPY_IN_PILE(inPile.name) }
+              : null;
+          if (!copy) firstInPile.set(x.sha, { id: x.id, name: x.file.name });
+          const ext = x.prepared.kind === "pdf" ? "pdf" : "jpg";
+          return {
+            ...x,
+            position,
+            copy,
+            // Only an upload is kept in the bucket; a Drive file stays in Drive.
+            key:
+              copy || x.file.source === "drive"
+                ? null
+                : `receipt-scans/${scan.firmId}/${scanId}/${x.id}.${ext}`,
+            estimate: copy
+              ? 0
+              : fileEstimateUsd(
+                  settings.model,
+                  x.prepared.contentTokens,
+                  instr,
+                  textTokens(textFor(x.file.name)),
+                ),
+          };
+        });
+        const total = round6(rows.reduce((a, r) => a + r.estimate, 0));
+        const used = await this.budgetUsed(tx, scan.firmId, scan.month, scanId);
+        if (used + total > settings.budget + 1e-9) {
+          await tx.receiptScan.update({
+            where: { id: scanId },
+            data: {
+              status: "failed",
+              problem: overBudget(total, used, settings),
+              estimatedUsd: total,
+              inputJson: Prisma.DbNull,
+            },
+          });
+          return null;
+        }
+        await tx.receiptScanFile.createMany({
+          data: rows.map((r) => ({
+            id: r.id,
+            scanId,
+            clientId: scan.clientId,
+            position: r.position,
+            name: r.file.name,
+            contentType:
+              r.prepared?.contentType ?? r.file.mimeType ?? "application/octet-stream",
+            bytes: r.file.bytes,
+            sha256: r.sha,
+            storageKey: r.key,
+            source: r.file.source,
+            driveFileId: r.file.driveFileId ?? null,
+            result: r.problem
+              ? "unreadable"
+              : r.copy
+                ? "copy-of-another-file"
+                : "pending",
+            problem: r.problem ?? r.copy?.problem ?? null,
+            copyOfFileId: r.copy?.of ?? null,
+            promptVersion: RECEIPTS_PROMPT_VERSION,
+            width: r.prepared?.kind === "image" ? r.prepared.width : null,
+            height: r.prepared?.kind === "image" ? r.prepared.height : null,
+            pages: r.prepared?.kind === "pdf" ? r.prepared.pages : null,
+            estimatedUsd: r.estimate,
+            createdAt: now,
+          })),
+        });
+        await tx.receiptScan.update({
+          where: { id: scanId },
+          data: { estimatedUsd: total },
+        });
+        return { rows, total };
+      });
+      if (!planned) return;
+
+      // 3. Store the uploads, then send one batch.
+      const toSend = planned.rows.filter((r) => r.prepared && !r.copy);
+      try {
+        for (const r of toSend) {
+          if (!r.key) continue;
+          await this.storage.putObject(r.key, r.prepared!.body, r.prepared!.contentType);
+          stored.push(r.key);
+        }
+      } catch (err) {
+        this.logger.error(
+          `pile ${scanId}: storing failed (${(err as Error).name}); nothing sent`,
+        );
+        await fail(STORE_FAILED);
+        return;
+      }
+      if (toSend.length === 0) {
+        // Every file was a copy or could not be read: nothing to send or charge.
+        await this.prisma.receiptScan.updateMany({
+          where: { id: scanId, status: "preparing" },
+          data: { status: "ready", actualUsd: 0, readyAt: now, inputJson: Prisma.DbNull },
+        });
+        return;
+      }
+      const requests: BatchRequest[] = toSend.map((r) => ({
+        custom_id: r.id,
+        params: this.requestParams(
+          settings.model,
+          instructions,
+          r.prepared!,
+          textFor(r.file.name),
+        ),
+      }));
+      try {
+        batchId = (await this.ai.createBatch(requests)).id;
+      } catch (err) {
+        this.logger.error(
+          `pile ${scanId}: the batch was refused (${(err as Error).name}); files removed`,
+        );
+        await fail(BATCH_REFUSED);
+        return;
+      }
+      await reading(batchId);
+      this.logger.log(
+        `pile ${scanId}: ${planned.rows.length} file(s), ${toSend.length} sent, estimate US$${planned.total.toFixed(6)}`,
+      );
+    } catch (err) {
+      if (batchId) {
+        // Sent: record it as reading (it will be collected and charged).
+        this.logger.error(
+          `pile ${scanId}: sent as ${batchId}, but recording it failed (${(err as Error).name}); retrying`,
+        );
+        await reading(batchId).catch((again: unknown) =>
+          this.logger.error(
+            `pile ${scanId}: batch ${batchId} is out but the pile could not be marked reading (${(again as Error).name})`,
+          ),
+        );
+      } else {
+        this.logger.error(`pile ${scanId}: preparing failed (${(err as Error).name})`);
+        // A Drive refusal says what it was (busy, key refused, API off).
+        const why =
+          err instanceof DriveError
+            ? `${err.message} Nothing was sent or charged; send the files again.`
+            : PREPARE_FAILED;
+        await fail(why).catch(() => undefined);
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
+  /**
+   * R3: a pile left "preparing" for 30 minutes that this process is not preparing
+   * (the API restarted) ends "failed"; its reservation is released and its
+   * temporary files removed. Nothing was sent or charged.
+   */
+  async endStalePreparing(active: ReadonlySet<string>): Promise<number> {
+    const now = this.settings.now();
+    const stale = await this.prisma.receiptScan.findMany({
+      where: {
+        status: "preparing",
+        createdAt: { lt: new Date(now.getTime() - PREPARING_FOR_MS) },
+      },
+      select: { id: true },
+    });
+    let ended = 0;
+    for (const s of stale) {
+      if (active.has(s.id)) continue;
+      const res = await this.prisma.receiptScan.updateMany({
+        where: { id: s.id, status: "preparing" },
+        data: {
+          status: "failed",
+          problem: PREPARING_RESTARTED,
+          actualUsd: 0,
+          inputJson: Prisma.DbNull,
+        },
+      });
+      await rm(pileDir(s.id), { recursive: true, force: true }).catch(() => undefined);
+      ended += res.count;
+    }
+    if (ended > 0)
+      this.logger.warn(`${ended} pile(s) left preparing by a restart: failed`);
+    await this.sweepPileFolders(active);
+    return ended;
+  }
+
+  /** A pile's folder whose pile is no longer preparing (the API stopped between
+   *  sending it and removing the folder) is removed: nothing waits on it. */
+  private async sweepPileFolders(active: ReadonlySet<string>): Promise<void> {
+    const root = join(SCAN_UPLOAD_DIR, "piles");
+    const ids = (await readdir(root).catch(() => [] as string[])).filter(
+      (id) => UUID.test(id) && !active.has(id),
+    );
+    if (ids.length === 0) return;
+    const preparing = new Set(
+      (
+        await this.prisma.receiptScan.findMany({
+          where: { id: { in: ids }, status: "preparing" },
+          select: { id: true },
+        })
+      ).map((s) => s.id),
+    );
+    const now = Date.now();
+    for (const id of ids) {
+      if (preparing.has(id)) continue;
+      // A folder made in the last 10 minutes may belong to a pile still being
+      // accepted (its row not yet committed): left for a later tick.
+      const info = await stat(join(root, id)).catch(() => null);
+      if (!info || now - info.mtimeMs < YOUNG_FOLDER_MS) continue;
+      await rm(join(root, id), { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 
   /** One request: the cached instructions, then the file and the request's own text. */
@@ -576,8 +996,13 @@ export class ReceiptScanService {
     ]);
   }
 
+  /** Whether the poller has work: a pile being read, or one being prepared (U14). */
   async anyReading(): Promise<boolean> {
-    return (await this.prisma.receiptScan.count({ where: { status: "reading" } })) > 0;
+    return (
+      (await this.prisma.receiptScan.count({
+        where: { status: { in: ["reading", "preparing"] } },
+      })) > 0
+    );
   }
 
   /**
@@ -811,6 +1236,87 @@ export class ReceiptScanService {
     }
   }
 
+  // ------------------------------------------------------------ Drive (U14 R2)
+
+  /**
+   * GET /receipt-scans/drive: the client's linked folder and what is in it, newest
+   * first. alreadyRead: an earlier pile of this client sent the file, or matched it
+   * as a copy. problem: why it cannot be sent; null when it can.
+   */
+  async driveListing(user: AuthUser, clientId: string | undefined) {
+    if (!clientId || !UUID.test(clientId))
+      throw new BadRequestException("clientId is not a client id.");
+    await this.rbac.assertClient(user, ["Expenses:Create"], clientId);
+    const client = await this.drive.clientOf(user, clientId);
+    await this.drive.requireDrive();
+    const folder = this.drive.folderOf(client);
+    if (!folder) return { folder: null, files: [], truncated: false };
+    const { files, truncated } = await this.drive.listFolderTree(folder.id);
+    const read = await this.prisma.receiptScanFile.findMany({
+      where: {
+        clientId,
+        source: "drive",
+        driveFileId: { in: files.map((f) => f.id) },
+        OR: [
+          { result: "copy-of-another-file" },
+          {
+            estimatedUsd: { gt: 0 },
+            result: { in: ["pending", "read", "not-a-receipt", "unreadable"] },
+            scan: { status: { in: ["reading", "ready", "approved"] } },
+          },
+        ],
+      },
+      select: { driveFileId: true },
+    });
+    const already = new Set(read.map((r) => r.driveFileId));
+    return {
+      folder,
+      files: files.map((f) => ({
+        driveFileId: f.id,
+        name: f.name,
+        path: f.path,
+        mimeType: f.mimeType,
+        bytes: f.size,
+        modifiedTime: f.modifiedTime,
+        alreadyRead: already.has(f.id),
+        problem: listingProblem(f),
+      })),
+      truncated,
+    };
+  }
+
+  /**
+   * GET /receipt-scans/files/:fileId/content (U14 contract C): a Drive file's image
+   * behind a signed link (image-link.ts), read from Drive as it is opened: a JPEG
+   * prepared exactly as for the AI (upright, no EXIF), or the PDF. Nothing is
+   * stored; the temporary copy is removed. 404 when Drive no longer has it.
+   */
+  async driveFileContent(
+    fileId: string,
+  ): Promise<{ body: Buffer; contentType: string } | null> {
+    if (!UUID.test(fileId)) return null;
+    const f = await this.prisma.receiptScanFile.findUnique({ where: { id: fileId } });
+    if (!f || f.source !== "drive" || !f.driveFileId) return null;
+    const dir = join(SCAN_UPLOAD_DIR, "views");
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    const path = join(dir, `${randomUUID()}`);
+    try {
+      const got = await this.driveApi.download(f.driveFileId, path, MAX_DRIVE_FILE_BYTES);
+      if (got !== "ok") return null;
+      const bytes = await readFile(path);
+      // Only what the AI read: a file changed in Drive since is not shown.
+      if (sha256(bytes) !== f.sha256) return null;
+      const p = await prepareUpload(f.name, bytes);
+      if (!p.ok) return null;
+      return { body: p.body, contentType: p.contentType };
+    } catch (err) {
+      this.logger.error(`file ${fileId}: Drive image failed (${(err as Error).name})`);
+      return null;
+    } finally {
+      await rm(path, { force: true }).catch(() => undefined);
+    }
+  }
+
   // ------------------------------------------------------------ reads (routes 4, 5)
 
   async list(user: AuthUser, clientId?: string): Promise<ReceiptScanSummary[]> {
@@ -851,15 +1357,28 @@ export class ReceiptScanService {
     await this.rbac.assertClient(user, ["Expenses:Create"], scan.clientId);
     const files: ScanFile[] = [];
     for (const f of scan.files) {
+      const drive = f.source === "drive" && f.driveFileId;
       files.push({
         id: f.id,
         name: f.name,
         contentType: f.contentType,
         bytes: f.bytes,
-        imageUrl:
-          f.storageKey && this.storage.isEnabled()
+        // U14: an upload's from the bucket; a Drive file's through the API, signed,
+        // read from Drive when it is opened. Nothing to show for an unread file.
+        imageUrl: drive
+          ? f.contentType === "image/jpeg" || f.contentType === "application/pdf"
+            ? imageLink(
+                imageLinkSecret(this.config),
+                this.config.get<string>("API_PUBLIC_URL", "") ?? "",
+                f.id,
+                this.settings.now(),
+              )
+            : null
+          : f.storageKey && this.storage.isEnabled()
             ? await this.storage.signedGetUrl(f.storageKey)
             : null,
+        source: f.source as ScanFile["source"],
+        driveLink: drive ? fileLink(f.driveFileId!) : null,
         result: f.result as ScanFileResult,
         problem: f.problem,
         rows: f.rows.map((r): ScanRow => ({
@@ -903,14 +1422,6 @@ export class ReceiptScanService {
     _count: { select: { files: true, rows: true } },
   } as const;
 
-  private async summary(user: AuthUser, id: string): Promise<ReceiptScanSummary> {
-    const s = await this.prisma.receiptScan.findFirstOrThrow({
-      where: { id, firmId: user.firmId },
-      include: this.summaryInclude,
-    });
-    return this.toSummary(s);
-  }
-
   private toSummary(
     s: Prisma.ReceiptScanGetPayload<{ include: ReceiptScanService["summaryInclude"] }>,
   ): ReceiptScanSummary {
@@ -922,7 +1433,10 @@ export class ReceiptScanService {
       periodTo: s.periodTo.toISOString().slice(0, 10),
       status: s.status as ReceiptScanStatus,
       model: s.model,
-      fileCount: s._count.files,
+      fileCount:
+        s.status === "preparing"
+          ? ((s.inputJson as unknown as PileInput | null)?.files.length ?? 0)
+          : s._count.files,
       rowCount: s._count.rows,
       estimatedUsd: Number(s.estimatedUsd),
       actualUsd: s.actualUsd === null ? null : Number(s.actualUsd),

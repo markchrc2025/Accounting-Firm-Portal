@@ -10,6 +10,9 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AI_CLOCK, type AiClock } from "./ai.tokens";
 import { round6 } from "./prices";
 
+/** The statuses whose estimate is held against the budget (U14: "preparing" too). */
+export const RESERVING = ["preparing", "reading"] as const;
+
 /** The owner's decisions of 2026-10-10 (R1). */
 export const AI_DEFAULTS = {
   enabled: true,
@@ -71,7 +74,8 @@ export class AiSettingsService {
   }
 
   /** Spent = actual cost of results received this month; reserved = the estimates
-   *  of piles still reading. Both by the month each pile was created in. */
+   *  of piles still being prepared (U14) or read. Both by the month each pile was
+   *  created in. */
   async usage(
     firmId: string,
     month: string,
@@ -82,7 +86,7 @@ export class AiSettingsService {
         _sum: { actualUsd: true },
       }),
       this.prisma.receiptScan.aggregate({
-        where: { firmId, month, status: "reading" },
+        where: { firmId, month, status: { in: [...RESERVING] } },
         _sum: { estimatedUsd: true },
       }),
     ]);

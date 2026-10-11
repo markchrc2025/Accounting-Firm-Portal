@@ -24,6 +24,7 @@ import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
+import { ReceiptScanPreparer } from "../../src/ai/receipt-scan.preparer";
 import { SCAN_UPLOAD_DIR } from "../../src/ai/scan-upload.interceptor";
 import { StorageService } from "../../src/storage/storage.service";
 
@@ -38,6 +39,12 @@ const fixture = (name: string) => readFileSync(join(FIXTURES, name));
 
 type BatchRequest = { custom_id: string; params: Record<string, unknown> };
 
+/** Every file under the upload folder (U14: a pile waits in piles/<id>/). */
+const filesOnDisk = () =>
+  readdirSync(SCAN_UPLOAD_DIR, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => e.name);
+
 /** A fake Anthropic Message Batches client: it records every batch it is asked to
  *  create, and can be told to refuse one. Nothing is ever read back. */
 class FakeBatchClient {
@@ -46,7 +53,7 @@ class FakeBatchClient {
   /** T3: how many uploads were waiting on disk while each batch was created. */
   onDisk: number[] = [];
   async createBatch(requests: BatchRequest[]) {
-    this.onDisk.push(readdirSync(SCAN_UPLOAD_DIR).length);
+    this.onDisk.push(filesOnDisk().length);
     if (this.refuse) throw new Error("batch refused (fake)");
     this.creates.push(requests);
     return { id: `msgbatch_formats_${this.creates.length}` };
@@ -112,7 +119,9 @@ describe("U11-A1 · every photo format a client sends (real app over HTTP, db, f
   let clientId = "";
   let saToken = "";
 
-  const pile = (files: Array<{ name: string; body: Buffer; type: string }>) => {
+  /** POST a pile; U14 R3: it answers 202 "preparing", so wait for the background
+   *  step before the test looks at what was sent. */
+  const pile = async (files: Array<{ name: string; body: Buffer; type: string }>) => {
     let r = request(app.getHttpServer())
       .post(
         `${API}/receipt-scans?clientId=${clientId}&periodFrom=2026-07-01&periodTo=2026-09-30`,
@@ -120,7 +129,9 @@ describe("U11-A1 · every photo format a client sends (real app over HTTP, db, f
       .set("Authorization", `Bearer ${saToken}`);
     for (const f of files)
       r = r.attach("files", f.body, { filename: f.name, contentType: f.type });
-    return r;
+    const res = await r;
+    if (res.status === 202) await app.get(ReceiptScanPreparer).idle();
+    return res;
   };
 
   beforeAll(async () => {
@@ -199,8 +210,9 @@ describe("U11-A1 · every photo format a client sends (real app over HTTP, db, f
       { name: "photo.dat", body: fixture("photo.dat"), type: "application/octet-stream" },
     ];
     const res = await pile(files);
-    expect([res.status, res.body.message]).toEqual([201, undefined]);
-    expect(res.body.fileCount).toBe(10);
+    // U14 R3: 202 "preparing", then prepared in the background.
+    expect([res.status, res.body.message]).toEqual([202, undefined]);
+    expect(res.body.files).toBe(10);
 
     // Every file was sent, in one batch, as a JPEG.
     const sent = fake.creates.at(-1)!;
@@ -309,7 +321,7 @@ describe("U11-A1 · every photo format a client sends (real app over HTTP, db, f
   // --- T3 -------------------------------------------------------------------------
 
   describe("T3 · uploads wait on disk, and no temporary file is left behind", () => {
-    const left = () => readdirSync(SCAN_UPLOAD_DIR);
+    const left = filesOnDisk;
     const three = (tag: string) =>
       ["photo.png", "photo.webp", "heic-plain.heic"].map((f) => ({
         name: `${tag}-${f}`,
@@ -321,16 +333,20 @@ describe("U11-A1 · every photo format a client sends (real app over HTTP, db, f
     it("after a pile is sent: its 3 files were on disk while it was sent, and are gone", async () => {
       expect(left()).toEqual([]);
       const res = await pile(three("sent"));
-      expect(res.status).toBe(201);
+      expect(res.status).toBe(202); // U14 R3
       expect(fake.onDisk.at(-1)).toBe(3);
       expect(left()).toEqual([]);
     });
 
-    it("after the batch API refuses the pile (502)", async () => {
+    it("after the batch API refuses the pile (U14: the pile ends failed)", async () => {
       fake.refuse = true;
       try {
         const res = await pile(three("refused"));
-        expect(res.status).toBe(502);
+        expect(res.status).toBe(202); // U14 R3: refused in the background
+        expect(
+          (await writer.receiptScan.findUniqueOrThrow({ where: { id: res.body.id } }))
+            .status,
+        ).toBe("failed");
         expect(fake.onDisk.at(-1)).toBe(3);
       } finally {
         fake.refuse = false;
