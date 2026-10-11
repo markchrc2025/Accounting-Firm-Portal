@@ -13,8 +13,28 @@ const FIRM_ID = "11111111-1111-4111-8111-111111111111";
 const ADMIN: AuthUser = { id: "u1", firmId: FIRM_ID, userType: "FIRM", email: "a@f.test" };
 const STRONG = "portal-secret-0123456789-0123456789"; // ≥32 chars
 
+/** M1: the card also reports who issued the link and who Claude acts as. */
+const SOLE_ADMIN = { name: "Invented Sole Admin", email: "a@f.test" };
+const ACTING = { actingAs: SOLE_ADMIN, actingProblem: null };
+const OFF = {
+  enabled: false,
+  source: null,
+  secret: null,
+  issuedBy: null,
+  issuedAt: null,
+  actingAs: null,
+  actingProblem: null,
+};
+
 function build(settingsJson: unknown) {
   const prisma = {
+    // One active firm-wide Super Admin (D41's first rule), and no rotation yet.
+    user: {
+      findMany: jest.fn(async () => [
+        { id: "u1", email: SOLE_ADMIN.email, fullName: SOLE_ADMIN.name },
+      ]),
+    },
+    auditLog: { findFirst: jest.fn(async () => null) },
     firm: {
       findFirst: jest.fn(async () => ({ id: FIRM_ID, settingsJson })),
       findUniqueOrThrow: jest.fn(async () => ({ settingsJson })),
@@ -48,7 +68,14 @@ describe("McpService — connector secret management", () => {
     const { svc } = build({ mcpSecret: STRONG });
     expect(await svc.resolveSecret()).toBe(STRONG);
     const dto = await svc.getConnector();
-    expect(dto).toEqual({ enabled: true, source: "portal", secret: STRONG });
+    expect(dto).toEqual({
+      enabled: true,
+      source: "portal",
+      secret: STRONG,
+      issuedBy: null,
+      issuedAt: null,
+      ...ACTING,
+    });
   });
 
   it("falls back to the env var when nothing is stored", async () => {
@@ -64,7 +91,7 @@ describe("McpService — connector secret management", () => {
     process.env.MCP_SHARED_SECRET = "env-secret-0123456789-0123456789-xx";
     const { svc } = build({ mcpSecret: null });
     expect(await svc.resolveSecret()).toBeUndefined();
-    expect(await svc.getConnector()).toEqual({ enabled: false, source: null, secret: null });
+    expect(await svc.getConnector()).toEqual(OFF);
   });
 
   it("reports disabled when neither source has a strong secret", async () => {
@@ -91,7 +118,7 @@ describe("McpService — connector secret management", () => {
   it("disable stores null and audits", async () => {
     const { svc, prisma, audit } = build({ mcpSecret: STRONG });
     const dto = await svc.disableConnector(ADMIN);
-    expect(dto).toEqual({ enabled: false, source: null, secret: null });
+    expect(dto).toEqual(OFF);
     const written = (prisma.firm.update as jest.Mock).mock.calls[0]![0].data.settingsJson;
     expect(written.mcpSecret).toBeNull();
     expect((audit.record as jest.Mock).mock.calls[0]![0]).toMatchObject({
