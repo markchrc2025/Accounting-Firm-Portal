@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AI_POLLER_TIMER, type AiPollerTimer } from "./ai.tokens";
+import { ReceiptScanPreparer } from "./receipt-scan.preparer";
 import { ReceiptScanService } from "./receipt-scan.service";
 
 export const POLL_EVERY_MS = 10 * 60 * 1000;
@@ -41,6 +42,7 @@ export class ReceiptScanPoller implements OnApplicationBootstrap, OnModuleDestro
     private readonly prisma: PrismaService,
     private readonly scans: ReceiptScanService,
     @Inject(AI_POLLER_TIMER) private readonly timer: AiPollerTimer,
+    private readonly preparer: ReceiptScanPreparer,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -77,6 +79,8 @@ export class ReceiptScanPoller implements OnApplicationBootstrap, OnModuleDestro
     this.running = true;
     try {
       await this.scans.collectAll();
+      // U14 R3: a pile a restart left "preparing" is ended after 30 minutes.
+      await this.scans.endStalePreparing(this.preparer.activeIds());
     } catch (err) {
       this.logger.error(`collecting threw (${(err as Error).name})`);
     }

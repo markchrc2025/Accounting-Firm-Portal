@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -81,6 +81,17 @@ export class BirFormsController {
     @Body(new ZodValidationPipe(UpdateBirFormSchema)) body: UpdateBirFormInput,
   ) {
     return this.birForms.update(user, id, body);
+  }
+
+  /**
+   * U14 (D51): delete a draft return, an amendment draft included. 200
+   * { deleted: true, id }. BIRForms:Create, with the same firm and client checks as
+   * GET :id. A filed return answers 409.
+   */
+  @Delete(":id")
+  @RequirePermissions(BIR_FORMS_PERMISSION.create)
+  remove(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.birForms.remove(user, id);
   }
 
   /**
