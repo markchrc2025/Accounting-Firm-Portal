@@ -5,7 +5,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@portal/shared": ["../../packages/shared/dist/index"]
+      "@portal/shared": ["../../packages/shared/dist/index"],
+      "@portal/bir-pdf": ["../../packages/bir-pdf/dist/index"]
     }
   },
   "exclude": ["node_modules", "dist", "test", "src/**/*.spec.ts"]

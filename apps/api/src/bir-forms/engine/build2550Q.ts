@@ -15,6 +15,33 @@ import type { Filing, FilingRow, Taxpayer } from "./types";
 import type { Comp2550Q } from "./compute2550Q";
 import { amt, enc, rb, tinParts, type XmlRow } from "./xmlkit";
 import { parsePeriod } from "./period";
+import { manilaDate } from "./export-refusal";
+
+/** What a 2550Q export needs beyond the filing itself (U13 F3, F4). */
+export interface Build2550QOptions {
+  /** eBIRForms dateFiled (yyyy/mm/dd): a filed return's filedAt date, a draft's
+   *  export date, both on the Manila calendar. Defaults to today in Manila. */
+  dateFiled?: string;
+  /** The client's fiscal year start (yyyy-mm-dd); null or absent: calendar. */
+  fiscalYearStart?: string | null;
+}
+
+/**
+ * U13 F4: the return's year and quarters. With a fiscal year starting in month S
+ * (S > 1), the return's year is the year the fiscal year ENDS (the form's item 2,
+ * "Year Ended"), in month S − 1; quarter n runs from month S + 3(n − 1) of the
+ * year before. Calendar otherwise (month 12; no fiscal year start, or January).
+ */
+function yearShape(fiscalYearStart: string | null | undefined): {
+  fiscal: boolean;
+  startMonth: number;
+  endMonth: number;
+} {
+  const start = fiscalYearStart ? Number(fiscalYearStart.slice(5, 7)) : 1;
+  if (!Number.isInteger(start) || start < 2 || start > 12)
+    return { fiscal: false, startMonth: 1, endMonth: 12 };
+  return { fiscal: true, startMonth: start, endMonth: start - 1 };
+}
 
 const NS = "frm2550qv2024:";
 
@@ -47,27 +74,51 @@ function quarterNo(period: string, quarterField: unknown): number {
   return q ? Number(q) : 1;
 }
 
-/** Calendar-quarter date range, eBIRForms style ("1/01/2026" .. "3/31/2026"). */
-function quarterRange(qn: number, yyyy: string): { from: string; to: string } {
-  // month is NOT zero-padded; day IS zero-padded; year is 4-digit.
-  const ranges: Record<number, [string, string]> = {
-    1: ["1/01", "3/31"],
-    2: ["4/01", "6/30"],
-    3: ["7/01", "9/30"],
-    4: ["10/01", "12/31"],
-  };
-  const [from, to] = ranges[qn] ?? ["1/01", "3/31"];
-  return { from: `${from}/${yyyy}`, to: `${to}/${yyyy}` };
+/** The quarter's date range, eBIRForms style ("1/01/2026" .. "3/31/2026"): month
+ *  NOT zero-padded; day zero-padded; 4-digit year. Calendar quarters when the
+ *  fiscal year starts in January; otherwise counted from its start month (F4). */
+function quarterRange(
+  qn: number,
+  yyyy: string,
+  startMonth = 1,
+): { from: string; to: string } {
+  const q = qn >= 1 && qn <= 4 ? qn : 1;
+  const year = Number(yyyy);
+  // A fiscal year that ends in yyyy began in yyyy − 1.
+  let m0 = startMonth + 3 * (q - 1);
+  let y0 = startMonth === 1 ? year : year - 1;
+  if (m0 > 12) {
+    m0 -= 12;
+    y0 += 1;
+  }
+  let m1 = m0 + 2;
+  let y1 = y0;
+  if (m1 > 12) {
+    m1 -= 12;
+    y1 += 1;
+  }
+  const lastDay = new Date(Date.UTC(y1, m1, 0)).getUTCDate();
+  // A period with no year keeps the text it has (often empty), as before.
+  if (!/^\d{4}$/.test(yyyy)) {
+    return { from: `${m0}/01/${yyyy}`, to: `${m1}/${lastDay}/${yyyy}` };
+  }
+  return { from: `${m0}/01/${y0}`, to: `${m1}/${lastDay}/${y1}` };
 }
 
 /** Build the authentic 2550Q eBIRForms XML string. */
-export function build2550Q(filing: Filing, tp: Taxpayer | null, comp: Comp2550Q): string {
+export function build2550Q(
+  filing: Filing,
+  tp: Taxpayer | null,
+  comp: Comp2550Q,
+  opts: Build2550QOptions = {},
+): string {
   const d = filing.data || {};
   const t = tinParts(tp);
   const { year } = parsePeriod(filing.period || "");
   const yyyy = year || String(d.year || "").slice(0, 4);
   const qn = quarterNo(filing.period || "", d.quarter);
-  const range = quarterRange(qn, yyyy);
+  const shape = yearShape(opts.fiscalYearStart);
+  const range = quarterRange(qn, yyyy, shape.startMonth);
 
   const rows: XmlRow[] = [];
   /** namespaced field, value emitted verbatim (pre-formatted). */
@@ -78,10 +129,12 @@ export function build2550Q(filing: Filing, tp: Taxpayer | null, comp: Comp2550Q)
   const classification = (d.classification as string) || (tp && tp.classification) || "";
 
   // ---- Period (items 1-6) ----
-  const isFiscal = d.periodType === "fiscal";
+  // F4: a client's fiscal year start decides calendar or fiscal when it is set.
+  const isFiscal =
+    opts.fiscalYearStart != null ? shape.fiscal : d.periodType === "fiscal";
   P("calendarNo1", rb(!isFiscal));
   P("fiscalNo1", rb(isFiscal));
-  P("selectedMonthNo2", "12");
+  P("selectedMonthNo2", String(shape.endMonth).padStart(2, "0"));
   P("txtYearNo2", yyyy);
   P("OptQuarter1", rb(qn === 1));
   P("OptQuarter2", rb(qn === 2));
@@ -275,7 +328,8 @@ export function build2550Q(filing: Filing, tp: Taxpayer | null, comp: Comp2550Q)
   G("ebirOnlineSecret", "");
   G("txtEmail", "");
   G("driveSelectTPExport", "0");
-  G("dateFiled", `${yyyy}/04/25`);
+  // F3: the return's own filing date, never a fixed 04/25.
+  G("dateFiled", opts.dateFiled ?? manilaDate(new Date()));
 
   // ---- assemble (2550Q style: first div on the header line; the rest each on
   // their own line with no lead; tail "All Rights Reserved BIR 2012.0") ----
@@ -291,12 +345,18 @@ export function build2550Q(filing: Filing, tp: Taxpayer | null, comp: Comp2550Q)
 }
 
 /** Canonical eBIRForms filename for a 2550Q export: <tin><br>2550Qv2024<mm><yyyy>Q<n>.xml */
-export function fileName2550Q(filing: Filing, tp: Taxpayer | null): string {
+export function fileName2550Q(
+  filing: Filing,
+  tp: Taxpayer | null,
+  opts: Build2550QOptions = {},
+): string {
   const t = tinParts(tp);
   const d = filing.data || {};
   const { year } = parsePeriod(filing.period || "");
   const yyyy = year || String(d.year || "").slice(0, 4);
   const qn = quarterNo(filing.period || "", d.quarter);
-  // mm is fixed at 12 (calendar year-end) to match the package filename.
-  return `${t.t1}${t.t2}${t.t3}${t.branch3}2550Qv2024${"12"}${yyyy}Q${qn}.xml`;
+  // mm is the year-end month: 12 for a calendar year (the package filename), the
+  // month before the fiscal year starts otherwise (F4).
+  const mm = String(yearShape(opts.fiscalYearStart).endMonth).padStart(2, "0");
+  return `${t.t1}${t.t2}${t.t3}${t.branch3}2550Qv2024${mm}${yyyy}Q${qn}.xml`;
 }
