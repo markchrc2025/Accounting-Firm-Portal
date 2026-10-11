@@ -16,7 +16,7 @@ This tool reads those vector rectangles (pdfplumber) and proposes:
             cell border; a run of ticks between two borders is one comb, and
             its boundaries are [left border, inner ticks..., right border], each
             taken at the centre line of its tick.
-  checkbox  a stroked square 9-16 pt on a side.
+  checkbox  a stroked square 9-16 pt wide and 8-16 pt tall.
   line      a horizontal rule 30 pt or longer that is not a box edge: the
             underline of a free-text field such as "Others (specify)".
 
@@ -130,7 +130,7 @@ def page_geometry(pg, pageno):
         if not r.get("stroke"):
             continue
         w, h = r["width"], r["height"]
-        if 9 <= w <= 16 and 9 <= h <= 16:
+        if 9 <= w <= 16 and 8 <= h <= 16:
             x0, y0, x1, y1 = r2(r["x0"]), r2(H - r["bottom"]), r2(r["x1"]), r2(H - r["top"])
             right = [wd for wd in words if wd["x0"] >= x1 and wd["x0"] < x1 + 90 and wd["y1"] > y0 and wd["y0"] < y1]
             right.sort(key=lambda wd: wd["x0"])

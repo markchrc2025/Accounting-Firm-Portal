@@ -404,8 +404,19 @@ function text(
   m: Metrics,
 ): DrawOp[] {
   const who = where(f, map);
-  const v = ((f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw).trim();
+  let v = ((f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw).trim();
   if (v === "") return [];
+  if (f.amount) {
+    const a = AMOUNT.exec(v);
+    if (!a) throw new BirPdfError(`${who}: "${raw}" is not an amount`, f.key);
+    if (/[1-9]/.test(a[3] ?? "")) {
+      throw new BirPdfError(
+        `${who}: "${raw}" has centavos but the paper asks for whole pesos`,
+        f.key,
+      );
+    }
+    v = a[1]! + a[2]!.replace(/,/g, "");
+  }
   for (const ch of v)
     if (ch !== " " && !m.has(ch))
       throw new BirPdfError(`${who}: the character "${ch}" cannot be printed`, f.key);
@@ -471,7 +482,7 @@ export function layoutGhost(map: FormMap, m: Metrics): DrawOp[] {
         break;
       }
       case "text":
-        ops.push(...text(map, { ...f, case: "keep" }, f.item, size, m));
+        ops.push(...text(map, { ...f, case: "keep", amount: false }, f.item, size, m));
         break;
     }
   }

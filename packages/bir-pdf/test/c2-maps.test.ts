@@ -37,10 +37,24 @@ const CASES: Case[] = [
   { form: "1701Q", version: "2018-01", instructionPages: [] },
   // Page 3 of the 1702Q is the BIR's ATC table and instructions: nothing to fill in.
   { form: "1702Q", version: "2018-01", instructionPages: [3] },
+  { form: "1701", version: "2018-01", instructionPages: [] },
 ];
 
-/** Page-frame bounds (the BIR's forms draw a 1.4 pt border about 15-16 pt in). */
-const FRAME = { left: 16.5, right: 595.5 };
+/**
+ * The frame a form's text must stay inside: the outermost box edges its map prints
+ * in (the BIR's forms draw their 1.4 pt page border just outside them, and a squeezed
+ * line stops 2 pt short of the edge).
+ */
+function frameOf(map: { fields: MapField[] }) {
+  const xs: number[] = [];
+  for (const f of map.fields) {
+    for (const r of f.rows ?? []) xs.push(...r.cells);
+    if (f.cells) xs.push(...f.cells);
+    if (f.cents) xs.push(...f.cents);
+    if (f.x0 !== undefined) xs.push(f.x0, f.x1!);
+  }
+  return { left: Math.min(...xs), right: Math.max(...xs) };
+}
 
 /** Invented values too long for their boxes, by what the field holds (as tools/proof.ts). */
 function longValue(key: string): string {
@@ -115,8 +129,12 @@ for (const c of CASES) {
             strip?: string;
             pad?: string;
           };
-          if (raw.squeeze) values[key] = longValue(key);
-          else if (raw.date) values[key] = "12/31/2026";
+          if (raw.squeeze) {
+            // What a squeeze can hold at 5.5 pt is about 3.4 capitals per box.
+            const v = longValue(key);
+            const cap = Math.floor(Math.min(...fs.map(boxesOf)) * 3.2);
+            values[key] = v.length > cap ? v.slice(0, cap).trim() : v;
+          } else if (raw.date) values[key] = "12/31/2026";
           else if (raw.strip)
             values[key] = raw.strip + "9".repeat(Math.min(...fs.map(boxesOf)));
           else if (raw.ghost === "8") {
@@ -136,6 +154,7 @@ for (const c of CASES) {
       const ink = await overlayText(pdf, tpl);
       expect(ink.length).toBeGreaterThan(50);
 
+      const FRAME = frameOf(map);
       // Nothing outside the page frame; nothing under 5.5 pt; a lone character is never shrunk.
       for (const t of ink) {
         expect(t.x, `"${t.str}" p${t.page} left of the frame`).toBeGreaterThanOrEqual(

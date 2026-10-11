@@ -99,6 +99,12 @@ export interface TextField extends Placed {
   align?: "left" | "center" | "right";
   minSize: number;
   case?: "upper" | "keep";
+  /**
+   * The cell holds an amount the paper has no digit boxes for (a table cell): printed
+   * as whole pesos like every other amount ("0.00" prints "0"), right-aligned by the
+   * map. Centavos other than zero are an error, as in a money field with no centavo boxes.
+   */
+  amount?: boolean;
 }
 
 /** A key the builder emits that has no place on the paper. */

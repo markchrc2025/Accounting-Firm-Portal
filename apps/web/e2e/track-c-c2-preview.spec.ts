@@ -86,6 +86,12 @@ const CASES: Case[] = [
     filename: "00033300300001702Q2026Q3-DRAFT.pdf",
     n: "1702",
   },
+  {
+    form: "1701",
+    period: "2026",
+    filename: "00033300300001701v2018122026-DRAFT.pdf",
+    n: "0170",
+  },
 ];
 
 function setup(c: Case) {
