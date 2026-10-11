@@ -10,8 +10,10 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  build1701Q,
   build2550Q,
   build2551Q,
+  compute1701Q,
   compute2550Q,
   compute2551Q,
   type Filing,
@@ -44,13 +46,34 @@ export const TEST_TAXPAYER: Taxpayer = {
   createdAt: 0,
 };
 
-function filing(form: Filing["form"], data: Filing["data"]): Filing {
+/** The invented individual the 1701Q, 1701A and 1701 fixtures use. Never a real person. */
+export const TEST_INDIVIDUAL: Taxpayer = {
+  ...TEST_TAXPAYER,
+  id: "test-individual",
+  kind: "individual",
+  regName: "",
+  lastName: "TAXPAYER",
+  firstName: "TEST",
+  middleName: "SAMPLE",
+  birthdate: "1980-01-15",
+  citizenship: "FILIPINO",
+  phone: "09170000000",
+  civilStatus: "married",
+  taxpayerType: "Self-employed",
+};
+
+function filing(
+  form: Filing["form"],
+  data: Filing["data"],
+  period = "2026-Q3",
+  taxpayer: Taxpayer = TEST_TAXPAYER,
+): Filing {
   return {
     id: `fixture-${form}`,
     form,
-    taxpayerId: TEST_TAXPAYER.id,
+    taxpayerId: taxpayer.id,
     status: "filed",
-    period: "2026-Q3",
+    period,
     data,
     createdAt: 0,
     updatedAt: 0,
@@ -96,12 +119,91 @@ const f2550 = filing("2550Q", {
   ],
 });
 
-writeFileSync(
-  join(here, "../fixtures/2551Q-sample.xml"),
-  build2551Q(f2551, TEST_TAXPAYER, compute2551Q(f2551.data)),
+// 1701Q, Q3 2026: an individual filing on the graduated rates with the itemized
+// deduction, and a spouse filing at 8%; a bank payment, a check and a description
+// line each; every schedule row carries a figure (whole pesos, as the paper asks).
+const f1701Q = filing(
+  "1701Q",
+  {
+    year: "2026",
+    amended: "no",
+    sheets: "2",
+    filerType: "single",
+    atc: "II012",
+    foreignTaxNo: "FTN-0000123",
+    foreignCredit: "yes",
+    rateA: "graduated",
+    methodA: "itemized",
+    spouseTin: "987-654-321",
+    spouseRdo: "000",
+    spouseType: "comp",
+    spouseAtc: "II011",
+    spouseName: "SAMPLE, SPOUSE",
+    spouseCitizenship: "FILIPINO",
+    spouseForeignTaxNo: "FTN-0000456",
+    spouseForeignCredit: "no",
+    rateB: "eight",
+    methodB: "osd",
+    salesA: "450000",
+    cogsA: "120000",
+    deductA: "90000",
+    prevTaxableA: "100000",
+    nonOpA: "12000",
+    nonOpDescA: "INTEREST INCOME",
+    gppA: "5000",
+    excessA: "1000",
+    prevPaidA: "2000",
+    cwtPrevA: "3000",
+    cwtA: "4000",
+    taxPaidPrevA: "500",
+    foreignCreditsA: "600",
+    otherCreditsA: "700",
+    otherCreditsDescA: "OTHER SAMPLE CREDIT",
+    surchargeA: "250",
+    interestA: "125",
+    compromiseA: "1000",
+    salesB: "300000",
+    nonOpB: "8000",
+    nonOp8DescA: "ROYALTIES",
+    prev8B: "50000",
+    cwtB: "1500",
+    p32bank: "SAMPLE BANK",
+    p32num: "000123",
+    p32date: "9/15/2026",
+    p32amt: "12000",
+    p33bank: "SAMPLE BNK",
+    p33num: "CHK0001",
+    p33date: "9/20/2026",
+    p33amt: "3000",
+    p34num: "TDM0001",
+    p34date: "9/25/2026",
+    p34amt: "2000",
+    p35particular: "OTHER PAYMENT",
+    p35bank: "SAMPLE",
+    p35num: "OP0001",
+    p35date: "9/30/2026",
+    p35amt: "1000",
+  },
+  "2026-Q3",
+  TEST_INDIVIDUAL,
 );
+
 writeFileSync(
-  join(here, "../fixtures/2550Q-sample.xml"),
-  build2550Q(f2550, TEST_TAXPAYER, compute2550Q(f2550.data)),
+  join(here, "../fixtures/1701Q-sample.xml"),
+  build1701Q(f1701Q, TEST_INDIVIDUAL, compute1701Q(f1701Q.data)),
 );
-console.log("wrote fixtures/2551Q-sample.xml and fixtures/2550Q-sample.xml");
+
+// The 2551Q and 2550Q fixtures are committed and their proofs pinned; they are
+// rewritten only on request (`fixtures --all`): the 2550Q's filing date is the
+// day it runs, so a plain run would change them.
+if (process.argv.includes("--all")) {
+  writeFileSync(
+    join(here, "../fixtures/2551Q-sample.xml"),
+    build2551Q(f2551, TEST_TAXPAYER, compute2551Q(f2551.data)),
+  );
+  writeFileSync(
+    join(here, "../fixtures/2550Q-sample.xml"),
+    build2550Q(f2550, TEST_TAXPAYER, compute2550Q(f2550.data)),
+  );
+}
+console.log("wrote fixtures/*-sample.xml");

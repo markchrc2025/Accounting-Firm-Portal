@@ -70,14 +70,14 @@ def page_geometry(pg, pageno):
     def continues_up(x0, top):
         for xk in (round(x0, 0) - 1, round(x0, 0), round(x0, 0) + 1):
             for b, _t in by_x.get(xk, []):
-                if abs(b - top) < 1.2:
+                if abs(b - top) < 2.0:
                     return True
         return False
 
     def continues_down(x0, bottom):
         for xk in (round(x0, 0) - 1, round(x0, 0), round(x0, 0) + 1):
             for _b, t in by_x.get(xk, []):
-                if abs(t - bottom) < 1.2:
+                if abs(t - bottom) < 2.0:
                     return True
         return False
 

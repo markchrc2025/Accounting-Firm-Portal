@@ -64,6 +64,11 @@ function checkField(map: FormMap, f: Field): void {
         fail(map, `${f.key}: right alignment is for one row only`);
       if (f.pad !== undefined && f.pad.length !== 1)
         fail(map, `${f.key}: pad is one character`);
+      if (
+        f.strip !== undefined &&
+        (typeof f.strip !== "string" || f.strip === "" || f.squeeze || f.date)
+      )
+        fail(map, `${f.key}: strip is a non-empty prefix, never with squeeze or date`);
       if (f.squeeze && (f.date || f.pad || f.ghost === "8" || f.align === "right"))
         fail(map, `${f.key}: squeeze is for letter combs only; digits never squeeze`);
       return;

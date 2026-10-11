@@ -8,7 +8,9 @@
 // free-text line. Rasterize it and look: every character must sit inside its
 // box, centred, and nothing may cover printed text. Invented data only.
 //
-// It also writes <form>-<version>-longname-proof.pdf: the form's sample export
+// It also writes <form>-<version>-filled-proof.pdf: the form's sample export (an
+// invented filled return) printed as a filed return's clear copy;
+// <form>-<version>-longname-proof.pdf: the form's sample export
 // (fixtures/<form>-sample.xml) with every "squeeze" field given an invented
 // value too long for its boxes, so the squeezed lines can be inspected too;
 // and <form>-<version>-draft-proof.pdf: the same sample export as a draft's
@@ -40,6 +42,9 @@ function longValue(key: string): string {
     return "accounts.receivable.department@invented-sample-company.example";
   if (/Address/i.test(k))
     return "UNIT 12 SAMPLE TOWER ONE, 5 INVENTED AVENUE CORNER EXAMPLE STREET, SAMPLE CITY, METRO 0000";
+  // 16-box fields (treaty name, citizenship): long, but a squeeze can hold it.
+  if (/Specify|Treaty|Citizenship/.test(k))
+    return "TREATY BETWEEN INVENTED REPUBLICS SAMPLE";
   if (/Agency/.test(k)) return "SAMPLE BANK INC";
   if (/Number/.test(k)) return "CHK-0001234567890";
   if (/Particular/.test(k)) return "INVENTED OTHER PAYMENT";
@@ -62,6 +67,15 @@ for (const version of versions) {
   const rows = parseEbirExport(readFileSync(fixture, "utf8")).map(
     ([k, v]): [string, string] => [k, squeezed.has(k) ? longValue(k) : v],
   );
+  const filled = join(root, "proofs", `${form}-${version}-filled-proof.pdf`);
+  writeFileSync(
+    filled,
+    await renderReturn(form, version, parseEbirExport(readFileSync(fixture, "utf8")), {
+      root,
+    }),
+  );
+  console.log(`wrote proofs/${form}-${version}-filled-proof.pdf`);
+
   const long = join(root, "proofs", `${form}-${version}-longname-proof.pdf`);
   writeFileSync(long, await renderReturn(form, version, rows, { root }));
   console.log(`wrote proofs/${form}-${version}-longname-proof.pdf`);

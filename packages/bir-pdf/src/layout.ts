@@ -167,6 +167,14 @@ function comb(
   let v = (f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw;
   if (v.trim() === "") return [];
   if (f.date) v = dateDigits(v, who);
+  if (f.strip) {
+    if (!v.startsWith(f.strip))
+      throw new BirPdfError(
+        `${who}: "${raw}" does not start with the "${f.strip}" the paper pre-prints`,
+        f.key,
+      );
+    v = v.slice(f.strip.length);
+  }
   if (f.drop) v = [...v].filter((c) => !f.drop!.includes(c)).join("");
   const total = f.rows.reduce((t, r) => t + boxes(r), 0);
   if (f.pad && v.length < total) v = v.padStart(total, f.pad);

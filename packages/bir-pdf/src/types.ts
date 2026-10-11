@@ -38,6 +38,11 @@ export interface CombField extends Placed {
   pad?: string;
   /** Characters removed before placing ("/" between the boxes of a date). */
   drop?: string;
+  /**
+   * A prefix the paper pre-prints (the "20" of "/20YY"). The value must start with
+   * it; it is removed before placing, so "2025" prints "25" in the two YY boxes.
+   */
+  strip?: string;
   /** The value is an eBIRForms date (M/D/YYYY or MM/DD/YYYY): printed MMDDYYYY, zero-padded. */
   date?: boolean;
   /** How several rows fill: "chars" (default) runs on box by box; "words" breaks between words. */
