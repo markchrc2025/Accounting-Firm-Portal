@@ -188,3 +188,6 @@ Decision (domain owner and technical partner): receipt photos are read by Claude
 
 ## 2026-10-11 · D50 · Clear copies print the eBIRForms export on the BIR's own blank form
 Decision (domain owner and technical partner): a client's copy of a filed return is the firm's eBIRForms export printed by @portal/bir-pdf onto the BIR's own blank PDF, never a redrawn form; a name too long for its boxes prints whole, squeezed across its row (owner, 2026-10-11). A 2551Q schedule row with an ATC the export cannot encode refuses the export instead of dropping it; item 13 is marked only for individuals in the first quarter; the 2550Q filing date and fiscal quarters follow the return. Built in U13 with Track C's C1.
+
+## 2026-10-11 · D41 amendment · The connector says who Claude acts as
+Decision (domain owner and technical partner): D41 is unchanged — connector writes act as the only active Super Admin, or, when there are several, the one who last rotated the link; otherwise every write refuses. The Integrations card now shows who issued the link and who Claude acts as, portal_whoami reports the same to Claude, and both record tools return the new record's id. A VAT client's purchase recorded through the connector without input VAT is saved as DOMESTIC_NO_INPUT_TAX, as in the web app (W8). The refusal of 2026-10-11 needed only a link rotation by the right Super Admin.

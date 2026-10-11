@@ -72,7 +72,8 @@ describe("MCP endpoint (e2e)", () => {
     expect(names).toContain("portal_create_client");
     expect(names).toContain("portal_record_income");
     expect(names).toContain("portal_create_invoice");
-    expect(names).toHaveLength(16);
+    expect(names).toContain("portal_whoami"); // M1 R4
+    expect(names).toHaveLength(17);
   });
 
   it("answers 405 to GET with the right key (stateless — POST only)", async () => {

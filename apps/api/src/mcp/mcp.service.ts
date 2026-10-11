@@ -31,6 +31,12 @@ import { fail, isoDate, ok, READ_ONLY } from "./mcp-common";
 import { mcpEnabled } from "./mcp-secret";
 import { registerWriteTools } from "./mcp-write-tools";
 
+/** A person, as the connector card and portal_whoami name them. */
+export interface McpPerson {
+  name: string;
+  email: string;
+}
+
 /** What the Super-Admin connector surface sees. `secret` is the capability
  *  key itself — the whole point is that the admin can view and share it. */
 export interface McpConnectorDto {
@@ -39,6 +45,33 @@ export interface McpConnectorDto {
    *  MCP_SHARED_SECRET env var. null when the connector is off. */
   source: "portal" | "environment" | null;
   secret: string | null;
+  /** M1 R3 (D41 amendment): who issued the link in use — the user on the firm's
+   *  newest mcp.connector.rotate row — and when. null for the environment link
+   *  (never issued from the Portal) and while the connector is off. */
+  issuedBy: McpPerson | null;
+  issuedAt: string | null;
+  /** Who connector writes act as (resolveActor), or why they refuse. Both null
+   *  while the connector is off. */
+  actingAs: McpPerson | null;
+  actingProblem: string | null;
+}
+
+/** The connector's acting user (D41): the person writes run as. */
+export interface McpActor {
+  user: AuthUser;
+  name: string;
+}
+
+/** resolveActor's answer: the acting user, or the refusal sentence (M1 R2). */
+export type McpActorResolution =
+  | { actor: McpActor; problem: null }
+  | { actor: null; problem: string };
+
+/** The newest rotation of the firm's connector link: who issued it, and when. */
+interface McpIssuer {
+  userId: string | null;
+  person: McpPerson | null;
+  at: Date;
 }
 
 /** U4 R3 (D15, D41): the two refusals of an MCP write, as the caller reads them. */
@@ -117,22 +150,42 @@ export class McpService {
     return process.env.MCP_SHARED_SECRET;
   }
 
-  private connectorDto(
+  private static readonly OFF: McpConnectorDto = {
+    enabled: false,
+    source: null,
+    secret: null,
+    issuedBy: null,
+    issuedAt: null,
+    actingAs: null,
+    actingProblem: null,
+  };
+
+  /** The secret handling is unchanged; M1 adds who issued the link and who acts. */
+  private async connectorDto(
     secret: string | undefined,
     source: "portal" | "environment",
-  ): McpConnectorDto {
-    const enabled = mcpEnabled(secret);
+  ): Promise<McpConnectorDto> {
+    if (!mcpEnabled(secret)) return { ...McpService.OFF };
+    const firmId = await this.firmId();
+    const issuer = source === "portal" ? await this.newestRotation(firmId) : null;
+    const resolved = await this.resolveActor();
     return {
-      enabled,
-      source: enabled ? source : null,
-      secret: enabled ? (secret as string) : null,
+      enabled: true,
+      source,
+      secret: secret as string,
+      issuedBy: issuer?.person ?? null,
+      issuedAt: issuer ? issuer.at.toISOString() : null,
+      actingAs: resolved.actor
+        ? { name: resolved.actor.name, email: resolved.actor.user.email }
+        : null,
+      actingProblem: resolved.problem,
     };
   }
 
   async getConnector(): Promise<McpConnectorDto> {
     const stored = await this.storedSecret();
     if (typeof stored === "string") return this.connectorDto(stored, "portal");
-    if (stored === null) return { enabled: false, source: null, secret: null };
+    if (stored === null) return { ...McpService.OFF };
     return this.connectorDto(process.env.MCP_SHARED_SECRET, "environment");
   }
 
@@ -176,23 +229,38 @@ export class McpService {
       entityId: user.firmId,
       metadata: { firmId: user.firmId },
     });
-    return { enabled: false, source: null, secret: null };
+    return { ...McpService.OFF };
+  }
+
+  /** The firm's newest connector-link rotation, with the person who did it. */
+  private async newestRotation(firmId: string): Promise<McpIssuer | null> {
+    const row = await this.prisma.auditLog.findFirst({
+      where: { action: "mcp.connector.rotate", entityType: "Firm", entityId: firmId },
+      orderBy: { timestamp: "desc" },
+      select: { userId: true, timestamp: true, user: { select: { fullName: true, email: true } } },
+    });
+    if (!row) return null;
+    return {
+      userId: row.userId,
+      person: row.user ? { name: row.user.fullName, email: row.user.email } : null,
+      at: row.timestamp,
+    };
   }
 
   /**
-   * The principal MCP WRITES run as (U4 R3, D15, D41): the firm's Super Admin,
-   * chosen by role and never by creation order. The candidates are the ACTIVE
-   * firm users holding the Super Admin role firm-wide (clientScopeId null).
+   * THE one place that decides who Claude acts as (U4 R3, D15, D41; M1 R2). Every
+   * write tool (through getActor), portal_whoami and the Integrations card use it.
+   * The candidates are the ACTIVE firm users holding the Super Admin role
+   * firm-wide (clientScopeId null), chosen by role and never by creation order:
    *   - one: that user;
-   *   - none: every write refuses (MCP_NO_SUPER_ADMIN);
+   *   - none: no one (MCP_NO_SUPER_ADMIN);
    *   - several: the one who issued the connector key in use — the user on the
-   *     firm's newest mcp.connector.rotate audit row — when a candidate; else
-   *     refuse (MCP_SEVERAL_SUPER_ADMINS).
-   * Each write tool turns a refusal into a tool error. Service-layer audit rows
-   * attribute to this user; each write also records an `mcp.<tool>` row marking
-   * the connector as the true actor (see mcp-write-tools.ts).
+   *     firm's newest mcp.connector.rotate audit row — when a candidate; else no
+   *     one (MCP_SEVERAL_SUPER_ADMINS).
+   * Service-layer audit rows attribute to this user; each write also records an
+   * `mcp.<tool>` row marking the connector as the true actor (mcp-write-tools.ts).
    */
-  private async getActor(): Promise<AuthUser> {
+  async resolveActor(): Promise<McpActorResolution> {
     const firmId = await this.firmId();
     const candidates = await this.prisma.user.findMany({
       where: {
@@ -204,25 +272,46 @@ export class McpService {
         },
       },
       orderBy: { createdAt: "asc" },
-      select: { id: true, email: true },
+      select: { id: true, email: true, fullName: true },
     });
-    const actor = (u: { id: string; email: string }): AuthUser => ({
-      id: u.id,
-      firmId,
-      userType: "FIRM",
-      email: u.email,
+    const acting = (u: { id: string; email: string; fullName: string }) => ({
+      actor: {
+        user: { id: u.id, firmId, userType: "FIRM" as const, email: u.email },
+        name: u.fullName,
+      },
+      problem: null,
     });
     const [only] = candidates;
-    if (!only) throw new Error(MCP_NO_SUPER_ADMIN);
-    if (candidates.length === 1) return actor(only);
-    const rotation = await this.prisma.auditLog.findFirst({
-      where: { action: "mcp.connector.rotate", entityType: "Firm", entityId: firmId },
-      orderBy: { timestamp: "desc" },
-      select: { userId: true },
-    });
+    if (!only) return { actor: null, problem: MCP_NO_SUPER_ADMIN };
+    if (candidates.length === 1) return acting(only);
+    const rotation = await this.newestRotation(firmId);
     const issuer = candidates.find((c) => c.id === rotation?.userId);
-    if (!issuer) throw new Error(MCP_SEVERAL_SUPER_ADMINS);
-    return actor(issuer);
+    if (!issuer) return { actor: null, problem: MCP_SEVERAL_SUPER_ADMINS };
+    return acting(issuer);
+  }
+
+  /** The principal MCP WRITES run as; a refusal becomes the write tool's error. */
+  private async getActor(): Promise<AuthUser> {
+    const resolved = await this.resolveActor();
+    if (!resolved.actor) throw new Error(resolved.problem);
+    return resolved.actor.user;
+  }
+
+  /** portal_whoami (M1 R4): who Claude acts as, and who issued the link in use. */
+  async whoami(): Promise<Record<string, unknown>> {
+    const firmId = await this.firmId();
+    const resolved = await this.resolveActor();
+    const stored = await this.storedSecret();
+    const issuer = typeof stored === "string" ? await this.newestRotation(firmId) : null;
+    return {
+      actingAs: resolved.actor
+        ? { name: resolved.actor.name, email: resolved.actor.user.email, role: SUPER_ADMIN_ROLE }
+        : null,
+      writesAllowed: resolved.actor !== null,
+      problem: resolved.problem,
+      connectorIssuedBy: issuer?.person ?? null,
+      connectorIssuedAt: issuer ? issuer.at.toISOString() : null,
+    };
   }
 
   /** Resolve a client within the firm or explain how to find a valid id. */
@@ -242,6 +331,28 @@ export class McpService {
   /** Build a fresh, fully-registered server instance for one request. */
   buildServer(): McpServer {
     const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+
+    server.registerTool(
+      "portal_whoami",
+      {
+        title: "Who Claude acts as",
+        description:
+          "Report who this connector's writes act as: the firm's Super Admin (actingAs, with " +
+          "name, email and role), whether writes are allowed, and if not, why (problem — the " +
+          "same sentence a write would refuse with). Also who issued the connector link in " +
+          "use and when (null for a link from the server's environment). Call this before " +
+          "recording anything.",
+        inputSchema: {},
+        annotations: READ_ONLY,
+      },
+      async () => {
+        try {
+          return ok(await this.whoami());
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : String(err));
+        }
+      },
+    );
 
     server.registerTool(
       "portal_list_clients",

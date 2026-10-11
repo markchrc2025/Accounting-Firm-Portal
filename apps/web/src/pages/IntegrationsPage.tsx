@@ -11,7 +11,8 @@ import {
   rotateIntegrationSecret,
   rotateMcpConnector,
 } from "../lib/api";
-import type { Integration, IntegrationReveal, McpConnector } from "../lib/api";
+import type { Integration, IntegrationReveal } from "../lib/api";
+import { actingLines, type McpConnectorStatus } from "../lib/mcpConnector";
 import { useAuth } from "../auth/AuthContext";
 import { useConfirmAction } from "../components/useConfirmAction";
 import {
@@ -152,12 +153,13 @@ function McpConnectorCard() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const connector = useQuery({
+  // M1 R3: the same response now also says who issued the link and who Claude acts as.
+  const connector = useQuery<McpConnectorStatus>({
     queryKey: ["mcp-connector"],
     queryFn: () => fetchMcpConnector(),
   });
 
-  function onDone(next: McpConnector) {
+  function onDone(next: McpConnectorStatus) {
     setError(null);
     qc.setQueryData(["mcp-connector"], next);
     setShow(next.enabled); // show the fresh link right away after a rotate
@@ -174,6 +176,7 @@ function McpConnectorCard() {
   const busy = rotate.isPending || disable.isPending;
 
   const data = connector.data;
+  const acting = actingLines(data);
   const url = data?.secret ? mcpConnectorUrl(data.secret) : null;
   const maskedUrl = data?.secret
     ? mcpConnectorUrl(`${data.secret.slice(0, 4)}…${data.secret.slice(-4)}`)
@@ -279,6 +282,21 @@ function McpConnectorCard() {
             <Button variant="outline" size="sm" onClick={() => void copy()}>
               {copied ? "Copied ✓" : "Copy link"}
             </Button>
+          </div>
+        )}
+
+        {acting.summary && (
+          <p className="text-[13px] text-content" data-testid="mcp-acting-summary">
+            {acting.summary}
+          </p>
+        )}
+        {acting.problem && (
+          <div
+            className="rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink"
+            data-testid="mcp-acting-problem"
+          >
+            <p>{acting.problem}</p>
+            {acting.advice && <p className="mt-1 font-semibold">{acting.advice}</p>}
           </div>
         )}
 

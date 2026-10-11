@@ -37,6 +37,7 @@ const ALL_TOOLS = [
   "portal_update_client",
   "portal_update_invoice",
   "portal_update_invoice_status",
+  "portal_whoami", // M1 R4
 ];
 const READ_TOOLS = new Set([
   "portal_financial_summary",
@@ -46,6 +47,7 @@ const READ_TOOLS = new Set([
   "portal_list_income_transactions",
   "portal_list_invoices",
   "portal_list_transaction_categories",
+  "portal_whoami", // M1 R4: read-only
 ]);
 
 /** The firm-scoped client row the write tools look up. */
@@ -242,7 +244,7 @@ function errText(res: unknown): string {
 }
 
 describe("McpService — MCP protocol surface", () => {
-  it("lists all sixteen portal tools with correct annotations", async () => {
+  it("lists all seventeen portal tools with correct annotations", async () => {
     const client = await connect(prismaStub());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(ALL_TOOLS);
