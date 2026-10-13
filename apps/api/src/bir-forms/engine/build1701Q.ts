@@ -12,6 +12,7 @@ import type { Filing, Taxpayer } from "./types";
 import type { Comp1701Q } from "./compute1701Q";
 import { amt, enc, rb, tinParts, type XmlRow } from "./xmlkit";
 import { parsePeriod } from "./period";
+import { deriveFiler } from "./taxpayer-background";
 
 const NS = "frm1701q:";
 
@@ -40,6 +41,20 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   const A = comp.A;
   const B = comp.B;
   const b = birthParts(tp ? tp.birthdate : "");
+  // C5 (D55): Items 7 and 8 are derived from the client's record and the rate. The
+  // 1701Q carries no compensation figures, so no compensation or mixed ATC is derived.
+  const filer = deriveFiler(
+    tp,
+    { comp: 0, sales: 0, other: 0 },
+    A.rate === "eight" ? "eight" : "graduated",
+    {
+      allowComp: false,
+      allowMixed: false,
+    },
+  );
+  // A spouse is on the return only if the draft says so (the editor carries rateB and
+  // methodB only then): the spouse's answers print only for a spouse who is there.
+  const hasSpouse = !!(d.rateB || d.methodB || d.spouseName || d.spouseTin);
 
   const rows: XmlRow[] = [];
   /** namespaced field, value emitted verbatim (pre-formatted). */
@@ -62,18 +77,18 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   P("txtRDOCode", (tp && tp.rdo) || "");
 
   // Taxpayer/Filer Type (item 7): single / prof / estate / trust.
-  P("optType_1", rb(d.filerType === "single"));
-  P("optType_2", rb(d.filerType === "prof"));
-  P("optType_3", rb(d.filerType === "estate"));
-  P("optType_4", rb(d.filerType === "trust"));
+  P("optType_1", rb(filer.type === "single"));
+  P("optType_2", rb(filer.type === "prof"));
+  P("optType_3", rb(filer.type === "estate"));
+  P("optType_4", rb(filer.type === "trust"));
 
   // ATC (item 8): II012, II014, II013, II015, II017, II016 (form-grid order).
-  P("optATC_1", rb(d.atc === "II012"));
-  P("optATC_2", rb(d.atc === "II014"));
-  P("optATC_3", rb(d.atc === "II013"));
-  P("optATC_4", rb(d.atc === "II015"));
-  P("optATC_5", rb(d.atc === "II017"));
-  P("optATC_6", rb(d.atc === "II016"));
+  P("optATC_1", rb(filer.atc === "II012"));
+  P("optATC_2", rb(filer.atc === "II014"));
+  P("optATC_3", rb(filer.atc === "II013"));
+  P("optATC_4", rb(filer.atc === "II015"));
+  P("optATC_5", rb(filer.atc === "II017"));
+  P("optATC_6", rb(filer.atc === "II016"));
 
   P("txtTaxpayerName", enc(fullName(tp)));
   P("txtAddress", enc(tp ? [tp.address, tp.city].filter(Boolean).join(" ") : ""));
@@ -118,14 +133,14 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   P("txtSpouseCitizenship", enc(d.spouseCitizenship));
   P("txtSpouseForeignTaxNum", enc(d.spouseForeignTaxNo));
   // Item 24 — Spouse claiming Foreign Tax Credits?
-  P("optSpouseForeignTaxCred_1", rb(d.spouseForeignCredit === "yes"));
-  P("optSpouseForeignTaxCred_2", rb(d.spouseForeignCredit !== "yes"));
+  P("optSpouseForeignTaxCred_1", rb(hasSpouse && d.spouseForeignCredit === "yes"));
+  P("optSpouseForeignTaxCred_2", rb(hasSpouse && d.spouseForeignCredit !== "yes"));
   // Item 25 / 25A — Spouse Tax Rate + Method of Deduction.
   const srate = (d.rateB as string) || "graduated";
-  P("optSpouseTaxRate_1", rb(srate !== "eight"));
+  P("optSpouseTaxRate_1", rb(hasSpouse && srate !== "eight"));
   P("optSpouseMethod:_1", rb(d.methodB === "itemized"));
   P("optSpouseMethod:_2", rb(d.methodB === "osd"));
-  P("optSpouseTaxRate_2", rb(srate === "eight"));
+  P("optSpouseTaxRate_2", rb(hasSpouse && srate === "eight"));
 
   // ---- Part III: Total Tax Payable (items 26-31), A = filer, B = spouse ----
   // 26 Tax Due, 27 Tax Credits/Payments, 28 Tax Payable, 29 Penalties,

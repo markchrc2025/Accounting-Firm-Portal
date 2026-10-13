@@ -21,6 +21,7 @@ import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
+import { assertValidDraftSource } from "./draft-source";
 import {
   type FiledSnapshot,
   readFiledSnapshot,
@@ -286,6 +287,7 @@ export class BirFormsService {
     // U4 R2: create authorizes against the client named in the body.
     await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.create], input.clientId);
     this.assertSupported(input.form);
+    assertValidDraftSource(input.data);
     await this.clients.assertInFirm(user.firmId, input.clientId);
     const created = await this.prisma.birForm.create({
       data: {
@@ -415,6 +417,7 @@ export class BirFormsService {
     // U3 (D11): a filed form is never modified — figures, status or filedAt. There
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
+    assertValidDraftSource(input.data);
     // An amendment corrects one filed return: it keeps that return's period (R2).
     if (f.amendsId && input.period !== undefined && input.period !== f.period) {
       throw new BadRequestException(
