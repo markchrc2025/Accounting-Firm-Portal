@@ -29,10 +29,21 @@ import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPan
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 import { formRegimeWarning } from "../lib/regime";
+import {
+  BookBadge,
+  BookFiledLine,
+  BookNotes,
+  BookProvider,
+  BookQuestionDialog,
+  BookSwitch,
+} from "../components/birform/BookFigures";
+import { useBookFigures } from "../components/birform/useBookFigures";
 
 /** Schedule-1 ATC codes the eBIRForms 2551Q supports (index order). */
 const ATC_CODES = ["PT010", "PT040", "PT041", "PT060", "PT070", "PT090", "PT120", "PT130"];
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+/** The draft data keys the books can fill (W16). */
+const BOOK_KEYS = ["rows", "i15", "i20", "i21", "i22"] as const;
 
 interface Row {
   atc: string;
@@ -104,6 +115,45 @@ export default function BirForm2551QEditor() {
   );
   const period = `${year}-${quarter}`;
 
+  // W16: "Portal books | Manual". The books fill the same boxes a person types in.
+  const books = useBookFigures({
+    form: "2551Q",
+    knownKeys: BOOK_KEYS,
+    clientId,
+    period,
+    isNew,
+    isFiled: existing.data?.status === "filed",
+    saved: existing.data
+      ? {
+          clientId: existing.data.clientId,
+          period: existing.data.period || "",
+          data: existing.data.data,
+        }
+      : undefined,
+    data,
+    apply: (next) => {
+      if (Array.isArray(next.rows) && next.rows.length > 0) {
+        setRows(
+          (next.rows as Row[]).map((r) => ({
+            atc: r.atc || "PT010",
+            taxable: r.taxable || "",
+            rate: r.rate || "",
+          })),
+        );
+      }
+      if (next.i15 != null) setI15(String(next.i15));
+      if (next.i20 != null) setI20(String(next.i20));
+      if (next.i21 != null) setI21(String(next.i21));
+      if (next.i22 != null) setI22(String(next.i22));
+    },
+  });
+  // What a save writes: the figures, and how the books filled them (`_source`).
+  // The live compute never sees `_source`.
+  const saveData = useMemo(
+    () => (books.source ? { ...data, _source: books.source } : data),
+    [data, books.source],
+  );
+
   // Live authoritative totals (server compute — the browser never computes tax).
   // An existing form is computed only once it is hydrated: its first, empty
   // state is never sent, so a freshly mounted form (after Mark as filed, an
@@ -123,8 +173,8 @@ export default function BirForm2551QEditor() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (isNew) return createBirForm({ clientId, form: "2551Q", period, data });
-      return updateBirForm(id!, { period, data });
+      if (isNew) return createBirForm({ clientId, form: "2551Q", period, data: saveData });
+      return updateBirForm(id!, { period, data: saveData });
     },
     onSuccess: (form) => {
       setError(null);
@@ -219,11 +269,16 @@ export default function BirForm2551QEditor() {
         </div>
       ) : null}
 
+      <BookNotes books={books} />
+      <BookFiledLine books={books} />
+
+      <BookProvider value={books}>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <fieldset disabled={isFiled} className="min-w-0 space-y-6">
           {/* Filer + period */}
           <Card>
             <CardContent className="space-y-4">
+              <BookSwitch books={books} />
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="sm:col-span-1 block">
                   <span className="mb-1.5 block text-[13px] font-semibold text-content">Client</span>
@@ -306,6 +361,9 @@ export default function BirForm2551QEditor() {
                             value={r.taxable}
                             onChange={(e) => updateRow(i, { taxable: e.target.value })}
                           />
+                          {rows.findIndex((x) => x.atc === r.atc) === i ? (
+                            <BookBadge id={`rows.${r.atc}`} />
+                          ) : null}
                         </td>
                         <td className="px-3 py-2">
                           <input
@@ -359,6 +417,7 @@ export default function BirForm2551QEditor() {
                   value={i15}
                   onChange={(e) => setI15(e.target.value)}
                 />
+                <BookBadge id="i15" />
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -440,7 +499,7 @@ export default function BirForm2551QEditor() {
             {!isNew && existing.data?.previewAvailable ? (
               <PreviewPdfButton
                 formId={id!}
-                dirty={hasUnsavedChanges(existing.data, period, data)}
+                dirty={hasUnsavedChanges(existing.data, period, saveData)}
                 save={() => save.mutateAsync()}
               />
             ) : null}
@@ -487,6 +546,8 @@ export default function BirForm2551QEditor() {
           ) : null}
         </div>
       </div>
+      </BookProvider>
+      <BookQuestionDialog books={books} />
     </div>
   );
 }
