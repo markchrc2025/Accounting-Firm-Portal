@@ -1,0 +1,2998 @@
+{
+  "form": "1702RT",
+  "version": "2018-01",
+  "template": "1702RT-2018-01.pdf",
+  "title": "BIR Form 1702-RT - Annual Income Tax Return for Corporations, Partnerships and Other Non-Individual Taxpayers Subject Only to Regular Income Tax Rate (January 2018 ENCS)",
+  "pages": [
+    {
+      "width": 612,
+      "height": 936
+    },
+    {
+      "width": 612,
+      "height": 936
+    },
+    {
+      "width": 612,
+      "height": 936
+    },
+    {
+      "width": 612,
+      "height": 936
+    }
+  ],
+  "size": 10,
+  "fields": [
+    {
+      "key": "frm1702RT:rdoPg1I1Calendar",
+      "item": "1 Calendar",
+      "kind": "mark",
+      "page": 1,
+      "box": [49.8, 795.24, 63.24, 807.12]
+    },
+    {
+      "key": "frm1702RT:rdoPg1I1Fiscal",
+      "item": "1 Fiscal",
+      "kind": "mark",
+      "page": 1,
+      "box": [106.08, 795.6, 119.52, 807.48]
+    },
+    {
+      "key": "frm1702RT:ddlPg1I2Month",
+      "item": "2 MM",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 774.6,
+          "cells": [33.84, 47.16, 60.6]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1I2Year",
+      "item": "2 YY",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 774.6,
+          "cells": [82.56, 95.64, 108.72]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:rdoPg1I3AmmendYes",
+      "item": "3 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [160.32, 779.4, 173.64, 791.28]
+    },
+    {
+      "key": "frm1702RT:rdoPg1I3AmmendNo",
+      "item": "3 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [203.28, 779.4, 216.72, 791.28]
+    },
+    {
+      "key": "frm1702RT:rdoPg1I4ShortPeriodYes",
+      "item": "4 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [256.08, 779.4, 269.4, 791.28]
+    },
+    {
+      "key": "frm1702RT:rdoPg1I4ShortPeriodNo",
+      "item": "4 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [299.4, 779.4, 312.72, 791.28]
+    },
+    {
+      "key": "frm1702RT:rdoPg1I5Atc",
+      "item": "5 IC 055 (MCIT)",
+      "kind": "mark",
+      "page": 1,
+      "box": [563.98, 788.86, 576.94, 798.1]
+    },
+    {
+      "key": "frm1702RT:drpPg1I5AtcOther",
+      "item": "5 ATC",
+      "kind": "text",
+      "page": 1,
+      "y": 777.5,
+      "x0": 354.91,
+      "x1": 390.91,
+      "size": 8,
+      "minSize": 6,
+      "align": "center"
+    },
+    {
+      "key": "frm1702RT:rdoPg1I5AtcOther",
+      "item": "5 other ATC",
+      "kind": "mark",
+      "page": 1,
+      "box": [563.98, 776.02, 576.94, 785.26]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I6TIN1",
+      "item": "6 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 739.1,
+          "cells": [215.09, 230.33, 245.45, 260.57]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I6TIN2",
+      "item": "6 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 739.1,
+          "cells": [275.81, 290.93, 306.05, 321.29]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I6TIN3",
+      "item": "6 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 739.1,
+          "cells": [336.43, 351.55, 366.79, 381.91]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I6TIN4",
+      "kind": "none",
+      "reason": "the 1702-RT pre-prints branch code 00000 after the TIN",
+      "expect": "^0*$"
+    },
+    {
+      "key": "BranchMaskP1",
+      "kind": "none",
+      "reason": "eBIRForms branch-code mask; the form pre-prints 00000",
+      "expect": "^00000$"
+    },
+    {
+      "key": "frm1702RT:txtRDO",
+      "kind": "none",
+      "reason": "the same RDO as drpPg1Pt1I7RDOCode, which prints in item 7"
+    },
+    {
+      "key": "frm1702RT:drpPg1Pt1I7RDOCode",
+      "item": "7",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 739.1,
+          "cells": [533.5, 548.74, 563.86, 578.98]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I8Name1",
+      "item": "8 line 1",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 708.9,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I8Name2",
+      "item": "8 line 2",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 689.6,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I8Name3",
+      "item": "8 line 3",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 670.1,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I9Address1",
+      "item": "9 line 1",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 639.9,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I9Address2",
+      "item": "9 line 2",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 620.4,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I9Address3",
+      "item": "9 line 3",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 601.1,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtZIP",
+      "item": "9A",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 601.1,
+          "cells": [533.5, 548.74, 563.86, 578.98, 594.24]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I10",
+      "item": "10",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 581.7,
+          "cells": [184.82, 199.97, 215.09]
+        },
+        {
+          "page": 1,
+          "y": 581.7,
+          "cells": [230.33, 245.45, 260.57]
+        },
+        {
+          "page": 1,
+          "y": 581.7,
+          "cells": [275.81, 290.93, 306.05, 321.29, 336.43]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I11Contact",
+      "item": "11",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 581.7,
+          "cells": [
+            427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86,
+            578.98, 594.24
+          ]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt1I12Email",
+      "item": "12",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 562.2,
+          "cells": [
+            108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97, 215.09, 230.33, 245.45,
+            260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91,
+            397.03, 412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5,
+            548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "case": "keep",
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:rdoPg1Pt1I13ItemizedDeduction",
+      "item": "13 Itemized",
+      "kind": "mark",
+      "page": 1,
+      "box": [135.72, 544.92, 149.16, 556.92]
+    },
+    {
+      "key": "frm1702RT:rdoPg1Pt1I13OptionalStandard",
+      "item": "13 OSD",
+      "kind": "mark",
+      "page": 1,
+      "box": [351.96, 544.68, 365.4, 556.56]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I14IncomeTax",
+      "item": "14",
+      "kind": "money",
+      "page": 1,
+      "y": 508.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I15TotalTaxCredits",
+      "item": "15",
+      "kind": "money",
+      "page": 1,
+      "y": 488.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I16NetTax",
+      "item": "16",
+      "kind": "money",
+      "page": 1,
+      "y": 469.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I17Surcharge",
+      "item": "17",
+      "kind": "money",
+      "page": 1,
+      "y": 439.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I18Interest",
+      "item": "18",
+      "kind": "money",
+      "page": 1,
+      "y": 419.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I19Compromise",
+      "item": "19",
+      "kind": "money",
+      "page": 1,
+      "y": 400.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I20TotalPenalties",
+      "item": "20",
+      "kind": "money",
+      "page": 1,
+      "y": 380.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2I21TotalAmount",
+      "item": "21",
+      "kind": "money",
+      "page": 1,
+      "y": 361.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:rdoPg1Pt2I21OverpaymentRefunded",
+      "item": "21 To be refunded",
+      "kind": "mark",
+      "page": 1,
+      "box": [36.24, 335.04, 49.68, 346.92]
+    },
+    {
+      "key": "frm1702RT:rdoPg1Pt2I21OverpaymentIssued",
+      "item": "21 To be issued a TCC",
+      "kind": "mark",
+      "page": 1,
+      "box": [129.6, 335.28, 142.92, 347.16]
+    },
+    {
+      "key": "frm1702RT:rdoPg1Pt2I21OverpaymentCarried",
+      "item": "21 To be carried over",
+      "kind": "mark",
+      "page": 1,
+      "box": [336.48, 335.16, 349.8, 347.04]
+    },
+    {
+      "key": "frm1702RT:txtSignaturePresident",
+      "item": "President/Principal Officer printed name",
+      "kind": "text",
+      "page": 1,
+      "y": 259.0,
+      "x0": 17.28,
+      "x1": 275.21,
+      "size": 9,
+      "minSize": 5,
+      "align": "center"
+    },
+    {
+      "key": "frm1702RT:txtSignatureTreasurer",
+      "item": "Treasurer printed name",
+      "kind": "text",
+      "page": 1,
+      "y": 259.0,
+      "x0": 275.21,
+      "x1": 517.9,
+      "size": 9,
+      "minSize": 5,
+      "align": "center"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2Signatory1",
+      "item": "President title of signatory",
+      "kind": "text",
+      "page": 1,
+      "y": 235.0,
+      "x0": 93.5,
+      "x1": 169.34,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2SignatoryTin1",
+      "item": "President TIN",
+      "kind": "text",
+      "page": 1,
+      "y": 235.0,
+      "x0": 199.73,
+      "x1": 275.21,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2Signatory2",
+      "item": "Treasurer title of signatory",
+      "kind": "text",
+      "page": 1,
+      "y": 235.0,
+      "x0": 351.31,
+      "x1": 427.03,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2SignatoryTin2",
+      "item": "Treasurer TIN",
+      "kind": "text",
+      "page": 1,
+      "y": 235.0,
+      "x0": 457.39,
+      "x1": 517.9,
+      "size": 8,
+      "minSize": 5
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt2PagesFilled",
+      "item": "22",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 248.5,
+          "cells": [533.5, 548.74, 563.86, 578.98]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I23DebitMemoC1",
+      "item": "23 bank",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 187.9,
+          "cells": [133.34, 147.74, 162.14, 176.54, 190.94, 205.37]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I23DebitMemoC2",
+      "item": "23 number",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 187.9,
+          "cells": [205.37, 219.77, 234.29, 248.69, 263.09, 277.49, 291.89, 306.29]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I23DebitMemoC3Date",
+      "item": "23 date",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 187.9,
+          "cells": [306.29, 320.69, 335.11]
+        },
+        {
+          "page": 1,
+          "y": 187.9,
+          "cells": [335.11, 349.51, 363.91]
+        },
+        {
+          "page": 1,
+          "y": 187.9,
+          "cells": [363.91, 378.31, 392.71, 407.11, 421.51]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I23DebitMemoC4Amount",
+      "item": "23 amount",
+      "kind": "money",
+      "page": 1,
+      "y": 187.9,
+      "cells": [
+        421.51, 435.91, 450.43, 464.86, 479.26, 493.66, 508.06, 522.46, 536.86, 551.26,
+        565.66, 580.06, 594.6
+      ],
+      "blankIf": [
+        {
+          "key": "frm1702RT:txtPg1Pt3I23DebitMemoC4Amount",
+          "equals": "0"
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I23DebitMemoC2",
+          "equals": ""
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I23DebitMemoC3Date",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I24CheckC1",
+      "item": "24 bank",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 168.5,
+          "cells": [133.34, 147.74, 162.14, 176.54, 190.94, 205.37]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I24CheckC2",
+      "item": "24 number",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 168.5,
+          "cells": [205.37, 219.77, 234.29, 248.69, 263.09, 277.49, 291.89, 306.29]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I24CheckC3Date",
+      "item": "24 date",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 168.5,
+          "cells": [306.29, 320.69, 335.11]
+        },
+        {
+          "page": 1,
+          "y": 168.5,
+          "cells": [335.11, 349.51, 363.91]
+        },
+        {
+          "page": 1,
+          "y": 168.5,
+          "cells": [363.91, 378.31, 392.71, 407.11, 421.51]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I24CheckC4Amount",
+      "item": "24 amount",
+      "kind": "money",
+      "page": 1,
+      "y": 168.5,
+      "cells": [
+        421.51, 435.91, 450.43, 464.86, 479.26, 493.66, 508.06, 522.46, 536.86, 551.26,
+        565.66, 580.06, 594.6
+      ],
+      "blankIf": [
+        {
+          "key": "frm1702RT:txtPg1Pt3I24CheckC4Amount",
+          "equals": "0"
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I24CheckC2",
+          "equals": ""
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I24CheckC3Date",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I25TaxDebitC2",
+      "item": "25 number",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 149.1,
+          "cells": [205.37, 219.77, 234.29, 248.69, 263.09, 277.49, 291.89, 306.29]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I25TaxDebitDate",
+      "item": "25 date",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 149.1,
+          "cells": [306.29, 320.69, 335.11]
+        },
+        {
+          "page": 1,
+          "y": 149.1,
+          "cells": [335.11, 349.51, 363.91]
+        },
+        {
+          "page": 1,
+          "y": 149.1,
+          "cells": [363.91, 378.31, 392.71, 407.11, 421.51]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I25TaxDebitC4Amount",
+      "item": "25 amount",
+      "kind": "money",
+      "page": 1,
+      "y": 149.1,
+      "cells": [
+        421.51, 435.91, 450.43, 464.86, 479.26, 493.66, 508.06, 522.46, 536.86, 551.26,
+        565.66, 580.06, 594.6
+      ],
+      "blankIf": [
+        {
+          "key": "frm1702RT:txtPg1Pt3I25TaxDebitC4Amount",
+          "equals": "0"
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I25TaxDebitC2",
+          "equals": ""
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I25TaxDebitDate",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I26Others",
+      "item": "26 specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 118.9,
+          "cells": [18.0, 34.44, 50.88, 67.46, 83.9, 100.34, 116.78, 133.34]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I26OthersC1",
+      "item": "26 bank",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 118.9,
+          "cells": [133.34, 147.74, 162.14, 176.54, 190.94, 205.37]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I26OthersC2",
+      "item": "26 number",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 118.9,
+          "cells": [205.37, 219.77, 234.29, 248.69, 263.09, 277.49, 291.89, 306.29]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I26OthersC3Date",
+      "item": "26 date",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 118.9,
+          "cells": [306.29, 320.69, 335.11]
+        },
+        {
+          "page": 1,
+          "y": 118.9,
+          "cells": [335.11, 349.51, 363.91]
+        },
+        {
+          "page": 1,
+          "y": 118.9,
+          "cells": [363.91, 378.31, 392.71, 407.11, 421.51]
+        }
+      ],
+      "date": true,
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg1Pt3I26OthersC4Amount",
+      "item": "26 amount",
+      "kind": "money",
+      "page": 1,
+      "y": 118.9,
+      "cells": [
+        421.51, 435.91, 450.43, 464.86, 479.26, 493.66, 508.06, 522.46, 536.86, 551.26,
+        565.66, 580.06, 594.6
+      ],
+      "blankIf": [
+        {
+          "key": "frm1702RT:txtPg1Pt3I26OthersC4Amount",
+          "equals": "0"
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I26OthersC2",
+          "equals": ""
+        },
+        {
+          "key": "frm1702RT:txtPg1Pt3I26OthersC3Date",
+          "equals": ""
+        }
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2TIN1",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 768.1,
+          "cells": [18.0, 33.24, 48.36, 63.5]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg2TIN2",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 768.1,
+          "cells": [63.5, 78.62, 93.86, 108.98]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg2TIN3",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 768.1,
+          "cells": [108.98, 124.1, 139.34, 154.46]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg2TIN4",
+      "kind": "none",
+      "reason": "the 1702-RT pre-prints branch code 00000 on page 2",
+      "expect": "^0*$"
+    },
+    {
+      "key": "txtBranchMaskP2",
+      "kind": "none",
+      "reason": "eBIRForms branch-code mask; the form pre-prints 00000",
+      "expect": "^00000$"
+    },
+    {
+      "key": "frm1702RT:txtPg2RegisteredName",
+      "item": "p2 registered name",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 768.1,
+          "cells": [
+            230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55,
+            366.79, 381.91, 397.03, 412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14,
+            518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I27Sales",
+      "item": "27",
+      "kind": "money",
+      "page": 2,
+      "y": 733.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I28LessSales",
+      "item": "28",
+      "kind": "money",
+      "page": 2,
+      "y": 713.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I29NetSales",
+      "item": "29",
+      "kind": "money",
+      "page": 2,
+      "y": 694.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I30LessCost",
+      "item": "30",
+      "kind": "money",
+      "page": 2,
+      "y": 674.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I31GrossIncome",
+      "item": "31",
+      "kind": "money",
+      "page": 2,
+      "y": 655.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I32AddOtherTaxable",
+      "item": "32",
+      "kind": "money",
+      "page": 2,
+      "y": 636.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I33TotalGross",
+      "item": "33",
+      "kind": "money",
+      "page": 2,
+      "y": 616.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I34OrdinaryAllowable",
+      "item": "34",
+      "kind": "money",
+      "page": 2,
+      "y": 586.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I35SpecialAllowable",
+      "item": "35",
+      "kind": "money",
+      "page": 2,
+      "y": 567.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I36Nolco",
+      "item": "36",
+      "kind": "money",
+      "page": 2,
+      "y": 547.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I37TotalItemized",
+      "item": "37",
+      "kind": "money",
+      "page": 2,
+      "y": 528.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I38OptionalStandard",
+      "item": "38",
+      "kind": "money",
+      "page": 2,
+      "y": 496.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I39NetTaxable",
+      "item": "39",
+      "kind": "money",
+      "page": 2,
+      "y": 477.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I41IncomeTaxDue",
+      "item": "41",
+      "kind": "money",
+      "page": 2,
+      "y": 439.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I42MinimumCorporate",
+      "item": "42",
+      "kind": "money",
+      "page": 2,
+      "y": 420.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I43TotalIncomeTax",
+      "item": "43",
+      "kind": "money",
+      "page": 2,
+      "y": 401.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I44ExcessCredits",
+      "item": "44",
+      "kind": "money",
+      "page": 2,
+      "y": 370.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I45IncomeTaxPaymentUnderMCIT",
+      "item": "45",
+      "kind": "money",
+      "page": 2,
+      "y": 351.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I46IncomeTaxUnderRegular",
+      "item": "46",
+      "kind": "money",
+      "page": 2,
+      "y": 332.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I47ExcessMCIT",
+      "item": "47",
+      "kind": "money",
+      "page": 2,
+      "y": 312.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I48CreditableTaxWithheldFromPrevious",
+      "item": "48",
+      "kind": "money",
+      "page": 2,
+      "y": 293.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I49CreditableTaxWithheldFor4thQuarter",
+      "item": "49",
+      "kind": "money",
+      "page": 2,
+      "y": 273.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I50ForeignTaxCredits",
+      "item": "50",
+      "kind": "money",
+      "page": 2,
+      "y": 254.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I51TaxPaidInReturn",
+      "item": "51",
+      "kind": "money",
+      "page": 2,
+      "y": 234.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt452SpecialTaxCredits",
+      "item": "52",
+      "kind": "money",
+      "page": 2,
+      "y": 215.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I53C2",
+      "item": "53",
+      "kind": "money",
+      "page": 2,
+      "y": 185.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I54C2",
+      "item": "54",
+      "kind": "money",
+      "page": 2,
+      "y": 165.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I55TotalTaxCredits",
+      "item": "55",
+      "kind": "money",
+      "page": 2,
+      "y": 146.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I56NetTax",
+      "item": "56",
+      "kind": "money",
+      "page": 2,
+      "y": 127.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt5I57SpecialAllowable",
+      "item": "57",
+      "kind": "money",
+      "page": 2,
+      "y": 92.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt5I58AddSpecialTax",
+      "item": "58",
+      "kind": "money",
+      "page": 2,
+      "y": 72.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt5I59TotalTax",
+      "item": "59",
+      "kind": "money",
+      "page": 2,
+      "y": 52.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:Pg2Pt4I40IncomeTaxRate",
+      "item": "40",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 459.2,
+          "cells": [548.74, 563.86, 578.98]
+        }
+      ],
+      "align": "right",
+      "drop": "%",
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I53C1",
+      "item": "53 other credit",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 185.4,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I54C1",
+      "item": "54 other credit",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 165.9,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3TIN1",
+      "item": "p3 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 816.9,
+          "cells": [18.0, 33.24, 48.36, 63.5]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg3TIN2",
+      "item": "p3 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 816.9,
+          "cells": [63.5, 78.62, 93.86, 108.98]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg3TIN3",
+      "item": "p3 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 816.9,
+          "cells": [108.98, 124.1, 139.34, 154.46]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg3TIN4",
+      "kind": "none",
+      "reason": "the 1702-RT pre-prints branch code 00000 on page 3",
+      "expect": "^0*$"
+    },
+    {
+      "key": "txtBranchMaskP3",
+      "kind": "none",
+      "reason": "eBIRForms branch-code mask; the form pre-prints 00000",
+      "expect": "^00000$"
+    },
+    {
+      "key": "frm1702RT:txtPg3RegisteredName",
+      "item": "p3 registered name",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 816.9,
+          "cells": [
+            230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55,
+            366.79, 381.91, 397.03, 412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14,
+            518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I1Amortization",
+      "item": "Sch I 1",
+      "kind": "money",
+      "page": 3,
+      "y": 770.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I2BadDebts",
+      "item": "Sch I 2",
+      "kind": "money",
+      "page": 3,
+      "y": 750.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I3CharitableContributions",
+      "item": "Sch I 3",
+      "kind": "money",
+      "page": 3,
+      "y": 731.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I4Depletion",
+      "item": "Sch I 4",
+      "kind": "money",
+      "page": 3,
+      "y": 712.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I5Depreciation",
+      "item": "Sch I 5",
+      "kind": "money",
+      "page": 3,
+      "y": 692.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I6Entertainment",
+      "item": "Sch I 6",
+      "kind": "money",
+      "page": 3,
+      "y": 673.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I7FringeBenefits",
+      "item": "Sch I 7",
+      "kind": "money",
+      "page": 3,
+      "y": 653.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I8Interest",
+      "item": "Sch I 8",
+      "kind": "money",
+      "page": 3,
+      "y": 634.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I9Losses",
+      "item": "Sch I 9",
+      "kind": "money",
+      "page": 3,
+      "y": 614.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I10PensionTrust",
+      "item": "Sch I 10",
+      "kind": "money",
+      "page": 3,
+      "y": 595.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I11Rental",
+      "item": "Sch I 11",
+      "kind": "money",
+      "page": 3,
+      "y": 576.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I12Research",
+      "item": "Sch I 12",
+      "kind": "money",
+      "page": 3,
+      "y": 556.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I13Salaries",
+      "item": "Sch I 13",
+      "kind": "money",
+      "page": 3,
+      "y": 537.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I14Contributions",
+      "item": "Sch I 14",
+      "kind": "money",
+      "page": 3,
+      "y": 518.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I15TaxesandLicenses",
+      "item": "Sch I 15",
+      "kind": "money",
+      "page": 3,
+      "y": 498.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I16TransportationandTravel",
+      "item": "Sch I 16",
+      "kind": "money",
+      "page": 3,
+      "y": 479.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17aJanitorial",
+      "item": "Sch I 17a",
+      "kind": "money",
+      "page": 3,
+      "y": 448.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17bProfessionalFees",
+      "item": "Sch I 17b",
+      "kind": "money",
+      "page": 3,
+      "y": 429.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17cSecurityServices",
+      "item": "Sch I 17c",
+      "kind": "money",
+      "page": 3,
+      "y": 410.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17dC1",
+      "item": "Sch I 17d specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 390.7,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17dC2",
+      "item": "Sch I 17d",
+      "kind": "money",
+      "page": 3,
+      "y": 390.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17eC1",
+      "item": "Sch I 17e specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 371.3,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17eC2",
+      "item": "Sch I 17e",
+      "kind": "money",
+      "page": 3,
+      "y": 371.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17fC1",
+      "item": "Sch I 17f specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 352.0,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17fC2",
+      "item": "Sch I 17f",
+      "kind": "money",
+      "page": 3,
+      "y": 352.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17gC1",
+      "item": "Sch I 17g specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 332.5,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17gC2",
+      "item": "Sch I 17g",
+      "kind": "money",
+      "page": 3,
+      "y": 332.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17hC1",
+      "item": "Sch I 17h specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 313.1,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17hC2",
+      "item": "Sch I 17h",
+      "kind": "money",
+      "page": 3,
+      "y": 313.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17iC1",
+      "item": "Sch I 17i specify",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 293.7,
+          "cells": [
+            48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82,
+            199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29,
+            336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17iC2",
+      "item": "Sch I 17i",
+      "kind": "money",
+      "page": 3,
+      "y": 293.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I18TotalOrdinaryAllowable",
+      "item": "Sch I 18",
+      "kind": "money",
+      "page": 3,
+      "y": 274.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I1C1",
+      "item": "Sch II 1 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 228.6,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I1C2",
+      "item": "Sch II 1 legal basis",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 228.6,
+          "cells": [
+            260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91,
+            397.03, 412.15
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I1C3",
+      "item": "Sch II 1 amount",
+      "kind": "money",
+      "page": 3,
+      "y": 228.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I2C1",
+      "item": "Sch II 2 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 209.1,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I2C2",
+      "item": "Sch II 2 legal basis",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 209.1,
+          "cells": [
+            260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91,
+            397.03, 412.15
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I2C3",
+      "item": "Sch II 2 amount",
+      "kind": "money",
+      "page": 3,
+      "y": 209.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I3C1",
+      "item": "Sch II 3 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 189.7,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I3C2",
+      "item": "Sch II 3 legal basis",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 189.7,
+          "cells": [
+            260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91,
+            397.03, 412.15
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I3C3",
+      "item": "Sch II 3 amount",
+      "kind": "money",
+      "page": 3,
+      "y": 189.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I4C1",
+      "item": "Sch II 4 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 170.4,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I4C2",
+      "item": "Sch II 4 legal basis",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 3,
+          "y": 170.4,
+          "cells": [
+            260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91,
+            397.03, 412.15
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I4C3",
+      "item": "Sch II 4 amount",
+      "kind": "money",
+      "page": 3,
+      "y": 170.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I5TotalSpecialAllowable",
+      "item": "Sch II 5",
+      "kind": "money",
+      "page": 3,
+      "y": 150.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4TIN1",
+      "item": "p4 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 816.9,
+          "cells": [18.0, 33.24, 48.36, 63.5]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4TIN2",
+      "item": "p4 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 816.9,
+          "cells": [63.5, 78.62, 93.86, 108.98]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4TIN3",
+      "item": "p4 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 816.9,
+          "cells": [108.98, 124.1, 139.34, 154.46]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4TIN4",
+      "kind": "none",
+      "reason": "the 1702-RT pre-prints branch code 00000 on page 4",
+      "expect": "^0*$"
+    },
+    {
+      "key": "txtBranchMaskP4",
+      "kind": "none",
+      "reason": "eBIRForms branch-code mask; the form pre-prints 00000",
+      "expect": "^00000$"
+    },
+    {
+      "key": "frm1702RT:txtPg4RegisteredName",
+      "item": "p4 registered name",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 816.9,
+          "cells": [
+            230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55,
+            366.79, 381.91, 397.03, 412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14,
+            518.38, 533.5, 548.74, 563.86, 578.98, 593.39
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3I1GrossIncome",
+      "item": "Sch III 1",
+      "kind": "money",
+      "page": 4,
+      "y": 782.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3I2TotalDeductions",
+      "item": "Sch III 2",
+      "kind": "money",
+      "page": 4,
+      "y": 762.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3I3NetOperatingLoss",
+      "item": "Sch III 3",
+      "kind": "money",
+      "page": 4,
+      "y": 742.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI4C1",
+      "item": "IIIA 4 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 688.3,
+          "cells": [78.62, 93.86, 108.98, 124.1, 139.34]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI4C2",
+      "item": "IIIA 4 A",
+      "kind": "money",
+      "page": 4,
+      "y": 688.3,
+      "cells": [
+        199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43,
+        351.55, 366.79, 381.91
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI4C3",
+      "item": "IIIA 4 B",
+      "kind": "money",
+      "page": 4,
+      "y": 688.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI4C4",
+      "item": "IIIA 4 C",
+      "kind": "money",
+      "page": 4,
+      "y": 573.0,
+      "cells": [
+        48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97,
+        215.09, 230.33
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI4C5",
+      "item": "IIIA 4 D",
+      "kind": "money",
+      "page": 4,
+      "y": 573.0,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI4C6",
+      "item": "IIIA 4 E",
+      "kind": "money",
+      "page": 4,
+      "y": 573.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI5C1",
+      "item": "IIIA 5 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 668.9,
+          "cells": [78.62, 93.86, 108.98, 124.1, 139.34]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI5C2",
+      "item": "IIIA 5 A",
+      "kind": "money",
+      "page": 4,
+      "y": 668.9,
+      "cells": [
+        199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43,
+        351.55, 366.79, 381.91
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI5C3",
+      "item": "IIIA 5 B",
+      "kind": "money",
+      "page": 4,
+      "y": 668.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI5C4",
+      "item": "IIIA 5 C",
+      "kind": "money",
+      "page": 4,
+      "y": 553.6,
+      "cells": [
+        48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97,
+        215.09, 230.33
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI5C5",
+      "item": "IIIA 5 D",
+      "kind": "money",
+      "page": 4,
+      "y": 553.6,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI5C6",
+      "item": "IIIA 5 E",
+      "kind": "money",
+      "page": 4,
+      "y": 553.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI6C1",
+      "item": "IIIA 6 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 649.5,
+          "cells": [78.62, 93.86, 108.98, 124.1, 139.34]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI6C2",
+      "item": "IIIA 6 A",
+      "kind": "money",
+      "page": 4,
+      "y": 649.5,
+      "cells": [
+        199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43,
+        351.55, 366.79, 381.91
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI6C3",
+      "item": "IIIA 6 B",
+      "kind": "money",
+      "page": 4,
+      "y": 649.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI6C4",
+      "item": "IIIA 6 C",
+      "kind": "money",
+      "page": 4,
+      "y": 534.1,
+      "cells": [
+        48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97,
+        215.09, 230.33
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI6C5",
+      "item": "IIIA 6 D",
+      "kind": "money",
+      "page": 4,
+      "y": 534.1,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI6C6",
+      "item": "IIIA 6 E",
+      "kind": "money",
+      "page": 4,
+      "y": 534.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C1",
+      "item": "IIIA 7 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 629.0,
+          "cells": [78.62, 93.86, 108.98, 124.1, 139.34]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C2",
+      "item": "IIIA 7 A",
+      "kind": "money",
+      "page": 4,
+      "y": 629.0,
+      "cells": [
+        199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43,
+        351.55, 366.79, 381.91
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C3",
+      "item": "IIIA 7 B",
+      "kind": "money",
+      "page": 4,
+      "y": 629.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C4",
+      "item": "IIIA 7 C",
+      "kind": "money",
+      "page": 4,
+      "y": 514.8,
+      "cells": [
+        48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97,
+        215.09, 230.33
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C5",
+      "item": "IIIA 7 D",
+      "kind": "money",
+      "page": 4,
+      "y": 514.8,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C6",
+      "item": "IIIA 7 E",
+      "kind": "money",
+      "page": 4,
+      "y": 514.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I8TotalNOLCO",
+      "item": "IIIA 8",
+      "kind": "money",
+      "page": 4,
+      "y": 494.3,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C1",
+      "item": "IV 1 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 448.6,
+          "cells": [33.24, 48.36, 63.5, 78.62, 93.86]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C2",
+      "item": "IV 1 A",
+      "kind": "money",
+      "page": 4,
+      "y": 448.6,
+      "cells": [
+        93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97, 215.09, 230.33,
+        245.45, 260.57
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C3",
+      "item": "IV 1 B",
+      "kind": "money",
+      "page": 4,
+      "y": 448.6,
+      "cells": [
+        260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03,
+        412.15, 427.39
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C4",
+      "item": "IV 1 C",
+      "kind": "money",
+      "page": 4,
+      "y": 448.6,
+      "cells": [
+        427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86,
+        578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C5",
+      "item": "IV 1 D",
+      "kind": "money",
+      "page": 4,
+      "y": 343.0,
+      "cells": [33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C6",
+      "item": "IV 1 E",
+      "kind": "money",
+      "page": 4,
+      "y": 343.0,
+      "cells": [
+        169.58, 184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C7",
+      "item": "IV 1 F",
+      "kind": "money",
+      "page": 4,
+      "y": 343.0,
+      "cells": [
+        306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+        457.75
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I1C8",
+      "item": "IV 1 G",
+      "kind": "money",
+      "page": 4,
+      "y": 343.0,
+      "cells": [
+        457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C1",
+      "item": "IV 2 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 429.2,
+          "cells": [33.24, 48.36, 63.5, 78.62, 93.86]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C2",
+      "item": "IV 2 A",
+      "kind": "money",
+      "page": 4,
+      "y": 429.2,
+      "cells": [
+        93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97, 215.09, 230.33,
+        245.45, 260.57
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C3",
+      "item": "IV 2 B",
+      "kind": "money",
+      "page": 4,
+      "y": 429.2,
+      "cells": [
+        260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03,
+        412.15, 427.39
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C4",
+      "item": "IV 2 C",
+      "kind": "money",
+      "page": 4,
+      "y": 429.2,
+      "cells": [
+        427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86,
+        578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C5",
+      "item": "IV 2 D",
+      "kind": "money",
+      "page": 4,
+      "y": 323.5,
+      "cells": [33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C6",
+      "item": "IV 2 E",
+      "kind": "money",
+      "page": 4,
+      "y": 323.5,
+      "cells": [
+        169.58, 184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C7",
+      "item": "IV 2 F",
+      "kind": "money",
+      "page": 4,
+      "y": 323.5,
+      "cells": [
+        306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+        457.75
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I2C8",
+      "item": "IV 2 G",
+      "kind": "money",
+      "page": 4,
+      "y": 323.5,
+      "cells": [
+        457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C1",
+      "item": "IV 3 year",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 409.8,
+          "cells": [33.24, 48.36, 63.5, 78.62, 93.86]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C2",
+      "item": "IV 3 A",
+      "kind": "money",
+      "page": 4,
+      "y": 409.8,
+      "cells": [
+        93.86, 108.98, 124.1, 139.34, 154.46, 169.58, 184.82, 199.97, 215.09, 230.33,
+        245.45, 260.57
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C3",
+      "item": "IV 3 B",
+      "kind": "money",
+      "page": 4,
+      "y": 409.8,
+      "cells": [
+        260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03,
+        412.15, 427.39
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C4",
+      "item": "IV 3 C",
+      "kind": "money",
+      "page": 4,
+      "y": 409.8,
+      "cells": [
+        427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86,
+        578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C5",
+      "item": "IV 3 D",
+      "kind": "money",
+      "page": 4,
+      "y": 304.1,
+      "cells": [33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C6",
+      "item": "IV 3 E",
+      "kind": "money",
+      "page": 4,
+      "y": 304.1,
+      "cells": [
+        169.58, 184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C7",
+      "item": "IV 3 F",
+      "kind": "money",
+      "page": 4,
+      "y": 304.1,
+      "cells": [
+        306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+        457.75
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I3C8",
+      "item": "IV 3 G",
+      "kind": "money",
+      "page": 4,
+      "y": 304.1,
+      "cells": [
+        457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I4TotalExcessMCIT",
+      "item": "IV 4",
+      "kind": "money",
+      "page": 4,
+      "y": 283.7,
+      "cells": [
+        306.05, 321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+        457.75
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I1NetIncome",
+      "item": "V 1",
+      "kind": "money",
+      "page": 4,
+      "y": 248.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I2C1",
+      "item": "V 2 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 218.5,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I2C2",
+      "item": "V 2",
+      "kind": "money",
+      "page": 4,
+      "y": 218.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I3C1",
+      "item": "V 3 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 199.2,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I3C2",
+      "item": "V 3",
+      "kind": "money",
+      "page": 4,
+      "y": 199.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I5C1",
+      "item": "V 5 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 149.5,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I5C2",
+      "item": "V 5",
+      "kind": "money",
+      "page": 4,
+      "y": 149.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I6C1",
+      "item": "V 6 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 130.1,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I6C2",
+      "item": "V 6",
+      "kind": "money",
+      "page": 4,
+      "y": 130.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I7C1",
+      "item": "V 7 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 99.8,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I7C2",
+      "item": "V 7",
+      "kind": "money",
+      "page": 4,
+      "y": 99.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I8C1",
+      "item": "V 8 description",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 4,
+          "y": 80.5,
+          "cells": [
+            33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I8C2",
+      "item": "V 8",
+      "kind": "money",
+      "page": 4,
+      "y": 80.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I4Total",
+      "item": "V 4",
+      "kind": "money",
+      "page": 4,
+      "y": 179.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I9Total",
+      "item": "V 9",
+      "kind": "money",
+      "page": 4,
+      "y": 61.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I10NetTaxableIncome",
+      "item": "V 10",
+      "kind": "money",
+      "page": 4,
+      "y": 40.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I54CtrModal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17iCtrModal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I4CtrModal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I3CtrModal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I6CtrModal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I8CtrModal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3I3Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc4I4Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc1I17iSubtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg3Sc2I4Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C2Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C3Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C4Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C5Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc3AI7C6Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg2Pt4I54Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I3Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I6Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702RT:txtPg4Sc5I8Subtotal",
+      "kind": "none",
+      "reason": "eBIRForms screen helper (modal counter or subtotal); the builder always sends 0",
+      "expect": "^0$"
+    },
+    {
+      "key": "txtFinalFlag",
+      "kind": "none",
+      "reason": "eBIRForms package flag (1 = final copy), not printed on the return"
+    },
+    {
+      "key": "txtEnroll",
+      "kind": "none",
+      "reason": "eBIRForms package enrolment flag, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineConfirmUsername",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineUsername",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineSecret",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, never printed"
+    },
+    {
+      "key": "driveSelectTPExport",
+      "kind": "none",
+      "reason": "eBIRForms export-drive setting, not printed on the return"
+    },
+    {
+      "key": "frm1702RT:txtCurrentPage",
+      "kind": "none",
+      "reason": "eBIRForms package page cursor, not printed"
+    },
+    {
+      "key": "frm1702RT:txtMaxPage",
+      "kind": "none",
+      "reason": "eBIRForms package page count, not printed"
+    }
+  ]
+}

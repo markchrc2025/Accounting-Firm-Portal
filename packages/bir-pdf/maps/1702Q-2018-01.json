@@ -1,0 +1,1081 @@
+{
+  "form": "1702Q",
+  "version": "2018-01",
+  "template": "1702Q-2018-01.pdf",
+  "title": "BIR Form 1702Q - Quarterly Income Tax Return for Corporations, Partnerships and Other Non-Individual Taxpayers (January 2018 ENCS)",
+  "pages": [
+    {
+      "width": 612,
+      "height": 936
+    },
+    {
+      "width": 612,
+      "height": 936
+    },
+    {
+      "width": 612,
+      "height": 936
+    }
+  ],
+  "size": 10,
+  "fields": [
+    {
+      "key": "frm1702q:itemFiscalStartMonth:_1",
+      "item": "1 Calendar",
+      "kind": "mark",
+      "page": 1,
+      "box": [49.8, 801.0, 63.24, 812.88]
+    },
+    {
+      "key": "frm1702q:itemFiscalStartMonth:_2",
+      "item": "1 Fiscal",
+      "kind": "mark",
+      "page": 1,
+      "box": [106.08, 801.36, 119.52, 813.24]
+    },
+    {
+      "key": "frm1702q:itemYearEndMonth",
+      "item": "2 MM",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 777.5,
+          "cells": [33.84, 47.16, 60.6]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtYearEnded",
+      "item": "2 YY",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 777.5,
+          "cells": [82.56, 95.64, 108.72]
+        }
+      ],
+      "ghost": "8",
+      "strip": "20"
+    },
+    {
+      "key": "frm1702q:optQtr:_1",
+      "item": "3 1st",
+      "kind": "mark",
+      "page": 1,
+      "box": [155.4, 785.64, 168.72, 797.52]
+    },
+    {
+      "key": "frm1702q:optQtr:_2",
+      "item": "3 2nd",
+      "kind": "mark",
+      "page": 1,
+      "box": [182.76, 785.4, 196.2, 797.28]
+    },
+    {
+      "key": "frm1702q:optQtr:_3",
+      "item": "3 3rd",
+      "kind": "mark",
+      "page": 1,
+      "box": [211.8, 785.76, 225.24, 797.76]
+    },
+    {
+      "key": "frm1702q:optRemenderRtn_1",
+      "item": "4 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [256.08, 783.96, 269.4, 795.84]
+    },
+    {
+      "key": "frm1702q:optRemenderRtn_2",
+      "item": "4 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [299.4, 783.96, 312.72, 795.84]
+    },
+    {
+      "key": "frm1702q:txtAtc",
+      "item": "5 ATC",
+      "kind": "text",
+      "page": 1,
+      "y": 782.2,
+      "x0": 354.91,
+      "x1": 390.91,
+      "size": 8,
+      "minSize": 6,
+      "align": "center"
+    },
+    {
+      "key": "frm1702q:txtTin1",
+      "item": "6 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 742.6,
+          "cells": [215.09, 230.33, 245.45, 260.57]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTin2",
+      "item": "6 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 742.6,
+          "cells": [275.81, 290.93, 306.05, 321.29]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTin3",
+      "item": "6 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 742.6,
+          "cells": [336.43, 351.55, 366.79, 381.91]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtBranchCode",
+      "kind": "none",
+      "reason": "the 1702Q pre-prints branch code 00000 (the head office)",
+      "expect": "^0*$"
+    },
+    {
+      "key": "frm1702q:txtRdoCode",
+      "item": "7",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 742.6,
+          "cells": [533.5, 548.74, 563.86, 578.98]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTaxpayerName",
+      "item": "8",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 712.4,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        },
+        {
+          "page": 1,
+          "y": 694.1,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "wrap": "words",
+      "squeeze": true
+    },
+    {
+      "key": "frm1702q:txtTaxPayerAdd",
+      "item": "9",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 663.9,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        },
+        {
+          "page": 1,
+          "y": 645.6,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9
+          ]
+        }
+      ],
+      "wrap": "words",
+      "squeeze": true
+    },
+    {
+      "key": "frm1702q:txtTaxPayerZip",
+      "item": "9A",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 645.6,
+          "cells": [533.5, 548.74, 563.86, 578.98, 594.24]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTelNum",
+      "item": "10",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 615.4,
+          "cells": [
+            18.0, 33.24, 48.36, 63.5, 78.62, 93.86, 108.98, 124.1, 139.34, 154.46, 169.58,
+            184.82
+          ]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "txtEmail",
+      "item": "11",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 615.4,
+          "cells": [
+            184.82, 199.97, 215.09, 230.33, 245.45, 260.57, 275.81, 290.93, 306.05,
+            321.29, 336.43, 351.55, 366.79, 381.91, 397.03, 412.15, 427.39, 442.51,
+            457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74, 563.86, 578.98, 594.24
+          ]
+        }
+      ],
+      "case": "keep",
+      "squeeze": true
+    },
+    {
+      "key": "1702q:OptMethodDeduct_1",
+      "item": "12 Itemized",
+      "kind": "mark",
+      "page": 1,
+      "box": [135.72, 598.08, 149.16, 609.96]
+    },
+    {
+      "key": "1702q:OptMethodDeduct_2",
+      "item": "12 OSD",
+      "kind": "mark",
+      "page": 1,
+      "box": [351.96, 597.72, 365.4, 609.72]
+    },
+    {
+      "key": "frm1702q:optTreaty:_1",
+      "item": "13 Yes",
+      "kind": "mark",
+      "page": 1,
+      "box": [178.8, 579.72, 192.24, 591.72]
+    },
+    {
+      "key": "frm1702q:optTreaty:_2",
+      "item": "13 No",
+      "kind": "mark",
+      "page": 1,
+      "box": [220.8, 579.72, 234.12, 591.6]
+    },
+    {
+      "key": "frm1702q:lstTaxTreaty",
+      "kind": "none",
+      "reason": "the treaty dropdown index; the Portal carries no treaty name, so 13A stays blank",
+      "expect": "^0$"
+    },
+    {
+      "key": "frm1702q:txtDescription",
+      "kind": "none",
+      "reason": "the January 2018 1702Q has no line-of-business box"
+    },
+    {
+      "key": "frm1702q:txt26A",
+      "item": "14",
+      "kind": "money",
+      "page": 1,
+      "y": 541.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt26B",
+      "item": "15",
+      "kind": "money",
+      "page": 1,
+      "y": 521.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt27",
+      "item": "16",
+      "kind": "money",
+      "page": 1,
+      "y": 502.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt28",
+      "item": "17",
+      "kind": "money",
+      "page": 1,
+      "y": 482.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt30",
+      "item": "18",
+      "kind": "money",
+      "page": 1,
+      "y": 463.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31E",
+      "item": "19",
+      "kind": "money",
+      "page": 1,
+      "y": 444.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31F",
+      "item": "20",
+      "kind": "money",
+      "page": 1,
+      "y": 424.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31G",
+      "item": "21",
+      "kind": "money",
+      "page": 1,
+      "y": 405.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31H",
+      "item": "22",
+      "kind": "money",
+      "page": 1,
+      "y": 385.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt32",
+      "item": "23",
+      "kind": "money",
+      "page": 1,
+      "y": 366.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt33A",
+      "item": "24",
+      "kind": "money",
+      "page": 1,
+      "y": 347.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt34",
+      "item": "25",
+      "kind": "money",
+      "page": 1,
+      "y": 326.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31Gothers",
+      "kind": "none",
+      "reason": "the January 2018 1702Q has no other-penalty line; the builder always sends it empty",
+      "expect": "^$"
+    },
+    {
+      "key": "frm1702q:txt33B",
+      "kind": "none",
+      "reason": "no box for it on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt33C",
+      "kind": "none",
+      "reason": "no box for it on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt33D",
+      "kind": "none",
+      "reason": "no box for it on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txtSheets",
+      "item": "26",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 1,
+          "y": 242.9,
+          "cells": [533.5, 548.74, 563.86, 578.98]
+        }
+      ],
+      "align": "right",
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txt26A",
+      "item": "Sch2 13",
+      "kind": "money",
+      "page": 2,
+      "y": 336.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31E",
+      "item": "Sch4 7",
+      "kind": "money",
+      "page": 2,
+      "y": 32.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txtTin1",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 829.5,
+          "cells": [18.0, 33.24, 48.48, 63.62]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTin2",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 829.5,
+          "cells": [63.62, 78.86, 94.1, 109.34]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTin3",
+      "item": "p2 TIN",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 829.5,
+          "cells": [109.34, 124.46, 139.7, 154.82]
+        }
+      ],
+      "ghost": "8"
+    },
+    {
+      "key": "frm1702q:txtTaxpayerName",
+      "item": "p2 registered name",
+      "kind": "comb",
+      "rows": [
+        {
+          "page": 2,
+          "y": 829.5,
+          "cells": [
+            230.69, 245.81, 260.93, 276.17, 291.29, 306.41, 321.53, 336.79, 351.91,
+            367.15, 382.27, 397.39, 412.51, 427.75, 442.87, 458.11, 473.26, 488.38, 503.5,
+            518.74, 533.86, 548.98, 564.22, 579.34, 594.6
+          ]
+        }
+      ],
+      "squeeze": true
+    },
+    {
+      "key": "frm1702q:txt16A",
+      "item": "Sch1 1 A",
+      "kind": "money",
+      "page": 2,
+      "y": 784.9,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt16B",
+      "item": "Sch1 1 B",
+      "kind": "money",
+      "page": 2,
+      "y": 784.9,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt17A",
+      "item": "Sch1 2 A",
+      "kind": "money",
+      "page": 2,
+      "y": 767.7,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt17B",
+      "item": "Sch1 2 B",
+      "kind": "money",
+      "page": 2,
+      "y": 767.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt18A",
+      "item": "Sch1 3 A",
+      "kind": "money",
+      "page": 2,
+      "y": 750.7,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt18B",
+      "item": "Sch1 3 B",
+      "kind": "money",
+      "page": 2,
+      "y": 750.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt19A",
+      "item": "Sch1 4 A",
+      "kind": "money",
+      "page": 2,
+      "y": 733.5,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt19B",
+      "item": "Sch1 4 B",
+      "kind": "money",
+      "page": 2,
+      "y": 733.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt20A",
+      "item": "Sch1 5 A",
+      "kind": "money",
+      "page": 2,
+      "y": 716.5,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt20B",
+      "item": "Sch1 5 B",
+      "kind": "money",
+      "page": 2,
+      "y": 716.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt21A",
+      "item": "Sch1 6 A",
+      "kind": "money",
+      "page": 2,
+      "y": 699.3,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt21B",
+      "item": "Sch1 6 B",
+      "kind": "money",
+      "page": 2,
+      "y": 699.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt22A",
+      "item": "Sch1 7 A",
+      "kind": "money",
+      "page": 2,
+      "y": 682.3,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt22B",
+      "item": "Sch1 7 B",
+      "kind": "money",
+      "page": 2,
+      "y": 682.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt23A",
+      "item": "Sch1 9 A",
+      "kind": "money",
+      "page": 2,
+      "y": 648.0,
+      "cells": [
+        230.33, 245.45, 260.57, 275.81, 290.93, 306.05, 321.29, 336.43, 351.55, 366.79,
+        381.91, 397.03, 412.15
+      ]
+    },
+    {
+      "key": "frm1702q:txt23B",
+      "item": "Sch1 9 B",
+      "kind": "money",
+      "page": 2,
+      "y": 648.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt16C",
+      "kind": "none",
+      "reason": "no third column on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt17C",
+      "kind": "none",
+      "reason": "no third column on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt18C",
+      "kind": "none",
+      "reason": "no third column on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt20C",
+      "kind": "none",
+      "reason": "no third column on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt21C",
+      "kind": "none",
+      "reason": "no third column on the paper; the builder always sends 0.00",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt25A",
+      "item": "Sch1 10 B",
+      "kind": "money",
+      "page": 2,
+      "y": 632.8,
+      "cells": [518.38, 533.5, 548.74],
+      "cents": [563.86, 578.98]
+    },
+    {
+      "key": "frm1702q:txt24B",
+      "item": "Sch1 13 B",
+      "kind": "money",
+      "page": 2,
+      "y": 575.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt24A",
+      "kind": "none",
+      "reason": "no exempt-column box for Schedule 1 item 13 on the paper; exempt tax is 0",
+      "expect": "^0*(\\.0*)?$"
+    },
+    {
+      "key": "frm1702q:txt25B",
+      "item": "Sch2 10",
+      "kind": "money",
+      "page": 2,
+      "y": 391.0,
+      "cells": [548.74, 563.86, 578.98]
+    },
+    {
+      "key": "txtMinCorpIncomeTax",
+      "item": "Sch2 12",
+      "kind": "money",
+      "page": 2,
+      "y": 354.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "txt1stQtr",
+      "item": "Sch3 1",
+      "kind": "money",
+      "page": 2,
+      "y": 302.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "txt2ndQtr",
+      "item": "Sch3 2",
+      "kind": "money",
+      "page": 2,
+      "y": 285.7,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "txt3rdQtr",
+      "item": "Sch3 3",
+      "kind": "money",
+      "page": 2,
+      "y": 268.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "txtTotal",
+      "item": "Sch3 4",
+      "kind": "money",
+      "page": 2,
+      "y": 251.5,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "txtTaxRate",
+      "kind": "none",
+      "reason": "the paper pre-prints the MCIT rate, 2 %",
+      "expect": "^2%$"
+    },
+    {
+      "key": "txtMinCorpIncomeTax",
+      "item": "Sch3 6",
+      "kind": "money",
+      "page": 2,
+      "y": 215.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt29A",
+      "item": "Sch4 1",
+      "kind": "money",
+      "page": 2,
+      "y": 181.4,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt29B",
+      "item": "Sch4 2",
+      "kind": "money",
+      "page": 2,
+      "y": 164.3,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt29C",
+      "item": "Sch4 3",
+      "kind": "money",
+      "page": 2,
+      "y": 147.2,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt29D",
+      "item": "Sch4 4",
+      "kind": "money",
+      "page": 2,
+      "y": 130.1,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31A",
+      "item": "Sch4 5",
+      "kind": "money",
+      "page": 2,
+      "y": 113.0,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31B",
+      "item": "Sch4 6",
+      "kind": "money",
+      "page": 2,
+      "y": 95.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31C",
+      "item": "Sch4 6a",
+      "kind": "money",
+      "page": 2,
+      "y": 66.8,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "frm1702q:txt31D",
+      "item": "Sch4 6b",
+      "kind": "money",
+      "page": 2,
+      "y": 49.6,
+      "cells": [
+        412.15, 427.39, 442.51, 457.75, 472.9, 488.02, 503.14, 518.38, 533.5, 548.74,
+        563.86, 578.98, 594.24
+      ]
+    },
+    {
+      "key": "Codename1",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename2",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename3",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename4",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename5",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename6",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename7",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename8",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename9",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename10",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename11",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename12",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename13",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename14",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename15",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename16",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename17",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "Codename18",
+      "kind": "none",
+      "reason": "eBIRForms package setting, not printed on the return"
+    },
+    {
+      "key": "txtFinalFlag",
+      "kind": "none",
+      "reason": "eBIRForms package flag (1 = final copy), not printed on the return"
+    },
+    {
+      "key": "txtEnroll",
+      "kind": "none",
+      "reason": "eBIRForms package enrolment flag, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineConfirmUsername",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineUsername",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, not printed on the return"
+    },
+    {
+      "key": "ebirOnlineSecret",
+      "kind": "none",
+      "reason": "eBIRForms online-submission field, never printed"
+    },
+    {
+      "key": "driveSelectTPExport",
+      "kind": "none",
+      "reason": "eBIRForms export-drive setting, not printed on the return"
+    }
+  ]
+}

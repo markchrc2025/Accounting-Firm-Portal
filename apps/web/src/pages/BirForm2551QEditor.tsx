@@ -22,6 +22,8 @@ import {
   peso,
 } from "../components/ui";
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
+import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
+import { hasUnsavedChanges } from "../lib/birPreview";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
@@ -434,6 +436,14 @@ export default function BirForm2551QEditor() {
                 Save the draft to enable XML export.
               </p>
             )}
+            {/* C3 (D52): the draft on the BIR's own form, stamped DRAFT. */}
+            {!isNew && existing.data?.previewAvailable ? (
+              <PreviewPdfButton
+                formId={id!}
+                dirty={hasUnsavedChanges(existing.data, period, data)}
+                save={() => save.mutateAsync()}
+              />
+            ) : null}
             {!isNew ? (
               isFiled && existing.data ? (
                 <FiledFormAction detail={existing.data} />

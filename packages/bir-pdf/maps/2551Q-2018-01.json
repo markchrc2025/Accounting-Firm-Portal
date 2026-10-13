@@ -292,6 +292,7 @@
       "key": "frm2551Qv2018:txtTaxReliefSpecify",
       "item": "12A",
       "kind": "comb",
+      "squeeze": true,
       "rows": [
         {
           "page": 1,

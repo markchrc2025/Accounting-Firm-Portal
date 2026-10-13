@@ -373,6 +373,7 @@
       "key": "frm2550qv2024:specifyInternationalTreaty",
       "item": "14A",
       "kind": "comb",
+      "squeeze": true,
       "rows": [
         {
           "page": 1,

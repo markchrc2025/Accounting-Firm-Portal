@@ -146,6 +146,16 @@ export function isEngineFault(err: unknown): boolean {
   );
 }
 
+/** C3 R2 (D52): the refusals of a draft's preview. */
+export const PREVIEW_FILED = "This return is filed. Use Download clear copy.";
+export const previewNotAvailable = (form: string) =>
+  `A preview of the ${form} is not available yet.`;
+
+/** C3 R2: a draft whose form and version have a print map can be previewed. */
+export function previewAvailable(f: { status: string; form: string }): boolean {
+  return f.status === "draft" && clearCopyMapped(f.form);
+}
+
 /** U14 R4: a filed return is the record of what was filed; it is never deleted. */
 export const FILED_NOT_DELETABLE =
   "A filed return can't be deleted; it is the record of what was filed.";
@@ -224,6 +234,7 @@ export class BirFormsService {
     return rows.map((f) => ({
       ...this.toSummary(f),
       clearCopyAvailable: f.status === "filed" && clearCopyMapped(f.form),
+      previewAvailable: previewAvailable(f),
       canDelete:
         f.status === "draft" && (deletable === "all" || deletable.has(f.clientId)),
     }));
@@ -384,6 +395,8 @@ export class BirFormsService {
       computed: AVAILABLE_FORMS.has(f.form) ? this.compute(f.form, data) : null,
       // U13 R2, additive: a filed return whose form and version have a map.
       clearCopyAvailable: f.status === "filed" && clearCopyMapped(f.form),
+      // C3 R2, additive: a draft whose form and version have a map.
+      previewAvailable: previewAvailable(f),
       exports: f.exports.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -610,12 +623,45 @@ export class BirFormsService {
   }
 
   /**
+   * C3 R2 (D52): a draft's preview — the same eBIRForms export exportForm writes
+   * for a draft (same builder, the same taxpayer mapping, the draft's saved data),
+   * printed by @portal/bir-pdf on the BIR's blank and stamped "DRAFT — NOT FILED".
+   * Made on request and never stored: no export row, no bucket write, no audit row
+   * (it is a read). 409: a form with no print map yet, a filed return, or a field
+   * the builder or the engine refuses, in its own words.
+   */
+  async previewPdf(user: AuthUser, id: string): Promise<{ pdf: Uint8Array; filename: string }> {
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
+    if (!clearCopyMapped(f.form)) throw new ConflictException(previewNotAvailable(f.form));
+    if (f.status !== "draft") throw new ConflictException(PREVIEW_FILED);
+    const { xml, filename: xmlName } = await this.buildExport(user, f, { store: false });
+    let pdf: Uint8Array;
+    try {
+      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, parseEbirExport(xml), {
+        watermark: "DRAFT",
+        printedAt: new Date(),
+      });
+    } catch (err) {
+      // As the clear copy: a field of the return the engine cannot print is the
+      // user's to fix (409, its own words); a fault of the Portal's own is a 500.
+      if (!isEngineFault(err)) throw new ConflictException((err as Error).message);
+      birLog.error(`preview of form ${f.id} failed: ${(err as Error).message}`);
+      throw new InternalServerErrorException(
+        `The preview of this ${f.form} could not be printed. The error is logged.`,
+      );
+    }
+    return { pdf, filename: xmlName.replace(/\.xml$/i, "-DRAFT.pdf") };
+  }
+
+  /**
    * The eBIRForms export of a loaded form, as exportForm and clearCopy both write
-   * it. A return the export cannot carry faithfully is refused with 409 (U13 F1).
+   * it (and previewPdf prints without storing). A return the export cannot carry
+   * faithfully is refused with 409 (U13 F1).
    */
   private async buildExport(
     user: AuthUser,
     f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
+    opts: { store: boolean } = { store: true },
   ) {
     this.assertSupported(f.form);
     if (!XML_EXPORT_FORMS.has(f.form)) {
@@ -624,7 +670,7 @@ export class BirFormsService {
           "BIR defines no eBIRForms XML for it. Print it as a PDF from the form editor instead.",
       );
     }
-    if (!this.storage.isEnabled()) {
+    if (opts.store && !this.storage.isEnabled()) {
       throw new BadRequestException("File storage is not configured — cannot export.");
     }
     const client = await this.clients.assertInFirm(user.firmId, f.clientId);
