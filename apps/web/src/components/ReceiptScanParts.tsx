@@ -85,6 +85,7 @@ export function AiStatusStrip() {
 }
 
 const STATUS_CHIP: Record<ScanStatus, ChipVariant> = {
+  preparing: "info",
   reading: "info",
   ready: "gold",
   failed: "danger",
@@ -92,7 +93,8 @@ const STATUS_CHIP: Record<ScanStatus, ChipVariant> = {
   discarded: "neutral",
 };
 
-/** R4: Reading / Ready for review / Failed / Approved / Discarded. */
+/** R4: Preparing… (W15 R6) / Reading / Ready for review / Failed / Approved /
+ *  Discarded. */
 export function ScanStatusChip({ status }: { status: ScanStatus }) {
   return (
     <Chip data-scan-status variant={STATUS_CHIP[status] ?? "neutral"}>
@@ -111,6 +113,25 @@ const ZOOM_MAX = 4;
  * file's id so each file opens fitted and upright.
  */
 export function PhotoViewer({ file }: { file: ScanFile }) {
+  // W15 R7: a Drive file always offers its Google Drive page.
+  return (
+    <div className="space-y-2">
+      <PhotoBody file={file} />
+      {file.driveLink ? (
+        <a
+          href={file.driveLink}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block text-[12.5px] text-blue underline-offset-2 hover:underline"
+        >
+          Open in Google Drive
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function PhotoBody({ file }: { file: ScanFile }) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [broken, setBroken] = useState(false);
@@ -168,7 +189,12 @@ export function PhotoViewer({ file }: { file: ScanFile }) {
         </Button>
       </div>
       <div className="h-[70vh] overflow-auto rounded-card border border-line-strong bg-sidebar">
-        {broken ? (
+        {broken && file.source === "drive" ? (
+          // W15 R7: the Drive file is gone, or no longer shared with the robot.
+          <p className="px-5 py-10 text-center text-[13px] text-content-secondary">
+            This photo is no longer in Google Drive, or the robot can no longer see it.
+          </p>
+        ) : broken ? (
           <p className="px-5 py-10 text-center text-[13px] text-content-secondary">
             This browser cannot show this photo.{" "}
             <a

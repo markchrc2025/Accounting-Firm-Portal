@@ -1,10 +1,10 @@
 // ClearCopyButton — "Download clear copy" on a filed return whose form has a
 // print map (W14 R1): POST /bir-forms/:id/clear-copy, then the export's signed
-// URL, then the browser takes the PDF. The server's 409 shows word for word.
+// URL, then the browser saves the PDF. The server's 409 shows word for word.
 //
-// The tab is opened on the click itself, before the two requests, so a popup
-// blocker lets it through; it is pointed at the signed URL once that arrives,
-// and closed if the server refuses.
+// W15 R2: the signed link is an attachment with the export's own filename
+// (Track A U14), so the page follows it in place and the file downloads. No
+// new tab is opened, so no popup blocker stands in the way.
 
 import { useRef, useState, type MouseEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import {
   type BirFormExportRef,
 } from "../../lib/api";
 import { exportLabel } from "../../lib/birExports";
+import { downloadFromUrl } from "../../lib/download";
 import { Button } from "../ui";
 
 export function ClearCopyButton({
@@ -26,28 +27,21 @@ export function ClearCopyButton({
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const [blockedUrl, setBlockedUrl] = useState<string | null>(null);
   // A second click can land before `isPending` disables the button; the ref
   // makes sure one click sends one POST.
   const busy = useRef(false);
   const run = useMutation({
-    mutationFn: async (_tab: Window | null) => {
+    mutationFn: async () => {
       const made = await createClearCopy(formId);
       const { url } = await fetchBirFormExportUrl(formId, made.id);
-      return url;
+      return { url, filename: made.filename };
     },
-    onSuccess: (url, tab) => {
+    onSuccess: ({ url, filename }) => {
       setError(null);
-      if (tab && !tab.closed) {
-        tab.location.href = url;
-      } else {
-        // The browser blocked the tab: offer the link to click instead.
-        setBlockedUrl(url);
-      }
+      downloadFromUrl(url, filename);
       void qc.invalidateQueries({ queryKey: ["bir-form", formId] });
     },
-    onError: (e, tab) => {
-      tab?.close();
+    onError: (e) => {
       setError(e instanceof ApiError ? e.message : "Could not prepare the clear copy.");
     },
     onSettled: () => {
@@ -60,14 +54,7 @@ export function ClearCopyButton({
     if (busy.current) return;
     busy.current = true;
     setError(null);
-    setBlockedUrl(null);
-    const tab = window.open("", "_blank");
-    if (tab) {
-      tab.document.title = "Clear copy";
-      tab.document.body.textContent = "Preparing the clear copy…";
-      tab.opener = null;
-    }
-    run.mutate(tab);
+    run.mutate();
   };
 
   return (
@@ -79,16 +66,6 @@ export function ClearCopyButton({
         <p data-clear-copy-error role="alert" className="text-[12px] text-danger-ink">
           {error}
         </p>
-      ) : null}
-      {blockedUrl ? (
-        <a
-          href={blockedUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[12px] text-blue underline-offset-2 hover:underline"
-        >
-          Open the clear copy
-        </a>
       ) : null}
     </div>
   );

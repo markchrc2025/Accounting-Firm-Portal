@@ -7,7 +7,9 @@ import { Button } from "./ui";
 
 export function ConfirmDialog({
   question,
+  detail,
   confirmLabel,
+  cancelLabel = "Cancel",
   busy = false,
   error,
   onConfirm,
@@ -15,8 +17,12 @@ export function ConfirmDialog({
 }: {
   /** The question, e.g. "Delete Sam Cruz? This cannot be undone." */
   question: string;
+  /** W15: an optional sentence under the question. */
+  detail?: string;
   /** The confirming button's label, e.g. "Delete". */
   confirmLabel: string;
+  /** W15: the cancelling button's label; "Cancel" unless named. */
+  cancelLabel?: string;
   busy?: boolean;
   /** The server's message when the action was refused. */
   error?: string | null;
@@ -53,6 +59,9 @@ export function ConfirmDialog({
         >
           {question}
         </p>
+        {detail ? (
+          <p className="px-6 pb-1 text-[13px] text-content-secondary">{detail}</p>
+        ) : null}
         {error ? (
           <p
             role="alert"
@@ -63,7 +72,7 @@ export function ConfirmDialog({
         ) : null}
         <div className="flex justify-end gap-2 px-6 py-4">
           <Button variant="outline" size="sm" disabled={busy} onClick={onCancel}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button
             variant="danger"

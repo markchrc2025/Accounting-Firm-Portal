@@ -17,6 +17,7 @@ import { FormViewShell, type FormViewMode } from "../components/birform/FormView
 import { downloadSheetsPdf, type PagePt } from "../components/birform/sheetsPdf";
 import { Form2307, type Form2307Signatory } from "../components/birform/Form2307";
 import { tin14 } from "../components/birform/format";
+import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { payorPrintName, printParty } from "../lib/birFiling";
 import {
@@ -904,6 +905,8 @@ export default function BirForm2307Editor() {
                     </Button>
                   )
                 ) : null}
+                {/* W15 R1: a draft the caller may delete. */}
+                {existing.data ? <DeleteDraftButton detail={existing.data} /> : null}
               </div>
 
               {isFiled ? (

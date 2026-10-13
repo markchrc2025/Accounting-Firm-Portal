@@ -23,6 +23,7 @@ import {
   cn,
   peso,
 } from "../components/ui";
+import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 import { printParty } from "../lib/birFiling";
@@ -404,6 +405,8 @@ export default function BirForm2316Editor() {
                 </Button>
               )
             ) : null}
+            {/* W15 R1: a draft the caller may delete. */}
+            {existing.data ? <DeleteDraftButton detail={existing.data} /> : null}
           </div>
 
           {isFiled ? (

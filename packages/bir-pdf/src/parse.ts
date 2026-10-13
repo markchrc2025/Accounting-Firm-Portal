@@ -50,6 +50,69 @@ export const ENCODED_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
     "txtOfficialReceiptNumber40",
     "txtOfficialReceiptNumber41",
   ]),
+  // build1701Q.ts
+  frm1701q: new Set([
+    ...[
+      "txtTaxpayerName",
+      "txtAddress",
+      "txtForeignTaxNumber",
+      "txtSpouseName",
+      "txtSpouseCitizenship",
+      "txtSpouseForeignTaxNum",
+      "txtLOB",
+      "txtParticular35",
+      "txt43Desc",
+      "txt48Desc",
+      "txt61Desc",
+      ...[32, 33, 35].flatMap((n) => [`txtAgency${n}`, `txtNumber${n}`, `txtDate${n}`]),
+      "txtNumber34",
+      "txtDate34",
+    ].map((k) => `frm1701q:${k}`),
+  ]),
+  // build1702Q.ts
+  frm1702q: new Set(
+    ["txtDescription", "txtTaxpayerName", "txtTaxPayerAdd"].map((k) => `frm1702q:${k}`),
+  ),
+  // build1701A.ts
+  frm1701A: new Set(
+    [
+      "txtTaxpayerName",
+      "txtAddress",
+      "txtForeignTaxNumber",
+      "txtSpouseName",
+      "txtSpouseTelNum",
+      "txtSpouseCitizenship",
+      "txtSpouseFTN",
+      "txtLineBus",
+      "txtParticular35",
+      "txt41Desc",
+      "txt42Desc",
+      "txt50Desc",
+      "txt51Desc",
+      "txt63Desc",
+      ...[32, 33, 35].flatMap((n) => [`txtAgency${n}`, `txtNumber${n}`, `txtDate${n}`]),
+      "txtNumber34",
+      "txtDate34",
+    ].map((k) => `frm1701A:${k}`),
+  ),
+  // build1701.ts
+  frm1701: new Set(
+    [
+      "txtPg1I8TaxpayerName",
+      "txtPg1I9Address",
+      "txtPg1I14ForeignTaxNumber",
+      "txtPg2I5SpouseName",
+      "txtPg2I6TelNum",
+      "txtPg2I7Citizenship",
+      "txtPg2I9ForeignTaxNumber",
+      "txtLineBus",
+      ...[2, 3, 4, 6, 7, 8, 9].map((i) => `txtPg4IPart9_${i}Particulars`),
+    ].map((k) => `frm1701:${k}`),
+  ),
+  // build1702RT.ts
+  frm1702RT: new Set(
+    ["txtPg1Pt1I8Name1", "txtPg1Pt1I9Address1"].map((k) => `frm1702RT:${k}`),
+  ),
 };
 
 const DIV = /<div>([\s\S]*?)<\/div>/g;

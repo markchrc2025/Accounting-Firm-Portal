@@ -6,6 +6,7 @@
 // US$ × the response's own usdToPhp, for display; the web keeps no rate.
 
 import { apiFetch, apiUpload } from "./api";
+import type { PileAccepted } from "./drive";
 import { lastEndedQuarter } from "./taxPeriod";
 import { peso } from "../components/ui";
 
@@ -36,7 +37,10 @@ export interface AiEstimate {
   fits: boolean;
 }
 
-export type ScanStatus = "reading" | "ready" | "failed" | "approved" | "discarded";
+/** U14 (W15 R6): every pile is "preparing" first, while its files are fetched
+ *  and prepared; nothing is sent to the AI until it moves on to "reading". */
+export type ScanStatus =
+  "preparing" | "reading" | "ready" | "failed" | "approved" | "discarded";
 
 export interface ReceiptScanSummary {
   id: string;
@@ -113,6 +117,10 @@ export interface ScanFile {
   result: ScanFileResult;
   problem: string | null;
   rows: ScanRow[];
+  /** U14: where the photo came from. Absent on an API before U14. */
+  source?: "upload" | "drive";
+  /** U14: the file's Google Drive page; null for an upload. */
+  driveLink?: string | null;
 }
 
 export interface ReceiptScanDetail {
@@ -153,7 +161,7 @@ export function sendReceiptScan(input: {
   periodFrom: string;
   periodTo: string;
   files: File[];
-}): Promise<ReceiptScanSummary> {
+}): Promise<PileAccepted> {
   const form = new FormData();
   for (const f of input.files) form.append("files", f, f.name);
   const q = new URLSearchParams({
@@ -161,11 +169,8 @@ export function sendReceiptScan(input: {
     periodFrom: input.periodFrom,
     periodTo: input.periodTo,
   });
-  return apiUpload<ReceiptScanSummary>(
-    `/receipt-scans?${q}`,
-    form,
-    "The pile was not sent",
-  );
+  // U14: 202 { id, status: "preparing", files } once the files are on disk.
+  return apiUpload<PileAccepted>(`/receipt-scans?${q}`, form, "The pile was not sent");
 }
 
 // --- The review screen's columns (R5) ----------------------------------------
@@ -308,9 +313,15 @@ export function localRefusal(files: readonly FileLike[]): string | null {
   return null;
 }
 
+/** W15 R6: a pile still on its way — preparing, then reading — is polled. */
+export function isInProgress(status: ScanStatus): boolean {
+  return status === "preparing" || status === "reading";
+}
+
 // --- Labels (R4, R5) ---------------------------------------------------------
 
 const STATUS_LABELS: Record<ScanStatus, string> = {
+  preparing: "Preparing…",
   reading: "Reading",
   ready: "Ready for review",
   failed: "Failed",

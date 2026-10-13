@@ -24,8 +24,12 @@ import {
   cn,
   peso,
 } from "../components/ui";
+import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
+import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
+import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
+import { hasUnsavedChanges } from "../lib/birPreview";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 
 /** Per-column (A filer / B spouse) money fields the 1701 editor captures. */
@@ -149,7 +153,8 @@ export default function BirForm1701Editor() {
     mutationFn: () => exportBirForm(id!),
     onSuccess: (res) => {
       setError(null);
-      window.open(res.url, "_blank", "noopener");
+      // W15 R2: the link is an attachment; it downloads in place, no new tab.
+      downloadFromUrl(res.url, res.filename);
       void existing.refetch();
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : "Could not export the XML."),
@@ -332,6 +337,14 @@ export default function BirForm1701Editor() {
                 Save the draft to enable XML export.
               </p>
             )}
+            {/* C2 (D53): the draft on the BIR's own form, stamped DRAFT. */}
+            {!isNew && existing.data?.previewAvailable ? (
+              <PreviewPdfButton
+                formId={id!}
+                dirty={hasUnsavedChanges(existing.data, year, data)}
+                save={() => save.mutateAsync()}
+              />
+            ) : null}
             {!isNew ? (
               isFiled && existing.data ? (
                 <FiledFormAction detail={existing.data} />
@@ -350,6 +363,8 @@ export default function BirForm1701Editor() {
                 </Button>
               )
             ) : null}
+            {/* W15 R1: a draft the caller may delete. */}
+            {existing.data ? <DeleteDraftButton detail={existing.data} /> : null}
           </div>
 
           {isFiled ? (

@@ -1,13 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ClearCopyButton } from "../components/birform/ClearCopyButton";
-import {
-  fetchBirForm,
-  fetchBirFormCatalog,
-  fetchBirForms,
-  type BirFormSummary,
-} from "../lib/api";
+import { fetchBirFormCatalog, fetchBirForms, type BirFormSummary } from "../lib/api";
 import {
   Card,
   CardContent,
@@ -35,6 +30,17 @@ const STATUS_TABS: { key: StatusFilter; label: string }[] = [
  */
 export default function BirFormsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // W15 R1: "Draft deleted." after a draft is deleted from its own page. Kept
+  // here, then cleared from the history entry so a reload does not repeat it.
+  const [notice] = useState<string | null>(
+    () => (location.state as { notice?: string } | null)?.notice ?? null,
+  );
+  useEffect(() => {
+    if ((location.state as { notice?: string } | null)?.notice) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
   const [status, setStatus] = useState<StatusFilter>("all");
   const catalog = useQuery({ queryKey: ["bir-form-catalog"], queryFn: fetchBirFormCatalog });
   const forms = useQuery({
@@ -69,6 +75,14 @@ export default function BirFormsPage() {
           </select>
         }
       />
+      {notice ? (
+        <p
+          role="status"
+          className="mb-4 rounded-input border border-success/40 bg-success-bg px-4 py-2.5 text-[13px] text-content"
+        >
+          {notice}
+        </p>
+      ) : null}
 
       <div className="mb-6 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
         <span className="font-semibold">All nine forms are live.</span> This is the portal&apos;s
@@ -254,19 +268,11 @@ export default function BirFormsPage() {
 
 /**
  * W14 R1: "Download clear copy" on a filed return whose form has a print map.
- * The server says so on the form's detail (U13); a list row that carries the
- * flag itself is taken at its word, and otherwise the detail is asked for once
- * per filed row (the same query the form's own page uses). Drafts ask nothing.
+ * W15 R2: the list rows carry clearCopyAvailable (U14), so the list asks no
+ * row's detail; a row without the flag shows no button.
  */
 function RowClearCopy({ row }: { row: BirFormSummary }) {
-  const filed = row.status === "filed";
-  const known = row.clearCopyAvailable;
-  const detail = useQuery({
-    queryKey: ["bir-form", row.id],
-    queryFn: () => fetchBirForm(row.id),
-    enabled: filed && known === undefined,
-    staleTime: 60_000,
-  });
-  const available = filed && (known ?? detail.data?.clearCopyAvailable ?? false);
-  return available ? <ClearCopyButton formId={row.id} size="sm" /> : null;
+  return row.status === "filed" && row.clearCopyAvailable === true ? (
+    <ClearCopyButton formId={row.id} size="sm" />
+  ) : null;
 }

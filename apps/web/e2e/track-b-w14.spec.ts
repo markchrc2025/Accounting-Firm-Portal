@@ -223,16 +223,9 @@ const filed1701 = () =>
     clearCopyAvailable: false,
   });
 
-/** The list rows: summaries, which carry no clearCopyAvailable of their own. */
+/** The list rows: summaries. W15: they carry clearCopyAvailable (U14). */
 const summaryOf = (d: ReturnType<typeof form>) => {
-  const {
-    data: _d,
-    computed: _c,
-    exports: _e,
-    filedSnapshot: _s,
-    clearCopyAvailable: _a,
-    ...s
-  } = d;
+  const { data: _d, computed: _c, exports: _e, filedSnapshot: _s, ...s } = d;
   return s;
 };
 
@@ -298,12 +291,12 @@ test.describe("T1 Download clear copy (hermetic)", () => {
       }),
     );
     await page.goto(`/bir-forms/${F2551Q}`);
-    const popup = page.waitForEvent("popup");
+    // W15 R2: the attachment downloads in the page itself, with no new tab.
+    const downloading = page.waitForEvent("download");
     await page.getByRole("button", { name: BUTTON }).click();
     await expect(page.getByRole("button", { name: "Preparing…" })).toBeDisabled();
     release();
-    const tab = await popup;
-    const download = await tab.waitForEvent("download");
+    const download = await downloading;
     expect(download.url()).toBe(`${SIGNED_HOST}/clear-copy.pdf?sig=invented`);
     expect(download.suggestedFilename()).toBe("2551Q-2026-Q3-clear-copy.pdf");
     await expect(page.getByRole("button", { name: BUTTON })).toBeEnabled();
@@ -361,9 +354,9 @@ test.describe("T1 Download clear copy (hermetic)", () => {
     await quiet();
     await expect(row(F2551Q_DRAFT).getByRole("button", { name: BUTTON })).toHaveCount(0);
     await expect(row(F1701).getByRole("button", { name: BUTTON })).toHaveCount(0);
-    const popup = page.waitForEvent("popup");
+    const downloading = page.waitForEvent("download");
     await row(F2551Q).getByRole("button", { name: BUTTON }).click();
-    const download = await (await popup).waitForEvent("download");
+    const download = await downloading;
     expect(download.suggestedFilename()).toBe("2551Q-2026-Q3-clear-copy.pdf");
     // The click downloads; it does not open the form.
     await expect(page).toHaveURL(/\/bir-forms$/);
@@ -446,9 +439,9 @@ test.describe("T2 the export list (hermetic)", () => {
     ]);
     await page.goto(`/bir-forms/${F2551Q}`);
     await expect(page.locator("[data-export-kind]")).toHaveCount(0);
-    const popup = page.waitForEvent("popup");
+    const downloading = page.waitForEvent("download");
     await page.getByRole("button", { name: BUTTON }).click();
-    await (await popup).waitForEvent("download");
+    await downloading;
     await expect(page.locator('[data-export-kind="pdf"]')).toContainText(
       "Clear copy (PDF)",
     );

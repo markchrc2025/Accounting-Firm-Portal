@@ -31,6 +31,7 @@ import {
   fetchReceiptScan,
   fileProblem,
   fileResultLabel,
+  isInProgress,
   type CheckOutcome,
   type ReceiptScanDetail,
   type ScanFile,
@@ -51,8 +52,9 @@ function Review() {
     queryKey: ["receipt-scan", id],
     queryFn: () => fetchReceiptScan(id),
     enabled: !!id,
-    // While the pile is still being read, look again every 60 seconds.
-    refetchInterval: (q) => (q.state.data?.scan.status === "reading" ? 60_000 : false),
+    // While the pile is preparing or being read, look again every 60 seconds.
+    refetchInterval: (q) =>
+      q.state.data && isInProgress(q.state.data.scan.status) ? 60_000 : false,
   });
 
   const back = (
@@ -163,7 +165,11 @@ function ReviewBody({ detail, back }: { detail: ReceiptScanDetail; back: ReactNo
         <Card>
           <CardContent>
             <p className="text-[13px] text-content-secondary">
-              {scan.status === "reading" ? "Still reading." : "This pile has no files."}
+              {scan.status === "preparing"
+                ? "Preparing…"
+                : scan.status === "reading"
+                  ? "Still reading."
+                  : "This pile has no files."}
             </p>
           </CardContent>
         </Card>

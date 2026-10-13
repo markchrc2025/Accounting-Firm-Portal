@@ -167,6 +167,14 @@ function comb(
   let v = (f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw;
   if (v.trim() === "") return [];
   if (f.date) v = dateDigits(v, who);
+  if (f.strip) {
+    if (!v.startsWith(f.strip))
+      throw new BirPdfError(
+        `${who}: "${raw}" does not start with the "${f.strip}" the paper pre-prints`,
+        f.key,
+      );
+    v = v.slice(f.strip.length);
+  }
   if (f.drop) v = [...v].filter((c) => !f.drop!.includes(c)).join("");
   const total = f.rows.reduce((t, r) => t + boxes(r), 0);
   if (f.pad && v.length < total) v = v.padStart(total, f.pad);
@@ -396,8 +404,19 @@ function text(
   m: Metrics,
 ): DrawOp[] {
   const who = where(f, map);
-  const v = ((f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw).trim();
+  let v = ((f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw).trim();
   if (v === "") return [];
+  if (f.amount) {
+    const a = AMOUNT.exec(v);
+    if (!a) throw new BirPdfError(`${who}: "${raw}" is not an amount`, f.key);
+    if (/[1-9]/.test(a[3] ?? "")) {
+      throw new BirPdfError(
+        `${who}: "${raw}" has centavos but the paper asks for whole pesos`,
+        f.key,
+      );
+    }
+    v = a[1]! + a[2]!.replace(/,/g, "");
+  }
   for (const ch of v)
     if (ch !== " " && !m.has(ch))
       throw new BirPdfError(`${who}: the character "${ch}" cannot be printed`, f.key);
@@ -463,7 +482,7 @@ export function layoutGhost(map: FormMap, m: Metrics): DrawOp[] {
         break;
       }
       case "text":
-        ops.push(...text(map, { ...f, case: "keep" }, f.item, size, m));
+        ops.push(...text(map, { ...f, case: "keep", amount: false }, f.item, size, m));
         break;
     }
   }

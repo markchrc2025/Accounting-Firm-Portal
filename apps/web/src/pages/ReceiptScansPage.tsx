@@ -6,6 +6,7 @@ import { useMemo, useRef, useState, type DragEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { DriveTab } from "../components/DriveParts";
 import {
   AiStatusStrip,
   ScanAccess,
@@ -33,6 +34,7 @@ import {
   fetchAiEstimate,
   fetchAiStatus,
   fetchReceiptScans,
+  isInProgress,
   localRefusal,
   noFitSentence,
   phpFromUsd,
@@ -87,6 +89,8 @@ function UploadPanel() {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // W15 R5: two ways to send a pile, sharing the client and the period.
+  const [source, setSource] = useState<"upload" | "drive">("upload");
 
   const status = statusQ.data;
   const off = !status || !status.configured || !status.enabled;
@@ -185,100 +189,141 @@ function UploadPanel() {
         </div>
 
         <div
-          data-drop-zone
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (!off) setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          className={cn(
-            "rounded-card border-2 border-dashed px-5 py-6 text-center text-[13px]",
-            off
-              ? "border-line-divider bg-sidebar text-content-muted"
-              : dragging
-                ? "border-navy bg-warn-bg-2 text-navy"
-                : "border-line-strong bg-card text-content-secondary",
-          )}
+          role="tablist"
+          aria-label="Send from"
+          className="flex gap-1 border-b border-line-strong"
         >
-          <p data-drop-line>
-            Drop receipt photos or PDFs here: any photo format, iPhone photos included. Up
-            to 100 files of 10 MB each.
-          </p>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept={ACCEPTED_FILES}
-            aria-label="Receipt photos"
-            className="sr-only"
-            disabled={off}
-            onChange={(e) => {
-              choose(e.target.files);
-              e.target.value = "";
-            }}
+          {(
+            [
+              ["upload", "Upload files"],
+              ["drive", "From Google Drive"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={source === key}
+              onClick={() => setSource(key)}
+              className={cn(
+                "-mb-px border-b-[2.5px] px-3.5 py-2 text-[13px] font-medium transition-colors",
+                source === key
+                  ? "border-gold font-bold text-navy"
+                  : "border-transparent text-content-secondary hover:text-navy",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {source === "drive" ? (
+          <DriveTab
+            key={clientId}
+            clientId={clientId}
+            period={period}
+            off={off}
+            usdToPhp={status?.usdToPhp}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            disabled={off}
-            onClick={() => inputRef.current?.click()}
-          >
-            Choose photos
-          </Button>
-          {files.length ? (
-            <p className="mt-2 text-content">
-              {files.length} {files.length === 1 ? "file" : "files"} chosen.{" "}
-              <button
-                type="button"
-                className="text-blue underline-offset-2 hover:underline"
-                onClick={() => choose(null)}
+        ) : (
+          <>
+            <div
+              data-drop-zone
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!off) setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={cn(
+                "rounded-card border-2 border-dashed px-5 py-6 text-center text-[13px]",
+                off
+                  ? "border-line-divider bg-sidebar text-content-muted"
+                  : dragging
+                    ? "border-navy bg-warn-bg-2 text-navy"
+                    : "border-line-strong bg-card text-content-secondary",
+              )}
+            >
+              <p data-drop-line>
+                Drop receipt photos or PDFs here: any photo format, iPhone photos
+                included. Up to 100 files of 10 MB each.
+              </p>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept={ACCEPTED_FILES}
+                aria-label="Receipt photos"
+                className="sr-only"
+                disabled={off}
+                onChange={(e) => {
+                  choose(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                disabled={off}
+                onClick={() => inputRef.current?.click()}
               >
-                Clear
-              </button>
-            </p>
-          ) : null}
-        </div>
+                Choose photos
+              </Button>
+              {files.length ? (
+                <p className="mt-2 text-content">
+                  {files.length} {files.length === 1 ? "file" : "files"} chosen.{" "}
+                  <button
+                    type="button"
+                    className="text-blue underline-offset-2 hover:underline"
+                    onClick={() => choose(null)}
+                  >
+                    Clear
+                  </button>
+                </p>
+              ) : null}
+            </div>
 
-        {refusal ? (
-          <p
-            data-scan-refusal
-            role="alert"
-            className="rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
-          >
-            {refusal}
-          </p>
-        ) : null}
-        {estimate && status ? (
-          <p data-scan-estimate className="text-[13px] text-content">
-            {estimateSentence(estimate, files.length, status.usdToPhp)}
-          </p>
-        ) : estimateQ.isError ? (
-          <p role="alert" className="text-[12.5px] text-danger-ink">
-            {(estimateQ.error as Error).message}
-          </p>
-        ) : null}
-        {estimate && status && !estimate.fits ? (
-          <p data-scan-nofit className="text-[13px] font-semibold text-warn">
-            {noFitSentence(estimate, status.usdToPhp)}
-          </p>
-        ) : null}
-        {error ? (
-          <p
-            data-scan-error
-            role="alert"
-            className="rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
-          >
-            {error}
-          </p>
-        ) : null}
+            {refusal ? (
+              <p
+                data-scan-refusal
+                role="alert"
+                className="rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
+              >
+                {refusal}
+              </p>
+            ) : null}
+            {estimate && status ? (
+              <p data-scan-estimate className="text-[13px] text-content">
+                {estimateSentence(estimate, files.length, status.usdToPhp)}
+              </p>
+            ) : estimateQ.isError ? (
+              <p role="alert" className="text-[12.5px] text-danger-ink">
+                {(estimateQ.error as Error).message}
+              </p>
+            ) : null}
+            {estimate && status && !estimate.fits ? (
+              <p data-scan-nofit className="text-[13px] font-semibold text-warn">
+                {noFitSentence(estimate, status.usdToPhp)}
+              </p>
+            ) : null}
+            {error ? (
+              <p
+                data-scan-error
+                role="alert"
+                className="rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
+              >
+                {error}
+              </p>
+            ) : null}
 
-        <div className="flex justify-end">
-          <Button disabled={!canSend} onClick={() => send.mutate()}>
-            {send.isPending ? "Sending…" : "Send"}
-          </Button>
-        </div>
+            <div className="flex justify-end">
+              <Button disabled={!canSend} onClick={() => send.mutate()}>
+                {send.isPending ? "Sending…" : "Send"}
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -301,8 +346,9 @@ function PilesList() {
   const scansQ = useQuery({
     queryKey: ["receipt-scans"],
     queryFn: fetchReceiptScans,
+    // Polled every 60 s while any pile is preparing or reading (W15 R6).
     refetchInterval: (q) =>
-      q.state.data?.some((s) => s.status === "reading") ? 60_000 : false,
+      q.state.data?.some((s) => isInProgress(s.status)) ? 60_000 : false,
   });
   const rate = statusQ.data?.usdToPhp;
 
