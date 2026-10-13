@@ -27,11 +27,12 @@ const tp: Taxpayer = {
   createdAt: 0,
 };
 
-// C5: the draft's stale `taxpayerType` and `atc` are ignored; Items 6 and 7 are derived.
+// C6: Item 6 is the client's Classification (a stale draft `taxpayerType` is not read);
+// Item 7 is the ATC the preparer chose (`atc`).
 const data: FilingData = {
   year: "2025",
   amended: "no",
-  taxpayerType: "prof",
+  taxpayerType: "prof", // stale: Item 6 comes from the client's Classification
   atc: "II011",
   rateA: "graduated",
   methodA: "osd",
@@ -70,9 +71,9 @@ describe("build1701", () => {
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeC=falsefrm1701:rdoPg1I6TaxpayerTypeC=");
   });
 
-  it("derives the ATC (single proprietor, graduated: II012), whatever the draft says, in the authentic order", () => {
-    expect(xml).toContain("frm1701:rdoPg1I7ATC_II012=truefrm1701:rdoPg1I7ATC_II012=");
-    expect(xml).toContain("frm1701:rdoPg1I7ATC_II011=falsefrm1701:rdoPg1I7ATC_II011=");
+  it("selects the chosen ATC radio (II011) in the authentic order", () => {
+    expect(xml).toContain("frm1701:rdoPg1I7ATC_II011=truefrm1701:rdoPg1I7ATC_II011=");
+    expect(xml).toContain("frm1701:rdoPg1I7ATC_II012=falsefrm1701:rdoPg1I7ATC_II012=");
   });
 
   it("URL-encodes the page-1 name and emits raw last name on pages 2-4", () => {

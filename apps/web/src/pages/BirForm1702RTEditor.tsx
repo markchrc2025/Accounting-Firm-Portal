@@ -29,6 +29,7 @@ import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
+import { AtcCard } from "../components/birform/IncomeTaxBackground";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 
@@ -70,6 +71,8 @@ export default function BirForm1702RTEditor() {
   const [rate, setRate] = useState("25");
   const [method, setMethod] = useState("itemized");
   const [fields, setFields] = useState<Fields>(emptyFields);
+  // C6: the ATC (Item 5) is the preparer's choice, saved as d.atc; empty until chosen.
+  const [atc, setAtc] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Hydrate from an existing form.
@@ -77,6 +80,7 @@ export default function BirForm1702RTEditor() {
     const d = existing.data?.data as Record<string, unknown> | undefined;
     if (!d) return;
     setClientId(existing.data!.clientId);
+    setAtc(typeof d.atc === "string" ? d.atc : "");
     setYear((existing.data!.period || String(d.year ?? "")).slice(0, 4));
     if (d.rate != null) setRate(String(d.rate));
     if (d.method) setMethod(String(d.method));
@@ -89,9 +93,10 @@ export default function BirForm1702RTEditor() {
 
   const data = useMemo(() => {
     const base: Record<string, string> = { year, rate, method, amended: amendedFlag };
+    if (atc) base.atc = atc;
     for (const k of FIELD_KEYS) if (fields[k]) base[k] = fields[k];
     return base;
-  }, [year, rate, method, fields, amendedFlag]);
+  }, [year, rate, method, fields, amendedFlag, atc]);
 
   // Live authoritative totals (server compute — the browser never computes tax).
   // An existing form is computed only once it is hydrated: its first, empty
@@ -252,6 +257,8 @@ export default function BirForm1702RTEditor() {
               </div>
             </CardContent>
           </Card>
+
+          <AtcCard form="1702RT" atc={atc} onAtc={setAtc} disabled={isFiled} />
 
           {/* Part IV — income */}
           <Card>

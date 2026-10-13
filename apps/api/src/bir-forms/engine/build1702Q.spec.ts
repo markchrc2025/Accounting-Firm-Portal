@@ -1,7 +1,7 @@
 // build1702Q.test.ts — verifies the authentic eBIRForms 1702Q XML export.
 // Asserts the frm1702q namespace + lowercase txtTin keys, the literal-colon
 // keys (itemFiscalStartMonth:_1, optQtr:_2, optTreaty), the BARE 1702q:
-// method radios, the trailing-space txtAtc, the Codename globals, the global
+// method radios, the preparer-chosen (never defaulted) txtAtc, the Codename globals, the global
 // txtTaxRate/txtEmail, the "BIR 2012.0" tail and the canonical filename.
 
 import type { Filing, Taxpayer } from "./types";
@@ -77,8 +77,8 @@ describe("build1702Q", () => {
     expect(has("1702q:OptMethodDeduct_2", "false")).toBe(true);
   });
 
-  it("keeps the trailing space in txtAtc and the odd 'Remender' spelling", () => {
-    expect(has("frm1702q:txtAtc", "IC010 ")).toBe(true);
+  it("writes no ATC when none is chosen (C6: no IC010 default, no trailing space) and keeps the odd 'Remender' spelling", () => {
+    expect(has("frm1702q:txtAtc", "")).toBe(true);
     expect(has("frm1702q:optRemenderRtn_1", "false")).toBe(true);
     expect(has("frm1702q:optRemenderRtn_2", "true")).toBe(true);
   });

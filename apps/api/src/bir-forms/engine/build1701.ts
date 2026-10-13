@@ -24,7 +24,7 @@ import type { Filing, Taxpayer } from "./types";
 import type { Comp1701 } from "./compute1701";
 import { amt, dob, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
 import { num } from "./format";
-import { civilStatusOf, deriveFiler } from "./taxpayer-background";
+import { chosenAtc, civilStatusOf, taxpayerTypeOf } from "./taxpayer-background";
 
 const NS = "frm1701:";
 
@@ -47,18 +47,15 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   const d = filing.data || {};
   const t = tinParts(tp);
   const yr = parseYear(d.year);
-  // C5 (D55): Item 6 and Item 7 (ATC) are derived from the client's record, the rate
-  // and the income mix, never read from the draft; Item 16 is the client's civil status.
+  // C5/C6 (D55): Item 6 is the client's Classification and nothing else; Item 7 (ATC) is
+  // what the preparer chose (d.atc), never derived; Item 16 is the client's civil status.
   // The rate and method the tax was computed on (compute1701), so the ticks agree with the figures.
   const rate = comp.A.rate;
   const method = comp.A.method;
   const A = comp.A;
   const B = comp.B;
-  const filer = deriveFiler(
-    tp,
-    { comp: A.comp, sales: A.sales, other: A.otherInc },
-    rate === "eight" ? "eight" : "graduated",
-  );
+  const type = taxpayerTypeOf(tp?.classification);
+  const atc = chosenAtc(d.atc, "1701");
   const civil = civilStatusOf(tp?.civilStatus);
   const married = civil === "married";
 
@@ -86,21 +83,22 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg1I4BranchCode", t.branch3);
   P("txtPg1I5RDOCode", (tp && tp.rdo) || "");
 
-  // Item 6 Taxpayer Type — one box, or none when the Portal cannot tell (see deriveFiler).
-  P("rdoPg1I6TaxpayerTypeS", rb(filer.type === "single"));
-  P("rdoPg1I6TaxpayerTypeP", rb(filer.type === "prof"));
-  P("rdoPg1I6TaxpayerTypeE", rb(filer.type === "estate"));
-  P("rdoPg1I6TaxpayerTypeT", rb(filer.type === "trust"));
-  P("rdoPg1I6TaxpayerTypeC", rb(filer.type === "comp")); // Compensation Earner
+  // Item 6 Taxpayer Type — the client's Classification: Single Proprietor or Professional,
+  // else no box. Estate, Trust and Compensation Earner are not on the client's record.
+  P("rdoPg1I6TaxpayerTypeS", rb(type === "single"));
+  P("rdoPg1I6TaxpayerTypeP", rb(type === "prof"));
+  P("rdoPg1I6TaxpayerTypeE", rb(false));
+  P("rdoPg1I6TaxpayerTypeT", rb(false));
+  P("rdoPg1I6TaxpayerTypeC", rb(false)); // Compensation Earner
 
-  // Item 7 ATC — derived, in the authentic order II012/014/013/011/015/017/016.
-  P("rdoPg1I7ATC_II012", rb(filer.atc === "II012"));
-  P("rdoPg1I7ATC_II014", rb(filer.atc === "II014"));
-  P("rdoPg1I7ATC_II013", rb(filer.atc === "II013"));
-  P("rdoPg1I7ATC_II011", rb(filer.atc === "II011"));
-  P("rdoPg1I7ATC_II015", rb(filer.atc === "II015"));
-  P("rdoPg1I7ATC_II017", rb(filer.atc === "II017"));
-  P("rdoPg1I7ATC_II016", rb(filer.atc === "II016"));
+  // Item 7 ATC — the preparer's choice (d.atc), in the authentic order II012/014/013/011/015/017/016.
+  P("rdoPg1I7ATC_II012", rb(atc === "II012"));
+  P("rdoPg1I7ATC_II014", rb(atc === "II014"));
+  P("rdoPg1I7ATC_II013", rb(atc === "II013"));
+  P("rdoPg1I7ATC_II011", rb(atc === "II011"));
+  P("rdoPg1I7ATC_II015", rb(atc === "II015"));
+  P("rdoPg1I7ATC_II017", rb(atc === "II017"));
+  P("rdoPg1I7ATC_II016", rb(atc === "II016"));
 
   // Name / address / contact
   P("txtPg1I8TaxpayerName", enc(fullName(tp)));

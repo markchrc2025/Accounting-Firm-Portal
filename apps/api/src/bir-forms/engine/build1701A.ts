@@ -10,7 +10,7 @@
 import type { Filing, Taxpayer } from "./types";
 import type { Comp1701A } from "./compute1701A";
 import { amt, dob, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
-import { civilStatusOf, deriveFiler } from "./taxpayer-background";
+import { chosenAtc, civilStatusOf, taxpayerTypeOf } from "./taxpayer-background";
 
 const NS = "frm1701A:";
 
@@ -30,18 +30,11 @@ export function build1701A(filing: Filing, tp: Taxpayer | null, comp: Comp1701A)
   const rate = (d.taxRate as string) || "graduated";
   const A = comp.A;
   const B = comp.B;
-  // C5 (D55): Items 6 and 7 are derived from the client's record and the rate (the
-  // 1701A is for business or profession income only), Item 16 is the client's civil
-  // status, and Items 17 and 18 are answered only for a married taxpayer.
-  const filer = deriveFiler(
-    tp,
-    { comp: 0, sales: 0, other: 0 },
-    rate === "eight" ? "eight" : "graduated",
-    {
-      allowComp: false,
-      allowMixed: false,
-    },
-  );
+  // C5/C6 (D55): Item 6 is the client's Classification, Item 7 (ATC) is what the preparer
+  // chose (d.atc), Item 16 is the client's civil status, and Items 17 and 18 are answered
+  // only for a married taxpayer.
+  const type = taxpayerTypeOf(tp?.classification);
+  const atc = chosenAtc(d.atc, "1701A");
   const civil = civilStatusOf(tp?.civilStatus);
   const married = civil === "married";
 
@@ -63,12 +56,12 @@ export function build1701A(filing: Filing, tp: Taxpayer | null, comp: Comp1701A)
   P("txtTIN3", t.t3);
   P("txtBranchCode", t.branch3);
   P("txtRDOCode", (tp && tp.rdo) || "");
-  P("optTaxType_1", rb(filer.type === "single"));
-  P("optTaxType_2", rb(filer.type === "prof"));
-  P("optATC_1", rb(filer.atc === "II012"));
-  P("optATC_2", rb(filer.atc === "II014"));
-  P("optATC_3", rb(filer.atc === "II015"));
-  P("optATC_4", rb(filer.atc === "II017"));
+  P("optTaxType_1", rb(type === "single"));
+  P("optTaxType_2", rb(type === "prof"));
+  P("optATC_1", rb(atc === "II012"));
+  P("optATC_2", rb(atc === "II014"));
+  P("optATC_3", rb(atc === "II015"));
+  P("optATC_4", rb(atc === "II017"));
   P("txtTaxpayerName", enc(fullName(tp)));
   P("txtAddress", enc(tp ? [tp.address, tp.city].filter(Boolean).join(", ") : ""));
   P("txtZipCode", (tp && tp.zip) || "");
