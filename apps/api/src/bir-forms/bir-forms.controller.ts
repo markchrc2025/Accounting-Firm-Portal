@@ -10,14 +10,18 @@ import {
   Query,
   Res,
   StreamableFile,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
+import { FirmUserGuard } from "../common/guards/firm-user.guard";
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import {
+  BookFiguresQuery,
+  BookFiguresQuerySchema,
   ComputeBirFormInput,
   ComputeBirFormSchema,
   CreateBirFormInput,
@@ -29,6 +33,7 @@ import {
 } from "./dto/bir-form.schemas";
 import { attachment } from "../storage/storage.service";
 import { BIR_FORMS_PERMISSION, BirFormsService } from "./bir-forms.service";
+import { BookFiguresService } from "./book-figures/book-figures.service";
 
 /**
  * Internal BIR Forms module endpoints. Firm-scoped; reads need BIRForms:Read,
@@ -39,7 +44,10 @@ import { BIR_FORMS_PERMISSION, BirFormsService } from "./bir-forms.service";
 @ApiTags("bir-forms")
 @Controller("bir-forms")
 export class BirFormsController {
-  constructor(private readonly birForms: BirFormsService) {}
+  constructor(
+    private readonly birForms: BirFormsService,
+    private readonly bookFigures: BookFiguresService,
+  ) {}
 
   @Get("catalog")
   @RequirePermissions(BIR_FORMS_PERMISSION.read)
@@ -60,6 +68,21 @@ export class BirFormsController {
     @Query(new ZodValidationPipe(ListBirFormsQuerySchema)) query: ListBirFormsQuery,
   ) {
     return this.birForms.list(user, query.clientId, query.status);
+  }
+
+  /**
+   * U15 (D54): the figures the client's posted records give a 2551Q or 2550Q, in the
+   * draft's own data keys. Firm staff assigned to the client; nothing is saved.
+   * Declared before ":id" so "book-figures" is never read as a form id.
+   */
+  @Get("book-figures")
+  @UseGuards(FirmUserGuard)
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
+  bookFiguresFor(
+    @CurrentUser() user: AuthUser,
+    @Query(new ZodValidationPipe(BookFiguresQuerySchema)) query: BookFiguresQuery,
+  ) {
+    return this.bookFigures.figures(user, query);
   }
 
   /** Filed forms + their authoritative key figures (for the client tax view). */
