@@ -361,7 +361,9 @@ export default function BirForm2551QEditor() {
                             value={r.taxable}
                             onChange={(e) => updateRow(i, { taxable: e.target.value })}
                           />
-                          <BookBadge id={`rows.${i}`} />
+                          {rows.findIndex((x) => x.atc === r.atc) === i ? (
+                            <BookBadge id={`rows.${r.atc}`} />
+                          ) : null}
                         </td>
                         <td className="px-3 py-2">
                           <input

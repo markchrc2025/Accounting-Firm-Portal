@@ -39,6 +39,7 @@ import {
   BookSwitch,
 } from "../components/birform/BookFigures";
 import { useBookFigures } from "../components/birform/useBookFigures";
+import { ITEM_45_LABEL } from "../lib/bookFigures";
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -345,7 +346,7 @@ export default function BirForm2550QEditor() {
             <CardContent className="space-y-3">
               <div className="eyebrow">Current purchases — input tax</div>
               <PurchasePair label="Domestic — goods (Item 44)" aKey="i44a" bKey="i44b" a={fields.i44a} b={fields.i44b} onA={(v) => set("i44a", v)} onB={(v) => set("i44b", v)} />
-              <PurchasePair label="Domestic — services (Item 45)" aKey="i45a" bKey="i45b" a={fields.i45a} b={fields.i45b} onA={(v) => set("i45a", v)} onB={(v) => set("i45b", v)} />
+              <PurchasePair label={ITEM_45_LABEL} aKey="i45a" bKey="i45b" a={fields.i45a} b={fields.i45b} onA={(v) => set("i45a", v)} onB={(v) => set("i45b", v)} />
               <PurchasePair label="Importation — goods (Item 46)" aKey="i46a" bKey="i46b" a={fields.i46a} b={fields.i46b} onA={(v) => set("i46a", v)} onB={(v) => set("i46b", v)} />
               <PurchasePair label="Others (Item 47)" aKey="i47a" bKey="i47b" a={fields.i47a} b={fields.i47b} onA={(v) => set("i47a", v)} onB={(v) => set("i47b", v)} />
               <div className="grid gap-3 sm:grid-cols-2">

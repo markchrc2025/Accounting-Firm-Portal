@@ -98,7 +98,9 @@ interface Cfg {
   secondLabel: string;
   /** The data key a typed-over first field lands under in _source.edited. */
   editedKey: string;
-  lines: (f: Figures) => unknown[];
+  lines: (f: Figures, records?: Record<string, number>) => unknown[];
+  /** The line key whose record count a test may override. */
+  recordKey: string;
   /** A saved draft's data holding these figures as the editor saves them. */
   data: (f: Figures, extra?: Record<string, unknown>) => Record<string, unknown>;
   input: (page: Page, id: string) => Locator;
@@ -144,14 +146,17 @@ const KEYS_2550 = [
 const LABEL_2550: Record<string, string> = {
   i31a: "VATable sales (net) — Item 31A",
   i33a: "VAT-exempt sales — Item 33A",
+  // As U15 words them (the API still says "Domestic — services").
+  i45a: "Domestic — services (Item 45): purchases",
+  i45b: "Domestic — services (Item 45): input tax",
 };
 
 const CFG: Record<FormCode, Cfg> = {
   "2551Q": {
     form: "2551Q",
     newUrl: "/bir-forms/new?form=2551Q",
-    first: "rows.0",
-    second: "rows.1",
+    first: "rows.PT010",
+    second: "rows.PT040",
     a: {
       rows: [
         { atc: "PT010", taxable: "120000", rate: "3" },
@@ -170,13 +175,14 @@ const CFG: Record<FormCode, Cfg> = {
     secondB: 50000,
     firstLabel: "Schedule 1 · PT010",
     secondLabel: "Schedule 1 · PT040",
-    editedKey: "rows",
-    lines: (f) =>
+    editedKey: "rows.PT010",
+    recordKey: "PT010",
+    lines: (f, records) =>
       (f.rows as { atc: string; taxable: number }[]).map((r, i) => ({
         key: `rows.${r.atc}`,
         label: `Schedule 1 · ${r.atc}`,
         amount: Number(r.taxable),
-        records: i === 0 ? 14 : 5,
+        records: records?.[r.atc] ?? (i === 0 ? 14 : 5),
         filter: { kind: "income", ...range, atc: r.atc },
       })),
     data: (f, extra = {}) => ({
@@ -199,7 +205,7 @@ const CFG: Record<FormCode, Cfg> = {
     input: (page, id) =>
       page
         .locator("tbody tr")
-        .nth(Number(id.split(".")[1]))
+        .nth(id === "rows.PT040" ? 1 : 0)
         .locator('input[type="number"]')
         .first(),
   },
@@ -217,12 +223,13 @@ const CFG: Record<FormCode, Cfg> = {
     firstLabel: "VATable sales (net) — Item 31A",
     secondLabel: "VAT-exempt sales — Item 33A",
     editedKey: "i31a",
-    lines: (f) =>
+    recordKey: "i31a",
+    lines: (f, records) =>
       Object.entries(f).map(([key, amount]) => ({
         key,
         label: LABEL_2550[key] ?? `INVENTED LINE ${key}`,
         amount: Number(amount),
-        records: key === "i31a" ? 14 : key === "i33a" ? 2 : 0,
+        records: records?.[key] ?? (key === "i31a" ? 14 : key === "i33a" ? 2 : 0),
         filter: key.startsWith("i4")
           ? { kind: "purchases", ...range, inputVATCategory: "DOMESTIC_PURCHASES" }
           : { kind: "income", ...range, vatClass: "VATABLE_12" },
@@ -253,6 +260,8 @@ interface World {
   warnings: string[];
   /** When set, the books answer with this refusal. */
   refuse: { status: number; message: string } | null;
+  /** Record counts to say instead of the defaults, by line key. */
+  records?: Record<string, number>;
   /** The saved forms, by id. */
   store: Map<string, Record<string, unknown>>;
 }
@@ -409,7 +418,10 @@ async function mockApi(page: Page, cfg: Cfg, world: World, extra: Entry[] = []) 
           asOf: ASOF_NOW,
           recordCount: Object.keys(world.books).length === 0 ? 0 : 21,
           figures: world.books,
-          lines: Object.keys(world.books).length === 0 ? [] : cfg.lines(world.books),
+          lines:
+            Object.keys(world.books).length === 0
+              ? []
+              : cfg.lines(world.books, world.records),
           warnings: world.warnings,
         });
       },
@@ -1085,4 +1097,238 @@ test("T1 2550Q a purchases figure's View records goes to Expenses", async ({ pag
   await expect(link).toHaveAttribute("href", `/clients/${CLIENT.id}/expenses`);
   await expect(link).toHaveAttribute("target", "_blank");
   clean(unmocked, dialogs);
+});
+
+// ---------------------------------------------------------------------------
+// W16-A1 — T1: the 2551Q's books rows are matched by ATC, never by position
+// ---------------------------------------------------------------------------
+
+const R = (atc: string, taxable: string, rate = "3") => ({ atc, taxable, rate });
+const tableRow = (page: Page, i: number) => page.locator("tbody tr").nth(i);
+const rowAtc = (page: Page, i: number) => tableRow(page, i).locator("select");
+const rowAmount = (page: Page, i: number) =>
+  tableRow(page, i).locator('input[type="number"]').first();
+
+test.describe("W16-A1 T1 2551Q: rows by ATC (hermetic)", () => {
+  const cfg = CFG["2551Q"];
+
+  test("T1 2551Q the draft's PT060 is compared with the books' PT060, and PT010 is added", async ({
+    page,
+  }) => {
+    const w = world(cfg, {
+      books: { rows: [R("PT010", "120000"), R("PT060", "45000")] },
+    });
+    const { unmocked, dialogs } = await openDraft(page, cfg, w, {
+      data: cfg.data({ rows: [R("PT060", "5")] }),
+    });
+    await radio(page, "Portal books").click();
+    const dialog = dialogOf(page);
+    await expect(dialog.locator("[data-book-item]")).toHaveText([
+      `Schedule 1 · PT010: added ${peso(120000)}`,
+      `Schedule 1 · PT060: ${peso(5)} becomes ${peso(45000)}`,
+    ]);
+    await expect(dialog).not.toContainText(`${peso(5)} becomes ${peso(120000)}`);
+    await dialog.getByRole("button", { name: "Fill from books" }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(2);
+    await expect(rowAtc(page, 0)).toHaveValue("PT060");
+    await expect(rowAmount(page, 0)).toHaveValue("45000");
+    await expect(rowAtc(page, 1)).toHaveValue("PT010");
+    await expect(rowAmount(page, 1)).toHaveValue("120000");
+    clean(unmocked, dialogs);
+  });
+
+  test("T1 2551Q a draft row with an ATC the books lack is untouched and unlisted", async ({
+    page,
+  }) => {
+    const w = world(cfg, { books: { rows: [R("PT060", "45000")] } });
+    const { unmocked, dialogs } = await openDraft(page, cfg, w, {
+      data: cfg.data({ rows: [R("PT090", "777"), R("PT060", "5")] }),
+    });
+    await radio(page, "Portal books").click();
+    const dialog = dialogOf(page);
+    await expect(dialog.locator("[data-book-item]")).toHaveText([
+      `Schedule 1 · PT060: ${peso(5)} becomes ${peso(45000)}`,
+    ]);
+    await dialog.getByRole("button", { name: "Fill from books" }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(2);
+    await expect(rowAtc(page, 0)).toHaveValue("PT090");
+    await expect(rowAmount(page, 0)).toHaveValue("777");
+    await expect(rowAmount(page, 1)).toHaveValue("45000");
+    await expect(badge(page, "rows.PT060")).toContainText("From books");
+    clean(unmocked, dialogs);
+  });
+
+  test("T1 2551Q reordering the draft's rows changes nothing about which figures the books touch; the edited marker follows the ATC", async ({
+    page,
+  }) => {
+    // The draft was filled in the order PT010, PT040; it now holds PT040 first.
+    // The books answer in the other order, with the same amounts.
+    const w = world(cfg, {
+      books: { rows: [R("PT040", "45000"), R("PT010", "120000")] },
+    });
+    const { seen, unmocked, dialogs, quiet } = await openDraft(page, cfg, w, {
+      data: cfg.data(
+        { rows: [R("PT040", "45000"), R("PT010", "120000")] },
+        {
+          _source: source(cfg, {
+            fed: { rows: [R("PT010", "120000"), R("PT040", "45000")] },
+          }),
+        },
+      ),
+    });
+    await quiet();
+    // Nothing moved: no staleness note, and each badge sits on its own ATC's row.
+    await expect(page.locator("[data-book-stale]")).toHaveCount(0);
+    await expect(rowAtc(page, 1)).toHaveValue("PT010");
+    await expect(tableRow(page, 1).locator("[data-book-badge]")).toHaveAttribute(
+      "data-book-badge",
+      "rows.PT010",
+    );
+    await expect(tableRow(page, 0).locator("[data-book-badge]")).toHaveAttribute(
+      "data-book-badge",
+      "rows.PT040",
+    );
+    await rowAmount(page, 1).fill("1");
+    await expect(badge(page, "rows.PT010")).toContainText(
+      `Edited · books say ${peso(120000)}`,
+    );
+    await expect(badge(page, "rows.PT040")).toContainText("From books");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await quiet();
+    const patches = seen.filter(
+      (s) => s.method === "PATCH" && /\/bir-forms\/[^/]+$/.test(s.path),
+    );
+    expect(patches).toHaveLength(1);
+    const sent = patches[0]!.request.postDataJSON() as {
+      data: { _source: { edited: string[] } };
+    };
+    expect(sent.data._source.edited).toEqual(["rows.PT010"]);
+    clean(unmocked, dialogs);
+  });
+
+  test("T1 2551Q with no room for a new row nothing is added, and the API's warning shows", async ({
+    page,
+  }) => {
+    const ROOM =
+      "The books have 7 ATCs, but Schedule 1 has room for 6 rows. Combine or move some before exporting.";
+    const full = ["PT010", "PT040", "PT041", "PT060", "PT070", "PT090"].map((a) =>
+      R(a, ""),
+    );
+    const w = world(cfg, {
+      books: { rows: [R("PT120", "100")] },
+      warnings: [ROOM],
+    });
+    const { unmocked, dialogs } = await openDraft(page, cfg, w, {
+      data: cfg.data({ rows: full }),
+    });
+    await radio(page, "Portal books").click();
+    await expect(radio(page, "Portal books")).toHaveAttribute("aria-checked", "true");
+    await expect(dialogOf(page)).toHaveCount(0);
+    await expect(page.locator("tbody tr")).toHaveCount(6);
+    await expect(page.locator("[data-book-warnings] li")).toHaveText([ROOM]);
+    await expect(page.locator("[data-book-badge]")).toHaveCount(0);
+    clean(unmocked, dialogs);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// W16-A1 — T2: one record, one figure differs (R2)
+// ---------------------------------------------------------------------------
+
+for (const code of ["2551Q", "2550Q"] as const) {
+  const cfg = CFG[code];
+  // The books give the first figure a new amount and every other figure as before.
+  const changedFirst: Figures =
+    code === "2551Q"
+      ? { rows: [R("PT010", String(cfg.firstB)), R("PT040", String(cfg.secondA))] }
+      : { ...cfg.a, i31a: String(cfg.firstB) };
+
+  test.describe(`W16-A1 T2 ${code}: singular and plural (hermetic)`, () => {
+    test(`T2 ${code} one record reads 1 record, and one stale figure reads 1 figure differs`, async ({
+      page,
+    }) => {
+      const w = world(cfg, { books: changedFirst, records: { [cfg.recordKey]: 1 } });
+      const { unmocked, dialogs } = await openDraft(page, cfg, w, booksDraft(cfg));
+      await expect(page.locator("[data-book-stale]")).toContainText(
+        "The books changed after this draft was filled: 1 figure differs.",
+      );
+      await expect(badge(page, cfg.first)).toContainText("From books · 1 record");
+      await expect(badge(page, cfg.first)).not.toContainText("1 records");
+      await expect(badge(page, cfg.second)).toContainText(/From books · \d+ records/);
+      clean(unmocked, dialogs);
+    });
+
+    test(`T2 ${code} two figures read 2 figures differ`, async ({ page }) => {
+      const w = world(cfg, { books: cfg.b });
+      const { unmocked, dialogs } = await openDraft(page, cfg, w, booksDraft(cfg));
+      await expect(page.locator("[data-book-stale]")).toContainText("2 figures differ.");
+      clean(unmocked, dialogs);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // W16-A1 — T3: "Refresh from books" with nothing to change says so (R3)
+  // -------------------------------------------------------------------------
+
+  test.describe(`W16-A1 T3 ${code}: nothing to refresh (hermetic)`, () => {
+    test(`T3 ${code} Refresh from books with nothing to change shows the note, and no question`, async ({
+      page,
+    }) => {
+      const w = world(cfg);
+      const { unmocked, dialogs, quiet } = await openDraft(page, cfg, w, booksDraft(cfg));
+      await quiet();
+      await expect(page.locator("[data-book-match]")).toHaveCount(0);
+      await page.getByRole("button", { name: "Refresh from books" }).click();
+      await expect(page.locator("[data-book-match]")).toHaveText(
+        "The books match this draft. Nothing to refresh.",
+      );
+      await expect(dialogOf(page)).toHaveCount(0);
+      // The note is about what the draft held then: typing takes it away.
+      await cfg.input(page, cfg.first).fill("1");
+      await expect(page.locator("[data-book-match]")).toHaveCount(0);
+      clean(unmocked, dialogs);
+    });
+
+    test(`T3 ${code} Refresh from books with something to change shows no such note`, async ({
+      page,
+    }) => {
+      const w = world(cfg, { books: cfg.b });
+      const { unmocked, dialogs, quiet } = await openDraft(page, cfg, w, booksDraft(cfg));
+      await quiet();
+      await page.getByRole("button", { name: "Refresh from books" }).click();
+      await expect(dialogOf(page)).toBeVisible();
+      await expect(page.locator("[data-book-match]")).toHaveCount(0);
+      clean(unmocked, dialogs);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// W16-A1 — T3: the 2550Q's Item 45 as the form prints it (R4)
+// ---------------------------------------------------------------------------
+
+test.describe("W16-A1 T3 2550Q: Item 45 label (hermetic)", () => {
+  const cfg = CFG["2550Q"];
+  const OLD = "Domestic — services (Item 45)";
+  const NEW = "Services Rendered by Non-Residents (Item 45)";
+
+  test("T3 2550Q the editor names Item 45 as the form prints it", async ({ page }) => {
+    const w = world(cfg);
+    const { unmocked, dialogs } = await openDraft(page, cfg, w);
+    await expect(page.getByText(NEW, { exact: true })).toBeVisible();
+    await expect(page.getByText(OLD)).toHaveCount(0);
+    clean(unmocked, dialogs);
+  });
+
+  test("T3 2550Q the question names Item 45 the same way", async ({ page }) => {
+    const w = world(cfg, { books: { ...cfg.a, i45a: "3000", i45b: "360" } });
+    const { unmocked, dialogs } = await openDraft(page, cfg, w);
+    await radio(page, "Portal books").click();
+    await expect(dialogOf(page).locator("[data-book-item]")).toHaveText([
+      `${NEW}: purchases: ${peso(0)} becomes ${peso(3000)}`,
+      `${NEW}: input tax: ${peso(0)} becomes ${peso(360)}`,
+    ]);
+    await expect(dialogOf(page)).not.toContainText(OLD);
+    clean(unmocked, dialogs);
+  });
 });
