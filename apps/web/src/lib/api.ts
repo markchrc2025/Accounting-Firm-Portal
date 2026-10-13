@@ -1084,6 +1084,40 @@ export async function previewBirFormPdf(id: string): Promise<{ blob: Blob; filen
     filename: dispositionFilename(res.headers.get("Content-Disposition"), "preview-DRAFT.pdf"),
   };
 }
+/** U15 (W16): what the Portal's books say for one quarter of one return. Whole
+ *  pesos. `figures` is keyed by the draft's own data keys; `lines` say where
+ *  each figure came from, with the filter that lists exactly those records. */
+export interface BookFigureLine {
+  key: string;
+  label: string;
+  amount: number;
+  records: number;
+  filter: {
+    kind: "income" | "purchases";
+    from: string;
+    to: string;
+    vatClass?: string;
+    atc?: string;
+    inputVATCategory?: string;
+  };
+}
+export interface BookFigures {
+  form: string;
+  period: string;
+  asOf: string;
+  recordCount: number;
+  figures: Record<string, unknown>;
+  lines: BookFigureLine[];
+  warnings: string[];
+}
+export function fetchBookFigures(
+  clientId: string,
+  form: "2551Q" | "2550Q",
+  period: string,
+): Promise<BookFigures> {
+  const q = new URLSearchParams({ clientId, form, period });
+  return apiFetch<BookFigures>(`/bir-forms/book-figures?${q.toString()}`);
+}
 /** U14 (W15 R1): delete a draft return. 409 for a filed one; 403 without
  *  permission. Both carry a message the dialog shows word for word. */
 export function deleteBirForm(id: string): Promise<{ deleted: true; id: string }> {

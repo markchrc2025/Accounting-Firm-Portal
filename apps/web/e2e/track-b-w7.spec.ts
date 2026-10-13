@@ -600,6 +600,22 @@ const WARN_2551Q_VAT =
 const ALL_WARNINGS = [WARN_2550Q, WARN_2551Q_EXEMPT, WARN_2551Q_VAT];
 
 const COMPUTE: Entry = ["POST", /^\/api\/v1\/bir-forms\/compute$/, (r) => json(r, {})];
+// W16: a new 2550Q or 2551Q asks the books once it has a client. These tests are
+// about the regime warning, so the books here have no records for anyone.
+const NO_BOOKS: Entry = [
+  "GET",
+  /^\/api\/v1\/bir-forms\/book-figures$/,
+  (r) =>
+    json(r, {
+      form: "2550Q",
+      period: "2026-Q1",
+      asOf: "2026-04-10T01:00:00.000Z",
+      recordCount: 0,
+      figures: {},
+      lines: [],
+      warnings: [],
+    }),
+];
 
 async function expectOnlyWarning(page: Page, expected: string | null) {
   for (const w of ALL_WARNINGS) {
@@ -645,7 +661,7 @@ test.describe("T4 a business-tax return warns on a regime mismatch (hermetic)", 
   test("T4 a new 2550Q warns for a percentage and an exempt client, not for a VAT client; Save draft stays enabled", async ({
     page,
   }) => {
-    const { unmocked } = await mockApi(page, { extra: [COMPUTE] });
+    const { unmocked } = await mockApi(page, { extra: [COMPUTE, NO_BOOKS] });
     await page.goto("/bir-forms/new?form=2550Q");
     const client = page.getByRole("combobox", { name: "Client", exact: true });
     const save = page.getByRole("button", { name: "Save draft" });
@@ -664,7 +680,7 @@ test.describe("T4 a business-tax return warns on a regime mismatch (hermetic)", 
   test("T4 a new 2551Q warns for an exempt and a VAT client, not for a percentage client; Save draft stays enabled", async ({
     page,
   }) => {
-    const { unmocked } = await mockApi(page, { extra: [COMPUTE] });
+    const { unmocked } = await mockApi(page, { extra: [COMPUTE, NO_BOOKS] });
     await page.goto("/bir-forms/new?form=2551Q");
     const client = page.getByRole("combobox", { name: "Client", exact: true });
     const save = page.getByRole("button", { name: "Save draft" });
