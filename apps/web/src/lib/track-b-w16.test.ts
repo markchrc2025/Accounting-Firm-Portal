@@ -257,6 +257,14 @@ describe("finding a figure's line (W16 R3)", () => {
     expect(lineFor(sched[1]!, lines)?.records).toBe(5);
     expect(lineFor(sched[2]!, lines)).toBeUndefined();
   });
+
+  it("matches the key U15 gives a Schedule 1 line: rows.<ATC>", () => {
+    const real = [
+      line({ key: "rows.PT090", label: "Schedule 1 · PT090", records: 3, filter }),
+    ];
+    expect(lineFor(sched[2]!, real)?.label).toBe("Schedule 1 · PT090");
+    expect(lineFor(sched[0]!, real)).toBeUndefined();
+  });
 });
 
 describe("the words (W16 R3, R4, R5, R2)", () => {

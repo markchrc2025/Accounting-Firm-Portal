@@ -189,7 +189,10 @@ export function lineFor(
 ): BookLine | undefined {
   if (field.row) {
     const atc = field.row.atc;
-    return lines.find((l) => l.key === atc) ?? lines.find((l) => l.filter.atc === atc);
+    return (
+      lines.find((l) => l.key === atc || l.key === `rows.${atc}`) ??
+      lines.find((l) => l.filter.atc === atc)
+    );
   }
   return lines.find((l) => l.key === field.dataKey);
 }

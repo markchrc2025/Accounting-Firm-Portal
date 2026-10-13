@@ -154,28 +154,28 @@ const CFG: Record<FormCode, Cfg> = {
     second: "rows.1",
     a: {
       rows: [
-        { atc: "PT010", taxable: 120000, rate: 3 },
-        { atc: "PT040", taxable: 45000, rate: 3 },
+        { atc: "PT010", taxable: "120000", rate: "3" },
+        { atc: "PT040", taxable: "45000", rate: "3" },
       ],
     },
     b: {
       rows: [
-        { atc: "PT010", taxable: 130000, rate: 3 },
-        { atc: "PT040", taxable: 50000, rate: 3 },
+        { atc: "PT010", taxable: "130000", rate: "3" },
+        { atc: "PT040", taxable: "50000", rate: "3" },
       ],
     },
     firstA: 120000,
     firstB: 130000,
     secondA: 45000,
     secondB: 50000,
-    firstLabel: "Sales under PT010",
-    secondLabel: "Sales under PT040",
+    firstLabel: "Schedule 1 · PT010",
+    secondLabel: "Schedule 1 · PT040",
     editedKey: "rows",
     lines: (f) =>
       (f.rows as { atc: string; taxable: number }[]).map((r, i) => ({
-        key: r.atc,
-        label: i === 0 ? "Sales under PT010" : "Sales under PT040",
-        amount: r.taxable,
+        key: `rows.${r.atc}`,
+        label: `Schedule 1 · ${r.atc}`,
+        amount: Number(r.taxable),
         records: i === 0 ? 14 : 5,
         filter: { kind: "income", ...range, atc: r.atc },
       })),
@@ -208,8 +208,8 @@ const CFG: Record<FormCode, Cfg> = {
     newUrl: "/bir-forms/new?form=2550Q",
     first: "i31a",
     second: "i33a",
-    a: { i31a: 250000, i32a: 0, i33a: 12000, i44a: 80000, i44b: 9600 },
-    b: { i31a: 260000, i32a: 0, i33a: 15000, i44a: 80000, i44b: 9600 },
+    a: { i31a: "250000", i32a: "0", i33a: "12000", i44a: "80000", i44b: "9600" },
+    b: { i31a: "260000", i32a: "0", i33a: "15000", i44a: "80000", i44b: "9600" },
     firstA: 250000,
     firstB: 260000,
     secondA: 12000,
@@ -221,7 +221,7 @@ const CFG: Record<FormCode, Cfg> = {
       Object.entries(f).map(([key, amount]) => ({
         key,
         label: LABEL_2550[key] ?? `INVENTED LINE ${key}`,
-        amount,
+        amount: Number(amount),
         records: key === "i31a" ? 14 : key === "i33a" ? 2 : 0,
         filter: key.startsWith("i4")
           ? { kind: "purchases", ...range, inputVATCategory: "DOMESTIC_PURCHASES" }
