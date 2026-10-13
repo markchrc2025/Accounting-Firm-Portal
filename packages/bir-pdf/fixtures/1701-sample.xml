@@ -10,14 +10,14 @@
             <div>frm1701:txtPg1I4TIN3=789frm1701:txtPg1I4TIN3=</div>	
             <div>frm1701:txtPg1I4BranchCode=000frm1701:txtPg1I4BranchCode=</div>	
             <div>frm1701:txtPg1I5RDOCode=000frm1701:txtPg1I5RDOCode=</div>	
-            <div>frm1701:rdoPg1I6TaxpayerTypeS=falsefrm1701:rdoPg1I6TaxpayerTypeS=</div>	
-            <div>frm1701:rdoPg1I6TaxpayerTypeP=truefrm1701:rdoPg1I6TaxpayerTypeP=</div>	
+            <div>frm1701:rdoPg1I6TaxpayerTypeS=truefrm1701:rdoPg1I6TaxpayerTypeS=</div>	
+            <div>frm1701:rdoPg1I6TaxpayerTypeP=falsefrm1701:rdoPg1I6TaxpayerTypeP=</div>	
             <div>frm1701:rdoPg1I6TaxpayerTypeE=falsefrm1701:rdoPg1I6TaxpayerTypeE=</div>	
             <div>frm1701:rdoPg1I6TaxpayerTypeT=falsefrm1701:rdoPg1I6TaxpayerTypeT=</div>	
             <div>frm1701:rdoPg1I6TaxpayerTypeC=falsefrm1701:rdoPg1I6TaxpayerTypeC=</div>	
-            <div>frm1701:rdoPg1I7ATC_II012=truefrm1701:rdoPg1I7ATC_II012=</div>	
+            <div>frm1701:rdoPg1I7ATC_II012=falsefrm1701:rdoPg1I7ATC_II012=</div>	
             <div>frm1701:rdoPg1I7ATC_II014=falsefrm1701:rdoPg1I7ATC_II014=</div>	
-            <div>frm1701:rdoPg1I7ATC_II013=falsefrm1701:rdoPg1I7ATC_II013=</div>	
+            <div>frm1701:rdoPg1I7ATC_II013=truefrm1701:rdoPg1I7ATC_II013=</div>	
             <div>frm1701:rdoPg1I7ATC_II011=falsefrm1701:rdoPg1I7ATC_II011=</div>	
             <div>frm1701:rdoPg1I7ATC_II015=falsefrm1701:rdoPg1I7ATC_II015=</div>	
             <div>frm1701:rdoPg1I7ATC_II017=falsefrm1701:rdoPg1I7ATC_II017=</div>	
@@ -48,27 +48,27 @@
             <div>frm1701:rdoPg1I21AMethodDeductionI=truefrm1701:rdoPg1I21AMethodDeductionI=</div>	
             <div>frm1701:rdoPg1I21AMethodDeductionO=falsefrm1701:rdoPg1I21AMethodDeductionO=</div>	
             <div>frm1701:rdoPg1I21TaxRateP=falsefrm1701:rdoPg1I21TaxRateP=</div>	
-            <div>frm1701:txtPg1I22ATaxDue=179,300.00frm1701:txtPg1I22ATaxDue=</div>	
-            <div>frm1701:txtPg1I22BTaxDue=52,900.00frm1701:txtPg1I22BTaxDue=</div>	
-            <div>frm1701:txtPg1I23A=32,000.00frm1701:txtPg1I23A=</div>	
-            <div>frm1701:txtPg1I23B=800.00frm1701:txtPg1I23B=</div>	
-            <div>frm1701:txtPg1I24ATaxPayable=147,300.00frm1701:txtPg1I24ATaxPayable=</div>	
-            <div>frm1701:txtPg1I24BTaxPayable=52,100.00frm1701:txtPg1I24BTaxPayable=</div>	
+            <div>frm1701:txtPg1I22ATaxDue=170,108.00frm1701:txtPg1I22ATaxDue=</div>	
+            <div>frm1701:txtPg1I22BTaxDue=41,095.00frm1701:txtPg1I22BTaxDue=</div>	
+            <div>frm1701:txtPg1I23A=33,800.00frm1701:txtPg1I23A=</div>	
+            <div>frm1701:txtPg1I23B=16,910.00frm1701:txtPg1I23B=</div>	
+            <div>frm1701:txtPg1I24ATaxPayable=136,308.00frm1701:txtPg1I24ATaxPayable=</div>	
+            <div>frm1701:txtPg1I24BTaxPayable=24,185.00frm1701:txtPg1I24BTaxPayable=</div>	
             <div>frm1701:txtPg1I25A=0.00frm1701:txtPg1I25A=</div>	
             <div>frm1701:txtPg1I25B=0.00frm1701:txtPg1I25B=</div>	
-            <div>frm1701:txtPg1I26A=147,300.00frm1701:txtPg1I26A=</div>	
-            <div>frm1701:txtPg1I26B=52,100.00frm1701:txtPg1I26B=</div>	
-            <div>frm1701:txtPg1I27A=0.00frm1701:txtPg1I27A=</div>	
+            <div>frm1701:txtPg1I26A=136,308.00frm1701:txtPg1I26A=</div>	
+            <div>frm1701:txtPg1I26B=24,185.00frm1701:txtPg1I26B=</div>	
+            <div>frm1701:txtPg1I27A=130.00frm1701:txtPg1I27A=</div>	
             <div>frm1701:txtPg1I27B=0.00frm1701:txtPg1I27B=</div>	
-            <div>frm1701:txtPg1I28A=0.00frm1701:txtPg1I28A=</div>	
+            <div>frm1701:txtPg1I28A=260.00frm1701:txtPg1I28A=</div>	
             <div>frm1701:txtPg1I28B=0.00frm1701:txtPg1I28B=</div>	
-            <div>frm1701:txtPg1I29A=0.00frm1701:txtPg1I29A=</div>	
+            <div>frm1701:txtPg1I29A=510.00frm1701:txtPg1I29A=</div>	
             <div>frm1701:txtPg1I29B=0.00frm1701:txtPg1I29B=</div>	
-            <div>frm1701:txtPg1I30A=850.00frm1701:txtPg1I30A=</div>	
+            <div>frm1701:txtPg1I30A=900.00frm1701:txtPg1I30A=</div>	
             <div>frm1701:txtPg1I30B=0.00frm1701:txtPg1I30B=</div>	
-            <div>frm1701:txtPg1I31ATotalAmtPyble=148,150.00frm1701:txtPg1I31ATotalAmtPyble=</div>	
-            <div>frm1701:txtPg1I31BTotalAmtPyble=52,100.00frm1701:txtPg1I31BTotalAmtPyble=</div>	
-            <div>frm1701:txtPg1I32AggregateAmtPyble=200,250.00frm1701:txtPg1I32AggregateAmtPyble=</div>	
+            <div>frm1701:txtPg1I31ATotalAmtPyble=137,208.00frm1701:txtPg1I31ATotalAmtPyble=</div>	
+            <div>frm1701:txtPg1I31BTotalAmtPyble=24,185.00frm1701:txtPg1I31BTotalAmtPyble=</div>	
+            <div>frm1701:txtPg1I32AggregateAmtPyble=161,393.00frm1701:txtPg1I32AggregateAmtPyble=</div>	
             <div>frm1701:rdoPg1OverpaymentRefund=truefrm1701:rdoPg1OverpaymentRefund=</div>	
             <div>frm1701:rdoPg1OverpaymentTCC=falsefrm1701:rdoPg1OverpaymentTCC=</div>	
             <div>frm1701:rdoPg1OverpaymentCarryOver=falsefrm1701:rdoPg1OverpaymentCarryOver=</div>	
@@ -101,11 +101,11 @@
             <div>frm1701:txtPg2I2SpouseRDOCode=000frm1701:txtPg2I2SpouseRDOCode=</div>	
             <div>frm1701:rdoPg2I3SpouseTypeS=falsefrm1701:rdoPg2I3SpouseTypeS=</div>	
             <div>frm1701:rdoPg2I3SpouseTypeP=falsefrm1701:rdoPg2I3SpouseTypeP=</div>	
-            <div>frm1701:rdoPg2I3SpouseTypeC=truefrm1701:rdoPg2I3SpouseTypeC=</div>	
+            <div>frm1701:rdoPg2I3SpouseTypeC=falsefrm1701:rdoPg2I3SpouseTypeC=</div>	
             <div>frm1701:rdoPg2I4ATC_II012=falsefrm1701:rdoPg2I4ATC_II012=</div>	
             <div>frm1701:rdoPg2I4ATC_II014=falsefrm1701:rdoPg2I4ATC_II014=</div>	
             <div>frm1701:rdoPg2I4ATC_II013=falsefrm1701:rdoPg2I4ATC_II013=</div>	
-            <div>frm1701:rdoPg2I4ATC_II011=truefrm1701:rdoPg2I4ATC_II011=</div>	
+            <div>frm1701:rdoPg2I4ATC_II011=falsefrm1701:rdoPg2I4ATC_II011=</div>	
             <div>frm1701:rdoPg2I4ATC_II015=falsefrm1701:rdoPg2I4ATC_II015=</div>	
             <div>frm1701:rdoPg2I4ATC_II017=falsefrm1701:rdoPg2I4ATC_II017=</div>	
             <div>frm1701:rdoPg2I4ATC_II016=falsefrm1701:rdoPg2I4ATC_II016=</div>	
@@ -123,7 +123,7 @@
             <div>frm1701:rdoPg2I12AMethodDeductionI=falsefrm1701:rdoPg2I12AMethodDeductionI=</div>	
             <div>frm1701:rdoPg2I12AMethodDeductionO=falsefrm1701:rdoPg2I12AMethodDeductionO=</div>	
             <div>frm1701:rdoPg2I12TaxRateP=truefrm1701:rdoPg2I12TaxRateP=</div>	
-            <div>frm1701:chkPg2IShed1a_1Taxpayer=falsefrm1701:chkPg2IShed1a_1Taxpayer=</div>	
+            <div>frm1701:chkPg2IShed1a_1Taxpayer=truefrm1701:chkPg2IShed1a_1Taxpayer=</div>	
             <div>frm1701:txtPg2IShed1a_1TPName=frm1701:txtPg2IShed1a_1TPName=</div>	
             <div>frm1701:chkPg2IShed1a_1Spouse=falsefrm1701:chkPg2IShed1a_1Spouse=</div>	
             <div>frm1701:txtPg2IShed1a_1SName=frm1701:txtPg2IShed1a_1SName=</div>	
@@ -133,65 +133,65 @@
             <div>frm1701:txtPg2IShed1a_BranchCode=frm1701:txtPg2IShed1a_BranchCode=</div>	
             <div>frm1701:chkPg2IShed2a_2Taxpayer=falsefrm1701:chkPg2IShed2a_2Taxpayer=</div>	
             <div>frm1701:txtPg2IShed2a_2TPName=frm1701:txtPg2IShed2a_2TPName=</div>	
-            <div>frm1701:chkPg2IShed2a_2Spouse=falsefrm1701:chkPg2IShed2a_2Spouse=</div>	
+            <div>frm1701:chkPg2IShed2a_2Spouse=truefrm1701:chkPg2IShed2a_2Spouse=</div>	
             <div>frm1701:txtPg2IShed2a_2SName=frm1701:txtPg2IShed2a_2SName=</div>	
             <div>frm1701:txtPg2IShed2a_TIN1=frm1701:txtPg2IShed2a_TIN1=</div>	
             <div>frm1701:txtPg2IShed2a_TIN2=frm1701:txtPg2IShed2a_TIN2=</div>	
             <div>frm1701:txtPg2IShed2a_TIN3=frm1701:txtPg2IShed2a_TIN3=</div>	
             <div>frm1701:txtPg2IShed2a_BranchCode=frm1701:txtPg2IShed2a_BranchCode=</div>	
-            <div>frm1701:txtPg2IShed1c_1CI=300,000.00frm1701:txtPg2IShed1c_1CI=</div>	
-            <div>frm1701:txtPg2IShed1c_1TW=0.00frm1701:txtPg2IShed1c_1TW=</div>	
-            <div>frm1701:txtPg2IShed1c_2CI=0.00frm1701:txtPg2IShed1c_2CI=</div>	
-            <div>frm1701:txtPg2IShed1c_2TW=0.00frm1701:txtPg2IShed1c_2TW=</div>	
-            <div>frm1701:txtPg2IShed1c_3ACI=1,190,000.00frm1701:txtPg2IShed1c_3ACI=</div>	
-            <div>frm1701:txtPg2IShed1c_3ATW=0.00frm1701:txtPg2IShed1c_3ATW=</div>	
-            <div>frm1701:txtPg2IShed1c_3BCI=0.00frm1701:txtPg2IShed1c_3BCI=</div>	
-            <div>frm1701:txtPg2IShed1c_3BTW=0.00frm1701:txtPg2IShed1c_3BTW=</div>	
-            <div>frm1701:txtPg2IShed2_4A=1,190,000.00frm1701:txtPg2IShed2_4A=</div>	
-            <div>frm1701:txtPg2IShed2_4B=502,000.00frm1701:txtPg2IShed2_4B=</div>	
-            <div>frm1701:txtPg2IShed2_5A=804,000.00frm1701:txtPg2IShed2_5A=</div>	
-            <div>frm1701:txtPg2IShed2_5B=302,000.00frm1701:txtPg2IShed2_5B=</div>	
-            <div>frm1701:txtPg2IShed2_6A=1,104,000.00frm1701:txtPg2IShed2_6A=</div>	
-            <div>frm1701:txtPg2IShed2_6B=552,000.00frm1701:txtPg2IShed2_6B=</div>	
+            <div>frm1701:txtPg2IShed1c_1CI=311,111.00frm1701:txtPg2IShed1c_1CI=</div>	
+            <div>frm1701:txtPg2IShed1c_1TW=12,600.00frm1701:txtPg2IShed1c_1TW=</div>	
+            <div>frm1701:txtPg2IShed1c_2CI=255,111.00frm1701:txtPg2IShed1c_2CI=</div>	
+            <div>frm1701:txtPg2IShed1c_2TW=9,900.00frm1701:txtPg2IShed1c_2TW=</div>	
+            <div>frm1701:txtPg2IShed1c_3ACI=311,111.00frm1701:txtPg2IShed1c_3ACI=</div>	
+            <div>frm1701:txtPg2IShed1c_3ATW=12,600.00frm1701:txtPg2IShed1c_3ATW=</div>	
+            <div>frm1701:txtPg2IShed1c_3BCI=255,111.00frm1701:txtPg2IShed1c_3BCI=</div>	
+            <div>frm1701:txtPg2IShed1c_3BTW=9,900.00frm1701:txtPg2IShed1c_3BTW=</div>	
+            <div>frm1701:txtPg2IShed2_4A=311,111.00frm1701:txtPg2IShed2_4A=</div>	
+            <div>frm1701:txtPg2IShed2_5A=0.00frm1701:txtPg2IShed2_5A=</div>	
+            <div>frm1701:txtPg2IShed2_6A=311,111.00frm1701:txtPg2IShed2_6A=</div>	
             <div>frm1701:txtPg2IShed2_7A=0.00frm1701:txtPg2IShed2_7A=</div>	
-            <div>frm1701:txtPg2IShed2_7B=0.00frm1701:txtPg2IShed2_7B=</div>	
-            <div>frm1701:txtPg2IShed3_8A=0.00frm1701:txtPg2IShed3_8A=</div>	
+            <div>frm1701:txtPg2IShed2_4B=255,111.00frm1701:txtPg2IShed2_4B=</div>	
+            <div>frm1701:txtPg2IShed2_5B=0.00frm1701:txtPg2IShed2_5B=</div>	
+            <div>frm1701:txtPg2IShed2_6B=255,111.00frm1701:txtPg2IShed2_6B=</div>	
+            <div>frm1701:txtPg2IShed2_7B=767.00frm1701:txtPg2IShed2_7B=</div>	
+            <div>frm1701:txtPg2IShed3_8A=1,234,000.00frm1701:txtPg2IShed3_8A=</div>	
             <div>frm1701:txtPg2IShed3_8B=0.00frm1701:txtPg2IShed3_8B=</div>	
-            <div>frm1701:txtPg2IShed3_9A=0.00frm1701:txtPg2IShed3_9A=</div>	
+            <div>frm1701:txtPg2IShed3_9A=24,000.00frm1701:txtPg2IShed3_9A=</div>	
             <div>frm1701:txtPg2IShed3_9B=0.00frm1701:txtPg2IShed3_9B=</div>	
-            <div>frm1701:txtPg2IShed3_10A=0.00frm1701:txtPg2IShed3_10A=</div>	
+            <div>frm1701:txtPg2IShed3_10A=1,210,000.00frm1701:txtPg2IShed3_10A=</div>	
             <div>frm1701:txtPg2IShed3_10B=0.00frm1701:txtPg2IShed3_10B=</div>	
-            <div>frm1701:txtPg2IShed3_11A=0.00frm1701:txtPg2IShed3_11A=</div>	
+            <div>frm1701:txtPg2IShed3_11A=376,000.00frm1701:txtPg2IShed3_11A=</div>	
             <div>frm1701:txtPg2IShed3_11B=0.00frm1701:txtPg2IShed3_11B=</div>	
-            <div>frm1701:txtPg2IShed3_12A=0.00frm1701:txtPg2IShed3_12A=</div>	
+            <div>frm1701:txtPg2IShed3_12A=834,000.00frm1701:txtPg2IShed3_12A=</div>	
             <div>frm1701:txtPg2IShed3_12B=0.00frm1701:txtPg2IShed3_12B=</div>	
-            <div>frm1701:txtPg2IShed3_13A=0.00frm1701:txtPg2IShed3_13A=</div>	
+            <div>frm1701:txtPg2IShed3_13A=81,300.00frm1701:txtPg2IShed3_13A=</div>	
             <div>frm1701:txtPg2IShed3_13B=0.00frm1701:txtPg2IShed3_13B=</div>	
-            <div>frm1701:txtPg2IShed3_14A=0.00frm1701:txtPg2IShed3_14A=</div>	
+            <div>frm1701:txtPg2IShed3_14A=5,500.00frm1701:txtPg2IShed3_14A=</div>	
             <div>frm1701:txtPg2IShed3_14B=0.00frm1701:txtPg2IShed3_14B=</div>	
-            <div>frm1701:txtPg2IShed3_15A=0.00frm1701:txtPg2IShed3_15A=</div>	
+            <div>frm1701:txtPg2IShed3_15A=3,700.00frm1701:txtPg2IShed3_15A=</div>	
             <div>frm1701:txtPg2IShed3_15B=0.00frm1701:txtPg2IShed3_15B=</div>	
-            <div>frm1701:txtPg2IShed3_16A=0.00frm1701:txtPg2IShed3_16A=</div>	
+            <div>frm1701:txtPg2IShed3_16A=90,500.00frm1701:txtPg2IShed3_16A=</div>	
             <div>frm1701:txtPg2IShed3_16B=0.00frm1701:txtPg2IShed3_16B=</div>	
             <div>frm1701:txtPg2IShed3_17A=0.00frm1701:txtPg2IShed3_17A=</div>	
             <div>frm1701:txtPg2IShed3_17B=0.00frm1701:txtPg2IShed3_17B=</div>	
-            <div>frm1701:txtPg2IShed3_18A=0.00frm1701:txtPg2IShed3_18A=</div>	
+            <div>frm1701:txtPg2IShed3_18A=743,500.00frm1701:txtPg2IShed3_18A=</div>	
             <div>frm1701:txtPg2IShed3_18B=0.00frm1701:txtPg2IShed3_18B=</div>	
             <div>frm1701:txtPg2IShed3_19Desc=frm1701:txtPg2IShed3_19Desc=</div>	
-            <div>frm1701:txtPg2IShed3_19A=0.00frm1701:txtPg2IShed3_19A=</div>	
+            <div>frm1701:txtPg2IShed3_19A=12,300.00frm1701:txtPg2IShed3_19A=</div>	
             <div>frm1701:txtPg2IShed3_19B=0.00frm1701:txtPg2IShed3_19B=</div>	
             <div>frm1701:txtPg2IShed3_20Desc=frm1701:txtPg2IShed3_20Desc=</div>	
             <div>frm1701:txtPg2IShed3_20A=0.00frm1701:txtPg2IShed3_20A=</div>	
             <div>frm1701:txtPg2IShed3_20B=0.00frm1701:txtPg2IShed3_20B=</div>	
             <div>frm1701:txtPg2IShed3_21A=0.00frm1701:txtPg2IShed3_21A=</div>	
             <div>frm1701:txtPg2IShed3_21B=0.00frm1701:txtPg2IShed3_21B=</div>	
-            <div>frm1701:txtPg2IShed3_22A=0.00frm1701:txtPg2IShed3_22A=</div>	
+            <div>frm1701:txtPg2IShed3_22A=12,300.00frm1701:txtPg2IShed3_22A=</div>	
             <div>frm1701:txtPg2IShed3_22B=0.00frm1701:txtPg2IShed3_22B=</div>	
-            <div>frm1701:txtPg2IShed3_23A=0.00frm1701:txtPg2IShed3_23A=</div>	
+            <div>frm1701:txtPg2IShed3_23A=755,800.00frm1701:txtPg2IShed3_23A=</div>	
             <div>frm1701:txtPg2IShed3_23B=0.00frm1701:txtPg2IShed3_23B=</div>	
-            <div>frm1701:txtPg2IShed3_24A=0.00frm1701:txtPg2IShed3_24A=</div>	
+            <div>frm1701:txtPg2IShed3_24A=1,066,911.00frm1701:txtPg2IShed3_24A=</div>	
             <div>frm1701:txtPg2IShed3_24B=0.00frm1701:txtPg2IShed3_24B=</div>	
-            <div>frm1701:txtPg2IShed3_25A=0.00frm1701:txtPg2IShed3_25A=</div>	
+            <div>frm1701:txtPg2IShed3_25A=169,228.00frm1701:txtPg2IShed3_25A=</div>	
             <div>frm1701:txtPg2IShed3_25B=0.00frm1701:txtPg2IShed3_25B=</div>	
             <div>frm1701:txtPg3TIN1=123frm1701:txtPg3TIN1=</div>	
             <div>frm1701:txtPg3TIN2=456frm1701:txtPg3TIN2=</div>	
@@ -199,21 +199,21 @@
             <div>frm1701:txtPg3BranchCode=000frm1701:txtPg3BranchCode=</div>	
             <div>frm1701:txtPg3TaxpayerName=TAXPAYERfrm1701:txtPg3TaxpayerName=</div>	
             <div>frm1701:txtPg3IShed3_26A=0.00frm1701:txtPg3IShed3_26A=</div>	
-            <div>frm1701:txtPg3IShed3_26B=0.00frm1701:txtPg3IShed3_26B=</div>	
+            <div>frm1701:txtPg3IShed3_26B=502,000.00frm1701:txtPg3IShed3_26B=</div>	
             <div>frm1701:txtPg3IShed3_27Desc=frm1701:txtPg3IShed3_27Desc=</div>	
             <div>frm1701:txtPg3IShed3_27A=0.00frm1701:txtPg3IShed3_27A=</div>	
-            <div>frm1701:txtPg3IShed3_27B=0.00frm1701:txtPg3IShed3_27B=</div>	
+            <div>frm1701:txtPg3IShed3_27B=2,100.00frm1701:txtPg3IShed3_27B=</div>	
             <div>frm1701:txtPg3IShed3_28A=0.00frm1701:txtPg3IShed3_28A=</div>	
-            <div>frm1701:txtPg3IShed3_28B=0.00frm1701:txtPg3IShed3_28B=</div>	
+            <div>frm1701:txtPg3IShed3_28B=504,100.00frm1701:txtPg3IShed3_28B=</div>	
             <div>frm1701:txtPg3IShed3_29A=0.00frm1701:txtPg3IShed3_29A=</div>	
             <div>frm1701:txtPg3IShed3_29B=0.00frm1701:txtPg3IShed3_29B=</div>	
             <div>frm1701:txtPg3IShed3_30A=0.00frm1701:txtPg3IShed3_30A=</div>	
-            <div>frm1701:txtPg3IShed3_30B=0.00frm1701:txtPg3IShed3_30B=</div>	
+            <div>frm1701:txtPg3IShed3_30B=504,100.00frm1701:txtPg3IShed3_30B=</div>	
             <div>frm1701:txtPg3IShed3_31A=0.00frm1701:txtPg3IShed3_31A=</div>	
-            <div>frm1701:txtPg3IShed3_31B=0.00frm1701:txtPg3IShed3_31B=</div>	
+            <div>frm1701:txtPg3IShed3_31B=40,328.00frm1701:txtPg3IShed3_31B=</div>	
             <div>frm1701:txtPg3IShed3_32A=0.00frm1701:txtPg3IShed3_32A=</div>	
-            <div>frm1701:txtPg3IShed3_32B=0.00frm1701:txtPg3IShed3_32B=</div>	
-            <div>frm1701:txtPg3IShed4_1A=0.00frm1701:txtPg3IShed4_1A=</div>	
+            <div>frm1701:txtPg3IShed3_32B=41,095.00frm1701:txtPg3IShed3_32B=</div>	
+            <div>frm1701:txtPg3IShed4_1A=21,000.00frm1701:txtPg3IShed4_1A=</div>	
             <div>frm1701:txtPg3IShed4_1B=0.00frm1701:txtPg3IShed4_1B=</div>	
             <div>frm1701:txtPg3IShed4_2A=0.00frm1701:txtPg3IShed4_2A=</div>	
             <div>frm1701:txtPg3IShed4_2B=0.00frm1701:txtPg3IShed4_2B=</div>	
@@ -221,7 +221,7 @@
             <div>frm1701:txtPg3IShed4_3B=0.00frm1701:txtPg3IShed4_3B=</div>	
             <div>frm1701:txtPg3IShed4_4A=0.00frm1701:txtPg3IShed4_4A=</div>	
             <div>frm1701:txtPg3IShed4_4B=0.00frm1701:txtPg3IShed4_4B=</div>	
-            <div>frm1701:txtPg3IShed4_5A=0.00frm1701:txtPg3IShed4_5A=</div>	
+            <div>frm1701:txtPg3IShed4_5A=52,000.00frm1701:txtPg3IShed4_5A=</div>	
             <div>frm1701:txtPg3IShed4_5B=0.00frm1701:txtPg3IShed4_5B=</div>	
             <div>frm1701:txtPg3IShed4_6A=0.00frm1701:txtPg3IShed4_6A=</div>	
             <div>frm1701:txtPg3IShed4_6B=0.00frm1701:txtPg3IShed4_6B=</div>	
@@ -245,7 +245,7 @@
             <div>frm1701:txtPg3IShed4_15B=0.00frm1701:txtPg3IShed4_15B=</div>	
             <div>frm1701:txtPg3IShed4_16A=0.00frm1701:txtPg3IShed4_16A=</div>	
             <div>frm1701:txtPg3IShed4_16B=0.00frm1701:txtPg3IShed4_16B=</div>	
-            <div>frm1701:txtPg3IShed4_17aA=0.00frm1701:txtPg3IShed4_17aA=</div>	
+            <div>frm1701:txtPg3IShed4_17aA=8,300.00frm1701:txtPg3IShed4_17aA=</div>	
             <div>frm1701:txtPg3IShed4_17aB=0.00frm1701:txtPg3IShed4_17aB=</div>	
             <div>frm1701:txtPg3IShed4_17bA=0.00frm1701:txtPg3IShed4_17bA=</div>	
             <div>frm1701:txtPg3IShed4_17bB=0.00frm1701:txtPg3IShed4_17bB=</div>	
@@ -254,15 +254,15 @@
             <div>frm1701:txtPg3IShed4_17dDesc=frm1701:txtPg3IShed4_17dDesc=</div>	
             <div>frm1701:txtPg3IShed4_17dA=0.00frm1701:txtPg3IShed4_17dA=</div>	
             <div>frm1701:txtPg3IShed4_17dB=0.00frm1701:txtPg3IShed4_17dB=</div>	
-            <div>frm1701:txtPg3IShed4_18A=0.00frm1701:txtPg3IShed4_18A=</div>	
+            <div>frm1701:txtPg3IShed4_18A=81,300.00frm1701:txtPg3IShed4_18A=</div>	
             <div>frm1701:txtPg3IShed4_18B=0.00frm1701:txtPg3IShed4_18B=</div>	
             <div>frm1701:txtPg3IShed5_1Desc=frm1701:txtPg3IShed5_1Desc=</div>	
             <div>frm1701:txtPg3IShed5_1Legal=frm1701:txtPg3IShed5_1Legal=</div>	
-            <div>frm1701:txtPg3IShed5_1Amt=0.00frm1701:txtPg3IShed5_1Amt=</div>	
+            <div>frm1701:txtPg3IShed5_1Amt=5,500.00frm1701:txtPg3IShed5_1Amt=</div>	
             <div>frm1701:txtPg3IShed5_2Desc=frm1701:txtPg3IShed5_2Desc=</div>	
             <div>frm1701:txtPg3IShed5_2Legal=frm1701:txtPg3IShed5_2Legal=</div>	
             <div>frm1701:txtPg3IShed5_2Amt=0.00frm1701:txtPg3IShed5_2Amt=</div>	
-            <div>frm1701:txtPg3IShed5_3=0.00frm1701:txtPg3IShed5_3=</div>	
+            <div>frm1701:txtPg3IShed5_3=5,500.00frm1701:txtPg3IShed5_3=</div>	
             <div>frm1701:txtPg3IShed5_4Desc=frm1701:txtPg3IShed5_4Desc=</div>	
             <div>frm1701:txtPg3IShed5_4Legal=frm1701:txtPg3IShed5_4Legal=</div>	
             <div>frm1701:txtPg3IShed5_4Amt=0.00frm1701:txtPg3IShed5_4Amt=</div>	
@@ -300,7 +300,7 @@
             <div>frm1701:txtPg3IShed6_7C=0.00frm1701:txtPg3IShed6_7C=</div>	
             <div>frm1701:txtPg3IShed6_7D=0.00frm1701:txtPg3IShed6_7D=</div>	
             <div>frm1701:txtPg3IShed6_7E=0.00frm1701:txtPg3IShed6_7E=</div>	
-            <div>frm1701:txtPg3IShed6_8D=0.00frm1701:txtPg3IShed6_8D=</div>	
+            <div>frm1701:txtPg3IShed6_8D=3,700.00frm1701:txtPg3IShed6_8D=</div>	
             <div>frm1701:txtPg4TIN1=123frm1701:txtPg4TIN1=</div>	
             <div>frm1701:txtPg4TIN2=456frm1701:txtPg4TIN2=</div>	
             <div>frm1701:txtPg4TIN3=789frm1701:txtPg4TIN3=</div>	
@@ -331,26 +331,26 @@
             <div>frm1701:txtPg4IShed6_12D=0.00frm1701:txtPg4IShed6_12D=</div>	
             <div>frm1701:txtPg4IShed6_12E=0.00frm1701:txtPg4IShed6_12E=</div>	
             <div>frm1701:txtPg4IShed6_13D=0.00frm1701:txtPg4IShed6_13D=</div>	
-            <div>frm1701:txtPg4ISc6_1A=0.00frm1701:txtPg4ISc6_1A=</div>	
-            <div>frm1701:txtPg4ISc6_1B=0.00frm1701:txtPg4ISc6_1B=</div>	
-            <div>frm1701:txtPg4ISc6_2A=0.00frm1701:txtPg4ISc6_2A=</div>	
+            <div>frm1701:txtPg4ISc6_1A=169,228.00frm1701:txtPg4ISc6_1A=</div>	
+            <div>frm1701:txtPg4ISc6_1B=41,095.00frm1701:txtPg4ISc6_1B=</div>	
+            <div>frm1701:txtPg4ISc6_2A=1,100.00frm1701:txtPg4ISc6_2A=</div>	
             <div>frm1701:txtPg4ISc6_2B=0.00frm1701:txtPg4ISc6_2B=</div>	
-            <div>frm1701:txtPg4ISc6_3A=0.00frm1701:txtPg4ISc6_3A=</div>	
+            <div>frm1701:txtPg4ISc6_3A=220.00frm1701:txtPg4ISc6_3A=</div>	
             <div>frm1701:txtPg4ISc6_3B=0.00frm1701:txtPg4ISc6_3B=</div>	
-            <div>frm1701:txtPg4ISc6_4A=0.00frm1701:txtPg4ISc6_4A=</div>	
+            <div>frm1701:txtPg4ISc6_4A=880.00frm1701:txtPg4ISc6_4A=</div>	
             <div>frm1701:txtPg4ISc6_4B=0.00frm1701:txtPg4ISc6_4B=</div>	
-            <div>frm1701:txtPg4ISc6_5A=0.00frm1701:txtPg4ISc6_5A=</div>	
-            <div>frm1701:txtPg4ISc6_5B=0.00frm1701:txtPg4ISc6_5B=</div>	
-            <div>frm1701:txtPg4IPart7_1A=0.00frm1701:txtPg4IPart7_1A=</div>	
+            <div>frm1701:txtPg4ISc6_5A=170,108.00frm1701:txtPg4ISc6_5A=</div>	
+            <div>frm1701:txtPg4ISc6_5B=41,095.00frm1701:txtPg4ISc6_5B=</div>	
+            <div>frm1701:txtPg4IPart7_1A=1,300.00frm1701:txtPg4IPart7_1A=</div>	
             <div>frm1701:txtPg4IPart7_1B=0.00frm1701:txtPg4IPart7_1B=</div>	
-            <div>frm1701:txtPg4IPart7_2A=0.00frm1701:txtPg4IPart7_2A=</div>	
-            <div>frm1701:txtPg4IPart7_2B=0.00frm1701:txtPg4IPart7_2B=</div>	
+            <div>frm1701:txtPg4IPart7_2A=15,500.00frm1701:txtPg4IPart7_2A=</div>	
+            <div>frm1701:txtPg4IPart7_2B=6,200.00frm1701:txtPg4IPart7_2B=</div>	
             <div>frm1701:txtPg4IPart7_3A=0.00frm1701:txtPg4IPart7_3A=</div>	
             <div>frm1701:txtPg4IPart7_3B=0.00frm1701:txtPg4IPart7_3B=</div>	
             <div>frm1701:txtPg4IPart7_4A=0.00frm1701:txtPg4IPart7_4A=</div>	
             <div>frm1701:txtPg4IPart7_4B=0.00frm1701:txtPg4IPart7_4B=</div>	
-            <div>frm1701:txtPg4IPart7_5A=0.00frm1701:txtPg4IPart7_5A=</div>	
-            <div>frm1701:txtPg4IPart7_5B=0.00frm1701:txtPg4IPart7_5B=</div>	
+            <div>frm1701:txtPg4IPart7_5A=12,600.00frm1701:txtPg4IPart7_5A=</div>	
+            <div>frm1701:txtPg4IPart7_5B=9,900.00frm1701:txtPg4IPart7_5B=</div>	
             <div>frm1701:txtPg4IPart7_6A=0.00frm1701:txtPg4IPart7_6A=</div>	
             <div>frm1701:txtPg4IPart7_6B=0.00frm1701:txtPg4IPart7_6B=</div>	
             <div>frm1701:txtPg4IPart7_7A=0.00frm1701:txtPg4IPart7_7A=</div>	
@@ -360,8 +360,8 @@
             <div>frm1701:txtPg4IPart7_9Specify=frm1701:txtPg4IPart7_9Specify=</div>	
             <div>frm1701:txtPg4IPart7_9A=0.00frm1701:txtPg4IPart7_9A=</div>	
             <div>frm1701:txtPg4IPart7_9B=0.00frm1701:txtPg4IPart7_9B=</div>	
-            <div>frm1701:txtPg4IPart7_10A=0.00frm1701:txtPg4IPart7_10A=</div>	
-            <div>frm1701:txtPg4IPart7_10B=0.00frm1701:txtPg4IPart7_10B=</div>	
+            <div>frm1701:txtPg4IPart7_10A=33,800.00frm1701:txtPg4IPart7_10A=</div>	
+            <div>frm1701:txtPg4IPart7_10B=16,910.00frm1701:txtPg4IPart7_10B=</div>	
             <div>frm1701:txtPg4IPart8_1A=0.00frm1701:txtPg4IPart8_1A=</div>	
             <div>frm1701:txtPg4IPart8_1B=0.00frm1701:txtPg4IPart8_1B=</div>	
             <div>frm1701:txtPg4IPart8_2A=0.00frm1701:txtPg4IPart8_2A=</div>	

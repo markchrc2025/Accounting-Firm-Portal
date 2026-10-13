@@ -24,6 +24,7 @@ import type { Filing, Taxpayer } from "./types";
 import type { Comp1701 } from "./compute1701";
 import { amt, dob, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
 import { num } from "./format";
+import { civilStatusOf, deriveFiler } from "./taxpayer-background";
 
 const NS = "frm1701:";
 
@@ -46,12 +47,20 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   const d = filing.data || {};
   const t = tinParts(tp);
   const yr = parseYear(d.year);
-  // 1701's guided/form uses taxpayerType=comp_biz|biz|estate|trust and rateA/methodA.
-  const taxType = (d.taxpayerType as string) || "";
-  const rate = (d.rateA as string) || (d.rate as string) || "graduated";
-  const method = (d.methodA as string) || (d.method as string) || "osd";
+  // C5 (D55): Item 6 and Item 7 (ATC) are derived from the client's record, the rate
+  // and the income mix, never read from the draft; Item 16 is the client's civil status.
+  // The rate and method the tax was computed on (compute1701), so the ticks agree with the figures.
+  const rate = comp.A.rate;
+  const method = comp.A.method;
   const A = comp.A;
   const B = comp.B;
+  const filer = deriveFiler(
+    tp,
+    { comp: A.comp, sales: A.sales, other: A.otherInc },
+    rate === "eight" ? "eight" : "graduated",
+  );
+  const civil = civilStatusOf(tp?.civilStatus);
+  const married = civil === "married";
 
   const rows: XmlRow[] = [];
   /** namespaced field, value emitted verbatim (pre-formatted). */
@@ -77,24 +86,21 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg1I4BranchCode", t.branch3);
   P("txtPg1I5RDOCode", (tp && tp.rdo) || "");
 
-  // Taxpayer type — 5 options (Single/Professional/Estate/Trust/Corp). The 1701
-  // app captures comp_biz/biz/estate/trust; map single→S, prof|biz→P, estate→E,
-  // trust→T (C reserved for the corp/registered-name case).
-  P("rdoPg1I6TaxpayerTypeS", rb(taxType === "single"));
-  P("rdoPg1I6TaxpayerTypeP", rb(taxType === "prof" || taxType === "biz" || taxType === "comp_biz"));
-  P("rdoPg1I6TaxpayerTypeE", rb(taxType === "estate"));
-  P("rdoPg1I6TaxpayerTypeT", rb(taxType === "trust"));
-  P("rdoPg1I6TaxpayerTypeC", rb(taxType === "comp")); // Compensation Earner
+  // Item 6 Taxpayer Type — one box, or none when the Portal cannot tell (see deriveFiler).
+  P("rdoPg1I6TaxpayerTypeS", rb(filer.type === "single"));
+  P("rdoPg1I6TaxpayerTypeP", rb(filer.type === "prof"));
+  P("rdoPg1I6TaxpayerTypeE", rb(filer.type === "estate"));
+  P("rdoPg1I6TaxpayerTypeT", rb(filer.type === "trust"));
+  P("rdoPg1I6TaxpayerTypeC", rb(filer.type === "comp")); // Compensation Earner
 
-  // ATC — 7 radios in the authentic order II012/014/013/011/015/017/016.
-  const atc = (d.atc as string) || "";
-  P("rdoPg1I7ATC_II012", rb(atc === "II012"));
-  P("rdoPg1I7ATC_II014", rb(atc === "II014"));
-  P("rdoPg1I7ATC_II013", rb(atc === "II013"));
-  P("rdoPg1I7ATC_II011", rb(atc === "II011"));
-  P("rdoPg1I7ATC_II015", rb(atc === "II015"));
-  P("rdoPg1I7ATC_II017", rb(atc === "II017"));
-  P("rdoPg1I7ATC_II016", rb(atc === "II016"));
+  // Item 7 ATC — derived, in the authentic order II012/014/013/011/015/017/016.
+  P("rdoPg1I7ATC_II012", rb(filer.atc === "II012"));
+  P("rdoPg1I7ATC_II014", rb(filer.atc === "II014"));
+  P("rdoPg1I7ATC_II013", rb(filer.atc === "II013"));
+  P("rdoPg1I7ATC_II011", rb(filer.atc === "II011"));
+  P("rdoPg1I7ATC_II015", rb(filer.atc === "II015"));
+  P("rdoPg1I7ATC_II017", rb(filer.atc === "II017"));
+  P("rdoPg1I7ATC_II016", rb(filer.atc === "II016"));
 
   // Name / address / contact
   P("txtPg1I8TaxpayerName", enc(fullName(tp)));
@@ -109,14 +115,16 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg1I15TelNum", (tp && tp.phone) || "");
 
   // Civil status (Single / Married / Legally separated / Widow-er)
-  P("rdoPg1I16CivilStatusS", rb(d.civil === "single"));
-  P("rdoPg1I16CivilStatusM", rb(d.civil === "married"));
-  P("rdoPg1I16CivilStatusLS", rb(d.civil === "sep"));
-  P("rdoPg1I16CivilStatusW", rb(d.civil === "widow"));
-  P("rdoPg1I17SpouseIncomeYes", rb(d.spouseIncome === "yes"));
-  P("rdoPg1I17SpouseIncomeNo", rb(d.spouseIncome !== "yes"));
-  P("rdoPg1I18FilingStatusJ", rb(d.filing === "joint"));
-  P("rdoPg1I18FilingStatusS", rb(d.filing !== "joint"));
+  // Item 16 is the client's civil status; Items 17 and 18 are answered only for a
+  // married taxpayer, and an unanswered one stays blank.
+  P("rdoPg1I16CivilStatusS", rb(civil === "single"));
+  P("rdoPg1I16CivilStatusM", rb(married));
+  P("rdoPg1I16CivilStatusLS", rb(civil === "separated"));
+  P("rdoPg1I16CivilStatusW", rb(civil === "widow"));
+  P("rdoPg1I17SpouseIncomeYes", rb(married && d.spouseIncome === "yes"));
+  P("rdoPg1I17SpouseIncomeNo", rb(married && d.spouseIncome === "no"));
+  P("rdoPg1I18FilingStatusJ", rb(married && d.filing === "joint"));
+  P("rdoPg1I18FilingStatusS", rb(married && d.filing === "separate"));
   P("rdoPg1I19IncomeExemptYes", rb(d.incomeExempt === "yes"));
   P("rdoPg1I19IncomeExemptNo", rb(d.incomeExempt !== "yes"));
   P("rdoPg1I20IncomeSpecialYes", rb(d.incomeSpecial === "yes"));
@@ -139,12 +147,13 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg1I25B", amt(B.installment));
   P("txtPg1I26A", amt(A.afterInstall)); // amount still payable
   P("txtPg1I26B", amt(B.afterInstall));
-  Z("txtPg1I27A"); // add penalties: surcharge
-  Z("txtPg1I27B");
-  Z("txtPg1I28A"); // interest
-  Z("txtPg1I28B");
-  Z("txtPg1I29A"); // compromise
-  Z("txtPg1I29B");
+  // The paper's order is 27 Interest, 28 Surcharge, 29 Compromise (item 30 is their total).
+  P("txtPg1I27A", amt(num(d.interestA)));
+  P("txtPg1I27B", amt(num(d.interestB)));
+  P("txtPg1I28A", amt(num(d.surchargeA)));
+  P("txtPg1I28B", amt(num(d.surchargeB)));
+  P("txtPg1I29A", amt(num(d.compromiseA)));
+  P("txtPg1I29B", amt(num(d.compromiseB)));
   P("txtPg1I30A", amt(A.penalties)); // total penalties
   P("txtPg1I30B", amt(B.penalties));
   P("txtPg1I31ATotalAmtPyble", amt(A.totalPayable));
@@ -210,15 +219,17 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("rdoPg2I10IncomeExemptNo", rb(d.spouseIncomeExempt === "no"));
   P("rdoPg2I11IncomeSpecialYes", rb(d.spouseIncomeSpecial === "yes"));
   P("rdoPg2I11IncomeSpecialNo", rb(d.spouseIncomeSpecial === "no"));
-  const srate = (d.spouseRate as string) || "";
-  const smethod = (d.spouseMethod as string) || "osd";
+  // The spouse's rate and method are the editor's rateB/methodB (carried only when a
+  // spouse is included); spouseRate/spouseMethod remain for drafts that set them.
+  const srate = (d.spouseRate as string) || (d.rateB as string) || "";
+  const smethod = (d.spouseMethod as string) || (d.methodB as string) || "osd";
   P("rdoPg2I12TaxRateG", rb(srate === "graduated"));
   P("rdoPg2I12AMethodDeductionI", rb(srate !== "eight" && srate !== "" && smethod === "itemized"));
   P("rdoPg2I12AMethodDeductionO", rb(srate !== "eight" && srate !== "" && smethod !== "itemized"));
   P("rdoPg2I12TaxRateP", rb(srate === "eight"));
 
   // Schedule 1a — claimed dependents / qualified dependent (checkbox + name + TIN)
-  P("chkPg2IShed1a_1Taxpayer", rb(false));
+  P("chkPg2IShed1a_1Taxpayer", rb(A.comp > 0)); // row 1 is the taxpayer's compensation
   E("txtPg2IShed1a_1TPName");
   P("chkPg2IShed1a_1Spouse", rb(false));
   E("txtPg2IShed1a_1SName");
@@ -228,40 +239,68 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   E("txtPg2IShed1a_BranchCode");
   P("chkPg2IShed2a_2Taxpayer", rb(false));
   E("txtPg2IShed2a_2TPName");
-  P("chkPg2IShed2a_2Spouse", rb(false));
+  P("chkPg2IShed2a_2Spouse", rb(B.comp > 0)); // row 2 is the spouse's compensation
   E("txtPg2IShed2a_2SName");
   E("txtPg2IShed2a_TIN1");
   E("txtPg2IShed2a_TIN2");
   E("txtPg2IShed2a_TIN3");
   E("txtPg2IShed2a_BranchCode");
 
-  // Schedule 1c — gross compensation income & tax withheld (col CI / TW; rows 1-3a/3b)
-  // 1 = filer compensation; 3A = aggregate gross income (sales). TW columns not captured.
+  // Schedule 1 — gross compensation income and tax withheld (c Compensation Income,
+  // d Tax Withheld). The Portal holds one compensation figure and one 2316 withholding
+  // figure per person, not a table of employers: they print as the person's row (the
+  // employer's name and TIN are not captured) and as the 3A / 3B totals.
   P("txtPg2IShed1c_1CI", amt(A.comp));
-  Z("txtPg2IShed1c_1TW");
-  Z("txtPg2IShed1c_2CI");
-  Z("txtPg2IShed1c_2TW");
-  P("txtPg2IShed1c_3ACI", amt(A.netSales + A.otherInc));
-  Z("txtPg2IShed1c_3ATW");
-  Z("txtPg2IShed1c_3BCI");
-  Z("txtPg2IShed1c_3BTW");
+  P("txtPg2IShed1c_1TW", amt(A.taxWithheldComp));
+  P("txtPg2IShed1c_2CI", amt(B.comp));
+  P("txtPg2IShed1c_2TW", amt(B.taxWithheldComp));
+  P("txtPg2IShed1c_3ACI", amt(A.comp));
+  P("txtPg2IShed1c_3ATW", amt(A.taxWithheldComp));
+  P("txtPg2IShed1c_3BCI", amt(B.comp));
+  P("txtPg2IShed1c_3BTW", amt(B.taxWithheldComp));
 
-  // Schedule 2 — taxable income (A = filer, B = spouse).
-  // 4 = sales/gross income, 5 = less deductions, 6 = net/taxable, 7 = special.
-  P("txtPg2IShed2_4A", amt(A.netSales + A.otherInc));
-  P("txtPg2IShed2_4B", amt(B.netSales + B.otherInc));
-  P("txtPg2IShed2_5A", amt(A.netBizTotal));
-  P("txtPg2IShed2_5B", amt(B.netBizTotal));
-  P("txtPg2IShed2_6A", amt(A.taxableTotal));
-  P("txtPg2IShed2_6B", amt(B.taxableTotal));
-  Z("txtPg2IShed2_7A");
-  Z("txtPg2IShed2_7B");
+  // Schedule 2 — taxable COMPENSATION income. 4 gross compensation (Schedule 1 3Ac/3Bc),
+  // 5 non-taxable/exempt compensation (not captured), 6 taxable compensation,
+  // 7 tax due on it (the 8% path only: graduated rates tax compensation and business
+  // together in Schedule 3 item 25).
+  for (const [side, o] of [
+    ["A", A],
+    ["B", B],
+  ] as const) {
+    P(`txtPg2IShed2_4${side}`, amt(o.comp));
+    Z(`txtPg2IShed2_5${side}`);
+    P(`txtPg2IShed2_6${side}`, amt(o.comp));
+    P(`txtPg2IShed2_7${side}`, amt(o.compTaxFlat));
+  }
 
-  // Schedule 3 (page 2 portion) — itemized deductions, rows 8-25 (cols A/B; 19/20 have Desc)
+  // Schedule 3.A — taxable BUSINESS income, graduated rates (items 8-25). Filled only
+  // for a side on graduated rates; 3.B (items 26-32, page 3) only for a side at 8%.
+  const grad = (o: typeof A) => o.rate !== "eight";
+  const itemized = (o: typeof A) => o.method !== "osd";
+  const s3a: Record<number, (o: typeof A) => number> = {
+    8: (o) => o.sales,
+    9: (o) => o.returns,
+    10: (o) => o.netSales,
+    11: (o) => o.cogs,
+    12: (o) => o.gross,
+    13: (o) => (itemized(o) ? o.itemizedOrdinary : 0),
+    14: (o) => (itemized(o) ? o.itemizedSpecial : 0),
+    15: (o) => (itemized(o) ? o.nolco : 0),
+    16: (o) => (itemized(o) ? o.deductions : 0), // sum of 13 to 15
+    17: (o) => (itemized(o) ? 0 : o.deductions), // OSD, 40% of item 10
+    18: (o) => o.netBiz,
+    19: (o) => o.otherInc, // "specify below": the one typed figure
+    20: () => 0,
+    21: () => 0, // share from a general professional partnership (not captured)
+    22: (o) => o.otherInc,
+    23: (o) => o.netBizTotal,
+    24: (o) => o.taxableTotal, // compensation (item 6) and business (item 23)
+    25: (o) => o.taxDueRegular, // to Part VI item 1
+  };
   for (let i = 8; i <= 25; i++) {
     if (i === 19 || i === 20) E(`txtPg2IShed3_${i}Desc`);
-    Z(`txtPg2IShed3_${i}A`);
-    Z(`txtPg2IShed3_${i}B`);
+    P(`txtPg2IShed3_${i}A`, amt(grad(A) ? s3a[i]!(A) : 0));
+    P(`txtPg2IShed3_${i}B`, amt(grad(B) ? s3a[i]!(B) : 0));
   }
 
   // ============================================================ PAGE 3
@@ -271,41 +310,60 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg3BranchCode", t.branch3);
   P("txtPg3TaxpayerName", rawName(tp));
 
-  // Schedule 3 (continued) — rows 26-32 (27 has Desc)
+  // Schedule 3.B — taxable business income at the 8% flat rate (items 26-32), for a
+  // side at 8% only: 26 net sales, 27 other non-operating income, 28 total income,
+  // 29 the P250,000 reduction, 30 taxable income, 31 tax due on business income,
+  // 32 total tax due (item 7 and item 31) to Part VI item 1.
+  const s3b: Record<number, (o: typeof A) => number> = {
+    26: (o) => o.netSales,
+    27: (o) => o.otherInc,
+    28: (o) => o.gross8,
+    29: (o) => o.gross8 - o.taxable8,
+    30: (o) => o.taxable8,
+    31: (o) => o.tax8biz,
+    32: (o) => o.taxDueRegular,
+  };
   for (let i = 26; i <= 32; i++) {
     if (i === 27) E(`txtPg3IShed3_${i}Desc`);
-    Z(`txtPg3IShed3_${i}A`);
-    Z(`txtPg3IShed3_${i}B`);
+    P(`txtPg3IShed3_${i}A`, amt(!grad(A) ? s3b[i]!(A) : 0));
+    P(`txtPg3IShed3_${i}B`, amt(!grad(B) ? s3b[i]!(B) : 0));
   }
 
-  // Schedule 4 — tax credits/payments, rows 1-16 + 17a-17d (17d has Desc) + 18
+  // Schedule 4 — ordinary allowable itemized deductions: the lines the draft holds
+  // (s4_<item><side>, the keys compute1701 sums) and item 18, their total, which is
+  // what Schedule 3.A item 13 carries. Itemized method only.
+  const s4line = (k: string, side: "A" | "B", o: typeof A) =>
+    itemized(o) ? amt(num(d[`s4_${k}${side}`])) : amt(0);
   for (let i = 1; i <= 16; i++) {
-    Z(`txtPg3IShed4_${i}A`);
-    Z(`txtPg3IShed4_${i}B`);
+    P(`txtPg3IShed4_${i}A`, s4line(String(i), "A", A));
+    P(`txtPg3IShed4_${i}B`, s4line(String(i), "B", B));
   }
   for (const r of ["a", "b", "c"]) {
-    Z(`txtPg3IShed4_17${r}A`);
-    Z(`txtPg3IShed4_17${r}B`);
+    P(`txtPg3IShed4_17${r}A`, s4line(`17${r}`, "A", A));
+    P(`txtPg3IShed4_17${r}B`, s4line(`17${r}`, "B", B));
   }
   E("txtPg3IShed4_17dDesc");
-  Z("txtPg3IShed4_17dA");
-  Z("txtPg3IShed4_17dB");
-  Z("txtPg3IShed4_18A");
-  Z("txtPg3IShed4_18B");
+  P("txtPg3IShed4_17dA", s4line("17d", "A", A));
+  P("txtPg3IShed4_17dB", s4line("17d", "B", B));
+  P("txtPg3IShed4_18A", amt(itemized(A) ? A.itemizedOrdinary : 0));
+  P("txtPg3IShed4_18B", amt(itemized(B) ? B.itemizedOrdinary : 0));
 
-  // Schedule 5 — tax relief availment (rows 1/2/4/5 = Desc+Legal+Amt; 3/6 = subtotals)
+  // Schedule 5 — special allowable itemized deductions (5.A taxpayer rows 1-2, item 3;
+  // 5.B spouse rows 4-5, item 6): the amounts compute1701 reads (s5_<n>amt).
+  const s5 = (n: number, o: typeof A) =>
+    itemized(o) ? amt(num(d[`s5_${n}amt`])) : amt(0);
   for (const i of [1, 2]) {
     E(`txtPg3IShed5_${i}Desc`);
     E(`txtPg3IShed5_${i}Legal`);
-    Z(`txtPg3IShed5_${i}Amt`);
+    P(`txtPg3IShed5_${i}Amt`, s5(i, A));
   }
-  Z("txtPg3IShed5_3");
+  P("txtPg3IShed5_3", amt(itemized(A) ? A.itemizedSpecial : 0));
   for (const i of [4, 5]) {
     E(`txtPg3IShed5_${i}Desc`);
     E(`txtPg3IShed5_${i}Legal`);
-    Z(`txtPg3IShed5_${i}Amt`);
+    P(`txtPg3IShed5_${i}Amt`, s5(i, B));
   }
-  Z("txtPg3IShed5_6");
+  P("txtPg3IShed5_6", amt(itemized(B) ? B.itemizedSpecial : 0));
 
   // Schedule 6 — reconciliation, rows 1-3 (A/B) + rows 4-7 (Year + A..E) + 8D total
   for (let i = 1; i <= 3; i++) {
@@ -316,7 +374,7 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
     E(`txtPg3IShed6_${i}Year`);
     for (const c of ["A", "B", "C", "D", "E"]) Z(`txtPg3IShed6_${i}${c}`);
   }
-  Z("txtPg3IShed6_8D");
+  P("txtPg3IShed6_8D", amt(A.nolco)); // total NOLCO applied: Schedule 3.A item 15
 
   // ============================================================ PAGE 4
   P("txtPg4TIN1", t.t1);
@@ -330,24 +388,44 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
     E(`txtPg4IShed6_${i}Year`);
     for (const c of ["A", "B", "C", "D", "E"]) Z(`txtPg4IShed6_${i}${c}`);
   }
-  Z("txtPg4IShed6_13D");
+  P("txtPg4IShed6_13D", amt(B.nolco));
 
-  // Sched6 sub-table (Sc6_1..5, A/B)
+  // Part VI — summary of income tax due: 1 regular rate, 2 special rate, 3 share of
+  // another agency, 4 net special rate, 5 total (to Part II item 22).
+  const p6 = (o: typeof A): number[] => [
+    o.taxDueRegular,
+    o.specialRate,
+    o.shareOtherGovt,
+    o.netSpecial,
+    o.taxDue,
+  ];
   for (let i = 1; i <= 5; i++) {
-    Z(`txtPg4ISc6_${i}A`);
-    Z(`txtPg4ISc6_${i}B`);
+    P(`txtPg4ISc6_${i}A`, amt(p6(A)[i - 1]!));
+    P(`txtPg4ISc6_${i}B`, amt(p6(B)[i - 1]!));
   }
 
-  // Part VII — supplemental income, rows 1-8 (A/B), 9 (Specify+A/B), 10 (A/B)
+  // Part VII — tax credits/payments: 1 prior year's excess credits, 2 payments for the
+  // first three quarters, 3 creditable tax withheld for the first three quarters,
+  // 4 creditable tax withheld per 2307 for the 4th quarter, 5 creditable tax withheld per
+  // 2316 (Schedule 1 3Ad/3Bd), 10 total (to Part II item 23). The Portal holds ONE
+  // creditable-withholding total for the year (cwt), which the paper splits between
+  // items 3 and 4: it is printed in neither until the 2307 unit decides how it is
+  // recorded; the total (item 10) is the credits item 23 carries.
+  const p7 = (o: typeof A): Record<number, number> => ({
+    1: o.excess,
+    2: o.prevPaid,
+    5: o.taxWithheldComp,
+    10: o.credits,
+  });
   for (let i = 1; i <= 8; i++) {
-    Z(`txtPg4IPart7_${i}A`);
-    Z(`txtPg4IPart7_${i}B`);
+    P(`txtPg4IPart7_${i}A`, amt(p7(A)[i] ?? 0));
+    P(`txtPg4IPart7_${i}B`, amt(p7(B)[i] ?? 0));
   }
   E("txtPg4IPart7_9Specify");
   Z("txtPg4IPart7_9A");
   Z("txtPg4IPart7_9B");
-  Z("txtPg4IPart7_10A");
-  Z("txtPg4IPart7_10B");
+  P("txtPg4IPart7_10A", amt(A.credits));
+  P("txtPg4IPart7_10B", amt(B.credits));
 
   // Part VIII — balance sheet, rows 1-10 (A/B)
   for (let i = 1; i <= 10; i++) {

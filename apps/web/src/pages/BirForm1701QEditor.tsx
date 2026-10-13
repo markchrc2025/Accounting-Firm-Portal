@@ -28,6 +28,8 @@ import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
+import { IncomeTaxBackground } from "../components/birform/IncomeTaxBackground";
+import { deriveFiler, type ClientBackground } from "../lib/incomeTaxBackground";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
@@ -106,11 +108,15 @@ export default function BirForm1701QEditor() {
     }
   }, [existing.data]);
 
+  // The selected client's record (the list endpoint returns full client rows).
+  const client = (clientsQ.data as unknown as (ClientBackground & { id: string })[] | undefined)?.find(
+    (cl) => cl.id === clientId,
+  );
+
   const data = useMemo(() => {
     const base: Record<string, string> = {
       year,
       amended: amendedFlag,
-      filerType: "single",
     };
     for (const k of ALL_KEYS) {
       // Drop B-column money entries when spouse is not included.
@@ -278,6 +284,18 @@ export default function BirForm1701QEditor() {
               </label>
             </CardContent>
           </Card>
+
+          <IncomeTaxBackground
+            client={client}
+            filer={deriveFiler(
+              client,
+              { comp: 0, sales: 0, other: 0 },
+              fields.rateA === "eight" ? "eight" : "graduated",
+              { allowComp: false, allowMixed: false },
+            )}
+            typeItem="7"
+            atcItem="8"
+          />
 
           <Column suffix="A" label="Filer" fields={fields} set={set} side={c?.A} />
           {withSpouse ? (
