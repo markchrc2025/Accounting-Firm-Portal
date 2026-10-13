@@ -200,3 +200,6 @@ Decision (domain owner): before filing, a draft return whose form has a print ma
 
 ## 2026-10-11 · D53 · All seven returns print on the BIR's form
 Decision (domain owner): the 1701Q, 1702Q, 1701, 1701A and 1702RT join the 2551Q and 2550Q. Each has a print map, a stamped Preview PDF for drafts and a clean clear copy for filed returns, made by @portal/bir-pdf from the same eBIRForms export. Built in C2.
+
+## 2026-10-13 · D55 · The 1701's background comes from the client's record
+Decision (domain owner): Item 16 (civil status) and the other background items of the income-tax returns come from the client's record; Items 17 and 18 are answered only for a married taxpayer; Item 7 (ATC) is derived from the taxpayer type, the rate and the income mix and is never typed. The same check was made on the other income-tax returns. Built in C5.

@@ -30,6 +30,13 @@ import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPan
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
+import { IncomeTaxBackground } from "../components/birform/IncomeTaxBackground";
+import {
+  amountOf,
+  civilStatusOf,
+  deriveFiler,
+  type ClientBackground,
+} from "../lib/incomeTaxBackground";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 
 /** Per-column (A filer / B spouse) money fields the 1701 editor captures. */
@@ -78,6 +85,9 @@ export default function BirForm1701Editor() {
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [withSpouse, setWithSpouse] = useState(false);
   const [showRecon, setShowRecon] = useState(false);
+  // C5 (D55): asked only of a married taxpayer; an unanswered one stays blank.
+  const [spouseIncome, setSpouseIncome] = useState("");
+  const [filing, setFiling] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Hydrate from an existing form.
@@ -86,6 +96,8 @@ export default function BirForm1701Editor() {
     if (!d) return;
     setClientId(existing.data!.clientId);
     setYear((existing.data!.period || String(d.year ?? "")).slice(0, 4));
+    setSpouseIncome(d.spouseIncome === "yes" || d.spouseIncome === "no" ? String(d.spouseIncome) : "");
+    setFiling(d.filing === "joint" || d.filing === "separate" ? String(d.filing) : "");
     setFields((prev) => {
       const next = { ...prev };
       for (const k of ALL_KEYS) if (d[k] != null) next[k] = String(d[k]);
@@ -99,12 +111,20 @@ export default function BirForm1701Editor() {
     }
   }, [existing.data]);
 
+  // The selected client's record (the list endpoint returns full client rows).
+  const client = (clientsQ.data as ClientBackground[] | undefined)?.find(
+    (cl) => (cl as unknown as ClientSummary).id === clientId,
+  );
+  const married = civilStatusOf(client?.civilStatus) === "married";
+
   const data = useMemo(() => {
     const base: Record<string, string> = {
       year,
       amended: amendedFlag,
-      taxpayerType: "single",
     };
+    // Items 17 and 18 are answered only for a married taxpayer.
+    if (married && spouseIncome) base.spouseIncome = spouseIncome;
+    if (married && filing) base.filing = filing;
     for (const k of ALL_KEYS) {
       if (!withSpouse && k.endsWith("B") && k !== "rateB" && k !== "methodB") continue;
       if (fields[k]) base[k] = fields[k]!;
@@ -117,7 +137,7 @@ export default function BirForm1701Editor() {
       base.methodB = fields.methodB || "osd";
     }
     return base;
-  }, [year, fields, withSpouse, amendedFlag]);
+  }, [year, fields, withSpouse, amendedFlag, married, spouseIncome, filing]);
 
   // Live authoritative totals (server compute — the browser never computes tax).
   // An existing form is computed only once it is hydrated: its first, empty
@@ -269,6 +289,23 @@ export default function BirForm1701Editor() {
               </div>
             </CardContent>
           </Card>
+
+          <IncomeTaxBackground
+            client={client}
+            filer={deriveFiler(
+              client,
+              { comp: amountOf(fields.compA), sales: amountOf(fields.salesA), other: amountOf(fields.otherA) },
+              fields.rateA === "eight" ? "eight" : "graduated",
+            )}
+            typeItem="6"
+            atcItem="7"
+            civilItems={{ civil: "16", spouseIncome: "17", filing: "18" }}
+            spouseIncome={spouseIncome}
+            filing={filing}
+            onSpouseIncome={setSpouseIncome}
+            onFiling={setFiling}
+            disabled={isFiled}
+          />
 
           <Column
             suffix="A"

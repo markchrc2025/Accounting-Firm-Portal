@@ -23,14 +23,15 @@ const tp: Taxpayer = {
   citizenship: "FILIPINO",
   civilStatus: "married",
   taxpayerType: "",
-  classification: "",
+  classification: "Single Proprietorship",
   createdAt: 0,
 };
 
+// C5: the draft's stale `taxpayerType` and `atc` are ignored; Items 6 and 7 are derived.
 const data: FilingData = {
   year: "2025",
   amended: "no",
-  taxpayerType: "single",
+  taxpayerType: "prof",
   atc: "II011",
   rateA: "graduated",
   methodA: "osd",
@@ -61,7 +62,7 @@ describe("build1701", () => {
     expect(xml).toContain("frm1701:txtPg1I5RDOCode=045frm1701:txtPg1I5RDOCode=");
   });
 
-  it("emits the 5 taxpayer-type radios with single→S selected", () => {
+  it("emits the 5 taxpayer-type radios, Single Proprietor from the client's classification", () => {
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeS=truefrm1701:rdoPg1I6TaxpayerTypeS=");
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeP=falsefrm1701:rdoPg1I6TaxpayerTypeP=");
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeE=falsefrm1701:rdoPg1I6TaxpayerTypeE=");
@@ -69,9 +70,9 @@ describe("build1701", () => {
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeC=falsefrm1701:rdoPg1I6TaxpayerTypeC=");
   });
 
-  it("selects the chosen ATC radio (II011) in the authentic order", () => {
-    expect(xml).toContain("frm1701:rdoPg1I7ATC_II011=truefrm1701:rdoPg1I7ATC_II011=");
-    expect(xml).toContain("frm1701:rdoPg1I7ATC_II012=falsefrm1701:rdoPg1I7ATC_II012=");
+  it("derives the ATC (single proprietor, graduated: II012), whatever the draft says, in the authentic order", () => {
+    expect(xml).toContain("frm1701:rdoPg1I7ATC_II012=truefrm1701:rdoPg1I7ATC_II012=");
+    expect(xml).toContain("frm1701:rdoPg1I7ATC_II011=falsefrm1701:rdoPg1I7ATC_II011=");
   });
 
   it("URL-encodes the page-1 name and emits raw last name on pages 2-4", () => {
