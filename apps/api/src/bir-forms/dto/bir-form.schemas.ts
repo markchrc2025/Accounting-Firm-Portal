@@ -35,3 +35,14 @@ export const ComputeBirFormSchema = z.object({
   data: FilingDataSchema.default({}),
 });
 export type ComputeBirFormInput = z.infer<typeof ComputeBirFormSchema>;
+
+/**
+ * `GET /bir-forms/book-figures?clientId=&form=&period=` (U15). The form and the
+ * period are checked by the service, which answers them in sentences.
+ */
+export const BookFiguresQuerySchema = z.object({
+  clientId: z.string().uuid(),
+  form: z.string().min(1),
+  period: z.string().default(""),
+});
+export type BookFiguresQuery = z.infer<typeof BookFiguresQuerySchema>;

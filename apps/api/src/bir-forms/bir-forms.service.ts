@@ -21,6 +21,7 @@ import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
+import { assertValidDraftSource } from "./draft-source";
 import {
   type FiledSnapshot,
   readFiledSnapshot,
@@ -286,6 +287,7 @@ export class BirFormsService {
     // U4 R2: create authorizes against the client named in the body.
     await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.create], input.clientId);
     this.assertSupported(input.form);
+    assertValidDraftSource(input.data);
     await this.clients.assertInFirm(user.firmId, input.clientId);
     const created = await this.prisma.birForm.create({
       data: {
@@ -408,6 +410,7 @@ export class BirFormsService {
 
   async update(user: AuthUser, id: string, input: UpdateBirFormInput) {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.update);
+    assertValidDraftSource(input.data);
     // U9 R1 c (D44): marking a form filed needs BIRForms:File, whatever route does it.
     if (input.status === "filed") {
       await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.file], f.clientId);
