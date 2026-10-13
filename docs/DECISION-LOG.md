@@ -206,3 +206,6 @@ Decision (domain owner): each return can take its figures from the client's post
 
 ## 2026-10-13 · D55 · The 1701's background comes from the client's record
 Decision (domain owner): Item 16 (civil status) and the other background items of the income-tax returns come from the client's record; Items 17 and 18 are answered only for a married taxpayer; Item 7 (ATC) is derived from the taxpayer type, the rate and the income mix and is never typed. The same check was made on the other income-tax returns. Built in C5.
+
+## 2026-10-13 · D55 amendment · Item 7 is chosen, Item 6 is the Classification
+Decision (domain owner): on the 1701, 1701A and 1701Q, Item 7 (ATC) is chosen by the preparer in the editor and is never derived and never added to the client's record. Item 6 (taxpayer type) is the client's Classification and is not overridden by the draft's figures. Civil status still comes from the client's record, and Items 17 and 18 are answered only for a married taxpayer. The same applies to the ATC of the 1702Q and 1702RT; no ATC is defaulted. Built in C6.

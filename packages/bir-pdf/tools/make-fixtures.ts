@@ -213,6 +213,7 @@ const f1701 = filing(
     year: "2026",
     amended: "no",
     shortPeriod: "no",
+    atc: "II013", // chosen by the preparer (C6): never derived
     rateA: "graduated",
     methodA: "itemized",
     rateB: "eight",
@@ -360,7 +361,7 @@ const f1702RT = filing(
     method: "itemized",
     amended: "no",
     shortPeriod: "no",
-    atc: "IC010",
+    atc: "IC055", // the only ATC the form prints (C6); IC010 is not accepted
     over: "carry",
     attachments: "2",
     treasurer: "SAMPLE TREASURER",
@@ -440,7 +441,7 @@ const f1702Q = filing("1702Q", {
   method: "itemized",
   amended: "no",
   attachments: "1",
-  atc: "IC010",
+  atc: "IC055", // the only ATC the form prints (C6); IC010 is not accepted
   sch1_1A: "100000",
   sch1_2A: "40000",
   sch1_4A: "5000",
