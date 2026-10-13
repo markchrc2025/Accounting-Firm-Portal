@@ -71,12 +71,37 @@ describe("U15 · the quarter a return covers", () => {
     expect(bookQuarter(period, start ? at(start) : null)).toEqual({ from, to });
   });
 
-  it.each(["", "2026", "2026-Q5", "2026-Q0", "Q3-2026", "26-Q3", "2026-3", "2026-Q3-1"])(
-    "%j is not a period",
-    (period) => {
-      expect(bookQuarter(period, null)).toBeNull();
-    },
-  );
+  it.each([
+    "",
+    "2026",
+    "2026-Q5",
+    "2026-Q0",
+    "Q3-2026",
+    "26-Q3",
+    "2026-3",
+    "2026-Q3-1",
+    "0000-Q1",
+    "0001-Q4",
+    "1999-Q4",
+    "2101-Q1",
+  ])("%j is not a period", (period) => {
+    expect(bookQuarter(period, null)).toBeNull();
+  });
+
+  it("a year from 2000 to 2100 is a period, for a calendar and a fiscal client", () => {
+    expect(bookQuarter("2000-Q1", null)).toEqual({
+      from: "2000-01-01",
+      to: "2000-03-31",
+    });
+    expect(bookQuarter("2100-Q4", null)).toEqual({
+      from: "2100-10-01",
+      to: "2100-12-31",
+    });
+    expect(bookQuarter("2000-Q1", at("2026-07-01"))).toEqual({
+      from: "1999-07-01",
+      to: "1999-09-30",
+    });
+  });
 
   // The 2550Q's own export (U13 F4) is the rule the feeder follows: for every start
   // month and every quarter, the dates the export prints are the dates the books are read for.

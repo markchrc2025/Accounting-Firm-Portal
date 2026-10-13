@@ -484,6 +484,83 @@ describe("U15 · the Portal's books fill the 2551Q and the 2550Q (real app over 
     });
   });
 
+  describe("T1 · the edges the review found", () => {
+    it("small negative totals say so, with the exact figure, and show ₱0", async () => {
+      await client("NEG2", "PERCENTAGE");
+      await sale("NEG2", "2026-08-02", "-0.40", { atc: "PT130" });
+      await sale("NEG2", "2026-08-03", "-0.50", { atc: "PT120" });
+      await sale("NEG2", "2026-08-04", "1234.00", { atc: "PT010" });
+      const res = await figures(ids.NEG2!, "2551Q", "2026-Q3");
+      expect(res.body.figures.rows).toEqual([
+        { atc: "PT010", taxable: "1234", rate: "3" },
+        { atc: "PT120", taxable: "0", rate: "3" },
+        { atc: "PT130", taxable: "0", rate: "3" },
+      ]);
+      expect(res.body.warnings).toEqual([
+        "The books total for Schedule 1 · PT120 is below zero (-₱0.50); it is shown as ₱0.",
+        "The books total for Schedule 1 · PT130 is below zero (-₱0.40); it is shown as ₱0.",
+      ]);
+    });
+
+    it("purchase lines are rounded once, not row by row; a category the Portal does not know is left out and said", async () => {
+      await client("PURCH", "VAT");
+      // Three purchases of 0.40 and 0.40 of input tax each: 0.00 row by row, 1 together.
+      for (const d of ["2026-08-01", "2026-08-02", "2026-08-03"]) {
+        await cost("PURCH", d, "0.40", {
+          category: "SERVICES_NONRESIDENT",
+          inputVAT: "0.40",
+        });
+        await cost("PURCH", d, "0.40", { category: "DOMESTIC_NO_INPUT_TAX" });
+      }
+      await cost("PURCH", "2026-08-04", "250.00", { category: "BOGUS_CATEGORY" });
+      const res = await figures(ids.PURCH!, "2550Q", "2026-Q3");
+      expect(res.body.figures).toMatchObject({ i45a: "1", i45b: "1", i48a: "1" });
+      expect(res.body.warnings).toEqual([
+        "1 purchase (₱250) has no VAT category and was left out.",
+      ]);
+    });
+
+    it("a 2551Q inside the CREATE window (1 July 2020 to 30 June 2023) warns that the rate is not applied; outside it, nothing", async () => {
+      await client("CREATE", "PERCENTAGE");
+      for (const d of [
+        "2020-05-10",
+        "2020-08-10",
+        "2022-02-10",
+        "2023-05-10",
+        "2023-08-10",
+      ]) {
+        await sale("CREATE", d, "1000.00", { atc: "PT010" });
+      }
+      const warning =
+        "The 1% rate of 1 July 2020 to 30 June 2023 (CREATE, RA 11534) is not applied. Check the rate on each row.";
+      for (const [period, warns] of [
+        ["2020-Q2", false], // April–June 2020: before the window
+        ["2020-Q3", true], // July–September 2020: its first quarter
+        ["2022-Q1", true],
+        ["2023-Q2", true], // April–June 2023: its last quarter
+        ["2023-Q3", false], // July–September 2023: after
+      ] as const) {
+        const res = await figures(ids.CREATE!, "2551Q", period);
+        expect([period, res.body.warnings]).toEqual([period, warns ? [warning] : []]);
+        expect(res.body.figures.rows).toHaveLength(1);
+      }
+      // A window quarter with no rows has nothing to warn about.
+      expect((await figures(ids.CREATE!, "2551Q", "2021-Q1")).body.warnings).toEqual([]);
+    });
+
+    it("a year that is not a real one is a bad period (400), never a 500", async () => {
+      for (const period of ["0000-Q1", "0001-Q3", "1999-Q4", "2101-Q1", "9999-Q2"]) {
+        for (const key of ["VAT", "FY"] as const) {
+          if (!ids[key]) continue;
+          const res = await figures(ids[key]!, "2550Q", period);
+          expect([period, res.status]).toEqual([period, 400]);
+          expect(res.body.message).toBe("That isn't a valid period for the 2550Q.");
+        }
+        expect((await figures(ids.PCT!, "2551Q", period)).status).toBe(400);
+      }
+    });
+  });
+
   describe("T1 · wrong-regime clients get no figures and the exact warning", () => {
     it("a client exempt from business tax: neither form", async () => {
       for (const [form, warning] of [
@@ -736,6 +813,18 @@ describe("U15 · the Portal's books fill the 2551Q and the 2550Q (real app over 
         "1/01/2026",
         "3/31/2026",
       ]);
+    });
+
+    it("the 2551Q reads calendar quarters even for a fiscal-year client: its export, clear copy and editor have no fiscal quarter", async () => {
+      await client("FYP", "PERCENTAGE", "2025-04-01");
+      await sale("FYP", "2025-05-10", "5000.00", { atc: "PT010" }); // fiscal Q1 of "2026"
+      await sale("FYP", "2026-02-10", "1000.00", { atc: "PT010" }); // calendar Q1 of 2026
+      const res = await figures(ids.FYP!, "2551Q", "2026-Q1");
+      expect(res.body.figures.rows).toEqual([
+        { atc: "PT010", taxable: "1000", rate: "3" },
+      ]);
+      const g = res.body.lines.find((l: { key: string }) => l.key === "grossReceipts");
+      expect(g.filter).toEqual({ kind: "income", from: "2026-01-01", to: "2026-03-31" });
     });
 
     it("a calendar client keeps calendar quarters; and the tax estimate still counts calendar quarters for every client (U10, not touched here)", async () => {

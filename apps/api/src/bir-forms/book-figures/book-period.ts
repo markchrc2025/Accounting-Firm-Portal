@@ -16,6 +16,11 @@ export interface BookQuarter {
 
 const PERIOD = /^(\d{4})-(Q[1-4])$/i;
 
+/** The years a return's period may name; anything else is not a period (the dates
+ *  would not be real ones to read the books for). */
+const FIRST_YEAR = 2000;
+const LAST_YEAR = 2100;
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** The quarter of a period like "2026-Q3", or null when it is not one. */
@@ -26,6 +31,7 @@ export function bookQuarter(
   const m = PERIOD.exec(period.trim());
   if (!m) return null;
   const year = Number(m[1]);
+  if (year < FIRST_YEAR || year > LAST_YEAR) return null;
   const quarter = Number(m[2]!.slice(1));
   const start = fiscalYearStart ? fiscalYearStart.getUTCMonth() + 1 : 1;
   const startMonth = start >= 2 && start <= 12 ? start : 1;

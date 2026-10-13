@@ -318,6 +318,20 @@ describe("U15 R5 · _source rides with a draft and changes nothing it prints (re
     });
   });
 
+  it("a filed return is sealed whatever PATCH sends: 409, even with a malformed _source", async () => {
+    const filed = await make("2550Q", FIGURES_2550Q);
+    await file(filed.id);
+    for (const data of [
+      { ...FIGURES_2550Q, _source: SOURCE },
+      { ...FIGURES_2550Q, _source: "x" },
+    ]) {
+      const res = await as(http().patch(`${API}/bir-forms/${filed.id}`)).send({ data });
+      expect(res.status).toBe(409);
+    }
+    const read = await as(http().get(`${API}/bir-forms/${filed.id}`));
+    expect(read.body.data._source).toBeUndefined();
+  });
+
   it("a malformed _source is refused with a clear message, on create and on update, and nothing is saved", async () => {
     const before = await writer.birForm.count({ where: { clientId } });
     const good = await make("2550Q", FIGURES_2550Q);

@@ -5,7 +5,11 @@ import type { AuthUser } from "../../common/auth/auth-user";
 import { isoToDate } from "../../financial/serialization";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RbacService } from "../../rbac/rbac.service";
-import { PERCENTAGE_TAX_RATE, pesos } from "../../tax-estimate/statute";
+import {
+  PERCENTAGE_TAX_CREATE_NOTE,
+  PERCENTAGE_TAX_RATE,
+  pesos,
+} from "../../tax-estimate/statute";
 import type { BookFiguresQuery } from "../dto/bir-form.schemas";
 import { bookQuarter } from "./book-period";
 import { roundToNearestWholePesoHalfUp } from "./round-to-whole-peso";
@@ -30,8 +34,18 @@ const purchases = (n: number, total: number, one: string, many: string) =>
   n === 1
     ? `1 purchase (${peso(total)}) ${one}`
     : `${n} purchases (${peso(total)}) ${many}`;
-const belowZero = (label: string, exact: number) =>
-  `The books total for ${label} is below zero (${peso(exact)}); it is shown as ₱0.`;
+const belowZero = (label: string, exact: Prisma.Decimal) => {
+  const abs = exact.abs();
+  const shown = abs.toNumber().toLocaleString("en-US", {
+    minimumFractionDigits: abs.isInteger() ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `The books total for ${label} is below zero (-₱${shown}); it is shown as ₱0.`;
+};
+/** The 1% percentage-tax rate of 1 July 2020 to 30 June 2023 (CREATE, RA 11534) is not
+ *  applied (statute.ts); a quarter inside that window says so. */
+export const CREATE_WINDOW = { from: "2020-07-01", to: "2023-06-30" };
+export const CREATE_RATE_WARNING = `${PERCENTAGE_TAX_CREATE_NOTE} Check the rate on each row.`;
 
 /** The 2551Q's Schedule 1 ATC list, in the editor's order (BirForm2551QEditor.tsx:34).
  *  The export carries these eight and refuses any other (build2551Q.ts ATC_INDEX). */
@@ -154,7 +168,14 @@ export class BookFiguresService {
     await this.rbac.assertClient(user, [READ], client.id);
 
     if (!FEEDABLE.has(q.form)) throw new BadRequestException(booksCantFill(q.form));
-    const quarter = bookQuarter(q.period, client.fiscalYearStart);
+    // The 2550Q follows the client's fiscal year, as its export does (build2550Q.ts,
+    // U13 F4). The 2551Q has no fiscal handling anywhere (its editor saves
+    // periodType "calendar", its export and clear copy print calendar quarters, as does
+    // the tax estimate), so its quarter is the calendar quarter.
+    const quarter = bookQuarter(
+      q.period,
+      q.form === "2550Q" ? client.fiscalYearStart : null,
+    );
     if (!quarter) throw new BadRequestException(badPeriod(q.form));
 
     const base = {
@@ -242,6 +263,9 @@ export class BookFiguresService {
       // The rate is the percentage-tax rate the estimate uses (statute.ts), which is
       // the rate the editor gives a new row (BirForm2551QEditor.tsx:42).
       rows.push({ atc, taxable: String(line.amount), rate: String(PERCENTAGE_TAX_RATE) });
+    }
+    if (rows.length > 0 && from <= CREATE_WINDOW.to && to >= CREATE_WINDOW.from) {
+      warnings.push(CREATE_RATE_WARNING);
     }
     if (rows.length > SCHEDULE_1_ROOM) {
       warnings.push(
@@ -376,7 +400,9 @@ export class BookFiguresService {
         ),
       );
     }
-    const uncategorised = bought.filter((r) => r.inputVATCategory === null);
+    const uncategorised = bought.filter(
+      (r) => !InputVATCategory.safeParse(r.inputVATCategory).success,
+    );
     if (uncategorised.length > 0) {
       warnings.push(
         purchases(
@@ -430,8 +456,7 @@ export class BookFiguresService {
    */
   private line(spec: LineSpec, warnings: string[]): BookLine {
     const { exact, ...rest } = spec;
-    const rounded = roundToNearestWholePesoHalfUp(exact);
-    if (rounded < 0) warnings.push(belowZero(spec.label, rounded));
-    return { ...rest, amount: Math.max(rounded, 0) };
+    if (exact.lt(0)) warnings.push(belowZero(spec.label, exact));
+    return { ...rest, amount: Math.max(roundToNearestWholePesoHalfUp(exact), 0) };
   }
 }
