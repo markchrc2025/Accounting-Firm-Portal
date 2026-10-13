@@ -32,7 +32,7 @@ export interface BookRow {
 
 /** One box on the form that the books can fill. */
 export interface BookField {
-  /** "i31a" for a plain figure, "rows.0" for a Schedule 1 row. */
+  /** "i31a" for a plain figure, "rows.PT010" for the Schedule 1 row of that ATC. */
   id: string;
   /** The draft data key the box lives under. */
   dataKey: string;
@@ -72,15 +72,18 @@ export function flattenFigures(
     const value = figures[key];
     if (key === "rows") {
       if (!Array.isArray(value)) continue;
-      value.forEach((r, i) => {
-        if (!isRecord(r)) return;
+      for (const r of value) {
+        if (!isRecord(r)) continue;
         const row: BookRow = {
           atc: text(r.atc),
           taxable: text(r.taxable),
           rate: text(r.rate),
         };
-        out.push({ id: `rows.${i}`, dataKey: "rows", books: row.taxable, row });
-      });
+        // A row is known by its ATC, never by where it sits (W16-A1 R1).
+        const id = `rows.${row.atc}`;
+        if (row.atc === "" || out.some((f) => f.id === id)) continue;
+        out.push({ id, dataKey: "rows", books: row.taxable, row });
+      }
       continue;
     }
     if (typeof value === "number" || typeof value === "string") {
@@ -90,7 +93,19 @@ export function flattenFigures(
   return out;
 }
 
-/** What the draft holds now in each of those boxes (blank when it has none). */
+/** The draft's Schedule 1 row with this ATC (the first, if it has two). */
+function draftRow(
+  data: Record<string, unknown>,
+  atc: string,
+): Record<string, unknown> | undefined {
+  const rows = Array.isArray(data.rows) ? (data.rows as unknown[]) : [];
+  return rows.find(
+    (r): r is Record<string, unknown> => isRecord(r) && text(r.atc) === atc,
+  );
+}
+
+/** What the draft holds now in each of those boxes. A Schedule 1 row is looked
+ *  up by ATC; when the draft has no row with that ATC the field has no value. */
 export function currentValues(
   data: Record<string, unknown>,
   fields: readonly BookField[],
@@ -98,9 +113,8 @@ export function currentValues(
   const out: Record<string, string> = {};
   for (const f of fields) {
     if (f.row) {
-      const rows = Array.isArray(data.rows) ? (data.rows as unknown[]) : [];
-      const r = rows[Number(f.id.split(".")[1])];
-      out[f.id] = isRecord(r) ? text(r.taxable) : "";
+      const r = draftRow(data, f.row.atc);
+      if (r) out[f.id] = text(r.taxable);
     } else {
       out[f.id] = text(data[f.dataKey]);
     }
@@ -116,31 +130,56 @@ export function sameAmount(a: string | undefined, b: string | undefined): boolea
   return x === y;
 }
 
-/** The data keys the user typed over: a box that no longer holds the books' amount. */
+/** What the user typed over: the data key of a plain box, `rows.<ATC>` for a
+ *  Schedule 1 row. A box that no longer holds the books' amount. */
 export function editedKeys(
   values: Record<string, string>,
   fields: readonly BookField[],
 ): string[] {
   const out: string[] = [];
   for (const f of fields) {
-    if (!sameAmount(values[f.id], f.books) && !out.includes(f.dataKey))
-      out.push(f.dataKey);
+    const mark = f.row ? f.id : f.dataKey;
+    if (!sameAmount(values[f.id], f.books) && !out.includes(mark)) out.push(mark);
   }
   return out;
 }
 
-/** The boxes where the draft and the books disagree. */
+/** Schedule 1 has room for six rows (the editor's cap, the API's warning). */
+export const SCHEDULE_1_ROWS = 6;
+
+/** How many more rows the draft's Schedule 1 can take. */
+export function rowRoom(data: Record<string, unknown>): number {
+  const n = Array.isArray(data.rows) ? data.rows.length : 0;
+  return Math.max(SCHEDULE_1_ROWS - n, 0);
+}
+
+/** A books row the draft has no row for. */
+export const isAdded = (values: Record<string, string>, f: BookField): boolean =>
+  f.row !== undefined && values[f.id] === undefined;
+
+/** The boxes where the draft and the books disagree. A books row the draft lacks
+ *  counts as an addition, and only while Schedule 1 has `room` left for it. */
 export function differing(
   values: Record<string, string>,
   fresh: readonly BookField[],
+  room = Number.POSITIVE_INFINITY,
 ): BookField[] {
-  return fresh.filter((f) => !sameAmount(values[f.id], f.books));
+  let left = room;
+  const out: BookField[] = [];
+  for (const f of fresh) {
+    if (sameAmount(values[f.id], f.books)) continue;
+    if (isAdded(values, f)) {
+      if (left <= 0) continue;
+      left -= 1;
+    }
+    out.push(f);
+  }
+  return out;
 }
 
-const emptyRow = (): BookRow => ({ atc: "PT010", taxable: "", rate: "3" });
-
-/** The draft's data with the chosen boxes set to the books' amounts. The
- *  caller's object is never changed. */
+/** The draft's data with the chosen boxes set to the books' amounts. A Schedule 1
+ *  amount goes into the draft's row with the same ATC; a books row the draft
+ *  lacks is added whole, if there is room. The caller's object is never changed. */
 export function patchData(
   data: Record<string, unknown>,
   fields: readonly BookField[],
@@ -152,12 +191,13 @@ export function patchData(
     if (!f) continue;
     if (f.row) {
       const rows: unknown[] = Array.isArray(out.rows) ? [...(out.rows as unknown[])] : [];
-      const at = Number(id.split(".")[1]);
-      while (rows.length < at) {
-        const gap = fields.find((x) => x.id === `rows.${rows.length}`);
-        rows.push(gap?.row ? { ...gap.row } : emptyRow());
+      const at = rows.findIndex((r) => isRecord(r) && text(r.atc) === f.row!.atc);
+      if (at >= 0) {
+        // The draft's own row: the books' amount goes in, the rate stays the user's.
+        rows[at] = { ...(rows[at] as Record<string, unknown>), taxable: f.row.taxable };
+      } else if (rows.length < SCHEDULE_1_ROWS) {
+        rows.push({ ...f.row });
       }
-      rows[at] = { ...f.row };
       out.rows = rows;
     } else {
       out[f.dataKey] = f.books;
@@ -205,9 +245,17 @@ function pesos(v: string): string {
   return `₱${safe.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Every count the editors print goes through here: "1 record", "2 records",
+ *  "1 figure differs", "2 figures differ" (W16-A1 R2). */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 /** The badge a fed figure carries (R3). */
 export function badgeText(records: number | undefined): string {
-  return records === undefined ? "From books" : `From books · ${records} records`;
+  return records === undefined
+    ? "From books"
+    : `From books · ${plural(records, "record", "records")}`;
 }
 
 /** The badge a figure carries once typed over: the books' own amount stays visible. */
@@ -215,14 +263,34 @@ export function editedBadgeText(books: string): string {
   return `Edited · books say ${pesos(books)}`;
 }
 
-/** One line of the fill dialog (R4): `<label>: <typed> becomes <books>`. */
-export function fillItemText(label: string, typed: string, books: string): string {
-  return `${label}: ${pesos(typed)} becomes ${pesos(books)}`;
+/** One line of the fill dialog (R4): `<label>: <typed> becomes <books>`, or
+ *  `<label>: added <books>` for a Schedule 1 row the draft does not have. */
+export function fillItemText(
+  label: string,
+  typed: string | undefined,
+  books: string,
+): string {
+  return typed === undefined
+    ? `${label}: added ${pesos(books)}`
+    : `${label}: ${pesos(typed)} becomes ${pesos(books)}`;
 }
+
+const ITEM_45_OLD = "Domestic — services (Item 45)";
+/** Item 45 as the BIR's 2550Q prints it (packages/bir-pdf/templates/2550Q-2024-04.pdf). */
+export const ITEM_45_LABEL = "Services Rendered by Non-Residents (Item 45)";
+
+/** A label from the books, worded as the form prints it. U15 still calls Item 45
+ *  "Domestic — services". */
+export function printedLabel(label: string): string {
+  return label.replace(ITEM_45_OLD, ITEM_45_LABEL);
+}
+
+/** What "Refresh from books" says when the books already match the draft (R3). */
+export const NOTHING_TO_REFRESH = "The books match this draft. Nothing to refresh.";
 
 /** The note on a draft whose books moved on (R5). */
 export function staleNote(n: number): string {
-  return `The books changed after this draft was filled: ${n} figures differ.`;
+  return `The books changed after this draft was filled: ${plural(n, "figure differs", "figures differ")}.`;
 }
 
 /** The one quiet line on a filed return that was filled from the books (R2). */

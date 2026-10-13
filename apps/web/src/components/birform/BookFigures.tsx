@@ -6,7 +6,12 @@
 
 import { createContext, useContext, useEffect, useId, useState } from "react";
 import { Button, cn } from "../ui";
-import { filedLine, fillItemText, staleNote } from "../../lib/bookFigures";
+import {
+  NOTHING_TO_REFRESH,
+  filedLine,
+  fillItemText,
+  staleNote,
+} from "../../lib/bookFigures";
 import type { BookFigures } from "./useBookFigures";
 
 const BookContext = createContext<BookFigures | null>(null);
@@ -60,6 +65,11 @@ export function BookSwitch({ books }: { books: BookFigures }) {
           </Button>
         ) : null}
       </div>
+      {books.match ? (
+        <p data-book-match className="text-[12.5px] text-content-secondary">
+          {NOTHING_TO_REFRESH}
+        </p>
+      ) : null}
       {books.error ? (
         <p
           data-book-error

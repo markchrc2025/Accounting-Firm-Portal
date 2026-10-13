@@ -72,7 +72,7 @@ describe("the books' figures as fields (W16 R3)", () => {
     ]);
   });
 
-  it("makes one field per Schedule 1 row, in order", () => {
+  it("makes one field per Schedule 1 row, in order, named by its ATC", () => {
     expect(
       flattenFigures(
         {
@@ -85,13 +85,13 @@ describe("the books' figures as fields (W16 R3)", () => {
       ),
     ).toEqual([
       {
-        id: "rows.0",
+        id: "rows.PT010",
         dataKey: "rows",
         books: "120000",
         row: { atc: "PT010", taxable: "120000", rate: "3" },
       },
       {
-        id: "rows.1",
+        id: "rows.PT040",
         dataKey: "rows",
         books: "45000",
         row: { atc: "PT040", taxable: "45000", rate: "1" },
@@ -109,9 +109,9 @@ describe("the books' figures as fields (W16 R3)", () => {
         { rows: [{ atc: "PT010", taxable: "900", rate: "3" }], i15: "" },
         fields,
       ),
-    ).toEqual({ "rows.0": "900", i15: "" });
-    // A row the table does not have yet reads blank.
-    expect(currentValues({ rows: [] }, fields)["rows.0"]).toBe("");
+    ).toEqual({ "rows.PT010": "900", i15: "" });
+    // A row the table does not have (by ATC) has no value at all.
+    expect(currentValues({ rows: [] }, fields)).not.toHaveProperty("rows.PT010");
   });
 
   it("compares amounts as numbers, a blank being nothing", () => {
@@ -134,7 +134,7 @@ describe("what the user changed, and what a fill would change (W16 R3, R4)", () 
     ]);
   });
 
-  it("counts the Schedule 1 table once, however many rows changed, or grew", () => {
+  it("marks each changed Schedule 1 row by its ATC", () => {
     const rows = flattenFigures(
       {
         rows: [
@@ -144,8 +144,14 @@ describe("what the user changed, and what a fill would change (W16 R3, R4)", () 
       },
       KEYS_2551,
     );
-    expect(editedKeys({ "rows.0": "1000", "rows.1": "500" }, rows)).toEqual([]);
-    expect(editedKeys({ "rows.0": "999", "rows.1": "499" }, rows)).toEqual(["rows"]);
+    expect(editedKeys({ "rows.PT010": "1000", "rows.PT040": "500" }, rows)).toEqual([]);
+    expect(editedKeys({ "rows.PT010": "999", "rows.PT040": "500" }, rows)).toEqual([
+      "rows.PT010",
+    ]);
+    expect(editedKeys({ "rows.PT010": "999", "rows.PT040": "499" }, rows)).toEqual([
+      "rows.PT010",
+      "rows.PT040",
+    ]);
   });
 
   it("lists only the fields where the books and the draft differ", () => {
@@ -165,37 +171,21 @@ describe("filling from the books (W16 R4)", () => {
     expect(before.i31a).toBe("1");
   });
 
-  it("writes a Schedule 1 row whole, extending the table, and leaves the user's own rows", () => {
+  it("writes a Schedule 1 amount into the draft's row with the same ATC, wherever it is", () => {
     const fields = flattenFigures(
-      {
-        rows: [
-          { atc: "PT010", taxable: 120000, rate: 3 },
-          { atc: "PT040", taxable: 45000, rate: 1 },
-        ],
-      },
+      { rows: [{ atc: "PT060", taxable: 45000, rate: 3 }] },
       KEYS_2551,
     );
-    const mine = [{ atc: "PT060", taxable: "5", rate: "3" }];
-    const after = patchData({ rows: mine }, fields, ["rows.0", "rows.1"]);
-    expect(mine).toEqual([{ atc: "PT060", taxable: "5", rate: "3" }]);
+    const mine = [
+      { atc: "PT040", taxable: "9", rate: "1" },
+      { atc: "PT060", taxable: "5", rate: "1" },
+    ];
+    const after = patchData({ rows: mine }, fields, ["rows.PT060"]);
+    expect(mine[1]).toEqual({ atc: "PT060", taxable: "5", rate: "1" });
     expect(after.rows).toEqual([
-      { atc: "PT010", taxable: "120000", rate: "3" },
-      { atc: "PT040", taxable: "45000", rate: "1" },
+      { atc: "PT040", taxable: "9", rate: "1" },
+      { atc: "PT060", taxable: "45000", rate: "1" },
     ]);
-    const extra = patchData(
-      {
-        rows: [
-          mine[0],
-          { atc: "PT090", taxable: "7", rate: "3" },
-          { atc: "PT120", taxable: "8", rate: "3" },
-        ],
-      },
-      fields,
-      ["rows.0"],
-    );
-    expect((extra.rows as unknown[]).length).toBe(3);
-    expect((extra.rows as { atc: string }[])[0]!.atc).toBe("PT010");
-    expect((extra.rows as { atc: string }[])[2]!.atc).toBe("PT120");
   });
 });
 

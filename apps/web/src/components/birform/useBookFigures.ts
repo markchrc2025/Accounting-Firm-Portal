@@ -18,6 +18,8 @@ import {
   flattenFigures,
   lineFor,
   patchData,
+  printedLabel,
+  rowRoom,
   readSource,
   sameAmount,
   staleCount,
@@ -32,7 +34,7 @@ type Data = Record<string, unknown>;
 
 /** The words the books use for a box; its id when they gave no line. */
 const labelFor = (f: BookField, from: readonly BookLine[]) =>
-  lineFor(f, from)?.label ?? f.id;
+  printedLabel(lineFor(f, from)?.label ?? f.id);
 
 /** What the books gave, read into fields. */
 interface Fresh {
@@ -53,7 +55,8 @@ interface Baseline {
 export interface BookItem {
   id: string;
   label: string;
-  typed: string;
+  /** What the draft holds; undefined for a Schedule 1 row it does not have yet. */
+  typed: string | undefined;
   books: string;
   /** Typed over since the books last filled it: left unticked on a refresh. */
   edited: boolean;
@@ -82,6 +85,8 @@ export interface BookFigures {
   fetching: boolean;
   error: string | null;
   warnings: string[];
+  /** "Refresh from books" just found nothing to change (R3). */
+  match: boolean;
   /** How many figures the books give differently from what the draft holds. */
   stale: number;
   question: BookQuestion | null;
@@ -119,6 +124,7 @@ export function useBookFigures(opts: {
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const [question, setQuestion] = useState<BookQuestion | null>(null);
+  const [match, setMatch] = useState(false);
   // Books fetched that the draft has not taken yet (the staleness note, the open question).
   const [waiting, setWaiting] = useState<Fresh | null>(null);
 
@@ -149,6 +155,7 @@ export function useBookFigures(opts: {
       const mine = ++request.current;
       setFetching(true);
       setError(null);
+      setMatch(false);
       try {
         const r = await fetchBookFigures(forClient, form, forPeriod);
         if (mine !== request.current) return null;
@@ -192,10 +199,10 @@ export function useBookFigures(opts: {
     const before = new Map(
       (baselineRef.current?.fields ?? []).map((f) => [f.id, f.books]),
     );
-    return differing(values, fresh.fields).map((f) => ({
+    return differing(values, fresh.fields, rowRoom(dataRef.current)).map((f) => ({
       id: f.id,
       label: labelFor(f, fresh.lines),
-      typed: values[f.id] ?? "",
+      typed: values[f.id],
       books: f.books,
       edited: before.has(f.id) && !sameAmount(values[f.id], before.get(f.id)),
     }));
@@ -214,7 +221,7 @@ export function useBookFigures(opts: {
         return;
       }
       const items = itemsFor(fresh);
-      if (items.every((i) => i.typed === "")) {
+      if (items.every((i) => i.typed === undefined || i.typed === "")) {
         take(
           fresh,
           fresh.fields.map((f) => f.id),
@@ -235,11 +242,17 @@ export function useBookFigures(opts: {
     const items = itemsFor(fresh);
     if (items.length === 0) {
       take(fresh, []);
+      setMatch(true);
       return;
     }
     setWaiting(fresh);
     setQuestion({ kind: "refresh", items });
   }, [ask, itemsFor, take, saved?.clientId, period]);
+
+  // The note is about what the draft held when the books were read: any change goes.
+  useEffect(() => {
+    setMatch(false);
+  }, [data]);
 
   // An existing draft: read its `_source` once. A draft saved in Portal books
   // checks the books once in the background and never refreshes by itself.
@@ -382,6 +395,7 @@ export function useBookFigures(opts: {
     fetching,
     error,
     warnings,
+    match,
     stale,
     question,
     source,
