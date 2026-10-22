@@ -16,6 +16,8 @@ const TEMPLATES: Record<string, string> = {
   "1702Q-2018-01.pdf": "589e22190b9211571cb8a0ba14c97c17dff250f3b8ee9f9e8f6cc3b37b1b1be4",
   "1702RT-2018-01.pdf":
     "d9a6a8a13e0114934261151c4eb269a1573042e7ce670eaf12b15f169d308d2d",
+  // The January 2018 (ENCS) 2307, as the domain owner committed it (e7417ac) and C7 renamed it.
+  "2307-2018-01.pdf": "eca9476c5f6346939b973e693d35d635f6dd82519b87092c717c21965b0b90f9",
   "2550Q-2024-04.pdf": "18eb16925010fdda820cef958221ba2c0d073066efa93a898113e39b31135a25",
   "2551Q-2018-01.pdf": "1f270ecf66d778836a14697863e420ff65d5ed0a5576a6cf58b97c9a8e8c9b24",
 };

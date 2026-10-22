@@ -393,6 +393,25 @@ function choice(
   return fill(row, label, start, size, m, where(f, map));
 }
 
+/**
+ * An amount in pesos and centavos (C7): thousands separators and exactly two decimals,
+ * as typed. "1234.5" prints "1,234.50"; "0.1" prints "0.10". Never rounded: a third
+ * decimal that is not zero is an error naming the field.
+ */
+function centavoAmount(v: string, raw: string, who: string, key: string): string {
+  const a = AMOUNT.exec(/^-?\./.test(v) ? v.replace(".", "0.") : v);
+  if (!a) throw new BirPdfError(`${who}: "${raw}" is not an amount`, key);
+  const dec = a[3] ?? "";
+  if (/[1-9]/.test(dec.slice(2))) {
+    throw new BirPdfError(
+      `${who}: "${raw}" has more than two decimals; the paper has pesos and centavos only`,
+      key,
+    );
+  }
+  const pesos = a[2]!.replace(/,/g, "").replace(/^0+(?=\d)/, "");
+  return `${a[1]}${pesos.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${dec.padEnd(2, "0").slice(0, 2)}`;
+}
+
 /** Room left at each end of a free-text line or cell. */
 const TEXT_INSET = 1.5;
 
@@ -406,7 +425,9 @@ function text(
   const who = where(f, map);
   let v = ((f.case ?? "upper") === "upper" ? raw.toUpperCase() : raw).trim();
   if (v === "") return [];
-  if (f.amount) {
+  if (f.amount === "centavos") {
+    v = centavoAmount(v, raw, who, f.key);
+  } else if (f.amount) {
     const a = AMOUNT.exec(v);
     if (!a) throw new BirPdfError(`${who}: "${raw}" is not an amount`, f.key);
     if (/[1-9]/.test(a[3] ?? "")) {

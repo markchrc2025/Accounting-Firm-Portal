@@ -73,6 +73,9 @@ interface MapField {
   cells?: number[];
   cents?: number[];
   rows?: Array<{ page: number; y: number; cells: number[] }>;
+  /** A free-text line or table cell (kind "text"): its left and right edges. */
+  x0?: number;
+  x1?: number;
 }
 
 export function loadMap(file: string): { template: string; fields: MapField[] } {
@@ -89,8 +92,11 @@ function between(items: Item[], page: number, y: number, x0: number, x1: number)
     .replace(/\s+/g, "");
 }
 
-/** What a field printed: a comb or choice as its characters; money as "pesos.cents". */
+/** What a field printed: a comb or choice as its characters; money as "pesos.cents";
+ *  a text line or cell as the text between its edges (C7). */
 export function printed(items: Item[], field: MapField): string {
+  if (field.kind === "text")
+    return between(items, field.page!, field.y!, field.x0!, field.x1! + 1);
   if (field.rows)
     return field.rows
       .map((r) => between(items, r.page, r.y, r.cells[0]!, r.cells.at(-1)!))

@@ -1,9 +1,10 @@
 // sheetsPdf.ts — rasterise faithful BIR form sheets onto PDF pages.
 //
 // Split out of FormViewShell.tsx so that file exports only components (React
-// fast refresh requires it). Used by the shell's live preview and by a page's
-// own Print button, so both produce the same bytes. `captureNode` is the one
-// html2canvas capture every print path shares (W3 R5).
+// fast refresh requires it). Used by the shell's live preview. (The 2307's own
+// "Print certificate (PDF)" download was removed in C7: the server prints the
+// certificate on the BIR's blank; the 2316 and billing keep their own paths.)
+// `captureNode` is the one html2canvas capture every browser print path shares (W3 R5).
 
 /** A PDF page size in points. Long bond is [612, 936]; A4 is [595.28, 841.89]. */
 export type PagePt = [number, number];
@@ -131,26 +132,3 @@ export async function sheetsToPdfBlob(
  */
 const H2C_PROBE_IMAGE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-
-/**
- * Produce the PDF for the sheets under `root` and hand it to the browser as a
- * download. Kept separate from the component so a page's own Print button can
- * call it with the same geometry the preview used.
- */
-export async function downloadSheetsPdf(
-  root: HTMLElement,
-  pagePt: PagePt,
-  filename: string,
-): Promise<void> {
-  const blob = await sheetsToPdfBlob(root, pagePt, filename);
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-  } finally {
-    // Give the click a tick to start the download before revoking.
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  }
-}

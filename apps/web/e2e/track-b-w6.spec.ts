@@ -13,6 +13,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { mockCertificatePrint } from "./helpers/certificate-print";
 
 // ---------------------------------------------------------------------------
 // Invented parties
@@ -853,7 +854,7 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
-  test("T4 the 2307 print asks for no missing asset; its barcode box is present and empty", async ({
+  test("T4 the 2307 Form view and its Preview PDF ask for no missing asset; its barcode box is present and empty", async ({
     page,
   }) => {
     // A missing file is a 404 — or, behind nginx's and Vite's SPA fallback, an
@@ -902,6 +903,8 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
       amendsId: null,
       sequence: 1,
       filedSnapshot: null,
+      previewAvailable: true, // C7: the 2307 prints on the server
+      clearCopyAvailable: false,
     };
     const { unmocked, quiet } = await mockApi(page, {
       extra: [
@@ -920,6 +923,10 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
         ],
       ],
     });
+    await mockCertificatePrint(page, SAVED_ID, {
+      preview: "000111222000-2307-2026-Q1-DRAFT.pdf",
+      clear: "000111222000-2307-2026-Q1.pdf",
+    });
     await page.setViewportSize({ width: 1600, height: 1200 });
     await page.goto(`/bir-forms/${SAVED_ID}`);
     await expect(page.getByLabel("Year")).toHaveValue("2026");
@@ -935,7 +942,7 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
 
     await Promise.all([
       page.waitForEvent("download", { timeout: 60_000 }),
-      page.getByRole("button", { name: /Print certificate \(PDF\)/ }).click(),
+      page.getByRole("button", { name: "Preview PDF" }).click(),
     ]);
     await quiet();
     for (const f of failed) {

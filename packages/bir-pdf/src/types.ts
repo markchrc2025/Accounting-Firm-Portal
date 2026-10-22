@@ -100,11 +100,15 @@ export interface TextField extends Placed {
   minSize: number;
   case?: "upper" | "keep";
   /**
-   * The cell holds an amount the paper has no digit boxes for (a table cell): printed
-   * as whole pesos like every other amount ("0.00" prints "0"), right-aligned by the
-   * map. Centavos other than zero are an error, as in a money field with no centavo boxes.
+   * The cell holds an amount the paper has no digit boxes for (a table cell).
+   *   true         whole pesos like every other amount ("0.00" prints "0"), right-aligned
+   *                by the map. Centavos other than zero are an error, as in a money field
+   *                with no centavo boxes.
+   *   "centavos"   (C7, the 2307) pesos AND centavos: thousands separators and exactly two
+   *                decimals, as typed ("1234.5" prints "1,234.50"). Never rounded: a third
+   *                non-zero decimal is an error.
    */
-  amount?: boolean;
+  amount?: boolean | "centavos";
 }
 
 /** A key the builder emits that has no place on the paper. */
@@ -130,6 +134,14 @@ export interface FormMap {
   title: string;
   /** Page sizes of the template, checked at render time. */
   pages: { width: number; height: number }[];
+  /**
+   * C7 (D56): the pages of the template that are printed, in order; the rest are left out
+   * of the output (the 2307's page 2 is the BIR's schedule of ATCs). Absent: every page.
+   * No field may sit on a page that is not printed.
+   */
+  printPages?: number[];
+  /** PDF metadata subject; absent: "BIR Form <form> (<version>), printed from its eBIRForms export". */
+  subject?: string;
   /** Default font size (points). */
   size: number;
   fields: Field[];
