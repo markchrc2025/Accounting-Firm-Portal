@@ -877,6 +877,7 @@ test.describe("T5 the 2307 prints only what is saved, named right (hermetic)", (
     page.on("download", (d) => downloads.push(d.suggestedFilename()));
     const { unmocked, quiet, print } = await openSaved2307(page, NAMELESS_CLIENT, 3);
     await expect.poll(() => item7(page)).toBe("");
+    await quiet(); // the client's record is in: until then the server decides
     await printButton(page).click();
     await expect(page.getByText(NAME_MISSING)).toBeVisible();
     await quiet();

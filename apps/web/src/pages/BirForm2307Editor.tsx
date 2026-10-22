@@ -486,7 +486,11 @@ export default function BirForm2307Editor() {
                 dirty={false}
                 save={() => save.mutateAsync()}
                 blockedReason={!clientId || !isSaved ? SAVE_BEFORE_PRINTING : undefined}
-                precheck={() => (payorName ? null : PAYOR_NAME_MISSING)}
+                // While the client's record is still loading the server decides: it reads the
+                // client itself and refuses in the same words.
+                precheck={() =>
+                  clientQ.isLoading || payorName ? null : PAYOR_NAME_MISSING
+                }
               />
             ) : null}
           </>

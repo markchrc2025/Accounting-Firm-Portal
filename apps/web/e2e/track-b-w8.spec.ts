@@ -745,6 +745,7 @@ test.describe("T4 a filed 2307 always reprints what was issued (hermetic)", () =
       clear: "2307-2026-Q1.pdf",
     });
     await expect.poll(() => item7(page)).toBe("");
+    await quiet(); // the client's record is in: until then the server decides
     await previewButton(page).click();
     await expect(page.getByText(NAME_MISSING)).toBeVisible();
     await quiet();

@@ -5,7 +5,7 @@
 //
 // All data is invented. No real name, TIN, address, phone or email.
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -132,6 +132,15 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
+/** Wait until the editor holds the client's record (the payor's name is in the replica). */
+async function clientLoaded(): Promise<void> {
+  await waitFor(() => expect(api.fetchClient).toHaveBeenCalled());
+  await act(async () => {
+    await api.fetchClient.mock.results[0]!.value;
+    await new Promise((r) => setTimeout(r, 30));
+  });
+}
+
 const preview = () => screen.queryByRole("button", { name: "Preview PDF" });
 const clear = () => screen.queryByRole("button", { name: "Download clear copy" });
 const oldButton = () => screen.queryByRole("button", { name: /Print certificate/ });
@@ -152,6 +161,7 @@ describe("C7 the 2307 prints through the server (D56)", () => {
       name: "Preview PDF",
     })) as HTMLButtonElement;
     await waitFor(() => expect(btn.disabled).toBe(false));
+    await clientLoaded();
     fireEvent.click(btn);
     await waitFor(() => expect(dl.downloadBlob).toHaveBeenCalledTimes(1));
     expect(api.previewBirFormPdf).toHaveBeenCalledTimes(1);
@@ -182,10 +192,26 @@ describe("C7 the 2307 prints through the server (D56)", () => {
       name: "Preview PDF",
     })) as HTMLButtonElement;
     await waitFor(() => expect(btn.disabled).toBe(false));
+    await clientLoaded();
     fireEvent.click(btn);
     expect(await screen.findByText(NAME_MISSING)).toBeTruthy();
     expect(api.previewBirFormPdf).not.toHaveBeenCalled();
     expect(dl.downloadBlob).not.toHaveBeenCalled();
+  });
+
+  it("while the client's record is still loading, the click goes to the server, which decides in the same words", async () => {
+    api.fetchBirForm.mockResolvedValue(form2307());
+    api.fetchClient.mockReturnValue(new Promise(() => {})); // never arrives
+    const { ApiError } = await import("../lib/api");
+    api.previewBirFormPdf.mockRejectedValue(new ApiError(409, NAME_MISSING));
+    renderAt(`/bir-forms/${FORM_ID}`);
+    const btn = (await screen.findByRole("button", {
+      name: "Preview PDF",
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(btn.disabled).toBe(false));
+    fireEvent.click(btn);
+    await waitFor(() => expect(api.previewBirFormPdf).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(NAME_MISSING)).toBeTruthy();
   });
 
   it("the server's refusal shows word for word", async () => {
@@ -199,6 +225,7 @@ describe("C7 the 2307 prints through the server (D56)", () => {
       name: "Preview PDF",
     })) as HTMLButtonElement;
     await waitFor(() => expect(btn.disabled).toBe(false));
+    await clientLoaded();
     fireEvent.click(btn);
     expect(await screen.findByText("Invented server refusal.")).toBeTruthy();
     expect(dl.downloadBlob).not.toHaveBeenCalled();
