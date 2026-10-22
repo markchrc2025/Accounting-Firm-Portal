@@ -11,6 +11,7 @@
 // All data is invented. No real name, TIN, address, phone or email.
 
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { mockCertificatePrint } from "./helpers/certificate-print";
 
 // ---------------------------------------------------------------------------
 // Invented firm, users and clients
@@ -631,6 +632,8 @@ function form2307(
     amendsId: null,
     sequence: 1,
     filedSnapshot: null,
+    previewAvailable: false,
+    clearCopyAvailable: true,
     ...over,
   };
 }
@@ -665,16 +668,23 @@ async function item7(page: Page): Promise<string> {
   });
 }
 
-const printButton = (page: Page) =>
-  page.getByRole("button", { name: /Print certificate \(PDF\)/ });
+const clearCopyButton = (page: Page) =>
+  page.getByRole("button", { name: "Download clear copy" });
+const previewButton = (page: Page) => page.getByRole("button", { name: "Preview PDF" });
 
-async function printsWithoutRefusal(page: Page) {
-  await expect(printButton(page)).toBeEnabled();
+/** A filed certificate reprints through "Download clear copy" and is never refused (R3). */
+async function printsWithoutRefusal(page: Page, id: string) {
+  const calls = await mockCertificatePrint(page, id, {
+    preview: "000121232000-2307-2026-Q1-DRAFT.pdf",
+    clear: "000121232000-2307-2026-Q1.pdf",
+  });
+  await expect(clearCopyButton(page)).toBeEnabled();
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 60_000 }),
-    printButton(page).click(),
+    clearCopyButton(page).click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/2307-2026-Q1\.pdf$/);
+  expect(calls.clearCopies).toBe(1);
   await expect(page.getByText(NAME_MISSING)).toHaveCount(0);
 }
 
@@ -685,7 +695,7 @@ test.describe("T4 a filed 2307 always reprints what was issued (hermetic)", () =
     const form = form2307(1, PAYOR_NO_NAMES, { filedSnapshot: SNAP_NO_NAMES });
     const { unmocked } = await open2307(page, form, PAYOR_NO_NAMES);
     await expect.poll(() => item7(page)).toBe(SNAP_NO_NAMES.businessName);
-    await printsWithoutRefusal(page);
+    await printsWithoutRefusal(page, form.id);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
@@ -695,7 +705,7 @@ test.describe("T4 a filed 2307 always reprints what was issued (hermetic)", () =
     const form = form2307(2, PAYOR_NO_NAMES, { filedSnapshot: SNAP_NAMED });
     const { unmocked } = await open2307(page, form, PAYOR_NO_NAMES);
     await expect.poll(() => item7(page)).toBe("TESTFILER, SAMPLE ISSUED");
-    await printsWithoutRefusal(page);
+    await printsWithoutRefusal(page, form.id);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
@@ -705,7 +715,7 @@ test.describe("T4 a filed 2307 always reprints what was issued (hermetic)", () =
     const form = form2307(3, PAYOR_NAMED, { filedSnapshot: null });
     const { unmocked } = await open2307(page, form, PAYOR_NAMED);
     await expect.poll(() => item7(page)).toBe(PAYOR_NAMED.regName);
-    await printsWithoutRefusal(page);
+    await printsWithoutRefusal(page, form.id);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
@@ -715,7 +725,7 @@ test.describe("T4 a filed 2307 always reprints what was issued (hermetic)", () =
     const form = form2307(4, PAYOR_NO_NAMES, { filedSnapshot: null });
     const { unmocked } = await open2307(page, form, PAYOR_NO_NAMES);
     await expect.poll(() => item7(page)).toBe(PAYOR_NO_NAMES.businessName);
-    await printsWithoutRefusal(page);
+    await printsWithoutRefusal(page, form.id);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
@@ -726,12 +736,20 @@ test.describe("T4 a filed 2307 always reprints what was issued (hermetic)", () =
       status: "draft",
       filedAt: null,
       filedSnapshot: null,
+      previewAvailable: true,
+      clearCopyAvailable: false,
     });
     const { unmocked, quiet } = await open2307(page, form, PAYOR_NO_NAMES);
+    const calls = await mockCertificatePrint(page, form.id, {
+      preview: "2307-2026-Q1-DRAFT.pdf",
+      clear: "2307-2026-Q1.pdf",
+    });
     await expect.poll(() => item7(page)).toBe("");
-    await printButton(page).click();
+    await quiet(); // the client's record is in: until then the server decides
+    await previewButton(page).click();
     await expect(page.getByText(NAME_MISSING)).toBeVisible();
     await quiet();
+    expect(calls.previews, "the refusal is made before any request").toBe(0);
     expect(downloads).toEqual([]);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });

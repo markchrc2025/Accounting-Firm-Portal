@@ -15,6 +15,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import * as XLSX from "xlsx";
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { mockCertificatePrint } from "./helpers/certificate-print";
 
 // ---------------------------------------------------------------------------
 // Invented parties
@@ -801,6 +802,9 @@ function draft2307(client: { id: string; businessName: string }, n: number) {
     amendsId: null,
     sequence: 1,
     filedSnapshot: null,
+    // C7: the 2307 prints on the server, on the BIR's own blank.
+    previewAvailable: true,
+    clearCopyAvailable: false,
   };
 }
 
@@ -817,10 +821,14 @@ async function openSaved2307(
       ["GET", new RegExp(`^/api/v1/bir-forms/${form.id}$`), (r) => json(r, form)],
     ],
   });
+  const print = await mockCertificatePrint(page, form.id, {
+    preview: "000111222000-2307-2026-Q1-DRAFT.pdf",
+    clear: "000111222000-2307-2026-Q1.pdf",
+  });
   await page.setViewportSize({ width: 1600, height: 1200 });
   await page.goto(`/bir-forms/${form.id}`);
   await expect(page.getByLabel("Payee name")).toHaveValue(DATA_2307.payeeName);
-  return api;
+  return { ...api, print };
 }
 
 /** Item 7, "Payor's Name", as the capture copy (the one printed) holds it. */
@@ -833,8 +841,8 @@ async function item7(page: Page): Promise<string> {
   });
 }
 
-const printButton = (page: Page) =>
-  page.getByRole("button", { name: /Print certificate \(PDF\)/ });
+/** C7: the draft's print is "Preview PDF" (the server prints it on the BIR's blank). */
+const printButton = (page: Page) => page.getByRole("button", { name: "Preview PDF" });
 
 test.describe("T5 the 2307 prints only what is saved, named right (hermetic)", () => {
   test("T5 Item 7 reads LAST, FIRST MIDDLE for an individual, never the trade or display name; it prints", async ({
@@ -850,7 +858,7 @@ test.describe("T5 the 2307 prints only what is saved, named right (hermetic)", (
       page.waitForEvent("download", { timeout: 60_000 }),
       printButton(page).click(),
     ]);
-    expect(download.suggestedFilename()).toMatch(/2307-2026-Q1\.pdf$/);
+    expect(download.suggestedFilename()).toMatch(/2307-2026-Q1-DRAFT\.pdf$/);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
@@ -862,17 +870,19 @@ test.describe("T5 the 2307 prints only what is saved, named right (hermetic)", (
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
-  test("T5 a payor with no registered name is refused Print with R6's message; nothing is downloaded", async ({
+  test("T5 a payor with no registered name is refused Preview PDF with R6's message; nothing is sent and nothing is downloaded", async ({
     page,
   }) => {
     const downloads: string[] = [];
     page.on("download", (d) => downloads.push(d.suggestedFilename()));
-    const { unmocked, quiet } = await openSaved2307(page, NAMELESS_CLIENT, 3);
+    const { unmocked, quiet, print } = await openSaved2307(page, NAMELESS_CLIENT, 3);
     await expect.poll(() => item7(page)).toBe("");
+    await quiet(); // the client's record is in: until then the server decides
     await printButton(page).click();
     await expect(page.getByText(NAME_MISSING)).toBeVisible();
     await quiet();
     expect(downloads).toEqual([]);
+    expect(print.previews).toBe(0);
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
@@ -894,14 +904,17 @@ test.describe("T5 the 2307 prints only what is saved, named right (hermetic)", (
     expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   });
 
-  test("T5 the Form view's PDF preview hides its own download and print until the certificate is saved", async ({
+  test("T5 the Form view's PDF pane never offers its own download or print: Preview PDF is the one print", async ({
     page,
   }) => {
     const { unmocked } = await openSaved2307(page, IND_CLIENT, 6);
     const preview = page.locator('iframe[title="Form PDF preview"]');
     await page.getByRole("button", { name: "Form", exact: true }).click();
     // The preview is an html2canvas render: seconds, not milliseconds, under load.
-    await expect(preview).toHaveAttribute("src", /#view=FitH$/, { timeout: 30_000 });
+    // C7: saved or not, its viewer's own download and print are hidden.
+    await expect(preview).toHaveAttribute("src", /#view=FitH&toolbar=0$/, {
+      timeout: 30_000,
+    });
     await page.getByRole("button", { name: "Guided", exact: true }).click();
     await page.getByLabel("Payee name").fill("INVENTED PAYEE, EDITED");
     await page.getByRole("button", { name: "Form", exact: true }).click();

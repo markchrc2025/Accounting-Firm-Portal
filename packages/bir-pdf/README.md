@@ -27,6 +27,7 @@ eBIRForms to file. So the PDF shows exactly what was filed.
 | `tools/proof.ts` | Dev only: writes the proof print of a map. |
 | `tools/make-fixtures.ts` | Dev only: writes `fixtures/*-sample.xml` with the Portal's own builders for an invented taxpayer. |
 | `proofs/` | The committed proof prints (invented data only). |
+| `tools/map-2307.py` | Dev only: writes the 2307 map from the blank's vector drawing (`--check` compares). |
 
 Run-time dependencies: `pdf-lib` 1.17.1 and `@pdf-lib/fontkit` 1.1.1, pinned. Nothing
 else. `pdfjs-dist` (reading text back in tests), `tsx`, `vitest` and Python
@@ -168,6 +169,30 @@ Information" attachment keys of the 1701 (Pg1m to Pg4m), which the four-page for
 place for, are `none` with the zero/empty value they must carry. Where the paper has no
 centavo boxes (all five annual and quarterly income-tax returns: "DO NOT enter
 Centavos") an amount prints as whole pesos and an amount with centavos is refused.
+
+## The 2307 (C7, D56)
+
+BIR Form 2307, the Certificate of Creditable Tax Withheld at Source, prints on the BIR's
+own blank (`templates/2307-2018-01.pdf`, renamed in C7 from `2307 Jan 2018 ENCS v3.pdf`
+with `git mv`; same bytes, same SHA-256). It is a certificate, not an e-filed return, so
+there is no eBIRForms XML: `renderReturn` takes rows the Portal builds from the
+certificate (`apps/api` `bir-forms/engine/certificate2307.ts`, keys `c2307:*`).
+
+- **Page 1 only** (`"printPages": [1]` in the map). Page 2 is the BIR's schedule of ATCs
+  and is removed from the output; no field may be mapped on an unprinted page.
+- **Centavos.** The paper has pesos and centavos in one cell. A text field with
+  `"amount": "centavos"` prints the value as typed, with thousands separators and two
+  decimals (`1000.5` prints `1,000.50`); it never rounds, and a third non-zero decimal is
+  an error. The whole-peso rule (`"amount": true`) of the income-tax returns is untouched.
+- **Geometry** is measured from the blank's own vector drawing by `tools/map-2307.py`
+  (`--check` fails if the committed map differs), and re-checked independently by
+  `test/c7-2307-geometry.test.ts`, which reads the same drawing through pdfjs.
+- **Printed:** Item 1 (From, To), Part I (2, 3, 4, 4A, 5), Part II (6, 7, 8, 8A), Part III
+  blocks A and B (ten rows and a Total row each), the payor's and the payee's signature
+  areas (printed name, title and TIN), the Tax Agent Accreditation No. and the dates of
+  issue and expiry. The barcode, the "For BIR Use Only" box and the form code are not
+  touched.
+- **Block B** is mapped; the editor has no entry for it until C8, so it prints blank.
 
 ## Adding a new form version
 

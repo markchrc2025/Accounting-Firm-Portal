@@ -209,3 +209,6 @@ Decision (domain owner): Item 16 (civil status) and the other background items o
 
 ## 2026-10-13 · D55 amendment · Item 7 is chosen, Item 6 is the Classification
 Decision (domain owner): on the 1701, 1701A and 1701Q, Item 7 (ATC) is chosen by the preparer in the editor and is never derived and never added to the client's record. Item 6 (taxpayer type) is the client's Classification and is not overridden by the draft's figures. Civil status still comes from the client's record, and Items 17 and 18 are answered only for a married taxpayer. The same applies to the ATC of the 1702Q and 1702RT; no ATC is defaulted. Built in C6.
+
+## 2026-10-22 · D56 · The 2307 prints on the BIR's own blank
+Decision (domain owner): BIR Form 2307 is printed on the BIR's own blank form like the seven returns: Preview PDF while a draft, Download clear copy once issued. The client is the payor and the payee is typed per certificate. Amounts print with centavos, exactly as entered. Page 1 only. Built in C7.

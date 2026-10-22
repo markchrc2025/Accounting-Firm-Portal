@@ -36,6 +36,8 @@ import {
   build1702RT,
   build2550Q,
   build2551Q,
+  build2307PrintRows,
+  certificateFileName,
   compute1701,
   compute1701A,
   compute1701Q,
@@ -105,6 +107,9 @@ export const CLEAR_COPY_VERSION: Record<string, string> = {
   "1701": "2018-01",
   "1702Q": "2018-01",
   "1702RT": "2018-01",
+  // C7 (D56): the certificate has no eBIRForms export; its rows come from
+  // build2307PrintRows, but it prints on the BIR's own blank the same way.
+  "2307": "2018-01",
 };
 
 /** U13 R1: the refusal for a draft. */
@@ -586,10 +591,12 @@ export class BirFormsService {
       throw new ConflictException(`A clear copy of the ${f.form} is not available yet.`);
     }
     if (f.status !== "filed") throw new ConflictException(CLEAR_COPY_DRAFT);
-    const { xml, filename: xmlName, snapshotAudit } = await this.buildExport(user, f);
+    const { rows, baseName, snapshotAudit } = await this.printSource(user, f, {
+      store: true,
+    });
     let pdf: Uint8Array;
     try {
-      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, parseEbirExport(xml));
+      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, rows);
     } catch (err) {
       // The engine names the field of the return it cannot print; nothing is
       // stored. A fault of the Portal's own is a 500, not the user's to fix.
@@ -599,7 +606,7 @@ export class BirFormsService {
         `The clear copy of this ${f.form} could not be printed. The error is logged.`,
       );
     }
-    const filename = xmlName.replace(/\.xml$/i, ".pdf");
+    const filename = `${baseName}.pdf`;
     const key = this.storage.birFormExportKey(user.firmId, f.id, filename);
     await this.storage.putObject(key, pdf, "application/pdf");
     const exportRow = await this.prisma.birFormExport.create({
@@ -637,10 +644,10 @@ export class BirFormsService {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
     if (!clearCopyMapped(f.form)) throw new ConflictException(previewNotAvailable(f.form));
     if (f.status !== "draft") throw new ConflictException(PREVIEW_FILED);
-    const { xml, filename: xmlName } = await this.buildExport(user, f, { store: false });
+    const { rows, baseName } = await this.printSource(user, f, { store: false });
     let pdf: Uint8Array;
     try {
-      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, parseEbirExport(xml), {
+      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, rows, {
         watermark: "DRAFT",
         printedAt: new Date(),
       });
@@ -653,7 +660,56 @@ export class BirFormsService {
         `The preview of this ${f.form} could not be printed. The error is logged.`,
       );
     }
-    return { pdf, filename: xmlName.replace(/\.xml$/i, "-DRAFT.pdf") };
+    return { pdf, filename: `${baseName}-DRAFT.pdf` };
+  }
+
+  /**
+   * What a clear copy or a preview prints: the rows the print engine reads, and the file
+   * name (without its extension) they are saved under. The seven returns print their
+   * eBIRForms export (buildExport); the 2307 certificate has none, so its rows are built
+   * from its own data and its payor block — the filing snapshot once issued (D12), the
+   * client's record while it is a draft (C7, D56).
+   */
+  private async printSource(
+    user: AuthUser,
+    f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
+    opts: { store: boolean },
+  ) {
+    if (f.form !== "2307") {
+      const { xml, filename, snapshotAudit } = await this.buildExport(user, f, opts);
+      return {
+        rows: parseEbirExport(xml),
+        baseName: filename.replace(/\.xml$/i, ""),
+        snapshotAudit,
+      };
+    }
+    this.assertSupported(f.form);
+    const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    let snapshot: FiledSnapshot | null;
+    try {
+      snapshot = readFiledSnapshot(f.filedSnapshotJson);
+    } catch (err) {
+      throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
+    }
+    const issued = f.status === "filed";
+    const payor = issued && snapshot ? snapshot : client;
+    const snapshotAudit = snapshot
+      ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
+      : { snapshot: issued ? "none (pre-U3)" : "none (draft)" };
+    try {
+      const rows = build2307PrintRows((f.dataJson ?? {}) as FilingData, payor, {
+        filed: issued,
+        period: f.period,
+      });
+      return {
+        rows,
+        baseName: certificateFileName("2307", f.period, payor.tin).replace(/\.pdf$/i, ""),
+        snapshotAudit,
+      };
+    } catch (err) {
+      if (err instanceof ExportRefusal) throw new ConflictException(err.message);
+      throw err;
+    }
   }
 
   /**
