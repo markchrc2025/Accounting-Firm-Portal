@@ -14,11 +14,13 @@ import {
 } from "../lib/api";
 import { certificateFileName } from "../lib/sheetPdf";
 import { FormViewShell, type FormViewMode } from "../components/birform/FormViewShell";
-import { downloadSheetsPdf, type PagePt } from "../components/birform/sheetsPdf";
+import type { PagePt } from "../components/birform/sheetsPdf";
 import { Form2307, type Form2307Signatory } from "../components/birform/Form2307";
 import { tin14 } from "../components/birform/format";
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { ClearCopyButton } from "../components/birform/ClearCopyButton";
+import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { payorPrintName, printParty } from "../lib/birFiling";
 import {
   issueBlockers,
@@ -42,7 +44,9 @@ import {
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 
-/** BIR Form 2307 is printed on LONG BOND, 8.5 x 13 in = 612 x 936 pt (R1). */
+/** BIR Form 2307 is printed on LONG BOND, 8.5 x 13 in = 612 x 936 pt (R1). The sheet on
+ *  screen is laid out to this page; the printed certificate itself is made by the server
+ *  on the BIR's own blank (C7, D56). */
 const LONG_BOND_PT: PagePt = [612, 936];
 
 /** Calendar bounds of each quarter, MM/DD — item 1 From and To. */
@@ -96,8 +100,9 @@ const PAYOR_NAME_MISSING =
  * 2307 — Certificate of Creditable Tax Withheld at Source.
  *
  * Unlike the seven returns, a 2307 is *issued* to a payee rather than e-filed,
- * so there is no eBIRForms XML. The deliverable is the printed certificate:
- * this editor renders a faithful A4 sheet and prints it to PDF.
+ * so there is no eBIRForms XML. The deliverable is the printed certificate: the
+ * server prints it on the BIR's own blank form (C7, D56) — "Preview PDF" while it is
+ * a draft, "Download clear copy" once it is issued. The sheet on screen is the view.
  */
 export default function BirForm2307Editor() {
   const { id } = useParams<{ id: string }>();
@@ -302,35 +307,14 @@ export default function BirForm2307Editor() {
     onError: (e) => setError(e instanceof ApiError ? e.message : "Could not update the form status."),
   });
 
-  // ---- Print to PDF (the certificate's only output) ----
-  /** The NEW replica's `.bir-doc` root — long bond, built from the official form. */
+  // ---- The certificate's one print path: the server, on the BIR's own blank (C7) ----
+  /** The replica's `.bir-doc` root, which the Form view shows. */
   const docRef = useRef<HTMLDivElement>(null);
-  const [printing, setPrinting] = useState(false);
   const party = printParty(existing.data, clientQ.data);
   // W8 R3: a filed certificate reprints what was issued, and is never refused.
   const filed = existing.data?.status === "filed";
   const payorName = payorPrintName(party, filed);
   const pdfName = certificateFileName("2307", period, party.tin);
-
-  async function printPdf() {
-    const node = docRef.current;
-    if (!node || !isSaved) return;
-    // A draft's Item 7 prints the payor's BIR name, never a trade or display
-    // name (W7 R6); without it the draft is not printed.
-    if (!filed && !payorName) {
-      setError(PAYOR_NAME_MISSING);
-      return;
-    }
-    setPrinting(true);
-    setError(null);
-    try {
-      await downloadSheetsPdf(node, LONG_BOND_PT, pdfName);
-    } catch {
-      setError("Could not produce the PDF — please retry.");
-    } finally {
-      setPrinting(false);
-    }
-  }
 
   function updateRow(i: number, patch: Partial<Row>): void {
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -450,7 +434,7 @@ export default function BirForm2307Editor() {
         filename={pdfName}
         pagePt={LONG_BOND_PT}
         revisionKey={revisionKey}
-        previewToolbar={isSaved}
+        previewToolbar={false}
         sheets={
           <Form2307
             periodFrom={periodFrom}
@@ -489,14 +473,26 @@ export default function BirForm2307Editor() {
         }
         actions={
           <>
-            <Button
-              variant="outline"
-              disabled={!clientId || printing || !isSaved}
-              title={isSaved ? undefined : SAVE_BEFORE_PRINTING}
-              onClick={() => void printPdf()}
-            >
-              {printing ? "Preparing PDF…" : "Print certificate (PDF)"}
-            </Button>
+            {isFiled ? (
+              // An issued certificate reprints what was issued, and is never refused (W8 R3).
+              existing.data?.clearCopyAvailable ? (
+                <ClearCopyButton formId={id!} />
+              ) : null
+            ) : isNew || existing.data?.previewAvailable ? (
+              // A draft prints only once saved (W7 R6), and only with its payor's BIR name
+              // in Item 7 (a trade or display name is never printed).
+              <PreviewPdfButton
+                formId={id ?? ""}
+                dirty={false}
+                save={() => save.mutateAsync()}
+                blockedReason={!clientId || !isSaved ? SAVE_BEFORE_PRINTING : undefined}
+                // While the client's record is still loading the server decides: it reads the
+                // client itself and refuses in the same words.
+                precheck={() =>
+                  clientQ.isLoading || payorName ? null : PAYOR_NAME_MISSING
+                }
+              />
+            ) : null}
           </>
         }
         guided={
@@ -889,7 +885,8 @@ export default function BirForm2307Editor() {
                 )}
                 {!isNew ? (
                   isFiled && existing.data ? (
-                    <FiledFormAction detail={existing.data} />
+                    // The clear copy is in the toolbar (both views); not twice.
+                    <FiledFormAction detail={{ ...existing.data, clearCopyAvailable: false }} />
                   ) : (
                     <Button
                       variant="outline"
@@ -1026,7 +1023,7 @@ function SignatoryFields({
 
 /** The pre-pass-2 hand-written 2307 sheet (A4 at 96dpi). RETIRED in W7 (R6):
  *  no route, button or link renders or prints it; the certificate prints only
- *  through "Print certificate (PDF)". Kept, unused, until it is deleted. */
+ *  through "Preview PDF" / "Download clear copy" (C7). Kept, unused, until it is deleted. */
 export function Sheet2307({
   year,
   quarter,

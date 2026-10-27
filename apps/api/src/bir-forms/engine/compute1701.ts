@@ -38,6 +38,8 @@ export interface Side1701 {
   taxable8: number;
   tax8biz: number;
   taxableTotal: number;
+  /** Part V Schedule 2 Item 7 — tax due on compensation income (8% path only; 0 on graduated). */
+  compTaxFlat: number;
   /** Part VI Item 1 — regular-rate income tax (graduated or 8%). */
   taxDueRegular: number;
   /** Part VI Item 2 — special/preferential-rate income tax (from Part X). */
@@ -120,9 +122,10 @@ export function compute1701(d: FilingData): Comp1701 {
     // tax due: 8% on biz + graduated on comp ; graduated on combined otherwise
     // Part VI Item 1 — regular-rate tax: 8% on business + graduated on
     // compensation; or graduated on combined taxable income.
+    o.compTaxFlat = o.rate === "eight" ? roundPeso(grad(o.comp, year)) : 0;
     o.taxDueRegular =
       o.rate === "eight"
-        ? roundPeso(grad(o.comp, year)) + o.tax8biz
+        ? o.compTaxFlat + o.tax8biz
         : roundPeso(grad(o.comp + o.netBizTotal, year));
     // Part VI Items 2-4 — special/preferential-rate tax (entered from Part X)
     // less any share of another gov't agency remitted directly.

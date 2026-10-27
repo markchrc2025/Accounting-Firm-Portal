@@ -25,7 +25,7 @@ describe("build1701A — reproduces the eBIRForms 1701A schema", () => {
     citizenship: "FILIPINO",
     civilStatus: "single",
     taxpayerType: "single",
-    classification: "",
+    classification: "Single Proprietorship",
     createdAt: 0,
   };
   const data: FilingData = {

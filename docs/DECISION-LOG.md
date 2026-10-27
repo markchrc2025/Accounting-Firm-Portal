@@ -203,3 +203,12 @@ Decision (domain owner): the 1701Q, 1702Q, 1701, 1701A and 1702RT join the 2551Q
 
 ## 2026-10-12 · D54 · A BIR form can be filled from the Portal's books
 Decision (domain owner): each return can take its figures from the client's posted records ("Portal books") or be typed ("Manual"). A figure filled from the books may be overridden and is then marked "edited" in the form (never on the printed return or the export). Amounts from the books are rounded to the nearest whole peso, 50 centavos and above up. A filed return is frozen: later bookkeeping never changes it. Expenses will map to return lines through the Chart of Accounts, and an expense with no counterpart falls under "Others", whose name is typed. Creditable tax withheld will be recorded in the forms' own 2307 sections. Built in U15 (API) and W16 (web) for the 2551Q and 2550Q; the other forms follow.
+
+## 2026-10-13 · D55 · The 1701's background comes from the client's record
+Decision (domain owner): Item 16 (civil status) and the other background items of the income-tax returns come from the client's record; Items 17 and 18 are answered only for a married taxpayer; Item 7 (ATC) is derived from the taxpayer type, the rate and the income mix and is never typed. The same check was made on the other income-tax returns. Built in C5.
+
+## 2026-10-13 · D55 amendment · Item 7 is chosen, Item 6 is the Classification
+Decision (domain owner): on the 1701, 1701A and 1701Q, Item 7 (ATC) is chosen by the preparer in the editor and is never derived and never added to the client's record. Item 6 (taxpayer type) is the client's Classification and is not overridden by the draft's figures. Civil status still comes from the client's record, and Items 17 and 18 are answered only for a married taxpayer. The same applies to the ATC of the 1702Q and 1702RT; no ATC is defaulted. Built in C6.
+
+## 2026-10-22 · D56 · The 2307 prints on the BIR's own blank
+Decision (domain owner): BIR Form 2307 is printed on the BIR's own blank form like the seven returns: Preview PDF while a draft, Download clear copy once issued. The client is the payor and the payee is typed per certificate. Amounts print with centavos, exactly as entered. Page 1 only. Built in C7.

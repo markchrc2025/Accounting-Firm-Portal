@@ -15,6 +15,7 @@ import {
   build1701Q,
   build1702Q,
   build1702RT,
+  build2307PrintRows,
   build2550Q,
   build2551Q,
   compute1701,
@@ -66,8 +67,9 @@ export const TEST_INDIVIDUAL: Taxpayer = {
   birthdate: "1980-01-15",
   citizenship: "FILIPINO",
   phone: "09170000000",
-  civilStatus: "married",
-  taxpayerType: "Self-employed",
+  civilStatus: "Married",
+  taxpayerType: "",
+  classification: "Single Proprietorship",
 };
 
 function filing(
@@ -201,22 +203,24 @@ writeFileSync(
   build1701Q(f1701Q, TEST_INDIVIDUAL, compute1701Q(f1701Q.data)),
 );
 
-// 1701, 2026: an individual with compensation and business income on the graduated
-// rates (itemized deductions with a Schedule 4 line, a Schedule 5 line and a NOLCO
-// row), a spouse at 8%, penalties, and the Part IX reconciliation lines.
+// 1701, 2026: a married individual (the client's civil status) with compensation and
+// business income on the graduated rates (itemized deductions with a Schedule 4 line,
+// a Schedule 5 line and a NOLCO row), a spouse at 8%, penalties and the Part IX
+// reconciliation lines. Every figure is distinct so the label test (C5 T2) can tell
+// which one printed where.
 const f1701 = filing(
   "1701",
   {
     year: "2026",
     amended: "no",
     shortPeriod: "no",
-    taxpayerType: "biz",
-    atc: "II012",
+    atc: "II013", // chosen by the preparer (C6): never derived
     rateA: "graduated",
     methodA: "itemized",
+    rateB: "eight",
+    methodB: "osd",
     foreignCredit: "yes",
     foreignTaxNo: "FTN-0000123",
-    civil: "married",
     spouseIncome: "yes",
     filing: "separate",
     incomeExempt: "no",
@@ -226,8 +230,6 @@ const f1701 = filing(
     lineBus: "SAMPLE TRADING",
     spouseTin: "987-654-321",
     spouseRdo: "000",
-    spouseType: "comp",
-    spouseAtc: "II011",
     spouseName: "SAMPLE, SPOUSE",
     spouseContact: "09180000000",
     spouseCitizenship: "FILIPINO",
@@ -235,36 +237,36 @@ const f1701 = filing(
     spouseForeignTaxNo: "",
     spouseIncomeExempt: "no",
     spouseIncomeSpecial: "no",
-    spouseRate: "eight",
-    spouseMethod: "osd",
-    compA: "300000",
-    salesA: "1200000",
-    returnsA: "20000",
-    cogsA: "300000",
-    s4_1A: "20000",
-    s4_5A: "50000",
-    s4_17aA: "8000",
-    s5_1amt: "5000",
-    nolco4D: "3000",
-    otherA: "10000",
-    specialRateA: "1000",
-    shareGovtA: "200",
-    prevPaidA: "15000",
-    cwtA: "4000",
-    excessA: "1000",
-    compCwtA: "12000",
-    interestA: "100",
-    surchargeA: "250",
-    compromiseA: "500",
+    compA: "311111",
+    salesA: "1234000",
+    returnsA: "24000",
+    cogsA: "376000",
+    s4_1A: "21000",
+    s4_5A: "52000",
+    s4_17aA: "8300",
+    s5_1amt: "5500",
+    nolco4D: "3700",
+    otherA: "12300",
+    specialRateA: "1100",
+    shareGovtA: "220",
+    prevPaidA: "15500",
+    cwtA: "4400",
+    excessA: "1300",
+    compCwtA: "12600",
+    interestA: "130",
+    surchargeA: "260",
+    compromiseA: "510",
     ix1A: "400000",
     ix2A: "1000",
     ix2descA: "SAMPLE ADDITION",
     ix6A: "2000",
     ix6descA: "SAMPLE DEDUCTION",
-    compB: "250000",
-    salesB: "500000",
-    otherB: "2000",
-    cwtB: "800",
+    compB: "255111",
+    salesB: "502000",
+    otherB: "2100",
+    prevPaidB: "6200",
+    cwtB: "810",
+    compCwtB: "9900",
     ix1B: "100000",
   },
   "2026",
@@ -360,7 +362,7 @@ const f1702RT = filing(
     method: "itemized",
     amended: "no",
     shortPeriod: "no",
-    atc: "IC010",
+    atc: "IC055", // the only ATC the form prints (C6); IC010 is not accepted
     over: "carry",
     attachments: "2",
     treasurer: "SAMPLE TREASURER",
@@ -440,7 +442,7 @@ const f1702Q = filing("1702Q", {
   method: "itemized",
   amended: "no",
   attachments: "1",
-  atc: "IC010",
+  atc: "IC055", // the only ATC the form prints (C6); IC010 is not accepted
   sch1_1A: "100000",
   sch1_2A: "40000",
   sch1_4A: "5000",
@@ -480,6 +482,80 @@ writeFileSync(
   build1702Q(f1702Q, TEST_TAXPAYER, compute1702Q(f1702Q.data)),
 );
 
+// BIR Form 2307 (C7, D56): a certificate has no eBIRForms export, so its sample is the
+// rows build2307PrintRows gives the print engine (fixtures/2307-sample.json): an invented
+// corporate payor, an invented individual payee, ten block A rows with centavo amounts, two
+// block B rows, and both signature areas filled.
+const SAMPLE_2307_ROWS = Array.from({ length: 10 }, (_, i) => {
+  const n = i + 1;
+  return {
+    atc: n % 2 ? "WI010" : "WC010",
+    desc: `PROFESSIONAL FEES ROW ${n}`,
+    m1: `${n}${n}1,234.56`,
+    m2: `${n}0.10`,
+    m3: `${n}.05`,
+    tax: `${n}${n}2.01`,
+  };
+});
+const sample2307 = build2307PrintRows(
+  {
+    year: "2026",
+    quarter: "3",
+    payeeName: "DELA CRUZ, JUANA SAMPLE",
+    payeeTin: "000-333-444",
+    payeeBranch: "00000",
+    payeeAddress: "88 Sample Road, Barangay Uno, Lungsod ng Halimbawa",
+    payeeZip: "1234",
+    payeeForeignAddress: "1 Sample Plaza, Invented City, Elsewhere",
+    payorSignatoryName: "PEDRO SUBOK HALIMBAWA",
+    payorSignatoryTitle: "TREASURER",
+    payorSignatoryTin: "000-111-222-00000",
+    payorTaxAgentNo: "TA-0001",
+    payorTaxAgentIssued: "01/15/2025",
+    payorTaxAgentExpiry: "01/14/2028",
+    payeeSignatoryName: "", // as the editor saves them: blank, so the CONFORME block
+    payeeSignatoryTin: "", // falls back to the payee's own name and TIN
+    payeeSignatoryTitle: "PROPRIETOR",
+    payeeTaxAgentNo: "TA-0002",
+    payeeTaxAgentIssued: "02/01/2025",
+    payeeTaxAgentExpiry: "02/01/2028",
+    rows: SAMPLE_2307_ROWS,
+    rowsB: [
+      {
+        atc: "WB010",
+        desc: "MONEY PAYMENT SAMPLE ONE",
+        m1: "1,000.10",
+        m2: "2,000.20",
+        m3: "3,000.30",
+        tax: "60.07",
+      },
+      {
+        atc: "WB020",
+        desc: "MONEY PAYMENT SAMPLE TWO",
+        m1: "0.01",
+        m2: "0.02",
+        m3: "0.03",
+        tax: "0.01",
+      },
+    ],
+  },
+  {
+    kind: "non-individual",
+    regName: "INVENTED SAMPLE TRADING CORPORATION",
+    businessName: "INVENTED SAMPLE TRADING CORPORATION",
+    tin: "000111222",
+    branch: "00000",
+    address: "12 Invented Street, Barangay Halimbawa",
+    city: "Lungsod ng Halimbawa",
+    zip: "0000",
+  },
+  { filed: true, period: "2026-Q3" },
+);
+writeFileSync(
+  join(here, "../fixtures/2307-sample.json"),
+  JSON.stringify(sample2307, null, 2) + "\n",
+);
+
 // The 2551Q and 2550Q fixtures are committed and their proofs pinned; they are
 // rewritten only on request (`fixtures --all`): the 2550Q's filing date is the
 // day it runs, so a plain run would change them.
@@ -493,4 +569,4 @@ if (process.argv.includes("--all")) {
     build2550Q(f2550, TEST_TAXPAYER, compute2550Q(f2550.data)),
   );
 }
-console.log("wrote fixtures/*-sample.xml");
+console.log("wrote fixtures/*-sample.xml and fixtures/2307-sample.json");

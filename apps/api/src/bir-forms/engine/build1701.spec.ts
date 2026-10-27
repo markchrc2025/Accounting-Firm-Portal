@@ -23,14 +23,16 @@ const tp: Taxpayer = {
   citizenship: "FILIPINO",
   civilStatus: "married",
   taxpayerType: "",
-  classification: "",
+  classification: "Single Proprietorship",
   createdAt: 0,
 };
 
+// C6: Item 6 is the client's Classification (a stale draft `taxpayerType` is not read);
+// Item 7 is the ATC the preparer chose (`atc`).
 const data: FilingData = {
   year: "2025",
   amended: "no",
-  taxpayerType: "single",
+  taxpayerType: "prof", // stale: Item 6 comes from the client's Classification
   atc: "II011",
   rateA: "graduated",
   methodA: "osd",
@@ -61,7 +63,7 @@ describe("build1701", () => {
     expect(xml).toContain("frm1701:txtPg1I5RDOCode=045frm1701:txtPg1I5RDOCode=");
   });
 
-  it("emits the 5 taxpayer-type radios with single→S selected", () => {
+  it("emits the 5 taxpayer-type radios, Single Proprietor from the client's classification", () => {
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeS=truefrm1701:rdoPg1I6TaxpayerTypeS=");
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeP=falsefrm1701:rdoPg1I6TaxpayerTypeP=");
     expect(xml).toContain("frm1701:rdoPg1I6TaxpayerTypeE=falsefrm1701:rdoPg1I6TaxpayerTypeE=");
