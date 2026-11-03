@@ -38,6 +38,11 @@ describe("U17 R4 · exact decimals to the centavo", () => {
 
   it("0.1 + 0.2 is 0.3, not 0.30000000000000004; ten thousand 0.01s are 100", () => {
     expect(0.1 + 0.2).not.toBe(0.3); // floating point
+    // The sum itself is exact, before anything is reported to the centavo.
+    expect(sum(dec("0.1"), dec("0.2")).toString()).toBe("0.3");
+    expect(sum(...Array.from({ length: 10_000 }, () => dec("0.01"))).toString()).toBe(
+      "100",
+    );
     expect(centavos(sum(dec("0.1"), dec("0.2")))).toBe(0.3);
     expect(centavos(sum(...Array.from({ length: 10_000 }, () => dec("0.01"))))).toBe(100);
   });
