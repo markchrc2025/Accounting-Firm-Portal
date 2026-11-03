@@ -83,9 +83,16 @@ function build(over: Record<string, unknown> = {}) {
 describe("BirFormsService", () => {
   it("marks 2551Q available in the catalog", () => {
     const cat = build().svc.catalog();
-    expect(cat).toHaveLength(9);
+    // U17: nine forms became twelve with the three withholding returns, which are printed.
+    expect(cat).toHaveLength(12);
     expect(cat.every((f) => f.status === "available")).toBe(true);
-    expect(cat.filter((f) => !f.xmlExport).map((f) => f.code)).toEqual(["2307", "2316"]);
+    expect(cat.filter((f) => !f.xmlExport).map((f) => f.code)).toEqual([
+      "2307",
+      "2316",
+      "0619E",
+      "1601EQ",
+      "1601C",
+    ]);
     expect(cat.find((f) => f.code === "2551Q")?.status).toBe("available");
   });
 

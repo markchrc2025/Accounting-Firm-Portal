@@ -46,6 +46,9 @@ export type PeriodType = z.infer<typeof PeriodType>;
 
 /** BIR form codes handled across the two systems. */
 export const FormCode = z.enum([
+  "0619E",
+  "1601C",
+  "1601EQ",
   "1701",
   "1701A",
   "1701Q",

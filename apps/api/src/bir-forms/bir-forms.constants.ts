@@ -103,4 +103,34 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     xmlExport: false,
     status: "available",
   },
+  {
+    code: "0619E",
+    title: "Monthly Remittance Form of Creditable Income Taxes Withheld (Expanded)",
+    frequency: "Monthly",
+    category: "Withholding",
+    description:
+      "Expanded withholding remitted for the 1st and 2nd month of a quarter; printed, not exported.",
+    xmlExport: false,
+    status: "available",
+  },
+  {
+    code: "1601EQ",
+    title: "Quarterly Remittance Return of Creditable Income Taxes Withheld (Expanded)",
+    frequency: "Quarterly",
+    category: "Withholding",
+    description:
+      "Expanded withholding for the quarter, netting the two monthly 0619-Es; printed, not exported.",
+    xmlExport: false,
+    status: "available",
+  },
+  {
+    code: "1601C",
+    title: "Monthly Remittance Return of Income Taxes Withheld on Compensation",
+    frequency: "Monthly",
+    category: "Withholding",
+    description:
+      "Tax withheld on employees' compensation, every month; printed, not exported.",
+    xmlExport: false,
+    status: "available",
+  },
 ];
