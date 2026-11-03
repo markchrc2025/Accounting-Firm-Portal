@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import {
@@ -19,6 +21,9 @@ import { ClientsService } from "../clients/clients.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
+import { CONFIRMATION_FORMS, MESSAGES, MIN_REASON_LENGTH } from "../bir-confirmation/confirmation-forms";
+import type { ConfirmationResult } from "../bir-confirmation/confirmation-checks";
+import { ConfirmationService, uploadedFileName } from "../bir-confirmation/confirmation.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
 import { assertValidDraftSource } from "./draft-source";
@@ -215,6 +220,32 @@ function isSealError(err: unknown): boolean {
   );
 }
 
+/** An uploaded file, as multer hands it over (memory storage). */
+export interface UploadedPdf {
+  buffer: Buffer;
+  originalname?: string;
+  size?: number;
+  mimetype?: string;
+}
+
+/** What Mark as filed / Attach confirmation receive: a PDF, or an override reason. */
+export interface ConfirmationUpload {
+  file?: UploadedPdf;
+  /** Present (even empty) means an override was asked for. */
+  overrideReason?: string;
+  replace?: boolean;
+}
+
+type ConfirmationBasis =
+  | {
+      kind: "bir_email";
+      bytes: Buffer;
+      originalname: string;
+      result: ConfirmationResult;
+      receivedAt: Date;
+    }
+  | { kind: "override"; reason: string };
+
 /**
  * Internal BIR Forms module (ported from the Sentire generator). Authoring +
  * authoritative compute + eBIRForms XML export. Every operation is firm-scoped;
@@ -230,6 +261,7 @@ export class BirFormsService {
     private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly rbac: RbacService,
+    private readonly confirmations: ConfirmationService,
   ) {}
 
   /** The BIR form catalog + per-form rollout status. */
@@ -421,6 +453,10 @@ export class BirFormsService {
       clearCopyAvailable: f.status === "filed" && clearCopyMapped(f.form),
       // C3 R2, additive: a draft whose form and version have a map.
       previewAvailable: previewAvailable(f),
+      // U18 (D58), additive: whether Mark as filed needs the BIR's confirmation e-mail,
+      // and the live confirmation (or override) of a filed return; null if it has none.
+      confirmationRequired: CONFIRMATION_FORMS.has(f.form),
+      confirmation: f.confirmations?.[0] ? this.confirmations.summary(f.confirmations[0]) : null,
       exports: f.exports.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -439,6 +475,11 @@ export class BirFormsService {
     // U3 (D11): a filed form is never modified — figures, status or filedAt. There
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
+    // U18 (D58): the nine returns are marked filed with the BIR's confirmation, through
+    // POST :id/mark-filed. The 1601-C, the 2307 and the 2316 are marked filed here, as before.
+    if (input.status === "filed" && CONFIRMATION_FORMS.has(f.form)) {
+      throw new ConflictException(MESSAGES.needsConfirmation);
+    }
     assertValidDraftSource(input.data);
     if (input.period !== undefined) this.assertWithholdingPeriod(f.form, input.period);
     // U17: a 1601-EQ of more than six ATCs is never marked filed (nothing is dropped).
@@ -821,6 +862,239 @@ export class BirFormsService {
     };
   }
 
+  // --- U18 (D58): the BIR's confirmation e-mail -------------------------------------
+
+  /**
+   * Check an uploaded confirmation against a return, with no side effects: the nine
+   * checks, in order, each ok, error or warning, and an overall ok. For the nine returns
+   * that need one (CONFIRMATION_FORMS); the 1601-C, 2307 and 2316 answer 400.
+   */
+  async confirmationCheck(user: AuthUser, id: string, file: UploadedPdf | undefined) {
+    const f = await this.loadForConfirmation(user, id);
+    if (!file?.buffer) throw new BadRequestException(MESSAGES.noFile);
+    const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    return this.confirmations.assess(user.firmId, f, client, file.buffer);
+  }
+
+  /**
+   * Mark a draft as filed with the BIR's confirmation (or a Super Admin's override). The
+   * filed date becomes the date the BIR received the return; the PDF is kept; the filing
+   * and the confirmation are written in one transaction. A confirmation that fails a
+   * check is refused 409 with every check in the body and nothing written.
+   */
+  async markFiled(user: AuthUser, id: string, input: ConfirmationUpload) {
+    const f = await this.loadForConfirmation(user, id);
+    if (f.status === "filed") throw new ConflictException(MESSAGES.alreadyFiled);
+    // U17: a 1601-EQ of more than six ATCs is never marked filed (nothing is dropped).
+    const six = sixRowsRefusal(f.form, f.dataJson);
+    if (six) throw new ConflictException(six);
+    const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    const basis = await this.confirmationBasis(user, f, client, input);
+    const filedAt = basis.kind === "bir_email" ? basis.receivedAt : new Date();
+    const snapshot = takeFiledSnapshot(client, filedAt);
+    const key = await this.keepConfirmation(user.firmId, f.id, basis);
+    try {
+      await this.prisma.$transaction([
+        this.prisma.birForm.update({
+          where: { id },
+          data: {
+            status: "filed",
+            filedAt,
+            filedSnapshotJson: snapshot as unknown as Prisma.InputJsonValue,
+          },
+        }),
+        this.prisma.birFormConfirmation.create({
+          data: this.confirmationRow(user, f, basis, key),
+        }),
+      ]);
+    } catch (err) {
+      await this.unkeep(key);
+      throw this.confirmationWriteError(err, f.form);
+    }
+    await this.audit.record({
+      userId: user.id,
+      action: basis.kind === "override" ? "bir-form.confirmation.override" : "bir-form.mark-filed",
+      entityType: "BirForm",
+      entityId: id,
+      metadata: this.confirmationAudit(f, basis, { filedAt: filedAt.toISOString() }),
+    });
+    return this.detail(await this.loadOwned(user.firmId, id));
+  }
+
+  /**
+   * Attach the confirmation (or an override) to a return that is ALREADY filed: the same
+   * checks; the filed snapshot and the filed date are not touched. Once only — a second
+   * attach answers 409; `replace` is for a Super Admin, and keeps the old row, marked
+   * superseded, never deleted.
+   */
+  async attachConfirmation(user: AuthUser, id: string, input: ConfirmationUpload) {
+    const f = await this.loadForConfirmation(user, id);
+    if (f.status !== "filed") throw new ConflictException(MESSAGES.notFiledYet);
+    const existing = f.confirmations?.[0] ?? null;
+    if (existing && !input.replace) throw new ConflictException(MESSAGES.hasOne);
+    if (existing && !(await this.confirmations.isSuperAdmin(user))) {
+      throw new ForbiddenException(MESSAGES.replaceSuperAdmin);
+    }
+    const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    const basis = await this.confirmationBasis(user, f, client, input);
+    const key = await this.keepConfirmation(user.firmId, f.id, basis);
+    try {
+      await this.prisma.$transaction([
+        ...(existing
+          ? [
+              this.prisma.birFormConfirmation.update({
+                where: { id: existing.id },
+                data: { supersededAt: new Date() },
+              }),
+            ]
+          : []),
+        this.prisma.birFormConfirmation.create({
+          data: this.confirmationRow(user, f, basis, key),
+        }),
+      ]);
+    } catch (err) {
+      await this.unkeep(key);
+      throw this.confirmationWriteError(err, f.form);
+    }
+    await this.audit.record({
+      userId: user.id,
+      action: existing
+        ? "bir-form.confirmation.replace"
+        : basis.kind === "override"
+          ? "bir-form.confirmation.override"
+          : "bir-form.confirmation.attach",
+      entityType: "BirForm",
+      entityId: id,
+      metadata: this.confirmationAudit(f, basis, existing ? { replaced: existing.id } : {}),
+    });
+    return this.detail(await this.loadOwned(user.firmId, id));
+  }
+
+  /** A signed link to the kept PDF (404 if the return has none, or only an override). */
+  async confirmationUrl(user: AuthUser, id: string) {
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
+    const row = f.confirmations?.[0];
+    const url = row ? await this.confirmations.downloadUrl(row) : null;
+    if (!url) throw new NotFoundException(MESSAGES.noFileKept);
+    return { url };
+  }
+
+  /** The return, for an action on its confirmation: BIRForms:File, and one of the nine forms. */
+  private async loadForConfirmation(user: AuthUser, id: string) {
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.file);
+    if (!CONFIRMATION_FORMS.has(f.form)) {
+      throw new BadRequestException(MESSAGES.nothingToUpload(f.form));
+    }
+    return f;
+  }
+
+  /** What the filing rests on: a confirmation that passed every check, or a Super Admin's override. */
+  private async confirmationBasis(
+    user: AuthUser,
+    f: { form: string; period: string },
+    client: Parameters<ConfirmationService["assess"]>[2],
+    input: ConfirmationUpload,
+  ): Promise<ConfirmationBasis> {
+    if (input.overrideReason !== undefined) {
+      if (input.file) throw new BadRequestException(MESSAGES.bothGiven);
+      if (!(await this.confirmations.isSuperAdmin(user))) {
+        throw new ForbiddenException(MESSAGES.overrideSuperAdmin);
+      }
+      const reason = input.overrideReason.trim();
+      if (reason.length < MIN_REASON_LENGTH) throw new BadRequestException(MESSAGES.shortReason);
+      return { kind: "override", reason };
+    }
+    if (!input.file?.buffer) throw new BadRequestException(MESSAGES.noFile);
+    const result = await this.confirmations.assess(user.firmId, f, client, input.file.buffer);
+    if (!result.ok) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: "Conflict",
+        message: result.errors[0],
+        ...result,
+      });
+    }
+    return {
+      kind: "bir_email",
+      bytes: input.file.buffer,
+      originalname: uploadedFileName(input.file.originalname ?? ""),
+      result,
+      receivedAt: new Date(result.parsed!.receivedAt!),
+    };
+  }
+
+  /** Put the PDF in storage before the transaction (an override has none); null for an override. */
+  private async keepConfirmation(
+    firmId: string,
+    birFormId: string,
+    basis: ConfirmationBasis,
+  ): Promise<string | null> {
+    if (basis.kind === "override") return null;
+    if (!this.storage.isEnabled()) throw new ServiceUnavailableException(MESSAGES.noStorage);
+    return this.confirmations.store(firmId, birFormId, basis.bytes);
+  }
+
+  private async unkeep(key: string | null): Promise<void> {
+    if (key) await this.confirmations.removeStored(key);
+  }
+
+  private confirmationRow(
+    user: AuthUser,
+    f: { id: string; firmId: string },
+    basis: ConfirmationBasis,
+    key: string | null,
+  ): Prisma.BirFormConfirmationUncheckedCreateInput {
+    const base = { firmId: f.firmId, birFormId: f.id, uploadedByUserId: user.id };
+    if (basis.kind === "override") {
+      return { ...base, kind: "override", overrideReason: basis.reason, warnings: [] };
+    }
+    const p = basis.result.parsed!;
+    return {
+      ...base,
+      kind: "bir_email",
+      storageKey: key,
+      originalFilename: basis.originalname.slice(0, 255) || null,
+      sha256: basis.result.sha256,
+      birFileName: p.birFileName,
+      tinWithBranch: `${p.tin}-${String(Number(p.branch)).padStart(5, "0")}`,
+      formCode: p.form,
+      taxYear: p.taxYear,
+      quarter: p.quarter,
+      fyEndMonth: p.fyEndMonth,
+      receivedAt: basis.receivedAt,
+      warnings: basis.result.warnings,
+    };
+  }
+
+  /** Audit metadata: what was kept, never the e-mail's text, its recipient or its address. */
+  private confirmationAudit(
+    f: { form: string; period: string },
+    basis: ConfirmationBasis,
+    extra: Record<string, unknown>,
+  ) {
+    return basis.kind === "override"
+      ? { form: f.form, period: f.period, kind: "override", reason: basis.reason, ...extra }
+      : {
+          form: f.form,
+          period: f.period,
+          kind: "bir_email",
+          birFileName: basis.result.parsed!.birFileName,
+          receivedAt: basis.receivedAt.toISOString(),
+          sha256: basis.result.sha256,
+          warnings: basis.result.warnings.length,
+          ...extra,
+        };
+  }
+
+  /** A write that lost a race: the seal (someone filed it first) or a duplicate confirmation. */
+  private confirmationWriteError(err: unknown, form: string): Error {
+    if (isSealError(err)) return new ConflictException(sealedMessage(form));
+    if ((err as { code?: unknown })?.code === "P2002") {
+      return new ConflictException(MESSAGES.duplicate("another return"));
+    }
+    return err instanceof Error ? err : new Error(String(err));
+  }
+
   // --- internals -------------------------------------------------------------
 
   /** U17 R2: the withholding returns take a calendar month or quarter, and only theirs. */
@@ -985,7 +1259,12 @@ export class BirFormsService {
   private async loadOwned(firmId: string, id: string) {
     const f = await this.prisma.birForm.findFirst({
       where: { id, firmId },
-      include: { client: { select: { businessName: true } }, exports: true },
+      include: {
+        client: { select: { businessName: true } },
+        exports: true,
+        // U18: the live confirmation (a replaced one is kept, but not shown here)
+        confirmations: { where: { supersededAt: null } },
+      },
     });
     if (!f) throw new NotFoundException("Form not found");
     return f;

@@ -22,6 +22,8 @@ import { Test } from "@nestjs/testing";
 import { PrismaClient } from "@prisma/client";
 import { AppModule } from "../../src/app.module";
 import { BirFormsService } from "../../src/bir-forms/bir-forms.service";
+import { StorageService } from "../../src/storage/storage.service";
+import { confirmationFor, FakeStorage } from "../helpers/file-return";
 import type { AuthUser } from "../../src/common/auth/auth-user";
 import {
   ensureFirmRole,
@@ -465,8 +467,23 @@ describe("U3 · the service against the real database (far end)", () => {
   let actor: AuthUser;
   let clientId = "";
 
+  /** Mark a draft filed the way the Portal does for its form (U18): the BIR confirmation, or PATCH. */
+  async function fileIt(id: string): Promise<void> {
+    const f = await writer.birForm.findUniqueOrThrow({ where: { id } });
+    if (["1601C", "2307", "2316"].includes(f.form)) {
+      await svc.update(actor, id, { status: "filed" });
+      return;
+    }
+    await svc.markFiled(actor, id, {
+      file: { buffer: await confirmationFor(writer, id) },
+    });
+  }
+
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(StorageService)
+      .useValue(new FakeStorage())
+      .compile();
     app = moduleRef.createNestApplication();
     await app.init();
     svc = app.get(BirFormsService);
@@ -528,7 +545,7 @@ describe("U3 · the service against the real database (far end)", () => {
       period: "2026-Q2",
       data: { rows: [] },
     });
-    await svc.update(actor, created.id, { status: "filed" });
+    await fileIt(created.id);
     const reader = new PrismaClient();
     try {
       const back = await reader.birForm.findUniqueOrThrow({ where: { id: created.id } });
@@ -567,7 +584,7 @@ describe("U3 · the service against the real database (far end)", () => {
       period: "2026-Q2",
       data: { rows: [] },
     });
-    await svc.update(actor, created.id, { status: "filed" });
+    await fileIt(created.id);
     const reader = new PrismaClient();
     try {
       const before = await rowOf(reader, created.id);
@@ -595,7 +612,7 @@ describe("U3 · the service against the real database (far end)", () => {
       period: "2026-Q2",
       data,
     });
-    await svc.update(actor, created.id, { status: "filed" });
+    await fileIt(created.id);
     const reader = new PrismaClient();
     try {
       const before = await rowOf(reader, created.id);
@@ -632,7 +649,7 @@ describe("U3 · the service against the real database (far end)", () => {
       expect(audit?.metadata).toEqual({ amendsId: created.id, sequence: 2 });
       // A second amendment of the same original is refused; the amendment itself is amended once filed.
       await expect(svc.amend(actor, created.id)).rejects.toMatchObject({ status: 409 });
-      await svc.update(actor, res.id, { status: "filed" });
+      await fileIt(res.id);
       const third = await svc.amend(actor, res.id);
       expect(third).toMatchObject({ sequence: 3, amendsId: res.id });
     } finally {
@@ -647,7 +664,7 @@ describe("U3 · the service against the real database (far end)", () => {
       period: "2026-Q2",
       data: {},
     });
-    await svc.update(actor, created.id, { status: "filed" });
+    await fileIt(created.id);
     await expect(svc.amend(actor, created.id)).rejects.toMatchObject({ status: 400 });
     const reader = new PrismaClient();
     try {

@@ -89,6 +89,7 @@ model Firm {
   invitations        Invitation[]
   birForms           BirForm[]
   receiptScans       ReceiptScan[]
+  birFormConfirmations BirFormConfirmation[]
 
   @@map("firms")
 }
@@ -220,6 +221,7 @@ model User {
 
   @@index([firmId])
   receiptScans ReceiptScan[]
+  birFormConfirmations BirFormConfirmation[]
 
   @@map("users")
 }
@@ -695,6 +697,7 @@ model BirForm {
   amends    BirForm?        @relation("BirFormAmendment", fields: [amendsId], references: [id], onDelete: Restrict)
   amendedBy BirForm?        @relation("BirFormAmendment")
   exports   BirFormExport[]
+  confirmations BirFormConfirmation[]
 
   @@index([firmId])
   @@index([clientId])
@@ -714,6 +717,51 @@ model BirFormExport {
 
   @@index([birFormId])
   @@map("bir_form_exports")
+}
+
+/// U18 (D58): the BIR's confirmation e-mail for a return, or a Super Admin's override,
+/// kept in its own table so it can be written AFTER the return is sealed (bir_forms_seal
+/// refuses any change to a filed bir_forms row; this table is not that row). At most one
+/// row per return has supersededAt NULL (a partial unique index in the migration); a
+/// replaced row is kept, never deleted. An override has no PDF: its file fields are null.
+model BirFormConfirmation {
+  id               String    @id @default(uuid()) @db.Uuid
+  firmId           String    @db.Uuid
+  birFormId        String    @db.Uuid
+  /// "bir_email" | "override"
+  kind             String
+  storageKey       String?
+  originalFilename String?
+  /// SHA-256 of the uploaded PDF bytes.
+  sha256           String?
+  /// The file name the BIR's e-mail names, e.g. 111222333000-2550Qv2024-122026Q1.xml.
+  birFileName      String?
+  /// "<9-digit TIN>-<5-digit branch>" as read from that file name.
+  tinWithBranch    String?
+  formCode         String?
+  taxYear          Int?
+  quarter          Int?
+  fyEndMonth       Int?
+  /// The instant the BIR received the return (Manila clock time in the e-mail).
+  receivedAt       DateTime?
+  /// Null once the user is deleted (the confirmation stays).
+  uploadedByUserId String?   @db.Uuid
+  uploadedAt       DateTime  @default(now())
+  overrideReason   String?
+  /// The warnings the check gave (strings); never the e-mail's own text.
+  warnings         Json      @default("[]")
+  /// Set when a Super Admin replaced this row; the row itself is kept.
+  supersededAt     DateTime?
+
+  firm       Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  birForm    BirForm @relation(fields: [birFormId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  /// Nulls (an override has none) never collide, so these bind the e-mails only.
+  @@unique([firmId, sha256])
+  @@unique([firmId, birFileName, receivedAt])
+  @@index([birFormId])
+  @@map("bir_form_confirmations")
 }
 
 /// The carried-forward creditable input VAT the Generator books back as an asset.
