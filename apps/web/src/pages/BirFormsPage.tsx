@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ClearCopyButton } from "../components/birform/ClearCopyButton";
-import { fetchBirFormCatalog, fetchBirForms, type BirFormSummary } from "../lib/api";
+import {
+  fetchBirFormCatalog,
+  fetchBirForms,
+  type BirFormCatalogItem,
+  type BirFormSummary,
+} from "../lib/api";
 import {
   Card,
   CardContent,
@@ -42,7 +47,10 @@ export default function BirFormsPage() {
     }
   }, [location.pathname, location.state, navigate]);
   const [status, setStatus] = useState<StatusFilter>("all");
-  const catalog = useQuery({ queryKey: ["bir-form-catalog"], queryFn: fetchBirFormCatalog });
+  const catalog = useQuery({
+    queryKey: ["bir-form-catalog"],
+    queryFn: fetchBirFormCatalog,
+  });
   const forms = useQuery({
     queryKey: ["bir-forms", status],
     queryFn: () => fetchBirForms(status === "all" ? undefined : { status }),
@@ -84,14 +92,7 @@ export default function BirFormsPage() {
         </p>
       ) : null}
 
-      <div className="mb-6 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
-        <span className="font-semibold">All nine forms are live.</span> This is the portal&apos;s
-        built-in BIR Form Generator. Forms compute their <em>authoritative</em> figures here —
-        your tax estimates remain a management guide and never override a generated form. The seven
-        returns export <span className="font-semibold">eBIRForms XML</span>; the 2307 and 2316
-        certificates are issued to a payee rather than e-filed, so they{" "}
-        <span className="font-semibold">print to PDF</span> instead.
-      </div>
+      <LiveBanner catalog={catalog.data} />
 
       <div className="space-y-6">
         {/* Saved forms */}
@@ -124,7 +125,10 @@ export default function BirFormsPage() {
               </div>
             )}
             {forms.isError && (
-              <ErrorState message="Could not load saved forms." onRetry={() => void forms.refetch()} />
+              <ErrorState
+                message="Could not load saved forms."
+                onRetry={() => void forms.refetch()}
+              />
             )}
             {forms.data && forms.data.length === 0 && (
               <EmptyState
@@ -163,7 +167,10 @@ export default function BirFormsPage() {
                         onClick={() => navigate(`/bir-forms/${f.id}`)}
                       >
                         <td className="px-6 py-3 font-mono font-semibold text-navy">
-                          <Link to={`/bir-forms/${f.id}`} onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            to={`/bir-forms/${f.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {f.form}
                           </Link>
                           {/* An amendment shows its sequence (W3 R2): 2 for the first. */}
@@ -207,7 +214,10 @@ export default function BirFormsPage() {
               </div>
             )}
             {catalog.isError && (
-              <ErrorState message="Could not load the form catalog." onRetry={() => void catalog.refetch()} />
+              <ErrorState
+                message="Could not load the form catalog."
+                onRetry={() => void catalog.refetch()}
+              />
             )}
             {catalog.data && (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -218,7 +228,11 @@ export default function BirFormsPage() {
                       key={f.code}
                       role={available ? "button" : undefined}
                       tabIndex={available ? 0 : undefined}
-                      onClick={available ? () => navigate(`/bir-forms/new?form=${f.code}`) : undefined}
+                      onClick={
+                        available
+                          ? () => navigate(`/bir-forms/new?form=${f.code}`)
+                          : undefined
+                      }
                       onKeyDown={
                         available
                           ? (e) => {
@@ -237,7 +251,9 @@ export default function BirFormsPage() {
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[13px] font-semibold text-navy">{f.code}</span>
+                        <span className="font-mono text-[13px] font-semibold text-navy">
+                          {f.code}
+                        </span>
                         <Chip variant={available ? "success" : "neutral"}>
                           {available ? "Available" : "Planned"}
                         </Chip>
@@ -246,9 +262,12 @@ export default function BirFormsPage() {
                         {f.title}
                       </div>
                       <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[.1em] text-content-secondary">
-                        {f.category} · {f.frequency} · {f.xmlExport ? "eBIRForms XML" : "Print to PDF"}
+                        {f.category} · {f.frequency} ·{" "}
+                        {f.xmlExport ? "eBIRForms XML" : "Print to PDF"}
                       </div>
-                      <p className="mt-2 text-[12.5px] text-content-secondary">{f.description}</p>
+                      <p className="mt-2 text-[12.5px] text-content-secondary">
+                        {f.description}
+                      </p>
                       {available ? (
                         <div className="mt-2 font-mono text-[10.5px] uppercase tracking-[.1em] text-navy">
                           Start new →
@@ -275,4 +294,39 @@ function RowClearCopy({ row }: { row: BirFormSummary }) {
   return row.status === "filed" && row.clearCopyAvailable === true ? (
     <ClearCopyButton formId={row.id} size="sm" />
   ) : null;
+}
+
+/**
+ * The banner follows the catalogue, never a number typed here (W17): how many forms are
+ * live, and which of them export eBIRForms XML and which print to PDF.
+ */
+function LiveBanner({ catalog }: { catalog: BirFormCatalogItem[] | undefined }) {
+  const live = (catalog ?? []).filter((f) => f.status === "available");
+  const total = (catalog ?? []).length;
+  const xml = live.filter((f) => f.xmlExport).length;
+  const printed = live.length - xml;
+  return (
+    <div className="mb-6 rounded-card border border-warn/40 bg-warn-bg-2 px-4 py-3 text-[12.5px] text-content">
+      <span className="font-semibold" data-live-count>
+        {catalog === undefined
+          ? "Loading the forms…"
+          : total === 0
+            ? "No forms are live."
+            : live.length === total
+              ? `All ${total} forms are live.`
+              : `${live.length} of ${total} forms are live.`}
+      </span>{" "}
+      This is the portal&apos;s built-in BIR Form Generator. Forms compute their{" "}
+      <em>authoritative</em> figures here — your tax estimates remain a management guide
+      and never override a generated form.
+      {catalog !== undefined && total > 0 ? (
+        <>
+          {" "}
+          {xml} of the live forms export{" "}
+          <span className="font-semibold">eBIRForms XML</span>; the other {printed} are{" "}
+          <span className="font-semibold">printed to PDF</span> instead.
+        </>
+      ) : null}
+    </div>
+  );
 }

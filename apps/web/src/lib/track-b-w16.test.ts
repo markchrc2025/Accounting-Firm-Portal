@@ -16,6 +16,7 @@ import {
   lineFor,
   patchData,
   readSource,
+  SCHEDULE_1_SPEC,
   sameAmount,
   staleCount,
   staleNote,
@@ -89,12 +90,14 @@ describe("the books' figures as fields (W16 R3)", () => {
         dataKey: "rows",
         books: "120000",
         row: { atc: "PT010", taxable: "120000", rate: "3" },
+        spec: SCHEDULE_1_SPEC,
       },
       {
         id: "rows.PT040",
         dataKey: "rows",
         books: "45000",
         row: { atc: "PT040", taxable: "45000", rate: "1" },
+        spec: SCHEDULE_1_SPEC,
       },
     ]);
   });

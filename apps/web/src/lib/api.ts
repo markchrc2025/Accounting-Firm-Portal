@@ -985,6 +985,67 @@ export interface BirForm2316Computed {
   i28: number;
 }
 
+/** Computed 0619-E (Monthly Remittance, Expanded) figures. Centavos, never stored. */
+export interface BirForm0619EComputed {
+  i14: number;
+  i15: number;
+  i16: number;
+  i17a: number;
+  i17b: number;
+  i17c: number;
+  i17d: number;
+  i18: number;
+  /** Item 2's default: the server's due date for the month (weekend moved). */
+  defaultDueDate: string;
+}
+
+/** Computed 1601-EQ (Quarterly Remittance, Expanded) figures. */
+export interface BirForm1601EQComputed {
+  rows: { withheld: number }[];
+  rowCount: number;
+  i19: number;
+  i20: number;
+  i21: number;
+  i22: number;
+  i23: number;
+  i24: number;
+  i25: number;
+  i26: number;
+  i27: number;
+  i28: number;
+  i29: number;
+  i30: number;
+  i31: number;
+  overRemittance: boolean;
+  overRemittanceAmount: number;
+  /** The one box that is valid: "" unless there is an over-remittance. */
+  overRemittanceChoice: "" | "refunded" | "tcc" | "carried";
+}
+
+/** Computed 1601-C (Monthly Remittance, Compensation) figures. Item 27 and the
+ *  adjustments can be negative; nothing is clamped. */
+export interface BirForm1601CComputed {
+  i14: number;
+  i21: number;
+  i22: number;
+  i23: number;
+  i24: number;
+  i25: number;
+  adjustments: [number, number, number];
+  scheduleTotal: number;
+  i26: number;
+  i27: number;
+  i28: number;
+  i29: number;
+  i30: number;
+  i31: number;
+  i32: number;
+  i33: number;
+  i34: number;
+  i35: number;
+  i36: number;
+}
+
 export interface BirFormExportRef {
   id: string;
   kind: string;
@@ -1024,6 +1085,9 @@ export interface BirFormDetail extends BirFormSummary {
     | BirForm1702RTComputed
     | BirForm2307Computed
     | BirForm2316Computed
+    | BirForm0619EComputed
+    | BirForm1601EQComputed
+    | BirForm1601CComputed
     | null;
   exports: BirFormExportRef[];
 }
@@ -1110,11 +1174,9 @@ export interface BookFigures {
   lines: BookFigureLine[];
   warnings: string[];
 }
-export function fetchBookFigures(
-  clientId: string,
-  form: "2551Q" | "2550Q",
-  period: string,
-): Promise<BookFigures> {
+/** The returns the books can fill (U15, U17). Never the 1601-C: it has no books source. */
+export type BookForm = "2551Q" | "2550Q" | "0619E" | "1601EQ";
+export function fetchBookFigures(clientId: string, form: BookForm, period: string): Promise<BookFigures> {
   const q = new URLSearchParams({ clientId, form, period });
   return apiFetch<BookFigures>(`/bir-forms/book-figures?${q.toString()}`);
 }

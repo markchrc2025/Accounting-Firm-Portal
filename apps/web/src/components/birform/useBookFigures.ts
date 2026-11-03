@@ -8,7 +8,7 @@
 // exception is a brand-new draft with nothing typed, which the books fill.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, fetchBookFigures } from "../../lib/api";
+import { ApiError, fetchBookFigures, type BookForm } from "../../lib/api";
 import {
   badgeText,
   buildSource,
@@ -20,21 +20,26 @@ import {
   patchData,
   printedLabel,
   rowRoom,
+  SCHEDULE_1_SPEC,
+  validPeriodFor,
   readSource,
   sameAmount,
   staleCount,
-  validPeriod,
   type BookField,
   type BookLine,
   type BookMode,
   type BookSource,
+  type RowSpec,
 } from "../../lib/bookFigures";
 
 type Data = Record<string, unknown>;
 
 /** The words the books use for a box; its id when they gave no line. */
-const labelFor = (f: BookField, from: readonly BookLine[]) =>
-  printedLabel(lineFor(f, from)?.label ?? f.id);
+const labelFor = (
+  f: BookField,
+  from: readonly BookLine[],
+  own: Record<string, string> | undefined,
+) => printedLabel(lineFor(f, from)?.label ?? own?.[f.id] ?? f.id);
 
 /** What the books gave, read into fields. */
 interface Fresh {
@@ -102,8 +107,15 @@ export interface BookFigures {
 }
 
 export function useBookFigures(opts: {
-  form: "2551Q" | "2550Q";
+  form: BookForm;
   knownKeys: readonly string[];
+  /** How the form's table rows are matched and filled (the 2551Q's Schedule 1 by default). */
+  rowSpec?: RowSpec;
+  /** The editor's own words for a box the books give no line for. */
+  labels?: Record<string, string>;
+  /** What a box holds before anyone touches it (a Yes/No that starts at No): a new
+   *  draft with only these in it is filled without a question. */
+  untouched?: Record<string, string>;
   clientId: string;
   period: string;
   isNew: boolean;
@@ -116,6 +128,9 @@ export function useBookFigures(opts: {
   apply: (next: Data) => void;
 }): BookFigures {
   const { form, knownKeys, clientId, period, isNew, isFiled, saved, data, apply } = opts;
+  const rowSpec = opts.rowSpec ?? SCHEDULE_1_SPEC;
+  const labels = opts.labels;
+  const untouched = opts.untouched;
 
   const [mode, setMode] = useState<BookMode>(isNew ? "books" : "manual");
   const [baseline, setBaseline] = useState<Baseline | null>(null);
@@ -164,7 +179,7 @@ export function useBookFigures(opts: {
         return {
           figures: r.figures,
           asOf: r.asOf,
-          fields: flattenFigures(r.figures, knownKeys),
+          fields: flattenFigures(r.figures, knownKeys, rowSpec),
           lines: r.lines,
           recordCount: r.recordCount,
         };
@@ -179,7 +194,7 @@ export function useBookFigures(opts: {
         if (mine === request.current) setFetching(false);
       }
     },
-    [form, knownKeys],
+    [form, knownKeys, rowSpec],
   );
 
   /** The draft takes the books' figures for these boxes and remembers them. */
@@ -194,19 +209,24 @@ export function useBookFigures(opts: {
   }, []);
 
   /** The boxes where the draft and the books disagree, as the question lists them. */
-  const itemsFor = useCallback((fresh: Fresh): BookItem[] => {
-    const values = currentValues(dataRef.current, fresh.fields);
-    const before = new Map(
-      (baselineRef.current?.fields ?? []).map((f) => [f.id, f.books]),
-    );
-    return differing(values, fresh.fields, rowRoom(dataRef.current)).map((f) => ({
-      id: f.id,
-      label: labelFor(f, fresh.lines),
-      typed: values[f.id],
-      books: f.books,
-      edited: before.has(f.id) && !sameAmount(values[f.id], before.get(f.id)),
-    }));
-  }, []);
+  const itemsFor = useCallback(
+    (fresh: Fresh): BookItem[] => {
+      const values = currentValues(dataRef.current, fresh.fields);
+      const before = new Map(
+        (baselineRef.current?.fields ?? []).map((f) => [f.id, f.books]),
+      );
+      return differing(values, fresh.fields, rowRoom(dataRef.current, rowSpec.max)).map(
+        (f) => ({
+          id: f.id,
+          label: labelFor(f, fresh.lines, labels),
+          typed: values[f.id],
+          books: f.books,
+          edited: before.has(f.id) && !sameAmount(values[f.id], before.get(f.id)),
+        }),
+      );
+    },
+    [labels, rowSpec.max],
+  );
 
   /** A new draft's first ask: the books fill it, unless the user already typed. */
   const autoFill = useCallback(
@@ -221,7 +241,11 @@ export function useBookFigures(opts: {
         return;
       }
       const items = itemsFor(fresh);
-      if (items.every((i) => i.typed === undefined || i.typed === "")) {
+      if (
+        items.every(
+          (i) => i.typed === undefined || i.typed === "" || i.typed === untouched?.[i.id],
+        )
+      ) {
         take(
           fresh,
           fresh.fields.map((f) => f.id),
@@ -231,7 +255,7 @@ export function useBookFigures(opts: {
         setQuestion({ kind: "switch", items });
       }
     },
-    [ask, itemsFor, take],
+    [ask, itemsFor, take, untouched],
   );
 
   /** Ask the books again and put the difference to the user. */
@@ -265,29 +289,29 @@ export function useBookFigures(opts: {
     const next: Baseline = {
       figures: src.fed,
       asOf: src.asOf,
-      fields: flattenFigures(src.fed, knownKeys),
+      fields: flattenFigures(src.fed, knownKeys, rowSpec),
     };
     baselineRef.current = next;
     setBaseline(next);
     setMode(src.mode);
-    if (src.mode !== "books" || isFiled || !validPeriod(saved.period)) return;
+    if (src.mode !== "books" || isFiled || !validPeriodFor(form, saved.period)) return;
     void (async () => {
       const fresh = await ask(saved.clientId, saved.period);
       if (fresh && staleCount(next.fields, fresh.fields) > 0) setWaiting(fresh);
     })();
-  }, [isNew, saved, isFiled, knownKeys, ask]);
+  }, [isNew, saved, isFiled, form, knownKeys, rowSpec, ask]);
 
   // A new draft is asked as soon as it has a client and a quarter; a change of
   // either later, in Portal books, puts the difference to the user.
   useEffect(() => {
-    if (isFiled || !clientId || !validPeriod(period)) return;
+    if (isFiled || !clientId || !validPeriodFor(form, period)) return;
     if (!isNew && !inited.current) return;
     const key = `${clientId}|${period}`;
     if (key === lastKey.current) return;
     lastKey.current = key;
     if (modeRef.current !== "books") return;
     void (baselineRef.current ? refresh() : autoFill(clientId, period));
-  }, [isFiled, isNew, clientId, period, refresh, autoFill]);
+  }, [isFiled, isNew, form, clientId, period, refresh, autoFill]);
 
   const choose = useCallback(
     (to: BookMode) => {
@@ -298,7 +322,7 @@ export function useBookFigures(opts: {
         return;
       }
       const forClient = clientRef.current || saved?.clientId || "";
-      if (!forClient || !validPeriod(period)) {
+      if (!forClient || !validPeriodFor(form, period)) {
         // A new draft with no client yet: the client's choice asks the books.
         if (isNew) setMode("books");
         return;
@@ -315,7 +339,7 @@ export function useBookFigures(opts: {
         setQuestion({ kind: "switch", items });
       })();
     },
-    [ask, itemsFor, take, saved?.clientId, period, isNew],
+    [ask, itemsFor, take, saved?.clientId, form, period, isNew],
   );
 
   const review = useCallback(() => {

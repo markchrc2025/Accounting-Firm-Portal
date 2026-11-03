@@ -12,6 +12,9 @@ import BirForm1702QEditor from "./BirForm1702QEditor";
 import BirForm1702RTEditor from "./BirForm1702RTEditor";
 import BirForm2307Editor from "./BirForm2307Editor";
 import BirForm2316Editor from "./BirForm2316Editor";
+import BirForm0619EEditor from "./BirForm0619EEditor";
+import BirForm1601EQEditor from "./BirForm1601EQEditor";
+import BirForm1601CEditor from "./BirForm1601CEditor";
 
 /**
  * BIR form editor router. New forms take their code from `?form=` (default
@@ -30,7 +33,7 @@ export default function BirFormEditorPage() {
     enabled: !isNew,
   });
 
-  const form = isNew ? params.get("form") ?? "2551Q" : existing.data?.form;
+  const form = isNew ? (params.get("form") ?? "2551Q") : existing.data?.form;
 
   if (!isNew && existing.isPending) {
     return (
@@ -41,7 +44,12 @@ export default function BirFormEditorPage() {
     );
   }
   if (!isNew && existing.isError) {
-    return <ErrorState message="Could not load this form." onRetry={() => void existing.refetch()} />;
+    return (
+      <ErrorState
+        message="Could not load this form."
+        onRetry={() => void existing.refetch()}
+      />
+    );
   }
 
   // One editor instance per form, per new-form address, and per status (W3).
@@ -64,5 +72,10 @@ function editorFor(form: string | undefined) {
   if (form === "1702RT") return <BirForm1702RTEditor />;
   if (form === "2307") return <BirForm2307Editor />;
   if (form === "2316") return <BirForm2316Editor />;
-  return <BirForm2551QEditor />;
+  if (form === "0619E") return <BirForm0619EEditor />;
+  if (form === "1601EQ") return <BirForm1601EQEditor />;
+  if (form === "1601C") return <BirForm1601CEditor />;
+  if (form === "2551Q") return <BirForm2551QEditor />;
+  // A code the web has no editor for is never opened as some other form (W17).
+  return <ErrorState message={`The Portal has no editor for the form ${form}.`} />;
 }
