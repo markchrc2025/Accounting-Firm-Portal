@@ -85,7 +85,12 @@ describe("BirFormsService", () => {
     const cat = build().svc.catalog();
     // U17: nine forms became twelve with the three withholding returns, which are printed.
     expect(cat).toHaveLength(12);
-    expect(cat.every((f) => f.status === "available")).toBe(true);
+    // U17b: the three withholding returns stay planned until W17 adds their editors.
+    expect(cat.filter((f) => f.status === "planned").map((f) => f.code)).toEqual([
+      "0619E",
+      "1601EQ",
+      "1601C",
+    ]);
     expect(cat.filter((f) => !f.xmlExport).map((f) => f.code)).toEqual([
       "2307",
       "2316",

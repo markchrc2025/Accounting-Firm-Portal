@@ -103,6 +103,10 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     xmlExport: false,
     status: "available",
   },
+  // U17b: the three withholding returns are accepted by the API (AVAILABLE_FORMS in
+  // bir-forms.service.ts decides that, not this status) but stay "planned" here, so the web
+  // picker and form cards do not offer them before their editors exist. W17 flips all
+  // three back to "available" in the same PR that adds the editors.
   {
     code: "0619E",
     title: "Monthly Remittance Form of Creditable Income Taxes Withheld (Expanded)",
@@ -111,7 +115,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     description:
       "Expanded withholding remitted for the 1st and 2nd month of a quarter; printed, not exported.",
     xmlExport: false,
-    status: "available",
+    status: "planned", // U17b: flip to "available" in W17, with the editors
   },
   {
     code: "1601EQ",
@@ -121,7 +125,7 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     description:
       "Expanded withholding for the quarter, netting the two monthly 0619-Es; printed, not exported.",
     xmlExport: false,
-    status: "available",
+    status: "planned", // U17b: flip to "available" in W17, with the editors
   },
   {
     code: "1601C",
@@ -131,6 +135,6 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     description:
       "Tax withheld on employees' compensation, every month; printed, not exported.",
     xmlExport: false,
-    status: "available",
+    status: "planned", // U17b: flip to "available" in W17, with the editors
   },
 ];

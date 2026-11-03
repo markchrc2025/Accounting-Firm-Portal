@@ -975,19 +975,19 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
         frequency: "Monthly",
         category: "Withholding",
         xmlExport: false,
-        status: "available",
+        status: "planned", // U17b: W17 flips to "available" with the editors
       });
       expect(get("1601EQ")).toMatchObject({
         frequency: "Quarterly",
         category: "Withholding",
         xmlExport: false,
-        status: "available",
+        status: "planned", // U17b: W17 flips to "available" with the editors
       });
       expect(get("1601C")).toMatchObject({
         frequency: "Monthly",
         category: "Withholding",
         xmlExport: false,
-        status: "available",
+        status: "planned", // U17b: W17 flips to "available" with the editors
       });
     });
   });
