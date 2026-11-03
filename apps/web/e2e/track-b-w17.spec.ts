@@ -528,11 +528,7 @@ test.describe("W17 T1 0619-E (hermetic)", () => {
     const w = world();
     const { unmocked, dialogs } = await mockApi(page, w);
     await page.goto("/bir-forms/new?form=0619E");
-    const months = await page
-      .getByLabel(/^Month/)
-      .locator("option")
-      .allTextContents();
-    expect(months).toEqual([
+    await expect(page.getByLabel(/^Month/).locator("option")).toHaveText([
       "January",
       "February",
       "April",
@@ -773,12 +769,12 @@ test.describe("W17 T2 1601-EQ (hermetic)", () => {
     const w = world();
     const { unmocked, dialogs } = await mockApi(page, w);
     await page.goto("/bir-forms/new?form=1601EQ");
-    expect(
-      await page
-        .getByLabel(/^Quarter/)
-        .locator("option")
-        .allTextContents(),
-    ).toEqual(["Q1", "Q2", "Q3", "Q4"]);
+    await expect(page.getByLabel(/^Quarter/).locator("option")).toHaveText([
+      "Q1",
+      "Q2",
+      "Q3",
+      "Q4",
+    ]);
     clean(unmocked, dialogs);
   });
 
@@ -942,7 +938,7 @@ test.describe("W17 T2 1601-EQ (hermetic)", () => {
       idOf(82),
       detailOf(w, { id: idOf(82), form: "1601EQ", period: "2026-Q3", data: over }),
     );
-    const { unmocked, dialogs } = await mockApi(page, w);
+    const { seen, unmocked, dialogs, quiet } = await mockApi(page, w);
     await page.goto(`/bir-forms/${idOf(82)}`);
     const choice = group(page, "If over-remittance, mark one (1) box only");
     await expect(choice.getByRole("radio")).toHaveCount(3);
@@ -952,6 +948,13 @@ test.describe("W17 T2 1601-EQ (hermetic)", () => {
     await expect(choice.getByRole("radio", { name: /carried/ })).toHaveCount(0);
     // A carried box chosen before the quarter became the 4th is let go, not sent.
     await expect(choice.getByRole("radio", { checked: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await quiet();
+    const patches = seen.filter((x) => x.method === "PATCH");
+    expect(patches).toHaveLength(1);
+    const body = patches[0]!.request.postDataJSON() as { period: string; data: Data };
+    expect(body.period).toBe("2026-Q4");
+    expect(body.data).toMatchObject({ quarter: "4th", overRemittanceChoice: "" });
     clean(unmocked, dialogs);
   });
 });
@@ -965,13 +968,9 @@ test.describe("W17 T3 1601-C (hermetic)", () => {
     const w = world();
     const { unmocked, dialogs } = await mockApi(page, w);
     await page.goto("/bir-forms/new?form=1601C");
-    await expect(page.getByLabel(/^Month/)).toBeVisible();
-    const months = await page
-      .getByLabel(/^Month/)
-      .locator("option")
-      .allTextContents();
-    expect(months).toHaveLength(12);
-    expect(months[2]).toBe("March");
+    const months = page.getByLabel(/^Month/).locator("option");
+    await expect(months).toHaveCount(12);
+    await expect(months.nth(2)).toHaveText("March");
     clean(unmocked, dialogs);
   });
 
@@ -1155,10 +1154,8 @@ test.describe("W17 T4 the pages around the editors (hermetic)", () => {
       .locator("select")
       .filter({ has: page.locator("option", { hasText: "+ New form…" }) });
     await expect(picker.locator("option", { hasText: "0619E" })).toBeAttached();
-    const options = await picker.locator("option").allTextContents();
-    expect(options.some((o) => o.startsWith("0619E"))).toBe(true);
-    expect(options.some((o) => o.startsWith("1601EQ"))).toBe(true);
-    expect(options.some((o) => o.startsWith("1601C"))).toBe(false);
+    await expect(picker.locator("option", { hasText: /^1601EQ/ })).toHaveCount(1);
+    await expect(picker.locator("option", { hasText: /^1601C/ })).toHaveCount(0);
     clean(unmocked, dialogs);
   });
 
@@ -1171,11 +1168,7 @@ test.describe("W17 T4 the pages around the editors (hermetic)", () => {
     ]);
     await page.goto("/services");
     await page.getByRole("button", { name: "+ Add service" }).first().click();
-    const options = await page
-      .getByLabel("Linked BIR form")
-      .locator("option")
-      .allTextContents();
-    expect(options).toEqual([
+    await expect(page.getByLabel("Linked BIR form").locator("option")).toHaveText([
       "None",
       "2550Q",
       "2551Q",
