@@ -22,6 +22,7 @@ import { Test } from "@nestjs/testing";
 import type { Prisma } from "@prisma/client";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
+import { markFiledAny } from "../helpers/file-return";
 import { BIR_PDF, loadMap, overlay, printed, readPdfText } from "./helpers/pdf-text";
 import { AppModule } from "../../src/app.module";
 import { takeFiledSnapshot } from "../../src/bir-forms/filed-snapshot";
@@ -90,9 +91,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
     return created.body.id as string;
   }
   async function markFiled(id: string) {
-    const res = await as(http().patch(`${API}/bir-forms/${id}`)).send({
-      status: "filed",
-    });
+    const res = await markFiledAny(app, token, id);
     expect(res.status).toBe(200);
   }
   /** POST :id/export, and the XML it stored. */
@@ -186,9 +185,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
       "Mark the return as filed first; a clear copy shows what was filed.",
     ]);
 
-    expect(
-      (await as(http().patch(`${API}/bir-forms/${id}`)).send({ status: "filed" })).status,
-    ).toBe(200);
+    expect((await markFiledAny(app, token, id)).status).toBe(200);
 
     // The eBIRForms export, for what the clear copy must carry.
     const xmlExport = await as(http().post(`${API}/bir-forms/${id}/export`));
@@ -273,7 +270,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
 
     // A form with no map yet (the 2316): refused, even when filed.
     const f2316 = await draftForm("2316", "2026", {});
-    await as(http().patch(`${API}/bir-forms/${f2316}`)).send({ status: "filed" });
+    await markFiledAny(app, token, f2316);
     const none = await as(http().post(`${API}/bir-forms/${f2316}/clear-copy`));
     expect([none.status, none.body.message]).toEqual([
       409,

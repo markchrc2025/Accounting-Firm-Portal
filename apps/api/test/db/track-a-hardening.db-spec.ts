@@ -21,6 +21,8 @@ import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
+import { StorageService } from "../../src/storage/storage.service";
+import { FakeStorage, fileWithConfirmation } from "../helpers/file-return";
 
 // R1 a: the guard may cache a user's status for up to 60 s; the test drives it to 0.
 process.env.AUTH_STATUS_CACHE_MS = "0";
@@ -77,7 +79,10 @@ describe("U9 · sign-in hardened; posted records for clients (real app over HTTP
   }
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(StorageService)
+      .useValue(new FakeStorage())
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("api/v1");
     await app.init();
@@ -221,9 +226,8 @@ describe("U9 · sign-in hardened; posted records for clients (real app over HTTP
           })
         ).status,
       ).toBe(200);
-      const filed = await call("patch", `/bir-forms/${form.id}`, withFile.token).send({
-        status: "filed",
-      });
+      // U18: the 2550Q is filed with the BIR's confirmation (POST mark-filed), not PATCH.
+      const filed = await fileWithConfirmation(app, withFile.token, form.id);
       expect(filed.status).toBe(200);
       expect(
         (await reader.birForm.findUniqueOrThrow({ where: { id: form.id } })).status,

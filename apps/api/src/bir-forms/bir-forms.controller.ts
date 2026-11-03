@@ -10,9 +10,12 @@ import {
   Query,
   Res,
   StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiConsumes, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import type { AuthUser } from "../common/auth/auth-user";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -32,7 +35,12 @@ import {
   UpdateBirFormSchema,
 } from "./dto/bir-form.schemas";
 import { attachment } from "../storage/storage.service";
-import { BIR_FORMS_PERMISSION, BirFormsService } from "./bir-forms.service";
+import { UPLOAD_CEILING_BYTES } from "../bir-confirmation/confirmation-forms";
+import {
+  BIR_FORMS_PERMISSION,
+  BirFormsService,
+  type UploadedPdf,
+} from "./bir-forms.service";
 import { BookFiguresService } from "./book-figures/book-figures.service";
 
 /**
@@ -184,6 +192,87 @@ export class BirFormsController {
     return new StreamableFile(Buffer.from(pdf));
   }
 
+  /**
+   * U18 (D58): check an uploaded BIR confirmation e-mail (a Gmail print saved as PDF)
+   * against this return, with NO side effects. Multipart field "file". 200 with
+   * { ok, checks: [{ n, id, status: "ok"|"error"|"warning"|"skipped", message }], errors,
+   * warnings, parsed, filedOn, sha256 }; a wrong confirmation is still 200 with ok false.
+   * 400: no file, or a form with no confirmation (1601C, 2307, 2316). BIRForms:File.
+   */
+  @Post(":id/confirmation/check")
+  @HttpCode(200)
+  @RequirePermissions(BIR_FORMS_PERMISSION.file)
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
+  confirmationCheck(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @UploadedFile() file?: UploadedPdf,
+  ) {
+    return this.birForms.confirmationCheck(user, id, file);
+  }
+
+  /**
+   * U18 (D58): Mark as filed, for the nine returns that have a BIR confirmation. Multipart:
+   * the PDF in "file", OR "overrideReason" (a Super Admin, at least 10 characters) in
+   * place of it. The filed date becomes the date the BIR received the return. 200 with the
+   * return (status "filed", `confirmation`). 409: a check failed (body: { message, ok,
+   * checks, errors, warnings, parsed, filedOn }), or the return is already filed.
+   * PATCH :id with status "filed" answers 409 for these forms. BIRForms:File.
+   */
+  @Post(":id/mark-filed")
+  @HttpCode(200)
+  @RequirePermissions(BIR_FORMS_PERMISSION.file)
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
+  markFiled(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() body: { overrideReason?: unknown } | undefined,
+    @UploadedFile() file?: UploadedPdf,
+  ) {
+    return this.birForms.markFiled(user, id, {
+      file,
+      overrideReason: asText(body?.overrideReason),
+    });
+  }
+
+  /**
+   * U18 (D58): attach the confirmation (or an override) to a return ALREADY filed; the
+   * filed date and snapshot are untouched. Once only: a second attach is 409; "replace"
+   * ("true") is a Super Admin's and keeps the old row, superseded. 200 with the return.
+   */
+  @Post(":id/confirmation")
+  @HttpCode(200)
+  @RequirePermissions(BIR_FORMS_PERMISSION.file)
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
+  attachConfirmation(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() body: { overrideReason?: unknown; replace?: unknown } | undefined,
+    @UploadedFile() file?: UploadedPdf,
+  ) {
+    return this.birForms.attachConfirmation(user, id, {
+      file,
+      overrideReason: asText(body?.overrideReason),
+      replace: String(body?.replace ?? "").toLowerCase() === "true",
+    });
+  }
+
+  /** U18 (D58): { url } — a signed link to the kept PDF (404 if there is none). BIRForms:Read. */
+  @Get(":id/confirmation/url")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
+  confirmationUrl(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.birForms.confirmationUrl(user, id);
+  }
+
   @Get(":id/exports/:exportId/url")
   @RequirePermissions(BIR_FORMS_PERMISSION.read)
   exportUrl(
@@ -193,4 +282,9 @@ export class BirFormsController {
   ) {
     return this.birForms.exportUrl(user, id, exportId);
   }
+}
+
+/** A multipart text field as a string; undefined when it was not sent. */
+function asText(v: unknown): string | undefined {
+  return v === undefined || v === null ? undefined : String(v);
 }

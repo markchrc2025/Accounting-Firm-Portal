@@ -25,6 +25,8 @@ import { loadAtcReference } from "./helpers/atc-reference";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
+import { StorageService } from "../../src/storage/storage.service";
+import { FakeStorage, markFiledAny } from "../helpers/file-return";
 
 truncateOncePerFile({ firmRoles: ["Super Admin", "Manager"] });
 
@@ -168,9 +170,7 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
     return res.body as { id: string; data: Record<string, unknown> };
   }
   async function file(id: string) {
-    const res = await auth(http().patch(`${API}/bir-forms/${id}`)).send({
-      status: "filed",
-    });
+    const res = await markFiledAny(app, saToken, id);
     expect([id, res.status]).toEqual([id, 200]);
     return res.body;
   }
@@ -178,7 +178,10 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
     auth(http().post(`${API}/bir-forms/compute`)).send({ form, data });
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(StorageService)
+      .useValue(new FakeStorage())
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("api/v1");
     await app.init();
@@ -904,9 +907,8 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
         quarter: "3rd",
         rows: sevenRows,
       });
-      const filing = await auth(http().patch(`${API}/bir-forms/${d7.id}`)).send({
-        status: "filed",
-      });
+      // U18: a 1601-EQ is marked filed with the BIR's confirmation; the six-row refusal comes first.
+      const filing = await markFiledAny(app, saToken, d7.id);
       expect([filing.status, filing.body.message]).toEqual([409, SIX_ROWS(7)]);
       const preview = await auth(http().post(`${API}/bir-forms/${d7.id}/preview-pdf`));
       expect([preview.status, preview.body.message]).toEqual([409, SIX_ROWS(7)]);
