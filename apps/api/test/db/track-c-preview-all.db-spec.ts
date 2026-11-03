@@ -22,6 +22,7 @@ import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
+import { markFiledAny } from "../helpers/file-return";
 import { BIR_PDF, loadMap, overlay, printed, readPdfText } from "./helpers/pdf-text";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
@@ -642,7 +643,7 @@ describe("C2 T1 · the five other returns on the BIR's form: Preview PDF and cle
       it("marked filed: the clear copy is the same figures with no stamp and no footer", async () => {
         const filed = await draftForm(c);
         expect(
-          (await as(http().patch(`${API}/bir-forms/${filed}`)).send({ status: "filed" }))
+          (await markFiledAny(app, token, filed))
             .status,
         ).toBe(200);
         const made = await clearCopy(filed);

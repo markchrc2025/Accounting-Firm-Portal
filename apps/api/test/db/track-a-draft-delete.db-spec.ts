@@ -15,6 +15,7 @@ import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
+import { markFiledAny } from "../helpers/file-return";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
@@ -78,7 +79,7 @@ describe("U14 · delete a draft return (real app over HTTP, db)", () => {
   }
   async function markFiled(id: string) {
     expect(
-      (await as(http().patch(`${API}/bir-forms/${id}`)).send({ status: "filed" })).status,
+      (await markFiledAny(app, token, id)).status,
     ).toBe(200);
   }
 

@@ -23,6 +23,7 @@ import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
+import { markFiledAny } from "../helpers/file-return";
 import { BIR_PDF, loadMap, overlay, printed, readPdfText } from "./helpers/pdf-text";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
@@ -244,7 +245,7 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
   it("GET :id and the list say previewAvailable: true for a draft with a map, false for a filed return and for a 2316 (no map)", async () => {
     const f2307 = await draftForm("2316", "2026", {});
     const filed = await draftForm("2551Q", "2026-Q1", { year: "2026", quarter: "1st" });
-    expect((await as(http().patch(`${API}/bir-forms/${filed}`)).send({ status: "filed" })).status).toBe(200);
+    expect((await markFiledAny(app, token, filed)).status).toBe(200);
     const one = async (id: string) =>
       (await as(http().get(`${API}/bir-forms/${id}`))).body.previewAvailable;
     expect({ draft: await one(draftId), filed: await one(filed), f2307: await one(f2307) }).toEqual({
@@ -266,7 +267,7 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
       quarter: "2nd",
       rows: [{ atc: "PT010", taxable: "1000", rate: "3" }],
     });
-    await as(http().patch(`${API}/bir-forms/${filed}`)).send({ status: "filed" });
+    await markFiledAny(app, token, filed);
     const a = await preview(filed);
     expect([a.status, JSON.parse((a.body as Buffer).toString("utf8")).message]).toEqual([
       409,
