@@ -36,7 +36,7 @@ const BILLING_METHODS = ["Quarterly", "Monthly", "As Filing"] as const;
 type BillingMethod = (typeof BILLING_METHODS)[number];
 
 /** BIR forms a service can bill against. "" is the "None" (unlinked) option. */
-const LINKED_FORMS = ["2550Q", "2551Q", "1701Q", "1701", "0619-E"] as const;
+const LINKED_FORMS = ["2550Q", "2551Q", "1701Q", "1701", "0619E", "1601EQ", "1601C"] as const;
 
 /** Normalize a possibly-arbitrary stored billing string to a known cadence. */
 function toBillingMethod(value: string | undefined): BillingMethod {
@@ -330,6 +330,10 @@ function ServiceModal({
                 className="input"
               >
                 <option value="">None</option>
+                {/* A form saved under a spelling the list no longer has still shows. */}
+                {linkedForm && !(LINKED_FORMS as readonly string[]).includes(linkedForm) ? (
+                  <option value={linkedForm}>{linkedForm}</option>
+                ) : null}
                 {LINKED_FORMS.map((f) => (
                   <option key={f} value={f}>
                     {f}
