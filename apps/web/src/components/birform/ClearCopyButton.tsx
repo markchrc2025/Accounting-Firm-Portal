@@ -21,9 +21,12 @@ import { Button } from "../ui";
 export function ClearCopyButton({
   formId,
   size = "md",
+  disabled = false,
 }: {
   formId: string;
   size?: "sm" | "md";
+  /** The page holds the button back (W17: a 1601-EQ of more than six ATCs). */
+  disabled?: boolean;
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +62,12 @@ export function ClearCopyButton({
 
   return (
     <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
-      <Button variant="outline" size={size} disabled={run.isPending} onClick={onClick}>
+      <Button
+        variant="outline"
+        size={size}
+        disabled={run.isPending || disabled}
+        onClick={onClick}
+      >
         {run.isPending ? "Preparing…" : "Download clear copy"}
       </Button>
       {error ? (

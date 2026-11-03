@@ -103,6 +103,8 @@ export const BIR_FORM_CATALOG: BirFormCatalogItem[] = [
     xmlExport: false,
     status: "available",
   },
+  // U17b held the three withholding returns at "planned" until their editors existed; W17
+  // added the editors (0619-E, 1601-EQ, 1601-C), so all three are "available" again.
   {
     code: "0619E",
     title: "Monthly Remittance Form of Creditable Income Taxes Withheld (Expanded)",
