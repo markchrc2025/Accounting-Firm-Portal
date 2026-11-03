@@ -21,6 +21,24 @@ export { build1702Q, fileName1702Q } from "./build1702Q";
 export { compute1702RT, type Comp1702RT } from "./compute1702RT";
 export { build1702RT, fileName1702RT } from "./build1702RT";
 export { compute2307, type Comp2307, type Comp2307Row } from "./compute2307";
+export { compute0619E, type Comp0619E } from "./compute0619E";
+export {
+  compute1601EQ,
+  ROWS_ON_THE_FORM,
+  type Comp1601EQ,
+  type OverRemittanceChoice,
+} from "./compute1601EQ";
+export { compute1601C, type Comp1601C } from "./compute1601C";
+export {
+  dueDate0619E,
+  dueDate1601C,
+  dueDate1601EQ,
+  moveOffWeekend,
+  nextDue0619E,
+  nextDue1601C,
+  nextDue1601EQ,
+  type WithholdingDue,
+} from "./withholding-dates";
 export {
   build2307PrintRows,
   certificateFileName,

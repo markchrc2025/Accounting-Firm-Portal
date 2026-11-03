@@ -3,8 +3,11 @@
 // tax logic now lives inside the portal (guardrail #1). Per-form computation
 // *result* types live beside their compute module.
 
-/** The nine BIR forms the generator supports. */
+/** The twelve BIR forms the generator supports (U17 added the three withholding returns). */
 export type FormCode =
+  | "0619E"
+  | "1601C"
+  | "1601EQ"
   | "1701"
   | "1701A"
   | "1701Q"

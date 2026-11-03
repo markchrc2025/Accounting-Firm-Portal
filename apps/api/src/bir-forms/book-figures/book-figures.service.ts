@@ -13,6 +13,8 @@ import {
 import type { BookFiguresQuery } from "../dto/bir-form.schemas";
 import { bookQuarter } from "./book-period";
 import { roundToNearestWholePesoHalfUp } from "./round-to-whole-peso";
+import { TYPED_1601C, checkWithholdingPeriod } from "../withholding";
+import { WithholdingFeeder } from "./withholding-feeder";
 
 /** BIRForms:Read, as BirFormsService holds it (kept here to avoid a cycle). */
 const READ = "BIRForms:Read";
@@ -153,10 +155,15 @@ const total = (xs: Prisma.Decimal[]) => xs.reduce((a, b) => a.plus(b), ZERO);
  */
 @Injectable()
 export class BookFiguresService {
+  /** U17: the expanded-withholding returns, fed from the posted expense records. */
+  private readonly withholding: WithholdingFeeder;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly rbac: RbacService,
-  ) {}
+  ) {
+    this.withholding = new WithholdingFeeder(prisma);
+  }
 
   async figures(user: AuthUser, q: BookFiguresQuery): Promise<BookFigures> {
     // Another firm's client is 404 (as the tax estimate); an unassigned user is 403.
@@ -166,6 +173,13 @@ export class BookFiguresService {
     });
     if (!client) throw new NotFoundException("Client not found");
     await this.rbac.assertClient(user, [READ], client.id);
+
+    // U17: the withholding returns. The 1601-C has no books source (the Portal holds no
+    // payroll records): its figures are typed. The 0619-E and 1601-EQ follow the calendar.
+    if (q.form === "1601C") throw new BadRequestException(TYPED_1601C);
+    if (q.form === "0619E" || q.form === "1601EQ") {
+      return this.withholdingFigures(user.firmId, client.id, q);
+    }
 
     if (!FEEDABLE.has(q.form)) throw new BadRequestException(booksCantFill(q.form));
     // The 2550Q follows the client's fiscal year, as its export does (build2550Q.ts,
@@ -197,6 +211,23 @@ export class BookFiguresService {
     }
     if (client.taxType !== "VAT") return empty(NOT_VAT_CLIENT);
     return this.feed2550Q(client.id, quarter, base);
+  }
+
+  /** U17 R5: the 0619-E (a calendar month) and the 1601-EQ (a calendar quarter). */
+  private withholdingFigures(
+    firmId: string,
+    clientId: string,
+    q: BookFiguresQuery,
+  ): Promise<BookFigures> {
+    const trimmed = q.period.trim();
+    const period = q.form === "1601EQ" ? trimmed.toUpperCase() : trimmed;
+    const refusal = checkWithholdingPeriod(q.form, period);
+    if (refusal) throw new BadRequestException(refusal);
+    const base = { form: q.form, period, asOf: new Date().toISOString() };
+    if (q.form === "0619E") return this.withholding.feed0619E(clientId, period, base);
+    // Withholding follows the calendar, never a client's fiscal year.
+    const range = bookQuarter(period, null)!;
+    return this.withholding.feed1601EQ(firmId, clientId, period, range, base);
   }
 
   // --- 2551Q: Schedule 1, one row per ATC ------------------------------------------
