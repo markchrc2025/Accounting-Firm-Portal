@@ -29,6 +29,7 @@ import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
+import { AtcCard } from "../components/birform/IncomeTaxBackground";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 
@@ -77,6 +78,8 @@ export default function BirForm1702QEditor() {
   const [sch1Rate, setSch1Rate] = useState("");
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [showSpecial, setShowSpecial] = useState(false);
+  // C6: the ATC (Item 5) is the preparer's choice, saved as d.atc; empty until chosen.
+  const [atc, setAtc] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Hydrate from an existing form.
@@ -84,6 +87,7 @@ export default function BirForm1702QEditor() {
     const d = existing.data?.data as Record<string, unknown> | undefined;
     if (!d) return;
     setClientId(existing.data!.clientId);
+    setAtc(typeof d.atc === "string" ? d.atc : "");
     const period = existing.data!.period || "";
     const m = /^(\d{4})-(Q[1-3])$/.exec(period);
     if (m) {
@@ -113,13 +117,14 @@ export default function BirForm1702QEditor() {
       method,
       amended: amendedFlag,
     };
+    if (atc) base.atc = atc;
     if (showSpecial && sch1Rate) base.sch1Rate = sch1Rate;
     for (const k of FIELD_KEYS) {
       if (!showSpecial && k.startsWith("sch1_")) continue;
       if (fields[k]) base[k] = fields[k];
     }
     return base;
-  }, [year, quarter, rate, method, sch1Rate, fields, showSpecial, amendedFlag]);
+  }, [year, quarter, rate, method, sch1Rate, fields, showSpecial, amendedFlag, atc]);
   const period = `${year}-${quarter}`;
 
   // Live authoritative totals (server compute — the browser never computes tax).
@@ -297,6 +302,8 @@ export default function BirForm1702QEditor() {
               </label>
             </CardContent>
           </Card>
+
+          <AtcCard form="1702Q" atc={atc} onAtc={setAtc} disabled={isFiled} />
 
           {/* Schedule 2 — regular rate */}
           <Card>

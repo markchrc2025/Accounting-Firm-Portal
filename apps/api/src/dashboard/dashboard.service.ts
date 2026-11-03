@@ -2,6 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import type { ClientScope } from "../rbac/rbac.service";
+import {
+  nextDue0619E,
+  nextDue1601C,
+  nextDue1601EQ,
+} from "../bir-forms/engine/withholding-dates";
+import { registeredWithholding } from "../bir-forms/withholding";
 
 /** One headline KPI tile on the firm dashboard. */
 export interface DashboardKpi {
@@ -122,7 +128,7 @@ export class DashboardService {
     const ids = scoped ? [...visible] : [];
     const clients = await this.prisma.client.findMany({
       where: { firmId, ...(scoped ? { id: { in: ids } } : {}) },
-      select: { id: true, businessName: true, taxType: true, status: true },
+      select: { id: true, businessName: true, taxType: true, status: true, taxTypesJson: true },
     });
 
     if (clients.length === 0) {
@@ -296,29 +302,73 @@ export class DashboardService {
    * is a Manila date (UTC+8, no daylight saving). Sorted by due date, then client
    * name; at most six rows. Exempt clients file no business-tax return.
    */
+  /** One withholding return on the calendar (U17): its period, and its due date, weekend moved. */
+  private withholdingItem(
+    c: { id: string; businessName: string },
+    form: "0619E" | "1601EQ" | "1601C",
+    next: { period: string; due: string },
+    kind: string,
+  ): UpcomingFiling & { dueAt: number } {
+    const [y, m, d] = next.due.split("-").map(Number) as [number, number, number];
+    const quarter = /-Q(\d)$/.exec(next.period);
+    const label = quarter
+      ? `Q${quarter[1]} ${next.period.slice(0, 4)}`
+      : `${MONTH_LABELS[Number(next.period.slice(5, 7)) - 1]} ${next.period.slice(0, 4)}`;
+    return {
+      id: `${c.id}:${form}:${next.period}`,
+      form,
+      client: c.businessName,
+      period: `${label} · ${kind}`,
+      due: `DUE ${(MONTH_LABELS[m - 1] ?? "").toUpperCase()} ${d}`,
+      urgency: "normal",
+      dueAt: Date.UTC(y, m - 1, d),
+    };
+  }
+
   private upcomingFilings(
     now: Date,
-    clients: { id: string; businessName: string; taxType: string | null; status: string }[],
+    clients: {
+      id: string;
+      businessName: string;
+      taxType: string | null;
+      status: string;
+      /** The registered tax types (U17): which withholding returns the client files. */
+      taxTypesJson?: unknown;
+    }[],
   ): UpcomingFiling[] {
     const next = dueNext(now);
     const dueLabel = `DUE ${(MONTH_LABELS[next.dueMonth] ?? "").toUpperCase()} 25`;
     const out: (UpcomingFiling & { dueAt: number })[] = [];
+    const today = new Date(now.getTime() + MANILA_OFFSET_MS).toISOString().slice(0, 10);
     for (const c of clients) {
       if (c.status !== "ACTIVE") continue;
       const isVat = c.taxType === "VAT";
       const isPercentage = c.taxType === "PERCENTAGE";
-      if (!isVat && !isPercentage) continue;
-      const form = isVat ? "2550Q" : "2551Q";
-      const kind = isVat ? "VAT" : "Percentage";
-      out.push({
-        id: `${c.id}:${form}:${next.year}Q${next.quarter}`,
-        form,
-        client: c.businessName,
-        period: `Q${next.quarter} ${next.year} · ${kind} return`,
-        due: dueLabel,
-        urgency: "normal",
-        dueAt: Date.UTC(next.dueYear, next.dueMonth, 25),
-      });
+      if (isVat || isPercentage) {
+        const form = isVat ? "2550Q" : "2551Q";
+        const kind = isVat ? "VAT" : "Percentage";
+        out.push({
+          id: `${c.id}:${form}:${next.year}Q${next.quarter}`,
+          form,
+          client: c.businessName,
+          period: `Q${next.quarter} ${next.year} · ${kind} return`,
+          due: dueLabel,
+          urgency: "normal",
+          dueAt: Date.UTC(next.dueYear, next.dueMonth, 25),
+        });
+      }
+      // U17 R6, R7: the withholding returns, for a client whose registered tax types say
+      // it withholds ("Withholding Tax - Expanded", "Withholding Tax - Compensation").
+      const w = registeredWithholding(c.taxTypesJson);
+      if (w.expanded) {
+        out.push(this.withholdingItem(c, "0619E", nextDue0619E(today), "Expanded withholding"));
+        out.push(this.withholdingItem(c, "1601EQ", nextDue1601EQ(today), "Expanded withholding"));
+      }
+      if (w.compensation) {
+        out.push(
+          this.withholdingItem(c, "1601C", nextDue1601C(today), "Compensation withholding"),
+        );
+      }
     }
     out.sort((a, b) => a.dueAt - b.dueAt || a.client.localeCompare(b.client));
     return out.slice(0, 6).map(({ dueAt: _dueAt, ...f }) => f);

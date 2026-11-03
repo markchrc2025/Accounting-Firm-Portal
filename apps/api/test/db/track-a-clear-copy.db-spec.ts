@@ -6,8 +6,8 @@
  * T1  POST /bir-forms/:id/clear-copy prints the filed 2551Q's eBIRForms export on
  *     the BIR's blank: the stored PDF has the template's pages, and its text read
  *     back carries the TIN, the name, items 14–24 and both Schedule 1 rows exactly
- *     as the export does; the download route serves it. A draft and a 2307 (no map
- *     yet) are refused with 409.
+ *     as the export does; the download route serves it. A draft and a 2316 (no map
+ *     yet; the 2307 has one since C7) are refused with 409.
  * T2  The export fixes (Track C's A2): F1 a Schedule 1 ATC the export cannot encode
  *     refuses the export; F2 2551Q item 13 only for an individual's first quarter;
  *     F3 the 2550Q filing date is the return's own; F4 2550Q fiscal quarters.
@@ -163,7 +163,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
     await app.close();
   });
 
-  it("T1 · a filed 2551Q prints on the BIR's blank: TIN, name, items 14–24 and both Schedule 1 rows as exported; a draft and a 2307 get 409", async () => {
+  it("T1 · a filed 2551Q prints on the BIR's blank: TIN, name, items 14–24 and both Schedule 1 rows as exported; a draft and a 2316 get 409", async () => {
     const id = await draftForm("2551Q", "2026-Q3", {
       year: "2026",
       quarter: "3rd",
@@ -271,13 +271,13 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
     expect(url.status).toBe(200);
     expect(url.body.url).toContain(row.storageKey);
 
-    // A form with no map yet: refused, even when filed.
-    const f2307 = await draftForm("2307", "2026-Q3", {});
-    await as(http().patch(`${API}/bir-forms/${f2307}`)).send({ status: "filed" });
-    const none = await as(http().post(`${API}/bir-forms/${f2307}/clear-copy`));
+    // A form with no map yet (the 2316): refused, even when filed.
+    const f2316 = await draftForm("2316", "2026", {});
+    await as(http().patch(`${API}/bir-forms/${f2316}`)).send({ status: "filed" });
+    const none = await as(http().post(`${API}/bir-forms/${f2316}/clear-copy`));
     expect([none.status, none.body.message]).toEqual([
       409,
-      "A clear copy of the 2307 is not available yet.",
+      "A clear copy of the 2316 is not available yet.",
     ]);
   });
 
@@ -491,25 +491,25 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
       expect(filedCopy).toBeTruthy();
     });
 
-    it("true for a filed 2551Q or 2550Q; false for a draft, and for a filed 2307 (no map)", async () => {
+    it("true for a filed 2551Q or 2550Q; false for a draft, and for a filed 2316 (no map)", async () => {
       const available = async (id: string) =>
         (await as(http().get(`${API}/bir-forms/${id}`))).body.clearCopyAvailable;
       const draft = await draftForm("2551Q", "2026-Q2", { year: "2026", quarter: "2nd" });
       const vat = await draftForm("2550Q", "2026-Q2", { year: "2026", quarter: "2nd" });
       expect(await available(vat)).toBe(false);
       await markFiled(vat);
-      const f2307 = await draftForm("2307", "2025-Q4", {});
-      await markFiled(f2307);
+      const f2316 = await draftForm("2316", "2025", {});
+      await markFiled(f2316);
       expect({
         filed2551Q: await available(filed2551Q),
         filed2550Q: await available(vat),
         draft2551Q: await available(draft),
-        filed2307: await available(f2307),
+        filed2316: await available(f2316),
       }).toEqual({
         filed2551Q: true,
         filed2550Q: true,
         draft2551Q: false,
-        filed2307: false,
+        filed2316: false,
       });
     });
 

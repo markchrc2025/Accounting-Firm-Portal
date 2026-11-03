@@ -11,7 +11,7 @@
 //       frm1702q:optTreaty:_1/_2.
 //   * The amended radios are mis-spelled "Remender": optRemenderRtn_1/_2.
 //   * TIN parts use lowercase "Tin": txtTin1/2/3.
-//   * txtAtc carries a TRAILING SPACE: default "IC010 " (note the space).
+//   * txtAtc is the ATC the preparer chose (C6): no default, no trailing space; empty if none.
 //   * Globals (no namespace): Codename1..18 (Codename1=true, rest false),
 //     txt1stQtr/2ndQtr/3rdQtr/Total, txtTaxRate ("2%"), txtMinCorpIncomeTax,
 //     txtFinalFlag, txtEnroll, ebirOnline*, txtEmail, driveSelectTPExport.
@@ -25,6 +25,7 @@ import type { Filing, Taxpayer } from "./types";
 import type { Comp1702Q } from "./compute1702Q";
 import { amt, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
 import { parsePeriod } from "./period";
+import { chosenAtc } from "./taxpayer-background";
 
 const NS = "frm1702q:";
 
@@ -108,10 +109,11 @@ export function build1702Q(filing: Filing, tp: Taxpayer | null, comp: Comp1702Q)
   P("optTreaty:_2", rb(d.treaty !== "yes"));
   P("lstTaxTreaty", "0");
 
-  // ---- ATC (trailing space is authentic — keep it; default IC010 when blank) ----
+  // ---- ATC (C6, D55 amendment): what the preparer chose from the template's choices;
+  // nothing chosen writes nothing (no IC010 default, no trailing space) ----
   // The authentic 1702Q XML captures the treaty only via optTreaty/lstTaxTreaty
   // and carries no signatory title/TIN slots, so none are emitted here.
-  P("txtAtc", (d.atc as string) ? String(d.atc) : "IC010 ");
+  P("txtAtc", chosenAtc(d.atc, "1702Q") ?? "");
 
   // ---- Part IV Schedule 1 (special/exempt) amount fields (txt16A..txt24B) ----
   // The authentic positional block carries Schedule 1's per-item, per-column

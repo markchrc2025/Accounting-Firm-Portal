@@ -11,10 +11,9 @@
 //
 // All fixture data is invented. No real name, TIN, address, phone or email.
 
-import { readFileSync } from "node:fs";
-import { inflateSync } from "node:zlib";
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 import { certificateFileName } from "../src/lib/sheetPdf";
+import { mockCertificatePrint } from "./helpers/certificate-print";
 
 // ---------------------------------------------------------------------------
 // Invented parties
@@ -221,6 +220,9 @@ function form2307(over: Record<string, unknown> = {}) {
     amendsId: null,
     sequence: 1,
     filedSnapshot: SNAPSHOT,
+    // C7: an issued 2307 has a print map; its clear copy is the one print.
+    clearCopyAvailable: true,
+    previewAvailable: false,
     ...over,
   };
 }
@@ -923,79 +925,6 @@ test("T2 the forms list marks an amendment with its sequence", async ({ page }) 
 // T3 — a filed certificate prints the payor from its filing snapshot
 // ---------------------------------------------------------------------------
 
-interface Raster {
-  w: number;
-  h: number;
-  rgb: Uint8Array;
-}
-
-/** The page raster inside a jsPDF PDF: the PNG it embeds, as a FlateDecode
- *  stream with PNG row predictors. Inflate and undo the row filters. (The same
- *  decoder W2 pass 2 wrote for the 2307; no new dependency.) */
-function pdfRaster(pdf: Buffer): Raster {
-  const s = pdf.toString("latin1");
-  const re =
-    /\/Width (\d+)[\s\S]*?\/Height (\d+)[\s\S]*?\/ColorSpace \/DeviceRGB[\s\S]*?\/Length (\d+)[\s\S]*?stream\r?\n/g;
-  let m: RegExpExecArray | null;
-  let best: { w: number; h: number; len: number; start: number } | null = null;
-  while ((m = re.exec(s))) {
-    const w = +m[1]!;
-    const h = +m[2]!;
-    if (!best || w * h > best.w * best.h)
-      best = { w, h, len: +m[3]!, start: re.lastIndex };
-  }
-  if (!best) throw new Error("no RGB FlateDecode image in the PDF");
-  const raw = inflateSync(pdf.subarray(best.start, best.start + best.len));
-  const { w, h } = best;
-  const stride = w * 3;
-  const rgb = new Uint8Array(h * stride);
-  for (let y = 0; y < h; y++) {
-    const f = raw[y * (stride + 1)]!;
-    const src = y * (stride + 1) + 1;
-    const dst = y * stride;
-    for (let x = 0; x < stride; x++) {
-      const a = x >= 3 ? rgb[dst + x - 3]! : 0;
-      const b = y > 0 ? rgb[dst - stride + x]! : 0;
-      const c = x >= 3 && y > 0 ? rgb[dst - stride + x - 3]! : 0;
-      const v = raw[src + x]!;
-      let out: number;
-      if (f === 0) out = v;
-      else if (f === 1) out = v + a;
-      else if (f === 2) out = v + b;
-      else if (f === 3) out = v + ((a + b) >> 1);
-      else {
-        const pa = Math.abs(b - c);
-        const pb = Math.abs(a - c);
-        const pc = Math.abs(a + b - 2 * c);
-        out = v + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);
-      }
-      rgb[dst + x] = out & 0xff;
-    }
-  }
-  return { w, h, rgb };
-}
-
-/** T4's measure on a PNG raster: where the dark ink in a box sits. */
-function inkIn(r: Raster, box: { x: number; y: number; w: number; h: number }) {
-  let sum = 0;
-  let n = 0;
-  let minX = Infinity;
-  let maxX = -Infinity;
-  for (let y = Math.ceil(box.y); y < Math.floor(box.y + box.h); y++) {
-    for (let x = Math.ceil(box.x); x < Math.floor(box.x + box.w); x++) {
-      const i = (y * r.w + x) * 3;
-      const lum = 0.299 * r.rgb[i]! + 0.587 * r.rgb[i + 1]! + 0.114 * r.rgb[i + 2]!;
-      if (lum < 110) {
-        sum += y;
-        n++;
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-      }
-    }
-  }
-  return { centre: n ? (sum / n - box.y) / box.h : NaN, minX, maxX, pixels: n };
-}
-
 /** The payor name's box and text run on the CAPTURE copy of the sheet. */
 async function payorNameBox(page: Page) {
   return page.evaluate(() => {
@@ -1059,31 +988,26 @@ for (const [label, snapshot, expectedName] of [
     expect(await boxes("zip", 1)).toBe(src.zip);
     await expect(view).toContainText(`${src.address}, ${src.city}`);
 
-    // In the PDF: the ink in the payor-name box is that text's own run.
+    // The printed certificate is the server's (C7): "Download clear copy" is the one
+    // print, and the file is named for the TIN that was printed. What the PDF holds —
+    // the payor from the snapshot, whatever the client record says now — is proved on
+    // the real server by track-c-c7-2307-print.db-spec.ts (case 6).
+    const print = await mockCertificatePrint(page, FILED_2307_ID, {
+      preview: "unused-DRAFT.pdf",
+      clear: certificateFileName("2307", "2026-Q1", src.tin),
+    });
+    await expect(page.getByRole("button", { name: /Print certificate/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Download clear copy" })).toHaveCount(
+      1,
+    );
     const [download] = await Promise.all([
       page.waitForEvent("download", { timeout: 60_000 }),
-      page.getByRole("button", { name: /Print certificate \(PDF\)/ }).click(),
+      page.getByRole("button", { name: "Download clear copy" }).click(),
     ]);
-    // The file is named for the TIN that was printed.
     expect(download.suggestedFilename()).toBe(
       certificateFileName("2307", "2026-Q1", src.tin),
     );
-    const raster = pdfRaster(readFileSync((await download.path())!));
-    const box = {
-      x: name.box.x * 2 + 1,
-      y: name.box.y * 2 + 1,
-      w: name.box.w * 2 - 2,
-      h: name.box.h * 2 - 2,
-    };
-    const ink = inkIn(raster, box);
-    // eslint-disable-next-line no-console
-    console.log(
-      `T3-PAYOR ${JSON.stringify({ label, expectedName, box, run: [name.runLeft * 2, name.runRight * 2], ink })}`,
-    );
-    expect(ink.centre).toBeGreaterThan(0.25);
-    expect(ink.centre).toBeLessThan(0.75);
-    expect(Math.abs(ink.minX - name.runLeft * 2)).toBeLessThanOrEqual(6);
-    expect(Math.abs(ink.maxX - name.runRight * 2)).toBeLessThanOrEqual(6);
+    expect(print.clearCopies).toBe(1);
 
     // With a snapshot, the client record is not even read (R3).
     const clientReads = seen.filter((s) => s.path === `/api/v1/clients/${CLIENT.id}`);

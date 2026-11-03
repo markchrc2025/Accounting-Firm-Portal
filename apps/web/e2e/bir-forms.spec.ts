@@ -89,7 +89,7 @@ test.describe("BIR Forms (requires API)", () => {
 
     // The editor states why there is no XML, and offers the PDF action instead.
     await expect(page.getByText(/issued to a payee/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /Print certificate \(PDF\)/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Preview PDF" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Export eBIRForms XML/i })).toHaveCount(0);
   });
 });

@@ -94,6 +94,13 @@ function checkField(map: FormMap, f: Field): void {
       if (!(f.minSize > 0)) fail(map, `${f.key}: a text field needs minSize`);
       if (f.amount && f.case === "keep")
         fail(map, `${f.key}: an amount cell has no case`);
+      if (
+        f.amount !== undefined &&
+        f.amount !== true &&
+        f.amount !== false &&
+        f.amount !== "centavos"
+      )
+        fail(map, `${f.key}: amount is true or "centavos"`);
       return;
     default:
       fail(
@@ -114,6 +121,28 @@ export function validateMap(map: FormMap): FormMap {
   }
   if (!(map.size > 0)) fail(map, "default size missing");
   map.fields.forEach((f) => checkField(map, f));
+  if (map.printPages !== undefined) {
+    const pp = map.printPages;
+    if (
+      !Array.isArray(pp) ||
+      pp.length === 0 ||
+      !pp.every(
+        (n, i) =>
+          Number.isInteger(n) &&
+          n >= 1 &&
+          n <= map.pages.length &&
+          (i === 0 || n > pp[i - 1]!),
+      )
+    )
+      fail(map, "printPages must list pages of the template in ascending order");
+    for (const f of map.fields) {
+      if (f.kind === "none") continue;
+      const pagesOf = f.kind === "comb" ? f.rows.map((r) => r.page) : [f.page];
+      for (const pg of pagesOf)
+        if (!pp.includes(pg))
+          fail(map, `${f.key}: sits on page ${pg}, which is not printed`);
+    }
+  }
   const none = new Set(map.fields.filter((f) => f.kind === "none").map((f) => f.key));
   for (const f of map.fields) {
     if (f.kind !== "none" && none.has(f.key))

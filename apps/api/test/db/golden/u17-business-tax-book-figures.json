@@ -1,0 +1,463 @@
+{
+  "2551Q percentage client": {
+    "form": "2551Q",
+    "period": "2026-Q3",
+    "recordCount": 9,
+    "figures": {
+      "rows": [
+        { "atc": "PT010", "taxable": "120000", "rate": "3" },
+        { "atc": "PT040", "taxable": "50001", "rate": "3" },
+        { "atc": "PT060", "taxable": "1", "rate": "3" }
+      ]
+    },
+    "lines": [
+      {
+        "key": "rows.PT010",
+        "label": "Schedule 1 · PT010",
+        "records": 2,
+        "filter": {
+          "kind": "income",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "atc": "PT010"
+        },
+        "amount": 120000
+      },
+      {
+        "key": "rows.PT040",
+        "label": "Schedule 1 · PT040",
+        "records": 1,
+        "filter": {
+          "kind": "income",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "atc": "PT040"
+        },
+        "amount": 50001
+      },
+      {
+        "key": "rows.PT060",
+        "label": "Schedule 1 · PT060",
+        "records": 3,
+        "filter": {
+          "kind": "income",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "atc": "PT060"
+        },
+        "amount": 1
+      },
+      {
+        "key": "grossReceipts",
+        "label": "Gross receipts for the quarter",
+        "records": 9,
+        "filter": { "kind": "income", "from": "2026-07-01", "to": "2026-09-30" },
+        "amount": 186402
+      }
+    ],
+    "warnings": [
+      "2 sales (₱8,400) have no ATC and were left out.",
+      "1 sale (₱8,000) has an ATC the 2551Q doesn't list (WI010) and was left out."
+    ]
+  },
+  "2550Q VAT client": {
+    "form": "2550Q",
+    "period": "2026-Q3",
+    "recordCount": 17,
+    "figures": {
+      "i31a": "600000",
+      "i32a": "250001",
+      "i33a": "1",
+      "i16": "3001",
+      "i44a": "100000",
+      "i44b": "12000",
+      "i45a": "10000",
+      "i45b": "1200",
+      "i46a": "30001",
+      "i46b": "3600",
+      "i47a": "5000",
+      "i47b": "600",
+      "i48a": "7000",
+      "i49a": "4001"
+    },
+    "lines": [
+      {
+        "key": "i31a",
+        "label": "VATable sales (net) — Item 31A",
+        "records": 3,
+        "filter": {
+          "kind": "income",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "vatClass": "VATABLE_12"
+        },
+        "amount": 600000
+      },
+      {
+        "key": "i32a",
+        "label": "Zero-rated sales — Item 32A",
+        "records": 1,
+        "filter": {
+          "kind": "income",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "vatClass": "ZERO_RATED"
+        },
+        "amount": 250001
+      },
+      {
+        "key": "i33a",
+        "label": "VAT-exempt sales — Item 33A",
+        "records": 3,
+        "filter": {
+          "kind": "income",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "vatClass": "EXEMPT"
+        },
+        "amount": 1
+      },
+      {
+        "key": "i16",
+        "label": "Creditable VAT withheld — Item 16",
+        "records": 1,
+        "filter": { "kind": "income", "from": "2026-07-01", "to": "2026-09-30" },
+        "amount": 3001
+      },
+      {
+        "key": "i44a",
+        "label": "Domestic — goods (Item 44): purchases",
+        "records": 2,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "DOMESTIC_PURCHASES"
+        },
+        "amount": 100000
+      },
+      {
+        "key": "i44b",
+        "label": "Domestic — goods (Item 44): input tax",
+        "records": 2,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "DOMESTIC_PURCHASES"
+        },
+        "amount": 12000
+      },
+      {
+        "key": "i45a",
+        "label": "Domestic — services (Item 45): purchases",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "SERVICES_NONRESIDENT"
+        },
+        "amount": 10000
+      },
+      {
+        "key": "i45b",
+        "label": "Domestic — services (Item 45): input tax",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "SERVICES_NONRESIDENT"
+        },
+        "amount": 1200
+      },
+      {
+        "key": "i46a",
+        "label": "Importation — goods (Item 46): purchases",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "IMPORTATION_GOODS"
+        },
+        "amount": 30001
+      },
+      {
+        "key": "i46b",
+        "label": "Importation — goods (Item 46): input tax",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "IMPORTATION_GOODS"
+        },
+        "amount": 3600
+      },
+      {
+        "key": "i47a",
+        "label": "Others (Item 47): purchases",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "OTHERS_WITH_INPUT_TAX"
+        },
+        "amount": 5000
+      },
+      {
+        "key": "i47b",
+        "label": "Others (Item 47): input tax",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "OTHERS_WITH_INPUT_TAX"
+        },
+        "amount": 600
+      },
+      {
+        "key": "i48a",
+        "label": "Purchases not qualified for input tax — Item 48A",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "DOMESTIC_NO_INPUT_TAX"
+        },
+        "amount": 7000
+      },
+      {
+        "key": "i49a",
+        "label": "VAT-exempt importations — Item 49A",
+        "records": 1,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-07-01",
+          "to": "2026-09-30",
+          "inputVATCategory": "VAT_EXEMPT_IMPORTATION"
+        },
+        "amount": 4001
+      },
+      {
+        "key": "grossReceipts",
+        "label": "Gross receipts for the quarter",
+        "records": 8,
+        "filter": { "kind": "income", "from": "2026-07-01", "to": "2026-09-30" },
+        "amount": 850702
+      }
+    ],
+    "warnings": [
+      "1 sale (₱700) is marked non-VAT and was left out.",
+      "1 purchase (₱1,500,000) is capital goods over ₱1 million; it belongs in Schedule 1 and was left out.",
+      "1 purchase (₱900) has no VAT category and was left out."
+    ]
+  },
+  "2550Q fiscal-year client": {
+    "form": "2550Q",
+    "period": "2026-Q3",
+    "recordCount": 2,
+    "figures": {
+      "i31a": "5000",
+      "i32a": "0",
+      "i33a": "600",
+      "i16": "0",
+      "i44a": "0",
+      "i44b": "0",
+      "i45a": "0",
+      "i45b": "0",
+      "i46a": "0",
+      "i46b": "0",
+      "i47a": "0",
+      "i47b": "0",
+      "i48a": "0",
+      "i49a": "0"
+    },
+    "lines": [
+      {
+        "key": "i31a",
+        "label": "VATable sales (net) — Item 31A",
+        "records": 1,
+        "filter": {
+          "kind": "income",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "vatClass": "VATABLE_12"
+        },
+        "amount": 5000
+      },
+      {
+        "key": "i32a",
+        "label": "Zero-rated sales — Item 32A",
+        "records": 0,
+        "filter": {
+          "kind": "income",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "vatClass": "ZERO_RATED"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i33a",
+        "label": "VAT-exempt sales — Item 33A",
+        "records": 1,
+        "filter": {
+          "kind": "income",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "vatClass": "EXEMPT"
+        },
+        "amount": 600
+      },
+      {
+        "key": "i16",
+        "label": "Creditable VAT withheld — Item 16",
+        "records": 0,
+        "filter": { "kind": "income", "from": "2026-01-01", "to": "2026-03-31" },
+        "amount": 0
+      },
+      {
+        "key": "i44a",
+        "label": "Domestic — goods (Item 44): purchases",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "DOMESTIC_PURCHASES"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i44b",
+        "label": "Domestic — goods (Item 44): input tax",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "DOMESTIC_PURCHASES"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i45a",
+        "label": "Domestic — services (Item 45): purchases",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "SERVICES_NONRESIDENT"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i45b",
+        "label": "Domestic — services (Item 45): input tax",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "SERVICES_NONRESIDENT"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i46a",
+        "label": "Importation — goods (Item 46): purchases",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "IMPORTATION_GOODS"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i46b",
+        "label": "Importation — goods (Item 46): input tax",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "IMPORTATION_GOODS"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i47a",
+        "label": "Others (Item 47): purchases",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "OTHERS_WITH_INPUT_TAX"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i47b",
+        "label": "Others (Item 47): input tax",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "OTHERS_WITH_INPUT_TAX"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i48a",
+        "label": "Purchases not qualified for input tax — Item 48A",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "DOMESTIC_NO_INPUT_TAX"
+        },
+        "amount": 0
+      },
+      {
+        "key": "i49a",
+        "label": "VAT-exempt importations — Item 49A",
+        "records": 0,
+        "filter": {
+          "kind": "purchases",
+          "from": "2026-01-01",
+          "to": "2026-03-31",
+          "inputVATCategory": "VAT_EXEMPT_IMPORTATION"
+        },
+        "amount": 0
+      },
+      {
+        "key": "grossReceipts",
+        "label": "Gross receipts for the quarter",
+        "records": 2,
+        "filter": { "kind": "income", "from": "2026-01-01", "to": "2026-03-31" },
+        "amount": 5600
+      }
+    ],
+    "warnings": []
+  },
+  "2551Q VAT client (wrong regime)": {
+    "form": "2551Q",
+    "period": "2026-Q3",
+    "recordCount": 0,
+    "figures": {},
+    "lines": [],
+    "warnings": ["This client isn't a percentage-tax client; the 2551Q will stay empty."]
+  }
+}

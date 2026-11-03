@@ -18,6 +18,7 @@ import type { Filing, Taxpayer } from "./types";
 import type { Comp1702RT } from "./compute1702RT";
 import { num } from "./format";
 import { amt, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
+import { chosenAtc } from "./taxpayer-background";
 
 const NS = "frm1702RT:";
 
@@ -84,13 +85,14 @@ export function build1702RT(filing: Filing, tp: Taxpayer | null, comp: Comp1702R
   P("rdoPg1I3AmmendNo", rb(d.amended !== "yes"));
   P("rdoPg1I4ShortPeriodYes", rb(d.shortPeriod === "yes"));
   P("rdoPg1I4ShortPeriodNo", rb(d.shortPeriod !== "yes"));
-  // Item 5 — ATC. "IC 055" (MCIT) selects the dedicated radio; any other ATC is
-  // emitted via the "Other" dropdown (spaces stripped to match the package code).
-  const atcRaw = ((d.atc as string) || "").trim();
-  const atcCode = atcRaw.replace(/\s+/g, "").toUpperCase();
+  // Item 5 — ATC (C6, D55 amendment): what the preparer chose from the template's
+  // choices; nothing chosen ticks nothing and writes nothing (no IC010 default).
+  // "IC 055" (MCIT) selects the dedicated radio; any other ATC the form is later
+  // allowed to carry goes through the "Other" dropdown.
+  const atcCode = chosenAtc(d.atc, "1702RT") ?? "";
   const atcIsMcit = atcCode === "IC055";
   P("rdoPg1I5Atc", rb(atcIsMcit));
-  P("drpPg1I5AtcOther", atcIsMcit ? "" : atcCode || "IC010");
+  P("drpPg1I5AtcOther", atcIsMcit ? "" : atcCode);
   P("rdoPg1I5AtcOther", rb(!atcIsMcit && atcCode !== ""));
 
   // TIN (4 parts; TIN4 = branch)

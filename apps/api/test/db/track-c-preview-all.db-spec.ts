@@ -198,7 +198,7 @@ const FORMS: FormCase[] = [
       method: "itemized",
       amended: "no",
       attachments: "1",
-      atc: "IC010",
+      atc: "IC055", // C6: the only ATC the 1702Q prints; IC010 is not defaulted or accepted
       sch1_1A: "100000",
       sch1_2A: "40000",
       sch1_4A: "5000",
@@ -375,7 +375,7 @@ const FORMS: FormCase[] = [
       method: "itemized",
       amended: "no",
       shortPeriod: "no",
-      atc: "IC010",
+      atc: "IC055", // C6: the only ATC the 1702RT prints; IC010 is not defaulted or accepted
       over: "carry",
       attachments: "2",
       i27: "5000000",

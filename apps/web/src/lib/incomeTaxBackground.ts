@@ -1,21 +1,26 @@
-// incomeTaxBackground.ts — C5 (D55): what the income-tax editors SHOW of the return's
-// background. The Portal's server decides what the XML and the print say (apps/api
-// bir-forms/engine/taxpayer-background.ts); this mirrors its rules so an editor can say,
-// before saving, which taxpayer type and ATC the return will carry. The browser never
-// decides anything that is filed: a draft's saved figures and the client's record do,
-// on the server.
+// incomeTaxBackground.ts — C5/C6 (D55 and its amendment): what the income-tax editors
+// show of the return's background. The server decides what the XML and the print say
+// (apps/api bir-forms/engine/taxpayer-background.ts); this mirrors its two small rules
+// so an editor can say, before saving, what the return will carry:
+//
+//   * Item 6 (taxpayer type) is the client's Classification and nothing else.
+//   * Item 16 (civil status) is the client's record; Items 17 and 18 are asked only of
+//     a married taxpayer.
+//
+// Item 7 (the ATC) is not decided here or anywhere: the preparer chooses it from the
+// choices the BIR printed on the form (ATC_CHOICES, word for word from the template).
 
 export type CivilBox = "single" | "married" | "separated" | "widow";
-export type FilerType = "single" | "prof" | "estate" | "trust" | "comp";
-export type IncomeTaxAtc =
-  "II011" | "II012" | "II013" | "II014" | "II015" | "II016" | "II017";
+export type TaxpayerTypeBox = "single" | "prof";
+export type IncomeTaxForm = "1701" | "1701A" | "1701Q";
+/** The returns whose editors carry an ATC selector (the 1702s have no Item 6 or civil status). */
+export type AtcForm = IncomeTaxForm | "1702Q" | "1702RT";
 
-/** The client columns the rules read (a client row from GET /clients). */
+/** The client columns the editors read (a client row from GET /clients). */
 export interface ClientBackground {
   kind?: string | null;
   civilStatus?: string | null;
   classification?: string | null;
-  taxpayerType?: string | null;
 }
 
 export function civilStatusOf(raw: string | null | undefined): CivilBox | null {
@@ -46,72 +51,81 @@ export const CIVIL_LABEL: Record<CivilBox, string> = {
   widow: "Widow/er",
 };
 
-export const FILER_LABEL: Record<FilerType, string> = {
+/** The boxes of Item 6 the Classification can tick, as the form prints them. */
+export const TAXPAYER_TYPE_LABEL: Record<TaxpayerTypeBox, string> = {
   single: "Single Proprietor",
   prof: "Professional",
-  estate: "Estate",
-  trust: "Trust",
-  comp: "Compensation Earner",
 };
 
-/** The template's own words for each ATC. */
-export const ATC_LABEL: Record<IncomeTaxAtc, string> = {
-  II011: "II011 Compensation Income",
-  II012: "II012 Business Income – Graduated IT Rates",
-  II013: "II013 Mixed Income – Graduated IT Rates",
-  II014: "II014 Income from Profession – Graduated IT Rates",
-  II015: "II015 Business Income – 8% IT Rate",
-  II016: "II016 Mixed Income – 8% IT Rate",
-  II017: "II017 Income from Profession – 8% IT Rate",
+/** "Professional" and "Single Proprietorship" have a box; anything else has none. */
+export function taxpayerTypeOf(
+  classification: string | null | undefined,
+): TaxpayerTypeBox | null {
+  const k = String(classification ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (k === "professional") return "prof";
+  if (k === "single proprietorship") return "single";
+  return null;
+}
+
+/** The form's own item number for the taxpayer type and for the ATC. */
+export const ITEM_NUMBERS: Record<AtcForm, { type: string; atc: string }> = {
+  "1701": { type: "6", atc: "7" },
+  "1701A": { type: "6", atc: "7" },
+  "1701Q": { type: "7", atc: "8" },
+  "1702Q": { type: "", atc: "5" },
+  "1702RT": { type: "", atc: "5" },
 };
 
-export interface IncomeMix {
-  comp: number;
-  sales: number;
-  other: number;
+export interface AtcChoice {
+  code: string;
+  /** The template's printed words for the choice, spacing and dashes as printed. */
+  label: string;
 }
 
-export function deriveFiler(
-  client: ClientBackground | undefined,
-  mix: IncomeMix,
-  rate: "graduated" | "eight",
-  opts: { allowComp: boolean; allowMixed: boolean } = {
-    allowComp: true,
-    allowMixed: true,
-  },
-): { type: FilerType | null; atc: IncomeTaxAtc | null } {
-  if (!client) return { type: null, atc: null };
-  if (client.kind !== "individual") {
-    const t = String(client.taxpayerType ?? "").toLowerCase();
-    if (/estate/.test(t)) return { type: "estate", atc: null };
-    if (/trust/.test(t)) return { type: "trust", atc: null };
-    return { type: null, atc: null };
-  }
-  const c = String(client.classification ?? "").toLowerCase();
-  const kind = /professional/.test(c) ? "prof" : /proprietor/.test(c) ? "single" : null;
-  const biz = mix.sales > 0 || mix.other > 0;
-  const comp = mix.comp > 0;
-  const eight = rate === "eight";
-  if (comp && !biz)
-    return opts.allowComp ? { type: "comp", atc: "II011" } : { type: null, atc: null };
-  if (comp && biz && opts.allowMixed)
-    return { type: kind, atc: eight ? "II016" : "II013" };
-  if (kind === "single") return { type: "single", atc: eight ? "II015" : "II012" };
-  if (kind === "prof") return { type: "prof", atc: eight ? "II017" : "II014" };
-  return { type: null, atc: null };
-}
-
-/** Typed amount → number (blank, junk → 0). */
-export const amountOf = (v: string | undefined): number => {
-  const n = Number(String(v ?? "").replace(/,/g, ""));
-  return Number.isFinite(n) ? n : 0;
+/**
+ * The ATC choices the committed template prints, in the order it prints them, each with
+ * its printed description (the spacing and the hyphen or en dash differ form to form,
+ * as the BIR set them). packages/bir-pdf's C6 test reads the blank forms and checks
+ * these words against them.
+ */
+export const ATC_CHOICES: Record<AtcForm, readonly AtcChoice[]> = {
+  "1701": [
+    { code: "II012", label: "II012 Business Income-Graduated IT Rates" },
+    { code: "II014", label: "II014 Income from Profession–Graduated IT Rates" },
+    { code: "II013", label: "II013 Mixed Income–Graduated IT Rates" },
+    { code: "II011", label: "II011 Compensation Income" },
+    { code: "II015", label: "II015 Business Income - 8% IT Rate" },
+    { code: "II017", label: "II017 Income from Profession – 8% IT Rate" },
+    { code: "II016", label: "II016 Mixed Income – 8% IT Rate" },
+  ],
+  "1701A": [
+    { code: "II012", label: "II012 Business Income - Graduated IT Rates" },
+    { code: "II014", label: "II014 Income from Profession – Graduated IT Rates" },
+    { code: "II015", label: "II015 Business Income - 8% IT Rate" },
+    { code: "II017", label: "II017 Income from Profession – 8% IT Rate" },
+  ],
+  "1701Q": [
+    { code: "II012", label: "II012 Business Income-Graduated IT Rates" },
+    { code: "II014", label: "II014 Income from Profession–Graduated IT Rates" },
+    { code: "II013", label: "II013 Mixed Income–Graduated IT Rates" },
+    { code: "II015", label: "II015 Business Income - 8% IT Rate" },
+    { code: "II017", label: "II017 Income from Profession – 8% IT Rate" },
+    { code: "II016", label: "II016 Mixed Income – 8% IT Rate" },
+  ],
+  // The 1702Q and 1702RT print one choice, "IC 055" with "Minimum Corporate Income Tax
+  // (MCIT)", and a blank write-in line; any other ATC is the owner's to list.
+  "1702Q": [{ code: "IC055", label: "IC 055 Minimum Corporate Income Tax (MCIT)" }],
+  "1702RT": [{ code: "IC055", label: "IC 055 Minimum Corporate Income Tax (MCIT)" }],
 };
 
-/** What to tell the person when the Portal could not decide Item 6 / the ATC. */
-export function undecidedHint(client: ClientBackground | undefined): string {
-  if (!client) return "Choose the client first.";
-  if (client.kind !== "individual") {
-    return "Nothing is ticked: the form lists no ATC for this client. Set its taxpayer type to Estate or Trust to tick Item 6.";
-  }
-  return "Nothing is ticked: set the client's classification (Professional or Single Proprietorship) on its record.";
-}
+/** What the editor says while no ATC is chosen. */
+export const CHOOSE_ATC = (form: AtcForm) =>
+  form === "1702Q" || form === "1702RT"
+    ? "Choose the ATC."
+    : `Choose Item ${ITEM_NUMBERS[form].atc} (ATC).`;
+
+/** What the editor says when the client's Classification ticks no Item 6 box. */
+export const SET_CLASSIFICATION = "Set this client's Classification on the Client page.";

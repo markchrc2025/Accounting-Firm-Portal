@@ -66,7 +66,7 @@ describe("build1701A — reproduces the eBIRForms 1701A schema", () => {
     has("frm1701A:txtCitizenship=FILIPINOfrm1701A:txtCitizenship=");
   });
 
-  it("selects the graduated tax-rate radio and the derived ATC (C5: single proprietor, graduated: II012)", () => {
+  it("selects the graduated tax-rate radio and the chosen ATC", () => {
     has("frm1701A:optTaxRate_1=truefrm1701A:optTaxRate_1=");
     has("frm1701A:optTaxRate_2=falsefrm1701A:optTaxRate_2=");
     has("frm1701A:optATC_1=truefrm1701A:optATC_1=");

@@ -206,3 +206,12 @@ Decision (domain owner): each return can take its figures from the client's post
 
 ## 2026-10-13 · D55 · The 1701's background comes from the client's record
 Decision (domain owner): Item 16 (civil status) and the other background items of the income-tax returns come from the client's record; Items 17 and 18 are answered only for a married taxpayer; Item 7 (ATC) is derived from the taxpayer type, the rate and the income mix and is never typed. The same check was made on the other income-tax returns. Built in C5.
+
+## 2026-10-13 · D55 amendment · Item 7 is chosen, Item 6 is the Classification
+Decision (domain owner): on the 1701, 1701A and 1701Q, Item 7 (ATC) is chosen by the preparer in the editor and is never derived and never added to the client's record. Item 6 (taxpayer type) is the client's Classification and is not overridden by the draft's figures. Civil status still comes from the client's record, and Items 17 and 18 are answered only for a married taxpayer. The same applies to the ATC of the 1702Q and 1702RT; no ATC is defaulted. Built in C6.
+
+## 2026-10-22 · D56 · The 2307 prints on the BIR's own blank
+Decision (domain owner): BIR Form 2307 is printed on the BIR's own blank form like the seven returns: Preview PDF while a draft, Download clear copy once issued. The client is the payor and the payee is typed per certificate. Amounts print with centavos, exactly as entered. Page 1 only. Built in C7.
+
+## 2026-10-27 · D57 · The expanded-withholding returns
+Decision (domain owner): the Portal prepares BIR Form 0619-E (months 1 and 2 of a quarter), BIR Form 1601-EQ (quarter) and BIR Form 1601-C (every month, typed figures) for a client that withholds tax. Figures come from the client's posted expense records that carry an expanded-withholding ATC and an amount withheld, in exact pesos and centavos; the 1601-EQ nets the filed 0619-Es. The 1601-C has no books source because the Portal holds no payroll records. Periods are calendar months and quarters. The forms are printed, not exported as eBIRForms XML. Built in U17.

@@ -29,7 +29,7 @@ import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { IncomeTaxBackground } from "../components/birform/IncomeTaxBackground";
-import { civilStatusOf, deriveFiler, type ClientBackground } from "../lib/incomeTaxBackground";
+import { civilStatusOf, type ClientBackground } from "../lib/incomeTaxBackground";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
@@ -75,6 +75,8 @@ export default function BirForm1701AEditor() {
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [withSpouse, setWithSpouse] = useState(false);
   // C5 (D55): asked only of a married taxpayer; an unanswered one stays blank.
+  // C6: Item 7 (ATC) is the preparer's choice, saved as d.atc; empty until chosen.
+  const [atc, setAtc] = useState("");
   const [spouseIncome, setSpouseIncome] = useState("");
   const [filing, setFiling] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export default function BirForm1701AEditor() {
     setClientId(existing.data!.clientId);
     setYear((existing.data!.period || String(d.year ?? "")).slice(0, 4));
     if (d.taxRate) setTaxRate(String(d.taxRate));
+    setAtc(typeof d.atc === "string" ? d.atc : "");
     setSpouseIncome(d.spouseIncome === "yes" || d.spouseIncome === "no" ? String(d.spouseIncome) : "");
     setFiling(d.filing === "joint" || d.filing === "separate" ? String(d.filing) : "");
     setFields((prev) => {
@@ -106,6 +109,7 @@ export default function BirForm1701AEditor() {
 
   const data = useMemo(() => {
     const base: Record<string, string> = { year, taxRate, amended: amendedFlag };
+    if (atc) base.atc = atc;
     // Items 17 and 18 are answered only for a married taxpayer.
     if (married && spouseIncome) base.spouseIncome = spouseIncome;
     if (married && filing) base.filing = filing;
@@ -114,7 +118,7 @@ export default function BirForm1701AEditor() {
       if (fields[k]) base[k] = fields[k]!;
     }
     return base;
-  }, [year, taxRate, fields, withSpouse, amendedFlag, married, spouseIncome, filing]);
+  }, [year, taxRate, fields, withSpouse, amendedFlag, atc, married, spouseIncome, filing]);
 
   // Live authoritative totals (server compute — the browser never computes tax).
   // An existing form is computed only once it is hydrated: its first, empty
@@ -269,15 +273,11 @@ export default function BirForm1701AEditor() {
           </Card>
 
           <IncomeTaxBackground
+            form="1701A"
             client={client}
-            filer={deriveFiler(
-              client,
-              { comp: 0, sales: 0, other: 0 },
-              taxRate === "eight" ? "eight" : "graduated",
-              { allowComp: false, allowMixed: false },
-            )}
-            typeItem="6"
-            atcItem="7"
+            clientId={clientId}
+            atc={atc}
+            onAtc={setAtc}
             civilItems={{ civil: "16", spouseIncome: "17", filing: "18" }}
             spouseIncome={spouseIncome}
             filing={filing}

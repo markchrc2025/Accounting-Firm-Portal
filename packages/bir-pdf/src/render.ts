@@ -119,16 +119,25 @@ async function draw(
       font,
       color: black,
     });
+  // C7: a map may print only some pages of its template (the 2307's page 2 is the BIR's
+  // schedule of ATCs). Maps without printPages keep every page, byte for byte as before.
+  if (map.printPages) {
+    for (let n = pages.length; n >= 1; n--)
+      if (!map.printPages.includes(n)) doc.removePage(n - 1);
+  }
   if (opts?.watermark === "DRAFT") {
     if (!(opts.printedAt instanceof Date) || Number.isNaN(opts.printedAt.getTime())) {
       throw new BirPdfError("@portal/bir-pdf: a DRAFT preview needs printedAt, the time it is printed");
     }
-    for (const page of pages) stampDraft(page, font, metrics.capHeight, opts.printedAt);
+    for (const page of doc.getPages())
+      stampDraft(page, font, metrics.capHeight, opts.printedAt);
   }
 
   // Fixed metadata: no dates, no ids, nothing that changes between runs.
   doc.setTitle(map.title);
-  doc.setSubject(`BIR Form ${form} (${version}), printed from its eBIRForms export`);
+  doc.setSubject(
+    map.subject ?? `BIR Form ${form} (${version}), printed from its eBIRForms export`,
+  );
   doc.setCreator("MCRC Accounting Firm Portal");
   doc.setProducer("@portal/bir-pdf");
   const info = doc.context.lookup(doc.context.trailerInfo.Info, PDFDict);

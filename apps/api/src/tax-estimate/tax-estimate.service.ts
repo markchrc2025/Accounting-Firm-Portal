@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import type { AuthUser } from "../common/auth/auth-user";
 import { BirFormsService } from "../bir-forms/bir-forms.service";
 import { parsePeriod } from "../bir-forms/engine/period";
+import { WITHHOLDING_FORMS } from "../bir-forms/withholding";
 import { Prisma } from "@prisma/client";
 import { isoToDate } from "../financial/serialization";
 import { PrismaService } from "../prisma/prisma.service";
@@ -79,6 +80,9 @@ export class TaxEstimateService {
     const amended = new Set(allFiled.map((f) => f.amendsId).filter(Boolean));
     const filedForms = allFiled
       .filter((f) => {
+        // U17: withholding returns are neither income tax nor business tax; they are not
+        // filed figures of the estimate (a 1601EQ would read as covering Q1..Qn).
+        if (WITHHOLDING_FORMS.has(f.form)) return false;
         const p = parsePeriod(f.period);
         if (Number(p.year) !== period.year) return false;
         if (!period.quarter || !p.quarter) return true;

@@ -29,7 +29,7 @@ import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { IncomeTaxBackground } from "../components/birform/IncomeTaxBackground";
-import { deriveFiler, type ClientBackground } from "../lib/incomeTaxBackground";
+import type { ClientBackground } from "../lib/incomeTaxBackground";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
@@ -84,6 +84,8 @@ export default function BirForm1701QEditor() {
   const [quarter, setQuarter] = useState("Q1");
   const [fields, setFields] = useState<Fields>(emptyFields);
   const [withSpouse, setWithSpouse] = useState(false);
+  // C6: Item 8 (ATC) is the preparer's choice, saved as d.atc; empty until chosen.
+  const [atc, setAtc] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Hydrate from an existing form.
@@ -91,6 +93,7 @@ export default function BirForm1701QEditor() {
     const d = existing.data?.data as Record<string, unknown> | undefined;
     if (!d) return;
     setClientId(existing.data!.clientId);
+    setAtc(typeof d.atc === "string" ? d.atc : "");
     const period = existing.data!.period || "";
     const m = /^(\d{4})-(Q[1-3])$/.exec(period);
     if (m) {
@@ -118,6 +121,7 @@ export default function BirForm1701QEditor() {
       year,
       amended: amendedFlag,
     };
+    if (atc) base.atc = atc;
     for (const k of ALL_KEYS) {
       // Drop B-column money entries when spouse is not included.
       if (!withSpouse && k.endsWith("B") && k !== "rateB" && k !== "methodB") continue;
@@ -131,7 +135,7 @@ export default function BirForm1701QEditor() {
       base.methodB = fields.methodB || "osd";
     }
     return base;
-  }, [year, fields, withSpouse, amendedFlag]);
+  }, [year, fields, withSpouse, amendedFlag, atc]);
   const period = `${year}-${quarter}`;
 
   // Live authoritative totals (server compute — the browser never computes tax).
@@ -286,15 +290,11 @@ export default function BirForm1701QEditor() {
           </Card>
 
           <IncomeTaxBackground
+            form="1701Q"
             client={client}
-            filer={deriveFiler(
-              client,
-              { comp: 0, sales: 0, other: 0 },
-              fields.rateA === "eight" ? "eight" : "graduated",
-              { allowComp: false, allowMixed: false },
-            )}
-            typeItem="7"
-            atcItem="8"
+            clientId={clientId}
+            atc={atc}
+            onAtc={setAtc}
           />
 
           <Column suffix="A" label="Filer" fields={fields} set={set} side={c?.A} />
