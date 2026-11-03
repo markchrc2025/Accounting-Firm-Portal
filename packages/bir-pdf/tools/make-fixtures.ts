@@ -28,6 +28,8 @@ import {
   type Filing,
   type Taxpayer,
 } from "../../../apps/api/src/bir-forms/engine/index";
+import { buildWithholdingPrintRows } from "../../../apps/api/src/bir-forms/engine/withholding-print";
+import { WH_SAMPLES } from "./withholding-data";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -556,6 +558,20 @@ writeFileSync(
   JSON.stringify(sample2307, null, 2) + "\n",
 );
 
+// The 0619-E, 1601-EQ and 1601-C (C9, D57) have no eBIRForms export either: their samples
+// are the rows buildWithholdingPrintRows gives the print engine, made from the invented
+// drafts in withholding-data.ts. Run `prettier --write fixtures/*.json` afterwards.
+for (const [name, sample] of Object.entries(WH_SAMPLES)) {
+  writeFileSync(
+    join(here, `../fixtures/${name}.json`),
+    JSON.stringify(
+      buildWithholdingPrintRows(sample.form, sample.data, sample.taxpayer, sample.period),
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
 // The 2551Q and 2550Q fixtures are committed and their proofs pinned; they are
 // rewritten only on request (`fixtures --all`): the 2550Q's filing date is the
 // day it runs, so a plain run would change them.
@@ -569,4 +585,6 @@ if (process.argv.includes("--all")) {
     build2550Q(f2550, TEST_TAXPAYER, compute2550Q(f2550.data)),
   );
 }
-console.log("wrote fixtures/*-sample.xml and fixtures/2307-sample.json");
+console.log(
+  "wrote fixtures/*-sample.xml, fixtures/2307-sample.json and the withholding fixtures",
+);

@@ -76,6 +76,20 @@ const LONG_2307: Record<string, string> = {
   "c2307:a1Desc": "PROFESSIONAL FEES AND SERVICES ROW ONE LONG",
 };
 
+/**
+ * The 0619-E, 1601-EQ and 1601-C (C9): the signatory lines given the longest values the
+ * signature area holds, so the long-name proof shows them squeezed. Other forms: untouched.
+ */
+const WITHHOLDING_FORMS = new Set(["0619E", "1601EQ", "1601C"]);
+const LONG_SIGNATURE: Record<string, string> = {
+  sigIndName: "DELA CRUZ Y SUBOK-HALIMBAWA, TESTA INVENTED SAMPLE DE LOS SANTOS",
+  sigNonName: "DELA CRUZ Y SUBOK-HALIMBAWA, TESTA INVENTED SAMPLE DE LOS SANTOS",
+  sigIndTitleTin: "CHIEF FINANCE OFFICER AND AUTHORIZED REP / TIN 111-222-333-00000",
+  sigNonTitleTin: "CHIEF FINANCE OFFICER AND AUTHORIZED REP / TIN 111-222-333-00000",
+};
+const longSignature = (form: string, key: string): string | undefined =>
+  WITHHOLDING_FORMS.has(form) ? LONG_SIGNATURE[key.split(":").pop()!] : undefined;
+
 mkdirSync(join(root, "proofs"), { recursive: true });
 for (const version of versions) {
   const out = join(root, "proofs", `${form}-${version}-proof.pdf`);
@@ -103,7 +117,7 @@ for (const version of versions) {
       ? longValue(k, squeezed.get(k)!)
       : form === "2307" && k in LONG_2307
         ? LONG_2307[k]!
-        : v,
+        : (longSignature(form, k) ?? v),
   ]);
   const filled = join(root, "proofs", `${form}-${version}-filled-proof.pdf`);
   writeFileSync(
@@ -129,4 +143,20 @@ for (const version of versions) {
     }),
   );
   console.log(`wrote proofs/${form}-${version}-draft-proof.pdf`);
+
+  // Further invented samples of the same form (fixtures/<form>-<variant>.json), printed
+  // as a filed return: the 1601-EQ with six ATC rows, the 0619-E with penalties, ...
+  for (const file of readdirSync(join(root, "fixtures")).sort()) {
+    const m = new RegExp(`^${form}-(?!sample)([a-z0-9-]+)\\.json$`).exec(file);
+    if (!m) continue;
+    const rowsOf = JSON.parse(readFileSync(join(root, "fixtures", file), "utf8")) as [
+      string,
+      string,
+    ][];
+    writeFileSync(
+      join(root, "proofs", `${form}-${version}-${m[1]}-proof.pdf`),
+      await renderReturn(form, version, rowsOf, { root }),
+    );
+    console.log(`wrote proofs/${form}-${version}-${m[1]}-proof.pdf`);
+  }
 }
