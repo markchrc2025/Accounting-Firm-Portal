@@ -4,8 +4,14 @@
 
 import type { FormCode } from "./types";
 
-/** The four forms filed per quarter. */
-export const QUARTERLY_FORMS: readonly FormCode[] = ["1701Q", "1702Q", "2550Q", "2551Q"];
+/** The forms filed per quarter. (The 0619-E and 1601-C are monthly: "YYYY-MM", see ../withholding.ts.) */
+export const QUARTERLY_FORMS: readonly FormCode[] = [
+  "1601EQ",
+  "1701Q",
+  "1702Q",
+  "2550Q",
+  "2551Q",
+];
 
 export function isQuarterlyForm(form: FormCode | string | undefined): boolean {
   return !!form && QUARTERLY_FORMS.includes(form as FormCode);

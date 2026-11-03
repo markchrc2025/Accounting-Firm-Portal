@@ -23,6 +23,12 @@ import { BIR_FORM_CATALOG } from "./bir-forms.constants";
 import { clientToTaxpayer } from "./client-mapping";
 import { assertValidDraftSource } from "./draft-source";
 import {
+  PRINTED_NOT_XML,
+  WITHHOLDING_FORMS,
+  checkWithholdingPeriod,
+  sixRowsRefusal,
+} from "./withholding";
+import {
   type FiledSnapshot,
   readFiledSnapshot,
   snapshotToClient,
@@ -38,6 +44,9 @@ import {
   build2551Q,
   build2307PrintRows,
   certificateFileName,
+  compute0619E,
+  compute1601C,
+  compute1601EQ,
   compute1701,
   compute1701A,
   compute1701Q,
@@ -75,6 +84,10 @@ export const AVAILABLE_FORMS = new Set([
   "1702RT",
   "2307",
   "2316",
+  // U17 (D57): the withholding returns. Printed, never exported as eBIRForms XML.
+  "0619E",
+  "1601EQ",
+  "1601C",
 ]);
 
 /**
@@ -166,8 +179,11 @@ export function previewAvailable(f: { status: string; form: string }): boolean {
 export const FILED_NOT_DELETABLE =
   "A filed return can't be deleted; it is the record of what was filed.";
 
-/** The seven returns: a filed one is corrected by an amendment (U3 R2, D11). */
-export const RETURN_FORMS = XML_EXPORT_FORMS;
+/**
+ * The returns: a filed one is corrected by an amendment (U3 R2, D11). The seven that
+ * export eBIRForms XML, and (U17) the three withholding returns, which are printed.
+ */
+export const RETURN_FORMS = new Set([...XML_EXPORT_FORMS, ...WITHHOLDING_FORMS]);
 
 /** The two certificates: no amendment — a mistake is corrected by a new certificate (D20). */
 export const CERTIFICATE_FORMS = new Set(["2307", "2316"]);
@@ -292,6 +308,7 @@ export class BirFormsService {
     // U4 R2: create authorizes against the client named in the body.
     await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.create], input.clientId);
     this.assertSupported(input.form);
+    this.assertWithholdingPeriod(input.form, input.period);
     assertValidDraftSource(input.data);
     await this.clients.assertInFirm(user.firmId, input.clientId);
     const created = await this.prisma.birForm.create({
@@ -423,6 +440,12 @@ export class BirFormsService {
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
     assertValidDraftSource(input.data);
+    if (input.period !== undefined) this.assertWithholdingPeriod(f.form, input.period);
+    // U17: a 1601-EQ of more than six ATCs is never marked filed (nothing is dropped).
+    if (input.status === "filed") {
+      const refusal = sixRowsRefusal(f.form, input.data ?? f.dataJson);
+      if (refusal) throw new ConflictException(refusal);
+    }
     // An amendment corrects one filed return: it keeps that return's period (R2).
     if (f.amendsId && input.period !== undefined && input.period !== f.period) {
       throw new BadRequestException(
@@ -587,6 +610,8 @@ export class BirFormsService {
    */
   async clearCopy(user: AuthUser, id: string) {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.file);
+    const tooMany = sixRowsRefusal(f.form, f.dataJson);
+    if (tooMany) throw new ConflictException(tooMany);
     if (!clearCopyMapped(f.form)) {
       throw new ConflictException(`A clear copy of the ${f.form} is not available yet.`);
     }
@@ -642,6 +667,8 @@ export class BirFormsService {
    */
   async previewPdf(user: AuthUser, id: string): Promise<{ pdf: Uint8Array; filename: string }> {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
+    const tooMany = sixRowsRefusal(f.form, f.dataJson);
+    if (tooMany) throw new ConflictException(tooMany);
     if (!clearCopyMapped(f.form)) throw new ConflictException(previewNotAvailable(f.form));
     if (f.status !== "draft") throw new ConflictException(PREVIEW_FILED);
     const { rows, baseName } = await this.printSource(user, f, { store: false });
@@ -723,6 +750,8 @@ export class BirFormsService {
     opts: { store: boolean } = { store: true },
   ) {
     this.assertSupported(f.form);
+    // U17 R3: the withholding returns are printed; no eBIRForms key list is verified for them.
+    if (WITHHOLDING_FORMS.has(f.form)) throw new ConflictException(PRINTED_NOT_XML);
     if (!XML_EXPORT_FORMS.has(f.form)) {
       throw new BadRequestException(
         `Form ${f.form} is a certificate issued to a payee, not an e-filed return — ` +
@@ -794,6 +823,12 @@ export class BirFormsService {
 
   // --- internals -------------------------------------------------------------
 
+  /** U17 R2: the withholding returns take a calendar month or quarter, and only theirs. */
+  private assertWithholdingPeriod(form: string, period: string): void {
+    const refusal = checkWithholdingPeriod(form, period);
+    if (refusal) throw new BadRequestException(refusal);
+  }
+
   private assertSupported(form: string): void {
     if (!AVAILABLE_FORMS.has(form)) {
       throw new BadRequestException(`Form ${form} is not available yet.`);
@@ -811,6 +846,9 @@ export class BirFormsService {
     if (form === "1702RT") return compute1702RT(data);
     if (form === "2307") return compute2307(data);
     if (form === "2316") return compute2316(data);
+    if (form === "0619E") return compute0619E(data);
+    if (form === "1601EQ") return compute1601EQ(data);
+    if (form === "1601C") return compute1601C(data);
     throw new BadRequestException(`Form ${form} is not available yet.`);
   }
 

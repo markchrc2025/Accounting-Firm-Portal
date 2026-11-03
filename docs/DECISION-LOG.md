@@ -212,3 +212,6 @@ Decision (domain owner): on the 1701, 1701A and 1701Q, Item 7 (ATC) is chosen by
 
 ## 2026-10-22 · D56 · The 2307 prints on the BIR's own blank
 Decision (domain owner): BIR Form 2307 is printed on the BIR's own blank form like the seven returns: Preview PDF while a draft, Download clear copy once issued. The client is the payor and the payee is typed per certificate. Amounts print with centavos, exactly as entered. Page 1 only. Built in C7.
+
+## 2026-10-27 · D57 · The expanded-withholding returns
+Decision (domain owner): the Portal prepares BIR Form 0619-E (months 1 and 2 of a quarter), BIR Form 1601-EQ (quarter) and BIR Form 1601-C (every month, typed figures) for a client that withholds tax. Figures come from the client's posted expense records that carry an expanded-withholding ATC and an amount withheld, in exact pesos and centavos; the 1601-EQ nets the filed 0619-Es. The 1601-C has no books source because the Portal holds no payroll records. Periods are calendar months and quarters. The forms are printed, not exported as eBIRForms XML. Built in U17.
