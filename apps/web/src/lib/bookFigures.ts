@@ -26,8 +26,20 @@ export interface BookSource {
 
 export interface BookRow {
   atc: string;
-  taxable: string;
-  rate: string;
+  [column: string]: string;
+}
+
+/** How a form's table rows are read and filled (W16-A1, W17). A row is known by
+ *  its ATC; `amount` is the column the dialog compares and the badge shows. */
+export interface RowSpec {
+  /** The column that is the row's amount. */
+  amount: string;
+  /** Columns the books always fill on a row the draft already has. */
+  also?: readonly string[];
+  /** Columns the books fill on a row the draft already has only when the draft's is blank. */
+  ifBlank?: readonly string[];
+  /** The most rows the form has room for. */
+  max: number;
 }
 
 /** One box on the form that the books can fill. */
@@ -38,8 +50,10 @@ export interface BookField {
   dataKey: string;
   /** The books' amount, as the text the box holds. */
   books: string;
-  /** For a Schedule 1 row: the whole row the books gave. */
+  /** For a table row: the whole row the books gave. */
   row?: BookRow;
+  /** For a table row: how it is read and filled. */
+  spec?: RowSpec;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -62,10 +76,12 @@ export function readSource(
 const text = (v: unknown): string =>
   typeof v === "number" || typeof v === "string" ? String(v) : "";
 
-/** The books' figures as fields, in the draft's own key order. */
+/** The books' figures as fields, in the draft's own key order. A figure the books
+ *  leave empty ("" — nothing to report, said in a warning) is no figure. */
 export function flattenFigures(
   figures: Record<string, unknown>,
   knownKeys: readonly string[],
+  spec: RowSpec = SCHEDULE_1_SPEC,
 ): BookField[] {
   const out: BookField[] = [];
   for (const key of knownKeys) {
@@ -74,19 +90,17 @@ export function flattenFigures(
       if (!Array.isArray(value)) continue;
       for (const r of value) {
         if (!isRecord(r)) continue;
-        const row: BookRow = {
-          atc: text(r.atc),
-          taxable: text(r.taxable),
-          rate: text(r.rate),
-        };
+        const row: BookRow = { atc: text(r.atc) };
+        for (const [column, v] of Object.entries(r)) row[column] = text(v);
         // A row is known by its ATC, never by where it sits (W16-A1 R1).
         const id = `rows.${row.atc}`;
         if (row.atc === "" || out.some((f) => f.id === id)) continue;
-        out.push({ id, dataKey: "rows", books: row.taxable, row });
+        out.push({ id, dataKey: "rows", books: row[spec.amount] ?? "", row, spec });
       }
       continue;
     }
     if (typeof value === "number" || typeof value === "string") {
+      if (value === "") continue;
       out.push({ id: key, dataKey: key, books: String(value) });
     }
   }
@@ -114,7 +128,7 @@ export function currentValues(
   for (const f of fields) {
     if (f.row) {
       const r = draftRow(data, f.row.atc);
-      if (r) out[f.id] = text(r.taxable);
+      if (r) out[f.id] = text(r[f.spec?.amount ?? "taxable"]);
     } else {
       out[f.id] = text(data[f.dataKey]);
     }
@@ -147,10 +161,26 @@ export function editedKeys(
 /** Schedule 1 has room for six rows (the editor's cap, the API's warning). */
 export const SCHEDULE_1_ROWS = 6;
 
+/** The 2551Q's Schedule 1: the taxable amount fills; the user's rate stays. */
+export const SCHEDULE_1_SPEC: RowSpec = { amount: "taxable", max: SCHEDULE_1_ROWS };
+
+/** The 1601-EQ's Part II: the tax withheld is what is compared; the tax base comes
+ *  with it; the rate is filled only into an empty cell. All rows are shown: the
+ *  form's six-row rule is the server's to enforce. */
+export const EQ_1601_SPEC: RowSpec = {
+  amount: "withheld",
+  also: ["base"],
+  ifBlank: ["rate"],
+  max: Number.POSITIVE_INFINITY,
+};
+
 /** How many more rows the draft's Schedule 1 can take. */
-export function rowRoom(data: Record<string, unknown>): number {
+export function rowRoom(
+  data: Record<string, unknown>,
+  max: number = SCHEDULE_1_ROWS,
+): number {
   const n = Array.isArray(data.rows) ? data.rows.length : 0;
-  return Math.max(SCHEDULE_1_ROWS - n, 0);
+  return Math.max(max - n, 0);
 }
 
 /** A books row the draft has no row for. */
@@ -192,11 +222,29 @@ export function patchData(
     if (f.row) {
       const rows: unknown[] = Array.isArray(out.rows) ? [...(out.rows as unknown[])] : [];
       const at = rows.findIndex((r) => isRecord(r) && text(r.atc) === f.row!.atc);
+      const spec = f.spec ?? SCHEDULE_1_SPEC;
       if (at >= 0) {
-        // The draft's own row: the books' amount goes in, the rate stays the user's.
-        rows[at] = { ...(rows[at] as Record<string, unknown>), taxable: f.row.taxable };
-      } else if (rows.length < SCHEDULE_1_ROWS) {
-        rows.push({ ...f.row });
+        // The draft's own row: the books' amount goes in; the user's other columns
+        // stay, except those the form takes from the books.
+        const mine = rows[at] as Record<string, unknown>;
+        const next: Record<string, unknown> = {
+          ...mine,
+          [spec.amount]: f.row[spec.amount],
+        };
+        for (const c of spec.also ?? []) next[c] = f.row[c] ?? "";
+        for (const c of spec.ifBlank ?? []) {
+          if (text(mine[c]) === "") next[c] = f.row[c] ?? "";
+        }
+        rows[at] = next;
+      } else {
+        // A row the draft lacks: it takes the place of an empty row the editor started
+        // with (every column blank), else it is added after the draft's own rows, if
+        // the form has room.
+        const blank = rows.findIndex(
+          (r) => isRecord(r) && Object.values(r).every((v) => text(v) === ""),
+        );
+        if (blank >= 0) rows[blank] = { ...f.row };
+        else if (rows.length < spec.max) rows.push({ ...f.row });
       }
       out.rows = rows;
     } else {
@@ -242,7 +290,17 @@ export function lineFor(
 function pesos(v: string): string {
   const n = Number(v === "" ? 0 : v);
   const safe = Number.isNaN(n) ? 0 : n;
-  return `₱${safe.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const abs = Math.abs(safe).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${safe < 0 ? "-" : ""}₱${abs}`;
+}
+
+/** A figure as a person reads it: an amount in pesos, a choice (yes, no) in words. */
+function show(v: string): string {
+  if (v === "" || !Number.isNaN(Number(v))) return pesos(v);
+  return v.charAt(0).toUpperCase() + v.slice(1);
 }
 
 /** Every count the editors print goes through here: "1 record", "2 records",
@@ -260,7 +318,7 @@ export function badgeText(records: number | undefined): string {
 
 /** The badge a figure carries once typed over: the books' own amount stays visible. */
 export function editedBadgeText(books: string): string {
-  return `Edited · books say ${pesos(books)}`;
+  return `Edited · books say ${show(books)}`;
 }
 
 /** One line of the fill dialog (R4): `<label>: <typed> becomes <books>`, or
@@ -271,8 +329,8 @@ export function fillItemText(
   books: string,
 ): string {
   return typed === undefined
-    ? `${label}: added ${pesos(books)}`
-    : `${label}: ${pesos(typed)} becomes ${pesos(books)}`;
+    ? `${label}: added ${show(books)}`
+    : `${label}: ${show(typed)} becomes ${show(books)}`;
 }
 
 const ITEM_45_OLD = "Domestic — services (Item 45)";
@@ -310,6 +368,12 @@ export function filedLine(asOf: string): string {
 /** Only a real quarter, "2026-Q3", can be asked of the books. */
 export function validPeriod(period: string): boolean {
   return /^\d{4}-Q[1-4]$/.test(period);
+}
+
+/** A period the form's books can be asked for: a calendar month, "2026-08", for the
+ *  0619-E; a quarter for the others. */
+export function validPeriodFor(form: string, period: string): boolean {
+  return form === "0619E" ? /^\d{4}-(0[1-9]|1[0-2])$/.test(period) : validPeriod(period);
 }
 
 /** The `_source` a draft saves (R6). */

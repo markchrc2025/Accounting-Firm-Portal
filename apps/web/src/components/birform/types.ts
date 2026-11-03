@@ -3,7 +3,7 @@
 // tax logic now lives inside the portal (guardrail #1). Per-form computation
 // *result* types live beside their compute module.
 
-/** The nine BIR forms the generator supports. */
+/** The twelve BIR forms the generator supports (the catalogue is the server's). */
 export type FormCode =
   | "1701"
   | "1701A"
@@ -13,7 +13,10 @@ export type FormCode =
   | "2550Q"
   | "2551Q"
   | "2307"
-  | "2316";
+  | "2316"
+  | "0619E"
+  | "1601EQ"
+  | "1601C";
 
 export type TaxpayerKind = "individual" | "non-individual";
 
