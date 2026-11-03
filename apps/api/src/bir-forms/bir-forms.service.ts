@@ -71,6 +71,12 @@ import {
   type FormCode,
   type Taxpayer,
 } from "./engine";
+import {
+  WITHHOLDING_PRINT_VERSION,
+  buildWithholdingPrintRows,
+  withholdingPrintBaseName,
+  type WithholdingPrintForm,
+} from "./engine/withholding-print";
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
 /** Forms whose engine has been ported and are usable end-to-end. */
@@ -123,6 +129,11 @@ export const CLEAR_COPY_VERSION: Record<string, string> = {
   // C7 (D56): the certificate has no eBIRForms export; its rows come from
   // build2307PrintRows, but it prints on the BIR's own blank the same way.
   "2307": "2018-01",
+  // C9 (D57): the withholding returns are printed, never exported; their rows come from
+  // buildWithholdingPrintRows. Each prints on the BIR's own blank of its own version.
+  "0619E": WITHHOLDING_PRINT_VERSION["0619E"],
+  "1601EQ": WITHHOLDING_PRINT_VERSION["1601EQ"],
+  "1601C": WITHHOLDING_PRINT_VERSION["1601C"],
 };
 
 /** U13 R1: the refusal for a draft. */
@@ -702,6 +713,7 @@ export class BirFormsService {
     f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
     opts: { store: boolean },
   ) {
+    if (WITHHOLDING_FORMS.has(f.form)) return this.withholdingPrintSource(user, f);
     if (f.form !== "2307") {
       const { xml, filename, snapshotAudit } = await this.buildExport(user, f, opts);
       return {
@@ -731,6 +743,47 @@ export class BirFormsService {
       return {
         rows,
         baseName: certificateFileName("2307", f.period, payor.tin).replace(/\.pdf$/i, ""),
+        snapshotAudit,
+      };
+    } catch (err) {
+      if (err instanceof ExportRefusal) throw new ConflictException(err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * The rows of a withholding return (0619-E, 1601-EQ, 1601-C) for the print engine (C9,
+   * D57). Same source of the taxpayer block as the seven returns (D12): the filing
+   * snapshot once filed, the client's record while it is a draft; a form filed before
+   * U3 has no snapshot and reads the live client, and the audit says so.
+   */
+  private async withholdingPrintSource(
+    user: AuthUser,
+    f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
+  ) {
+    this.assertSupported(f.form);
+    const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    let snapshot: FiledSnapshot | null;
+    try {
+      snapshot = readFiledSnapshot(f.filedSnapshotJson);
+    } catch (err) {
+      throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
+    }
+    const tp = clientToTaxpayer(snapshot ? snapshotToClient(snapshot) : client);
+    const snapshotAudit = snapshot
+      ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
+      : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
+    const form = f.form as WithholdingPrintForm;
+    try {
+      const rows = buildWithholdingPrintRows(
+        form,
+        (f.dataJson ?? {}) as FilingData,
+        tp,
+        f.period,
+      );
+      return {
+        rows,
+        baseName: withholdingPrintBaseName(form, f.period, tp),
         snapshotAudit,
       };
     } catch (err) {

@@ -18,6 +18,12 @@ const TEMPLATES: Record<string, string> = {
     "d9a6a8a13e0114934261151c4eb269a1573042e7ce670eaf12b15f169d308d2d",
   // The January 2018 (ENCS) 2307, as the domain owner committed it (e7417ac) and C7 renamed it.
   "2307-2018-01.pdf": "eca9476c5f6346939b973e693d35d635f6dd82519b87092c717c21965b0b90f9",
+  // The expanded-withholding returns, as the domain owner committed them (0711d4f, b6ae598)
+  // and C9 renamed them: 0619-E (January 2018), 1601-EQ (January 2019), 1601-C (January 2018).
+  "0619E-2018-01.pdf": "0418160d63d4e6f68c34f2bad553273a5d148c3686d8562d338d35fcdd0c5215",
+  "1601EQ-2019-01.pdf":
+    "5277addc6778c96a53fde99b8664b1a5213fcea638dea06033c9acf22ee73c25",
+  "1601C-2018-01.pdf": "c8faaa71015337a73b4ceb96bfb265c539589ab5e10eb27899bb81f87f417397",
   "2550Q-2024-04.pdf": "18eb16925010fdda820cef958221ba2c0d073066efa93a898113e39b31135a25",
   "2551Q-2018-01.pdf": "1f270ecf66d778836a14697863e420ff65d5ed0a5576a6cf58b97c9a8e8c9b24",
 };
