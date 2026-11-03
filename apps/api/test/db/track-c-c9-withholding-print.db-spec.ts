@@ -22,6 +22,7 @@ import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
 import { StorageService } from "../../src/storage/storage.service";
+import { markFiledAny } from "../helpers/file-return";
 
 truncateOncePerFile({ firmRoles: ["Super Admin", "Manager"] });
 
@@ -155,8 +156,9 @@ describe("C9 T1 · the 0619-E, 1601-EQ and 1601-C print on the BIR's blanks (rea
     expect([form, period, res.status]).toEqual([form, period, 201]);
     return res.body.id as string;
   }
+  /** Since U18 the 0619-E and 1601-EQ are marked filed with the BIR's confirmation (the 1601-C by PATCH). */
   async function file(id: string) {
-    const r = await as(http().patch(`${API}/bir-forms/${id}`)).send({ status: "filed" });
+    const r = await markFiledAny(app, token, id);
     expect([id, r.status]).toEqual([id, 200]);
   }
 
