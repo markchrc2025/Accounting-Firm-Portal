@@ -84,12 +84,17 @@ export function birFileNameFor(r: {
 }
 
 /** A confirmation PDF that passes every check for this stored return. */
-export async function confirmationFor(db: PrismaClient, birFormId: string): Promise<Buffer> {
+export async function confirmationFor(
+  db: PrismaClient,
+  birFormId: string,
+): Promise<Buffer> {
   const f = await db.birForm.findUniqueOrThrow({
     where: { id: birFormId },
     include: { client: true },
   });
-  const start = f.client.fiscalYearStart ? f.client.fiscalYearStart.toISOString().slice(0, 10) : null;
+  const start = f.client.fiscalYearStart
+    ? f.client.fiscalYearStart.toISOString().slice(0, 10)
+    : null;
   const sm = start ? Number(start.slice(5, 7)) : 1;
   const end = periodEndFor(f.form, f.period, sm >= 2 ? start : null);
   // The day after the period, but never in the future (and never before the year 2000).
@@ -123,7 +128,10 @@ export async function fileWithConfirmation(
   return request(app.getHttpServer())
     .post(`/api/v1/bir-forms/${birFormId}/mark-filed`)
     .set("Authorization", `Bearer ${token}`)
-    .attach("file", bytes, { filename: "confirmation.pdf", contentType: "application/pdf" });
+    .attach("file", bytes, {
+      filename: "confirmation.pdf",
+      contentType: "application/pdf",
+    });
 }
 
 /**
@@ -135,7 +143,9 @@ export async function markFiledAny(
   token: string,
   birFormId: string,
 ): Promise<request.Response> {
-  const f = await app.get(PrismaService).birForm.findUniqueOrThrow({ where: { id: birFormId } });
+  const f = await app
+    .get(PrismaService)
+    .birForm.findUniqueOrThrow({ where: { id: birFormId } });
   if (["1601C", "2307", "2316"].includes(f.form)) {
     return request(app.getHttpServer())
       .patch(`/api/v1/bir-forms/${birFormId}`)

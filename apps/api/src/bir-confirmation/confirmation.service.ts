@@ -60,7 +60,9 @@ export class ConfirmationService {
     f: { form: string; period: string },
     client: Pick<Client, "tin" | "branch" | "fiscalYearStart">,
   ): ExpectedReturn {
-    const start = client.fiscalYearStart ? client.fiscalYearStart.toISOString().slice(0, 10) : null;
+    const start = client.fiscalYearStart
+      ? client.fiscalYearStart.toISOString().slice(0, 10)
+      : null;
     const startMonth = start ? Number(start.slice(5, 7)) : 1;
     // A fiscal year starting in month 2–12 ends the month before; January (or none) is a calendar year.
     const fyEndMonth = startMonth >= 2 && startMonth <= 12 ? startMonth - 1 : 12;
@@ -90,15 +92,23 @@ export class ConfirmationService {
   }
 
   /** Check 7: a confirmation (live or replaced) with this file name and time, or these bytes. */
-  private async findDuplicate(firmId: string, q: DuplicateQuery): Promise<DuplicateHit | null> {
+  private async findDuplicate(
+    firmId: string,
+    q: DuplicateQuery,
+  ): Promise<DuplicateHit | null> {
     const or: Array<Record<string, unknown>> = [{ sha256: q.sha256 }];
-    if (q.birFileName && q.receivedAt) or.push({ birFileName: q.birFileName, receivedAt: q.receivedAt });
+    if (q.birFileName && q.receivedAt)
+      or.push({ birFileName: q.birFileName, receivedAt: q.receivedAt });
     const row = await this.prisma.birFormConfirmation.findFirst({
       where: { firmId, kind: "bir_email", OR: or },
       orderBy: { uploadedAt: "asc" },
       select: {
         birForm: {
-          select: { form: true, period: true, client: { select: { businessName: true } } },
+          select: {
+            form: true,
+            period: true,
+            client: { select: { businessName: true } },
+          },
         },
       },
     });
@@ -128,7 +138,11 @@ export class ConfirmationService {
 
   /** Keep the PDF in object storage; returns its key. */
   async store(firmId: string, birFormId: string, bytes: Uint8Array): Promise<string> {
-    const key = this.storage.birFormExportKey(firmId, birFormId, `confirmation-${randomUUID()}.pdf`);
+    const key = this.storage.birFormExportKey(
+      firmId,
+      birFormId,
+      `confirmation-${randomUUID()}.pdf`,
+    );
     await this.storage.putObject(key, bytes, "application/pdf");
     return key;
   }
@@ -138,7 +152,9 @@ export class ConfirmationService {
   }
 
   summary(row: BirFormConfirmation): ConfirmationSummary {
-    const warnings = Array.isArray(row.warnings) ? (row.warnings as unknown[]).map(String) : [];
+    const warnings = Array.isArray(row.warnings)
+      ? (row.warnings as unknown[]).map(String)
+      : [];
     return {
       id: row.id,
       kind: row.kind as "bir_email" | "override",
@@ -159,6 +175,8 @@ export class ConfirmationService {
   async downloadUrl(row: BirFormConfirmation): Promise<string | null> {
     if (!row.storageKey) return null;
     const base = (row.birFileName ?? "confirmation").replace(/\.xml$/i, "");
-    return this.storage.signedGetUrl(row.storageKey, { filename: `${base}-BIR-confirmation.pdf` });
+    return this.storage.signedGetUrl(row.storageKey, {
+      filename: `${base}-BIR-confirmation.pdf`,
+    });
   }
 }

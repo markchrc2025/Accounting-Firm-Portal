@@ -36,8 +36,10 @@ const NO_FILE = 'Attach the BIR confirmation as a PDF in the multipart field "fi
 const NOT_BIR = "This is not a BIR eBIRForms confirmation email.";
 const ALREADY_FILED =
   "This return is already filed. To add the BIR confirmation to it, use Attach confirmation.";
-const NOT_FILED_YET = "This return is not filed yet. Mark it as filed with the BIR confirmation.";
-const HAS_ONE = "This return already has a BIR confirmation. Only a Super Admin can replace it.";
+const NOT_FILED_YET =
+  "This return is not filed yet. Mark it as filed with the BIR confirmation.";
+const HAS_ONE =
+  "This return already has a BIR confirmation. Only a Super Admin can replace it.";
 const REPLACE_SA = "Only a Super Admin can replace the BIR confirmation.";
 const OVERRIDE_SA = "Only a Super Admin can file a return without the BIR confirmation.";
 const SHORT_REASON = "Give the reason in at least 10 characters.";
@@ -94,20 +96,35 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     return res.body as { id: string };
   }
 
-  const upload = (path: string, bytes: Buffer, token = saToken, fields: Record<string, string> = {}) => {
+  const upload = (
+    path: string,
+    bytes: Buffer,
+    token = saToken,
+    fields: Record<string, string> = {},
+  ) => {
     let r = auth(http().post(`${API}${path}`), token);
     for (const [k, v] of Object.entries(fields)) r = r.field(k, v);
-    return r.attach("file", bytes, { filename: "confirmation.pdf", contentType: "application/pdf" });
+    return r.attach("file", bytes, {
+      filename: "confirmation.pdf",
+      contentType: "application/pdf",
+    });
   };
   const check = (id: string, bytes: Buffer, token = saToken) =>
     upload(`/bir-forms/${id}/confirmation/check`, bytes, token);
   const markFiled = (id: string, bytes: Buffer, token = saToken) =>
     upload(`/bir-forms/${id}/mark-filed`, bytes, token);
-  const attach = (id: string, bytes: Buffer, token = saToken, fields: Record<string, string> = {}) =>
-    upload(`/bir-forms/${id}/confirmation`, bytes, token, fields);
+  const attach = (
+    id: string,
+    bytes: Buffer,
+    token = saToken,
+    fields: Record<string, string> = {},
+  ) => upload(`/bir-forms/${id}/confirmation`, bytes, token, fields);
 
   const rowsFor = (birFormId: string) =>
-    db.birFormConfirmation.findMany({ where: { birFormId }, orderBy: { uploadedAt: "asc" } });
+    db.birFormConfirmation.findMany({
+      where: { birFormId },
+      orderBy: { uploadedAt: "asc" },
+    });
 
   /** A filed return the way every return filed before U18 looks: no confirmation. */
   async function filedBefore(key: string, form: string, period: string) {
@@ -119,7 +136,10 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
         period,
         status: "filed",
         filedAt: new Date("2026-04-20T02:00:00.000Z"),
-        filedSnapshotJson: { snapshotVersion: 1, businessName: `${TAG} ${key} TRADING CORP` },
+        filedSnapshotJson: {
+          snapshotVersion: 1,
+          businessName: `${TAG} ${key} TRADING CORP`,
+        },
       },
     });
     return f.id;
@@ -137,7 +157,11 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     const tokens = app.get(TokenService);
     firmId = (await db.firm.create({ data: { name: `${TAG} Halimbawa Accounting` } })).id;
     const role = async (name: string) =>
-      (await db.role.findUniqueOrThrow({ where: { name_scope: { name, scope: "FIRM" } } })).id;
+      (
+        await db.role.findUniqueOrThrow({
+          where: { name_scope: { name, scope: "FIRM" } },
+        })
+      ).id;
     const mk = async (label: string, roleName: string, assign: string[] = []) => {
       const u = await db.user.create({
         data: {
@@ -150,7 +174,11 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
             create: {
               title: "Test",
               ...(assign.length
-                ? { clientAssignments: { create: assign.map((clientId) => ({ clientId })) } }
+                ? {
+                    clientAssignments: {
+                      create: assign.map((clientId) => ({ clientId })),
+                    },
+                  }
                 : {}),
             },
           },
@@ -161,7 +189,9 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     };
     saToken = await mk("sa", "Super Admin");
     await client("CAL", "111222333"); // calendar year
-    await client("FIS", "444555666", { fiscalYearStart: new Date("2025-07-01T00:00:00.000Z") }); // year ends in June
+    await client("FIS", "444555666", {
+      fiscalYearStart: new Date("2025-07-01T00:00:00.000Z"),
+    }); // year ends in June
     await client("OTHER", "777888999");
     await client("BRANCH", "111222333", { branch: "00012", hasBranches: true });
     managerToken = await mk("manager", "Manager", [ids.CAL!, ids.FIS!]);
@@ -220,8 +250,12 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       const res = await check(f.id, await confirmationPdf({}));
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(false);
-      expect(res.body.errors).toEqual(["The confirmation is for 2026 Q1, this return is 2026 Q3."]);
-      expect(res.body.checks.find((c: { id: string }) => c.id === "period")).toMatchObject({
+      expect(res.body.errors).toEqual([
+        "The confirmation is for 2026 Q1, this return is 2026 Q3.",
+      ]);
+      expect(
+        res.body.checks.find((c: { id: string }) => c.id === "period"),
+      ).toMatchObject({
         status: "error",
         message: "The confirmation is for 2026 Q1, this return is 2026 Q3.",
       });
@@ -230,7 +264,9 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     it("needs the file, is for the firm's own returns, and respects the client assignment", async () => {
       const f = await draft("CAL", "2550Q", "2026-Q1");
       const bytes = await confirmationPdf({});
-      expect((await auth(http().post(`${API}/bir-forms/${f.id}/confirmation/check`))).status).toBe(400);
+      expect(
+        (await auth(http().post(`${API}/bir-forms/${f.id}/confirmation/check`))).status,
+      ).toBe(400);
       expect((await check(randomUUID(), bytes)).status).toBe(404);
       expect((await check(f.id, bytes, outsiderToken)).status).toBe(403);
       expect((await check(f.id, bytes, managerToken)).status).toBe(200);
@@ -238,8 +274,15 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
 
     it("an upload over 5 MB, one that is not a PDF, and one that is a picture are answered in words, 200", async () => {
       const f = await draft("CAL", "2550Q", "2026-Q1");
-      const big = await check(f.id, await confirmationPdf({ padToBytes: 5 * 1024 * 1024 + 1 }));
-      expect([big.status, big.body.ok, big.body.errors]).toEqual([200, false, ["The PDF is larger than 5 MB."]]);
+      const big = await check(
+        f.id,
+        await confirmationPdf({ padToBytes: 5 * 1024 * 1024 + 1 }),
+      );
+      expect([big.status, big.body.ok, big.body.errors]).toEqual([
+        200,
+        false,
+        ["The PDF is larger than 5 MB."],
+      ]);
       const text = await check(f.id, Buffer.from("this is not a pdf"));
       expect(text.body.errors).toEqual(["The file is not a PDF."]);
       const picture = await check(f.id, await confirmationPdf({ pictureOnly: true }));
@@ -247,7 +290,9 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
         "This PDF is a picture. Print the email to PDF from Gmail instead of scanning it.",
       ]);
       // every other check is "skipped", not failed
-      expect(picture.body.checks.filter((c: { status: string }) => c.status === "skipped")).toHaveLength(8);
+      expect(
+        picture.body.checks.filter((c: { status: string }) => c.status === "skipped"),
+      ).toHaveLength(8);
     });
 
     it("a 1601C, a 2307 and a 2316 have no confirmation to check", async () => {
@@ -278,18 +323,31 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
         ["1601EQ", "2026-Q3"],
       ] as const) {
         const f = await draft("CAL", form, period);
-        const res = await auth(http().patch(`${API}/bir-forms/${f.id}`)).send({ status: "filed" });
-        expect([form, res.status, res.body.message]).toEqual([form, 409, NEEDS_CONFIRMATION]);
-        expect((await db.birForm.findUniqueOrThrow({ where: { id: f.id } })).status).toBe("draft");
+        const res = await auth(http().patch(`${API}/bir-forms/${f.id}`)).send({
+          status: "filed",
+        });
+        expect([form, res.status, res.body.message]).toEqual([
+          form,
+          409,
+          NEEDS_CONFIRMATION,
+        ]);
+        expect((await db.birForm.findUniqueOrThrow({ where: { id: f.id } })).status).toBe(
+          "draft",
+        );
       }
       const c = await draft("CAL", "1601C", "2026-07");
-      const filed = await auth(http().patch(`${API}/bir-forms/${c.id}`)).send({ status: "filed" });
+      const filed = await auth(http().patch(`${API}/bir-forms/${c.id}`)).send({
+        status: "filed",
+      });
       expect(filed.status).toBe(200);
       expect(filed.body.status).toBe("filed");
       expect(filed.body.confirmation).toBeNull();
       // a draft can still be edited through PATCH
       const d = await draft("CAL", "2550Q", "2026-Q2");
-      expect((await auth(http().patch(`${API}/bir-forms/${d.id}`)).send({ data: { a: "1" } })).status).toBe(200);
+      expect(
+        (await auth(http().patch(`${API}/bir-forms/${d.id}`)).send({ data: { a: "1" } }))
+          .status,
+      ).toBe(200);
     });
 
     it("files the return on the date the BIR received it, keeps the PDF, and shows it", async () => {
@@ -313,7 +371,9 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
         },
         confirmationRequired: true,
       });
-      expect(res.body.filedSnapshot).toMatchObject({ businessName: `${TAG} CAL TRADING CORP` });
+      expect(res.body.filedSnapshot).toMatchObject({
+        businessName: `${TAG} CAL TRADING CORP`,
+      });
       const [row] = await rowsFor(f.id);
       expect(row).toMatchObject({
         kind: "bir_email",
@@ -330,7 +390,9 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       });
       expect(row!.receivedAt!.toISOString()).toBe("2026-04-25T03:40:00.000Z");
       expect(row!.sha256).toMatch(/^[0-9a-f]{64}$/);
-      expect(Buffer.from(storage.objects.get(row!.storageKey!)!.body).equals(bytes)).toBe(true);
+      expect(Buffer.from(storage.objects.get(row!.storageKey!)!.body).equals(bytes)).toBe(
+        true,
+      );
       expect(storage.objects.get(row!.storageKey!)!.contentType).toBe("application/pdf");
       // no recipient name or address is stored beside the PDF
       expect(JSON.stringify(row)).not.toContain("owner@example.test");
@@ -341,14 +403,40 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     });
 
     it("files the 0619E, the 1601EQ and the 1701Q on their verified file names", async () => {
-      const cases: Array<[string, string, keyof typeof VERIFIED, string, string, string]> = [
-        ["0619E", "2026-07", "0619E", "10 August 2026", "12:05 AM", "2026-08-09T16:05:00.000Z"],
-        ["1601EQ", "2026-Q3", "1601EQ", "2 November 2026", "12:05 PM", "2026-11-02T04:05:00.000Z"],
-        ["1701Q", "2025-Q3", "1701Q", "14 November 2025", "02:44 PM", "2025-11-14T06:44:00.000Z"],
+      const cases: Array<
+        [string, string, keyof typeof VERIFIED, string, string, string]
+      > = [
+        [
+          "0619E",
+          "2026-07",
+          "0619E",
+          "10 August 2026",
+          "12:05 AM",
+          "2026-08-09T16:05:00.000Z",
+        ],
+        [
+          "1601EQ",
+          "2026-Q3",
+          "1601EQ",
+          "2 November 2026",
+          "12:05 PM",
+          "2026-11-02T04:05:00.000Z",
+        ],
+        [
+          "1701Q",
+          "2025-Q3",
+          "1701Q",
+          "14 November 2025",
+          "02:44 PM",
+          "2025-11-14T06:44:00.000Z",
+        ],
       ];
       for (const [form, period, shape, date, time, at] of cases) {
         const f = await draft("CAL", form, period);
-        const res = await markFiled(f.id, await confirmationPdf({ fileName: VERIFIED[shape], date, time }));
+        const res = await markFiled(
+          f.id,
+          await confirmationPdf({ fileName: VERIFIED[shape], date, time }),
+        );
         expect([form, res.status, res.body.message]).toEqual([form, 200, undefined]);
         expect(res.body.filedAt).toBe(at);
       }
@@ -356,12 +444,18 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
 
     it("a fiscal-year client: the 2550Q's year-end month must be the client's", async () => {
       const f = await draft("FIS", "2550Q", "2026-Q1");
-      const wrong = await markFiled(f.id, await confirmationPdf({ fileName: "444555666000-2550Qv2024-122026Q1.xml" }));
+      const wrong = await markFiled(
+        f.id,
+        await confirmationPdf({ fileName: "444555666000-2550Qv2024-122026Q1.xml" }),
+      );
       expect(wrong.status).toBe(409);
       expect(wrong.body.message).toBe(
         "The confirmation is for a fiscal year ending in December, this client's fiscal year ends in June.",
       );
-      const right = await markFiled(f.id, await confirmationPdf({ fileName: "444555666000-2550Qv2024-062026Q1.xml" }));
+      const right = await markFiled(
+        f.id,
+        await confirmationPdf({ fileName: "444555666000-2550Qv2024-062026Q1.xml" }),
+      );
       expect(right.status).toBe(200);
       expect((await rowsFor(f.id))[0]!.fyEndMonth).toBe(6);
     });
@@ -369,15 +463,25 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     it("a wrong confirmation is refused: 409, the first error in the message, every check in the body, nothing written", async () => {
       const f = await draft("CAL", "2550Q", "2026-Q1");
       const objects = storage.objects.size;
-      const res = await markFiled(f.id, await confirmationPdf({ fileName: "999888777000-2550Qv2024-122026Q1.xml" }));
+      const res = await markFiled(
+        f.id,
+        await confirmationPdf({ fileName: "999888777000-2550Qv2024-122026Q1.xml" }),
+      );
       expect(res.status).toBe(409);
-      expect(res.body.message).toBe("The confirmation is for TIN 999-888-777-000, not this client.");
+      expect(res.body.message).toBe(
+        "The confirmation is for TIN 999-888-777-000, not this client.",
+      );
       expect(res.body.ok).toBe(false);
       expect(res.body.checks).toHaveLength(9);
-      expect((await db.birForm.findUniqueOrThrow({ where: { id: f.id } })).status).toBe("draft");
+      expect((await db.birForm.findUniqueOrThrow({ where: { id: f.id } })).status).toBe(
+        "draft",
+      );
       expect(await rowsFor(f.id)).toHaveLength(0);
       expect(storage.objects.size).toBe(objects);
-      const notBir = await markFiled(f.id, await confirmationPdf({ sender: "x@example.test" }));
+      const notBir = await markFiled(
+        f.id,
+        await confirmationPdf({ sender: "x@example.test" }),
+      );
       expect([notBir.status, notBir.body.message]).toEqual([409, NOT_BIR]);
     });
 
@@ -395,13 +499,25 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
 
     it("the six-ATC refusal of a 1601-EQ still stands before the confirmation is read", async () => {
       const f = await draft("CAL", "1601EQ", "2026-Q2");
-      const rows = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ atc: `WI0${n}0`, base: "100.00", rate: "1", withheld: "1.00" }));
+      const rows = [1, 2, 3, 4, 5, 6, 7].map((n) => ({
+        atc: `WI0${n}0`,
+        base: "100.00",
+        rate: "1",
+        withheld: "1.00",
+      }));
       await auth(http().patch(`${API}/bir-forms/${f.id}`)).send({ data: { rows } });
       const res = await markFiled(
         f.id,
-        await confirmationPdf({ fileName: "11122233300000-1601EQ-2026Q2.xml", date: "20 July 2026", time: "10:00 AM" }),
+        await confirmationPdf({
+          fileName: "11122233300000-1601EQ-2026Q2.xml",
+          date: "20 July 2026",
+          time: "10:00 AM",
+        }),
       );
-      expect([res.status, res.body.message]).toEqual([409, "7 ATCs; the form has six rows."]);
+      expect([res.status, res.body.message]).toEqual([
+        409,
+        "7 ATCs; the form has six rows.",
+      ]);
     });
   });
 
@@ -413,16 +529,31 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       const bytes = await confirmationPdf({});
       const res = await attach(id, bytes);
       expect(res.status).toBe(200);
-      expect(res.body.confirmation).toMatchObject({ kind: "bir_email", hasFile: true, filedWithoutConfirmation: false });
+      expect(res.body.confirmation).toMatchObject({
+        kind: "bir_email",
+        hasFile: true,
+        filedWithoutConfirmation: false,
+      });
       const after = await db.birForm.findUniqueOrThrow({ where: { id } });
       expect(after.filedAt!.toISOString()).toBe(before.filedAt!.toISOString()); // not the BIR date
-      expect(JSON.stringify(after.filedSnapshotJson)).toBe(JSON.stringify(before.filedSnapshotJson));
+      expect(JSON.stringify(after.filedSnapshotJson)).toBe(
+        JSON.stringify(before.filedSnapshotJson),
+      );
       expect(after.updatedAt.toISOString()).toBe(before.updatedAt.toISOString());
       expect(res.body.filedAt).toBe("2026-04-20T02:00:00.000Z");
       // a second attach is refused; replacing needs a Super Admin
-      const twice = await attach(id, await confirmationPdf({ time: "11:41 AM" }), managerToken);
+      const twice = await attach(
+        id,
+        await confirmationPdf({ time: "11:41 AM" }),
+        managerToken,
+      );
       expect([twice.status, twice.body.message]).toEqual([409, HAS_ONE]);
-      const replace = await attach(id, await confirmationPdf({ time: "11:41 AM" }), managerToken, { replace: "true" });
+      const replace = await attach(
+        id,
+        await confirmationPdf({ time: "11:41 AM" }),
+        managerToken,
+        { replace: "true" },
+      );
       expect([replace.status, replace.body.message]).toEqual([403, REPLACE_SA]);
       expect(await rowsFor(id)).toHaveLength(1);
     });
@@ -431,7 +562,9 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       const id = await filedBefore("CAL", "2550Q", "2026-Q1");
       await attach(id, await confirmationPdf({}));
       const old = (await rowsFor(id))[0]!;
-      const res = await attach(id, await confirmationPdf({ time: "11:45 AM" }), saToken, { replace: "true" });
+      const res = await attach(id, await confirmationPdf({ time: "11:45 AM" }), saToken, {
+        replace: "true",
+      });
       expect(res.status).toBe(200);
       const rows = await rowsFor(id);
       expect(rows).toHaveLength(2);
@@ -461,14 +594,25 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     it("is for a Super Admin only, with a reason of at least 10 characters", async () => {
       const f = await draft("CAL", "1701Q", "2026-Q1");
       const reason = "The BIR email was lost; filed on the portal screenshot.";
-      const asManager = await auth(http().post(`${API}/bir-forms/${f.id}/mark-filed`), managerToken).field("overrideReason", reason);
+      const asManager = await auth(
+        http().post(`${API}/bir-forms/${f.id}/mark-filed`),
+        managerToken,
+      ).field("overrideReason", reason);
       expect([asManager.status, asManager.body.message]).toEqual([403, OVERRIDE_SA]);
-      const short = await auth(http().post(`${API}/bir-forms/${f.id}/mark-filed`)).field("overrideReason", "too short");
+      const short = await auth(http().post(`${API}/bir-forms/${f.id}/mark-filed`)).field(
+        "overrideReason",
+        "too short",
+      );
       expect([short.status, short.body.message]).toEqual([400, SHORT_REASON]);
       expect(await rowsFor(f.id)).toHaveLength(0);
-      expect((await db.birForm.findUniqueOrThrow({ where: { id: f.id } })).status).toBe("draft");
+      expect((await db.birForm.findUniqueOrThrow({ where: { id: f.id } })).status).toBe(
+        "draft",
+      );
 
-      const ok = await auth(http().post(`${API}/bir-forms/${f.id}/mark-filed`)).field("overrideReason", reason);
+      const ok = await auth(http().post(`${API}/bir-forms/${f.id}/mark-filed`)).field(
+        "overrideReason",
+        reason,
+      );
       expect(ok.status).toBe(200);
       expect(ok.body.status).toBe("filed");
       expect(ok.body.confirmation).toMatchObject({
@@ -480,7 +624,12 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
         receivedAt: null,
       });
       const [row] = await rowsFor(f.id);
-      expect(row).toMatchObject({ kind: "override", overrideReason: reason, storageKey: null, sha256: null });
+      expect(row).toMatchObject({
+        kind: "override",
+        overrideReason: reason,
+        storageKey: null,
+        sha256: null,
+      });
       expect(row!.uploadedByUserId).toEqual(expect.any(String));
       expect(ok.body.filedAt).toEqual(expect.any(String)); // the moment it was marked: the BIR date is unknown
     });
@@ -488,12 +637,23 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
     it("an override can be attached to a return already filed, and replaced by the real e-mail", async () => {
       const id = await filedBefore("CAL", "2550Q", "2026-Q1");
       const reason = "No email was ever received; BIR confirmed by phone.";
-      const res = await auth(http().post(`${API}/bir-forms/${id}/confirmation`)).field("overrideReason", reason);
+      const res = await auth(http().post(`${API}/bir-forms/${id}/confirmation`)).field(
+        "overrideReason",
+        reason,
+      );
       expect(res.status).toBe(200);
-      expect(res.body.confirmation).toMatchObject({ kind: "override", filedWithoutConfirmation: true });
-      const replaced = await attach(id, await confirmationPdf({}), saToken, { replace: "true" });
+      expect(res.body.confirmation).toMatchObject({
+        kind: "override",
+        filedWithoutConfirmation: true,
+      });
+      const replaced = await attach(id, await confirmationPdf({}), saToken, {
+        replace: "true",
+      });
       expect(replaced.status).toBe(200);
-      expect(replaced.body.confirmation).toMatchObject({ kind: "bir_email", filedWithoutConfirmation: false });
+      expect(replaced.body.confirmation).toMatchObject({
+        kind: "bir_email",
+        filedWithoutConfirmation: false,
+      });
       expect(await rowsFor(id)).toHaveLength(2);
     });
   });
@@ -507,8 +667,17 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       expect(res.status).toBe(200);
       const [row] = await rowsFor(f.id);
       expect(res.body.url).toContain(row!.storageKey!);
-      expect(res.body.url).toContain(encodeURIComponent("111222333000-2550Qv2024-122026Q1-BIR-confirmation.pdf"));
-      expect((await auth(http().get(`${API}/bir-forms/${f.id}/confirmation/url`), outsiderToken)).status).toBe(403);
+      expect(res.body.url).toContain(
+        encodeURIComponent("111222333000-2550Qv2024-122026Q1-BIR-confirmation.pdf"),
+      );
+      expect(
+        (
+          await auth(
+            http().get(`${API}/bir-forms/${f.id}/confirmation/url`),
+            outsiderToken,
+          )
+        ).status,
+      ).toBe(403);
       const none = await draft("CAL", "2550Q", "2026-Q2");
       const nope = await auth(http().get(`${API}/bir-forms/${none.id}/confirmation/url`));
       expect([nope.status, nope.body.message]).toEqual([404, NO_FILE_KEPT]);
@@ -518,10 +687,24 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       const a = await draft("CAL", "2550Q", "2026-Q1");
       await markFiled(a.id, await confirmationPdf({}));
       const b = await filedBefore("CAL", "2551Q", "2026-Q1");
-      await attach(b, await confirmationPdf({ fileName: "1112223330002551Qv2018122026Q1.xml" }));
-      await attach(b, await confirmationPdf({ fileName: "1112223330002551Qv2018122026Q1.xml", time: "11:50 AM" }), saToken, { replace: "true" });
+      await attach(
+        b,
+        await confirmationPdf({ fileName: "1112223330002551Qv2018122026Q1.xml" }),
+      );
+      await attach(
+        b,
+        await confirmationPdf({
+          fileName: "1112223330002551Qv2018122026Q1.xml",
+          time: "11:50 AM",
+        }),
+        saToken,
+        { replace: "true" },
+      );
       const c = await draft("CAL", "1701Q", "2026-Q2");
-      await auth(http().post(`${API}/bir-forms/${c.id}/mark-filed`)).field("overrideReason", "Lost the email; checked on eBIRForms.");
+      await auth(http().post(`${API}/bir-forms/${c.id}/mark-filed`)).field(
+        "overrideReason",
+        "Lost the email; checked on eBIRForms.",
+      );
       const rows = await db.auditLog.findMany({
         where: { action: { startsWith: "bir-form." }, entityId: { in: [a.id, b, c.id] } },
       });
@@ -555,17 +738,27 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       const reprint = await confirmationPdf({ sentOn: "Sat, 25 Apr 2026, 11:59 am" });
       expect(reprint.equals(bytes)).toBe(false);
       const second = await markFiled(other.id, reprint);
-      expect(second.body.checks.find((c: { id: string }) => c.id === "duplicate").status).toBe("error");
+      expect(
+        second.body.checks.find((c: { id: string }) => c.id === "duplicate").status,
+      ).toBe("error");
       expect(await rowsFor(other.id)).toHaveLength(0);
     });
 
     it("the same bytes under another return are caught (and a TIN that is not that client's is named)", async () => {
       const a = await draft("CAL", "0619E", "2026-07");
-      const bytes = await confirmationPdf({ fileName: VERIFIED["0619E"], date: "10 August 2026", time: "10:00 AM" });
+      const bytes = await confirmationPdf({
+        fileName: VERIFIED["0619E"],
+        date: "10 August 2026",
+        time: "10:00 AM",
+      });
       expect((await markFiled(a.id, bytes)).status).toBe(200);
       const b = await draft("OTHER", "0619E", "2026-07");
       const res = await check(b.id, bytes);
-      const checks = res.body.checks as Array<{ id: string; status: string; message: string }>;
+      const checks = res.body.checks as Array<{
+        id: string;
+        status: string;
+        message: string;
+      }>;
       expect(checks.find((c) => c.id === "duplicate")!.status).toBe("error");
       expect(checks.find((c) => c.id === "taxpayer")!.status).toBe("error"); // and the TIN is not OTHER's
     });
@@ -577,17 +770,26 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       expect(amend.status).toBe(201);
       const res = await markFiled(
         amend.body.id,
-        await confirmationPdf({ fileName: "111222333000-2550Qv2024-122026Q1V1.xml", date: "2 May 2026", time: "09:00 AM" }),
+        await confirmationPdf({
+          fileName: "111222333000-2550Qv2024-122026Q1V1.xml",
+          date: "2 May 2026",
+          time: "09:00 AM",
+        }),
       );
       expect(res.status).toBe(200);
-      expect(res.body.confirmation.birFileName).toBe("111222333000-2550Qv2024-122026Q1V1.xml");
+      expect(res.body.confirmation.birFileName).toBe(
+        "111222333000-2550Qv2024-122026Q1V1.xml",
+      );
       expect(await rowsFor(f.id)).toHaveLength(1);
       expect(await rowsFor(amend.body.id)).toHaveLength(1);
     });
 
     it("keeps the late warning with the confirmation and lets the filing through", async () => {
       const f = await draft("CAL", "2550Q", "2026-Q1");
-      const res = await markFiled(f.id, await confirmationPdf({ date: "30 April 2026", time: "10:00 AM" }));
+      const res = await markFiled(
+        f.id,
+        await confirmationPdf({ date: "30 April 2026", time: "10:00 AM" }),
+      );
       expect(res.status).toBe(200);
       expect(res.body.confirmation.warnings).toEqual([
         "The BIR received this return on 30 April 2026, 3 days after the due date of 27 April 2026.",
@@ -601,11 +803,20 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       const id = await filedBefore("CAL", "2550Q", "2026-Q1");
       expect((await attach(id, await confirmationPdf({}))).status).toBe(200);
       await expect(
-        db.$executeRawUnsafe(`UPDATE "bir_forms" SET "period" = '2026-Q4' WHERE "id" = $1::uuid`, id),
+        db.$executeRawUnsafe(
+          `UPDATE "bir_forms" SET "period" = '2026-Q4' WHERE "id" = $1::uuid`,
+          id,
+        ),
       ).rejects.toThrow(/BIR_FORM_SEALED/);
-      await expect(db.birForm.update({ where: { id }, data: { dataJson: { a: 1 } } })).rejects.toThrow(/BIR_FORM_SEALED/);
-      await expect(db.birForm.delete({ where: { id } })).rejects.toThrow(/BIR_FORM_SEALED/);
-      expect((await db.birForm.findUniqueOrThrow({ where: { id } })).period).toBe("2026-Q1");
+      await expect(
+        db.birForm.update({ where: { id }, data: { dataJson: { a: 1 } } }),
+      ).rejects.toThrow(/BIR_FORM_SEALED/);
+      await expect(db.birForm.delete({ where: { id } })).rejects.toThrow(
+        /BIR_FORM_SEALED/,
+      );
+      expect((await db.birForm.findUniqueOrThrow({ where: { id } })).period).toBe(
+        "2026-Q1",
+      );
     });
 
     it("at most one active confirmation per return, and one confirmation per file name and time or per set of bytes, at the database", async () => {
@@ -635,9 +846,15 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
         });
       await expect(clone({})).rejects.toThrow(/Unique constraint|duplicate key/i); // a second ACTIVE one
       const f2 = await filedBefore("CAL", "2550Q", "2026-Q2");
-      await expect(clone({ birFormId: f2, sha256: row!.sha256 })).rejects.toThrow(/Unique constraint|duplicate key/i); // same bytes
+      await expect(clone({ birFormId: f2, sha256: row!.sha256 })).rejects.toThrow(
+        /Unique constraint|duplicate key/i,
+      ); // same bytes
       await expect(
-        clone({ birFormId: f2, birFileName: row!.birFileName, receivedAt: row!.receivedAt }),
+        clone({
+          birFormId: f2,
+          birFileName: row!.birFileName,
+          receivedAt: row!.receivedAt,
+        }),
       ).rejects.toThrow(/Unique constraint|duplicate key/i); // same file name and time
       await expect(clone({ birFormId: f2 })).resolves.toBeDefined(); // a different one is fine
     });

@@ -110,7 +110,9 @@ export function longDate(iso: string): string {
 }
 
 function daysBetween(fromIso: string, toIso: string): number {
-  return Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86_400_000);
+  return Math.round(
+    (Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86_400_000,
+  );
 }
 
 const ORDER: Array<[Check["n"], Check["id"]]> = [
@@ -126,7 +128,9 @@ const ORDER: Array<[Check["n"], Check["id"]]> = [
 ];
 
 /** The return's period as numbers; null if it is none of "2026-Q1", "2026-07", "2025". */
-function readPeriod(period: string): { year: number; quarter: number | null; month: number | null } | null {
+function readPeriod(
+  period: string,
+): { year: number; quarter: number | null; month: number | null } | null {
   const q = /^(\d{4})-Q([1-4])$/i.exec(period.trim());
   if (q) return { year: Number(q[1]), quarter: Number(q[2]), month: null };
   const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(period.trim());
@@ -202,18 +206,26 @@ export async function evaluateConfirmation(input: {
   else set("bir-email", "error", MESSAGES.notBirEmail);
 
   // --- 2. the file name reads -------------------------------------------------------
-  const name: ParsedBirFileName | null = facts.fileName ? parseBirFileName(facts.fileName) : null;
+  const name: ParsedBirFileName | null = facts.fileName
+    ? parseBirFileName(facts.fileName)
+    : null;
   if (name) set("file-name", "ok", `The BIR file name is ${name.fileName}.`);
   else set("file-name", "error", MESSAGES.fileNameUnreadable);
 
   // --- 6. the date and time received (Manila time), never the sent line --------------
   const received =
-    facts.dateText && facts.timeText ? parseReceived(facts.dateText, facts.timeText) : { ok: false as const };
+    facts.dateText && facts.timeText
+      ? parseReceived(facts.dateText, facts.timeText)
+      : { ok: false as const };
   if (!received.ok) set("received", "error", MESSAGES.receivedUnreadable);
   else if (received.at.getTime() > now.getTime() + 5 * 60_000) {
     set("received", "error", MESSAGES.receivedInFuture);
   } else {
-    set("received", "ok", `The BIR received the return on ${longDate(received.date)} at ${received.time}.`);
+    set(
+      "received",
+      "ok",
+      `The BIR received the return on ${longDate(received.date)} at ${received.time}.`,
+    );
   }
 
   if (name) {
@@ -228,31 +240,68 @@ export async function evaluateConfirmation(input: {
     }
 
     // --- 4. the form ----------------------------------------------------------------
-    if (name.form === expected.form) set("form", "ok", `The confirmation is for the ${name.form}.`);
+    if (name.form === expected.form)
+      set("form", "ok", `The confirmation is for the ${name.form}.`);
     else set("form", "error", MESSAGES.wrongForm(name.form, expected.form));
 
     // --- 5. the period (only meaningful for the same form) --------------------------
     if (name.form === expected.form) {
       const want = readPeriod(expected.period);
       if (!want) {
-        set("period", "error", "This return has no period set, so the confirmation cannot be matched to it.");
+        set(
+          "period",
+          "error",
+          "This return has no period set, so the confirmation cannot be matched to it.",
+        );
       } else if (name.month !== null || want.month !== null) {
         if (name.taxYear !== want.year || name.month !== want.month) {
-          const got = name.month === null ? `${name.taxYear}` : `${MONTH_NAMES[name.month - 1]} ${name.taxYear}`;
-          const mine = want.month === null ? `${want.year}` : `${MONTH_NAMES[want.month - 1]} ${want.year}`;
-          set("period", "error", `The confirmation is for ${got}, this return is ${mine}.`);
-        } else set("period", "ok", `The confirmation is for ${MONTH_NAMES[want.month! - 1]} ${want.year}.`);
+          const got =
+            name.month === null
+              ? `${name.taxYear}`
+              : `${MONTH_NAMES[name.month - 1]} ${name.taxYear}`;
+          const mine =
+            want.month === null
+              ? `${want.year}`
+              : `${MONTH_NAMES[want.month - 1]} ${want.year}`;
+          set(
+            "period",
+            "error",
+            `The confirmation is for ${got}, this return is ${mine}.`,
+          );
+        } else
+          set(
+            "period",
+            "ok",
+            `The confirmation is for ${MONTH_NAMES[want.month! - 1]} ${want.year}.`,
+          );
       } else if (name.quarter !== null || want.quarter !== null) {
         if (name.taxYear !== want.year || name.quarter !== want.quarter) {
-          const got = name.quarter === null ? `${name.taxYear}` : `${name.taxYear} Q${name.quarter}`;
-          const mine = want.quarter === null ? `${want.year}` : `${want.year} Q${want.quarter}`;
-          set("period", "error", `The confirmation is for ${got}, this return is ${mine}.`);
-        } else set("period", "ok", `The confirmation is for ${want.year} Q${want.quarter}.`);
+          const got =
+            name.quarter === null
+              ? `${name.taxYear}`
+              : `${name.taxYear} Q${name.quarter}`;
+          const mine =
+            want.quarter === null ? `${want.year}` : `${want.year} Q${want.quarter}`;
+          set(
+            "period",
+            "error",
+            `The confirmation is for ${got}, this return is ${mine}.`,
+          );
+        } else
+          set("period", "ok", `The confirmation is for ${want.year} Q${want.quarter}.`);
       } else if (name.taxYear !== want.year) {
-        set("period", "error", `The confirmation is for ${name.taxYear}, this return is ${want.year}.`);
+        set(
+          "period",
+          "error",
+          `The confirmation is for ${name.taxYear}, this return is ${want.year}.`,
+        );
       } else set("period", "ok", `The confirmation is for ${want.year}.`);
 
-      if (c.get("period")!.status === "ok" && COMPARES_YEAR_END.has(name.form) && name.fyEndMonth !== null) {
+      if (
+        c.get("period")!.status === "ok" &&
+        COMPARES_YEAR_END.has(name.form) &&
+        name.fyEndMonth !== null
+      ) {
         if (name.fyEndMonth !== expected.fyEndMonth) {
           set(
             "period",
@@ -270,7 +319,12 @@ export async function evaluateConfirmation(input: {
     receivedAt: received.ok ? received.at : null,
     sha256,
   });
-  if (hit) set("duplicate", "error", MESSAGES.duplicate(`${hit.form}, ${hit.clientName}, ${hit.period}`));
+  if (hit)
+    set(
+      "duplicate",
+      "error",
+      MESSAGES.duplicate(`${hit.form}, ${hit.clientName}, ${hit.period}`),
+    );
   else set("duplicate", "ok", "No other return has this confirmation.");
 
   // --- 8. timing: WARNINGS, never blocking -------------------------------------------
@@ -290,7 +344,12 @@ export async function evaluateConfirmation(input: {
         "warning",
         `The BIR received this return on ${longDate(received.date)}, ${days} ${days === 1 ? "day" : "days"} after the due date of ${longDate(due)}.`,
       );
-    } else set("timing", "ok", "The BIR received the return after the period ended and by its due date.");
+    } else
+      set(
+        "timing",
+        "ok",
+        "The BIR received the return after the period ended and by its due date.",
+      );
   }
 
   const parsed: ConfirmationResult["parsed"] = name

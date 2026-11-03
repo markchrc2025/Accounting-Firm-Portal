@@ -78,9 +78,7 @@ describe("U14 · delete a draft return (real app over HTTP, db)", () => {
     return res.body.id as string;
   }
   async function markFiled(id: string) {
-    expect(
-      (await markFiledAny(app, token, id)).status,
-    ).toBe(200);
+    expect((await markFiledAny(app, token, id)).status).toBe(200);
   }
 
   beforeAll(async () => {

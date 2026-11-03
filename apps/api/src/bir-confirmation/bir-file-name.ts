@@ -54,7 +54,9 @@ interface Shape {
   shape: "verified" | "derived";
   re: RegExp;
   /** Maps the regex groups after TIN, branch (g[3]…) to the fields. */
-  read: (g: string[]) => Pick<
+  read: (
+    g: string[],
+  ) => Pick<
     ParsedBirFileName,
     "version" | "fyEndMonth" | "taxYear" | "quarter" | "month"
   > & { amend: string | undefined };

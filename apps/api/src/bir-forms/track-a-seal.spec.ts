@@ -109,7 +109,14 @@ function build(row: Record<string, unknown> = formRow()) {
     authorizedClients: jest.fn().mockResolvedValue("all"),
   } as unknown as RbacService;
   return {
-    svc: new BirFormsService(prisma, clients, storage, audit, rbac, new ConfirmationService(prisma, storage)),
+    svc: new BirFormsService(
+      prisma,
+      clients,
+      storage,
+      audit,
+      rbac,
+      new ConfirmationService(prisma, storage),
+    ),
     birForm,
     clients,
     storage,
@@ -191,7 +198,9 @@ describe("U3 T3 · filing writes the snapshot (D12, R3)", () => {
   it("draft → filed writes status, filedAt and filedSnapshotJson in one update, with the R3 keys and the client's raw values", async () => {
     // U18: the nine returns with a BIR confirmation are filed through POST :id/mark-filed;
     // the 1601-C is still filed through update(), and writes the same snapshot.
-    const { svc, birForm, audit } = build(formRow({ form: "1601C", period: "2026-07", dataJson: {} }));
+    const { svc, birForm, audit } = build(
+      formRow({ form: "1601C", period: "2026-07", dataJson: {} }),
+    );
     await svc.update(actor, "bf1", { status: "filed" });
     expect(birForm.update).toHaveBeenCalledTimes(1);
     const data = birForm.update.mock.calls[0][0].data;

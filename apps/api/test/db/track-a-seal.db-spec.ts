@@ -474,7 +474,9 @@ describe("U3 · the service against the real database (far end)", () => {
       await svc.update(actor, id, { status: "filed" });
       return;
     }
-    await svc.markFiled(actor, id, { file: { buffer: await confirmationFor(writer, id) } });
+    await svc.markFiled(actor, id, {
+      file: { buffer: await confirmationFor(writer, id) },
+    });
   }
 
   beforeAll(async () => {

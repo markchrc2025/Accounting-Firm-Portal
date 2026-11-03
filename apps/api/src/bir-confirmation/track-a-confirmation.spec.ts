@@ -64,9 +64,20 @@ const byId = (r: Awaited<ReturnType<typeof run>>, id: string) =>
 describe("U18 · the form list", () => {
   it("covers the nine returns and not the 1601C, the 2307 or the 2316", () => {
     expect([...CONFIRMATION_FORMS].sort()).toEqual(
-      ["0619E", "1601EQ", "1701", "1701A", "1701Q", "1702Q", "1702RT", "2550Q", "2551Q"].sort(),
+      [
+        "0619E",
+        "1601EQ",
+        "1701",
+        "1701A",
+        "1701Q",
+        "1702Q",
+        "1702RT",
+        "2550Q",
+        "2551Q",
+      ].sort(),
     );
-    for (const no of ["1601C", "2307", "2316"]) expect(CONFIRMATION_FORMS.has(no)).toBe(false);
+    for (const no of ["1601C", "2307", "2316"])
+      expect(CONFIRMATION_FORMS.has(no)).toBe(false);
   });
 });
 
@@ -144,9 +155,9 @@ describe("U18 T-names · the BIR file name", () => {
     }
     // the shapes that are verified stay marked verified; the others are derived
     expect(parseBirFileName(fileName2551Q(filing("2026-Q1"), tp))!.shape).toBe("derived");
-    expect(parseBirFileName(fileName1702RT(filing("2025", { year: "2025" }), tp))!.shape).toBe(
-      "derived",
-    );
+    expect(
+      parseBirFileName(fileName1702RT(filing("2025", { year: "2025" }), tp))!.shape,
+    ).toBe("derived");
   });
 
   it("accepts an optional V and a number just before .xml (unverified) and records it", () => {
@@ -228,11 +239,18 @@ describe("U18 T-text · the date and time received", () => {
 
   it("reads a file name that the print wrapped over two lines", async () => {
     const text = await extractPdfText(await confirmationPdf({ wrapFileName: true }));
-    expect(readConfirmationText(text).fileName).toBe("111222333000-2550Qv2024-122026Q1.xml");
+    expect(readConfirmationText(text).fileName).toBe(
+      "111222333000-2550Qv2024-122026Q1.xml",
+    );
   });
 
   it("is not from the BIR unless the sender, the title and the sentence are all there", async () => {
-    for (const spec of [{ sender: null }, { title: null }, { sentence: null }, { sender: "someone@example.test" }]) {
+    for (const spec of [
+      { sender: null },
+      { title: null },
+      { sentence: null },
+      { sender: "someone@example.test" },
+    ]) {
       const t = readConfirmationText(await extractPdfText(await confirmationPdf(spec)));
       expect({ spec, fromBir: t.fromBir }).toEqual({ spec, fromBir: false });
     }
@@ -313,7 +331,8 @@ describe("U18 T-checks · all nine, in order", () => {
     const none = await run({}, expected({ clientTin: null }));
     expect(byId(none, "taxpayer")).toMatchObject({
       status: "error",
-      message: "This client has no TIN on file, so the confirmation cannot be matched to it.",
+      message:
+        "This client has no TIN on file, so the confirmation cannot be matched to it.",
     });
   });
 
@@ -326,34 +345,64 @@ describe("U18 T-checks · all nine, in order", () => {
   });
 
   it("5. the wrong year, quarter, month and fiscal-year-end month", async () => {
-    expect(byId(await run({ fileName: "111222333000-2550Qv2024-122025Q1.xml" }), "period")).toMatchObject({
+    expect(
+      byId(await run({ fileName: "111222333000-2550Qv2024-122025Q1.xml" }), "period"),
+    ).toMatchObject({
       status: "error",
       message: "The confirmation is for 2025 Q1, this return is 2026 Q1.",
     });
-    expect(byId(await run({ fileName: "111222333000-2550Qv2024-122026Q1.xml" }, expected({ period: "2026-Q3" })), "period")).toMatchObject({
+    expect(
+      byId(
+        await run(
+          { fileName: "111222333000-2550Qv2024-122026Q1.xml" },
+          expected({ period: "2026-Q3" }),
+        ),
+        "period",
+      ),
+    ).toMatchObject({
       status: "error",
       message: "The confirmation is for 2026 Q1, this return is 2026 Q3.",
     });
     // the 2550Q's file name carries the fiscal-year-end month; the client's is June
     expect(
-      byId(await run({ fileName: "111222333000-2550Qv2024-122026Q1.xml" }, expected({ fyEndMonth: 6 })), "period"),
+      byId(
+        await run(
+          { fileName: "111222333000-2550Qv2024-122026Q1.xml" },
+          expected({ fyEndMonth: 6 }),
+        ),
+        "period",
+      ),
     ).toMatchObject({
       status: "error",
       message:
         "The confirmation is for a fiscal year ending in December, this client's fiscal year ends in June.",
     });
     expect(
-      byId(await run({ fileName: "111222333000-2550Qv2024-062026Q1.xml" }, expected({ fyEndMonth: 6 })), "period").status,
+      byId(
+        await run(
+          { fileName: "111222333000-2550Qv2024-062026Q1.xml" },
+          expected({ fyEndMonth: 6 }),
+        ),
+        "period",
+      ).status,
     ).toBe("ok");
     // the 0619E: the month
     const july = expected({ form: "0619E", period: "2026-08" });
-    expect(byId(await run({ fileName: VERIFIED["0619E"] }, july), "period")).toMatchObject({
+    expect(
+      byId(await run({ fileName: VERIFIED["0619E"] }, july), "period"),
+    ).toMatchObject({
       status: "error",
       message: "The confirmation is for July 2026, this return is August 2026.",
     });
     // the 1701Q has no fiscal-year-end month in its file name: nothing to compare
     expect(
-      byId(await run({ fileName: VERIFIED["1701Q"] }, expected({ form: "1701Q", period: "2025-Q3", fyEndMonth: 6 })), "period").status,
+      byId(
+        await run(
+          { fileName: VERIFIED["1701Q"] },
+          expected({ form: "1701Q", period: "2025-Q3", fyEndMonth: 6 }),
+        ),
+        "period",
+      ).status,
     ).toBe("ok");
     // an annual form: the year
     const annual = expected({ form: "1701A", period: "2025" });
@@ -367,7 +416,12 @@ describe("U18 T-checks · all nine, in order", () => {
   it("6. a date or time that is missing, unreadable, or in the future", async () => {
     const words =
       "The date and time the BIR received the return could not be read. Upload the confirmation email printed from Gmail as a PDF.";
-    for (const spec of [{ date: null }, { time: null }, { date: "31 February 2026" }, { time: "25:00 AM" }]) {
+    for (const spec of [
+      { date: null },
+      { time: null },
+      { date: "31 February 2026" },
+      { time: "25:00 AM" },
+    ]) {
       const r = await run(spec);
       expect({ spec, check: byId(r, "received") }).toEqual({
         spec,
@@ -384,7 +438,12 @@ describe("U18 T-checks · all nine, in order", () => {
 
   it("6. uses the Date and Time received lines, never the sent line (received before it was sent)", async () => {
     const ok = await run(
-      { fileName: VERIFIED["0619E"], date: "18 August 2026", time: "11:17 PM", sentOn: "Wed, 19 Aug 2026, 1:44 am" },
+      {
+        fileName: VERIFIED["0619E"],
+        date: "18 August 2026",
+        time: "11:17 PM",
+        sentOn: "Wed, 19 Aug 2026, 1:44 am",
+      },
       expected({ form: "0619E", period: "2026-07" }),
     );
     expect(ok.filedOn).toBe("2026-08-18");
@@ -392,11 +451,29 @@ describe("U18 T-checks · all nine, in order", () => {
   });
 
   it("the four verified shapes pass against their own returns", async () => {
-    const cases: Array<[keyof typeof VERIFIED, ExpectedReturn, { date: string; time: string }]> = [
-      ["2550Q", expected({ form: "2550Q", period: "2026-Q1" }), { date: "27 April 2026", time: "09:15 AM" }],
-      ["1701Q", expected({ form: "1701Q", period: "2025-Q3" }), { date: "10 November 2025", time: "02:44 PM" }],
-      ["1601EQ", expected({ form: "1601EQ", period: "2026-Q3" }), { date: "2 November 2026", time: "12:05 PM" }],
-      ["0619E", expected({ form: "0619E", period: "2026-07" }), { date: "10 August 2026", time: "12:05 AM" }],
+    const cases: Array<
+      [keyof typeof VERIFIED, ExpectedReturn, { date: string; time: string }]
+    > = [
+      [
+        "2550Q",
+        expected({ form: "2550Q", period: "2026-Q1" }),
+        { date: "27 April 2026", time: "09:15 AM" },
+      ],
+      [
+        "1701Q",
+        expected({ form: "1701Q", period: "2025-Q3" }),
+        { date: "10 November 2025", time: "02:44 PM" },
+      ],
+      [
+        "1601EQ",
+        expected({ form: "1601EQ", period: "2026-Q3" }),
+        { date: "2 November 2026", time: "12:05 PM" },
+      ],
+      [
+        "0619E",
+        expected({ form: "0619E", period: "2026-07" }),
+        { date: "10 August 2026", time: "12:05 AM" },
+      ],
     ];
     for (const [form, exp, when] of cases) {
       const r = await run({ fileName: VERIFIED[form], ...when }, exp);
@@ -408,12 +485,17 @@ describe("U18 T-checks · all nine, in order", () => {
   it("7. a confirmation already attached to another return", async () => {
     const seen: Array<{ birFileName: string; receivedAt: string; sha256: string }> = [];
     const r = await run({}, expected(), async (q) => {
-      seen.push({ birFileName: q.birFileName!, receivedAt: q.receivedAt!.toISOString(), sha256: q.sha256 });
+      seen.push({
+        birFileName: q.birFileName!,
+        receivedAt: q.receivedAt!.toISOString(),
+        sha256: q.sha256,
+      });
       return { form: "2550Q", clientName: "Invented Trading Co", period: "2026-Q1" };
     });
     expect(byId(r, "duplicate")).toMatchObject({
       status: "error",
-      message: "This confirmation is already attached to 2550Q, Invented Trading Co, 2026-Q1.",
+      message:
+        "This confirmation is already attached to 2550Q, Invented Trading Co, 2026-Q1.",
     });
     expect(r.ok).toBe(false);
     expect(seen).toEqual([
@@ -467,10 +549,16 @@ describe("U18 T-checks · all nine, in order", () => {
     );
     // the 1601-EQ for Q2 2026 is due 31 July 2026, a Friday; 3 August is 3 days late
     const eq = await run(
-      { fileName: "11122233300000-1601EQ-2026Q2.xml", date: "3 August 2026", time: "10:00 AM" },
+      {
+        fileName: "11122233300000-1601EQ-2026Q2.xml",
+        date: "3 August 2026",
+        time: "10:00 AM",
+      },
       expected({ form: "1601EQ", period: "2026-Q2" }),
     );
-    expect(byId(eq, "timing").message).toContain("3 days after the due date of 31 July 2026");
+    expect(byId(eq, "timing").message).toContain(
+      "3 days after the due date of 31 July 2026",
+    );
     // warnings never block
     expect(eq.ok).toBe(true);
     expect(eq.warnings.length).toBe(1);
@@ -478,7 +566,11 @@ describe("U18 T-checks · all nine, in order", () => {
 
   it("8. a form the Portal has no due date for gets no late warning", async () => {
     const past = await run(
-      { fileName: fileName1701Q(filing("2026-Q2"), tp), date: "1 October 2026", time: "10:00 AM" },
+      {
+        fileName: fileName1701Q(filing("2026-Q2"), tp),
+        date: "1 October 2026",
+        time: "10:00 AM",
+      },
       expected({ form: "1701Q", period: "2026-Q2" }),
     );
     expect(past.errors).toEqual([]);
@@ -498,7 +590,9 @@ describe("U18 T-checks · all nine, in order", () => {
       message: "The file is not a PDF.",
     });
     // the other checks are skipped, not reported against nothing
-    expect(notPdf.checks.filter((c) => c.id !== "upload").every((c) => c.status === "skipped")).toBe(true);
+    expect(
+      notPdf.checks.filter((c) => c.id !== "upload").every((c) => c.status === "skipped"),
+    ).toBe(true);
     expect(notPdf.parsed).toBeNull();
 
     const big = await run({ padToBytes: MAX_CONFIRMATION_BYTES + 1 });
@@ -512,7 +606,8 @@ describe("U18 T-checks · all nine, in order", () => {
     const picture = await run({ pictureOnly: true });
     expect(byId(picture, "upload")).toMatchObject({
       status: "error",
-      message: "This PDF is a picture. Print the email to PDF from Gmail instead of scanning it.",
+      message:
+        "This PDF is a picture. Print the email to PDF from Gmail instead of scanning it.",
     });
   });
 
@@ -545,7 +640,10 @@ describe("U18 T-timing · period end and due date", () => {
     expect(dueDateFor("1601EQ", "2026-Q3", null)).toBe("2026-11-02");
     expect(dueDateFor("1601EQ", "2026-Q4", null)).toBe("2027-02-01"); // 31 Jan 2027 is a Sunday
     for (const none of ["1701Q", "1701A", "1701", "1702Q", "1702RT"]) {
-      expect({ none, due: dueDateFor(none, none === "1701Q" ? "2026-Q1" : "2025", null) }).toEqual({
+      expect({
+        none,
+        due: dueDateFor(none, none === "1701Q" ? "2026-Q1" : "2025", null),
+      }).toEqual({
         none,
         due: null,
       });

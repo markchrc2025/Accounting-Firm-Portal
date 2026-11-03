@@ -642,10 +642,7 @@ describe("C2 T1 · the five other returns on the BIR's form: Preview PDF and cle
 
       it("marked filed: the clear copy is the same figures with no stamp and no footer", async () => {
         const filed = await draftForm(c);
-        expect(
-          (await markFiledAny(app, token, filed))
-            .status,
-        ).toBe(200);
+        expect((await markFiledAny(app, token, filed)).status).toBe(200);
         const made = await clearCopy(filed);
         expect([c.form, made.status]).toEqual([c.form, 201]);
         expect(made.body.kind).toBe("pdf");

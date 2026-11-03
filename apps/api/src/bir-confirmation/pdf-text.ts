@@ -48,7 +48,9 @@ export function extractPdfText(bytes: Uint8Array): Promise<string> {
       clearTimeout(timer);
       if (code !== 0) return reject(new PdfUnreadableError());
       try {
-        const parsed = JSON.parse(Buffer.concat(out).toString("utf8")) as { text?: unknown };
+        const parsed = JSON.parse(Buffer.concat(out).toString("utf8")) as {
+          text?: unknown;
+        };
         resolve(typeof parsed.text === "string" ? parsed.text : "");
       } catch {
         reject(new PdfUnreadableError());

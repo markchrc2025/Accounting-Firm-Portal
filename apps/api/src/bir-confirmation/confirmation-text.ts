@@ -65,7 +65,9 @@ const MONTHS = [
 
 function monthNumber(word: string): number | null {
   const w = word.toLowerCase();
-  const i = MONTHS.findIndex((m) => m === w || (w.length >= 3 && m.startsWith(w) && w.length <= 4));
+  const i = MONTHS.findIndex(
+    (m) => m === w || (w.length >= 3 && m.startsWith(w) && w.length <= 4),
+  );
   return i === -1 ? null : i + 1;
 }
 
@@ -95,7 +97,11 @@ export function parseReceived(dateText: string, timeText: string): Received {
   const pm = t[3]!.toLowerCase() === "p";
   hour = (hour % 12) + (pm ? 12 : 0); // 12 AM → 0, 12 PM → 12
   const check = new Date(Date.UTC(year, month - 1, day));
-  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) {
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day
+  ) {
     return { ok: false };
   }
   const p2 = (n: number) => String(n).padStart(2, "0");

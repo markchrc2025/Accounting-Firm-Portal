@@ -203,7 +203,9 @@ export class BirFormsController {
   @HttpCode(200)
   @RequirePermissions(BIR_FORMS_PERMISSION.file)
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
   confirmationCheck(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,
@@ -224,7 +226,9 @@ export class BirFormsController {
   @HttpCode(200)
   @RequirePermissions(BIR_FORMS_PERMISSION.file)
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
   markFiled(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,
@@ -246,7 +250,9 @@ export class BirFormsController {
   @HttpCode(200)
   @RequirePermissions(BIR_FORMS_PERMISSION.file)
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: UPLOAD_CEILING_BYTES, files: 1 } }),
+  )
   attachConfirmation(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,

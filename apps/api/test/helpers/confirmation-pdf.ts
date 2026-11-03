@@ -52,7 +52,12 @@ export async function confirmationPdf(spec: ConfirmationPdfSpec = {}): Promise<B
   const pair = (label: string, value: string) => {
     if (spec.splitRuns) {
       page.drawText(label, { x: 50, y, size: 11, font });
-      page.drawText(value, { x: 50 + font.widthOfTextAtSize(label + " ", 11), y, size: 11, font });
+      page.drawText(value, {
+        x: 50 + font.widthOfTextAtSize(label + " ", 11),
+        y,
+        size: 11,
+        font,
+      });
       y -= 18;
     } else line(`${label} ${value}`);
   };
@@ -77,7 +82,9 @@ export async function confirmationPdf(spec: ConfirmationPdfSpec = {}): Promise<B
   if (spec.date !== null) pair("Date received by BIR:", spec.date ?? "25 April 2026");
   if (spec.time !== null) pair("Time received by BIR:", spec.time ?? "11:40 AM");
   y -= 8;
-  line("You may pay through any of the authorized agent banks or the BIR payment channels.");
+  line(
+    "You may pay through any of the authorized agent banks or the BIR payment channels.",
+  );
   line("Bureau of Internal Revenue");
   return pad(Buffer.from(await doc.save()), spec.padToBytes);
 }

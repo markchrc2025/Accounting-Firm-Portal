@@ -5,7 +5,11 @@
 // (withholding-dates.ts, U17). The 1701, 1701A, 1701Q, 1702Q and 1702RT have none in the
 // Portal, so they get no late warning (said in the report; the owner can supply the rules).
 // A due date that falls on a Saturday or Sunday moves to the Monday, as in U17.
-import { dueDate0619E, dueDate1601EQ, moveOffWeekend } from "../bir-forms/engine/withholding-dates";
+import {
+  dueDate0619E,
+  dueDate1601EQ,
+  moveOffWeekend,
+} from "../bir-forms/engine/withholding-dates";
 
 const p2 = (n: number) => String(n).padStart(2, "0");
 
@@ -14,8 +18,14 @@ function lastDay(year: number, month: number): string {
 }
 
 /** The quarter's last day. 2550Q follows the client's fiscal year; every other form is calendar. */
-function quarterEnd(form: string, year: number, quarter: number, fiscalYearStart: string | null) {
-  const start = form === "2550Q" && fiscalYearStart ? Number(fiscalYearStart.slice(5, 7)) : 1;
+function quarterEnd(
+  form: string,
+  year: number,
+  quarter: number,
+  fiscalYearStart: string | null,
+) {
+  const start =
+    form === "2550Q" && fiscalYearStart ? Number(fiscalYearStart.slice(5, 7)) : 1;
   const startMonth = Number.isInteger(start) && start >= 1 && start <= 12 ? start : 1;
   let m0 = startMonth + 3 * (quarter - 1);
   let y0 = startMonth === 1 ? year : year - 1; // a fiscal year that ends in `year` began the year before
@@ -32,7 +42,9 @@ function quarterEnd(form: string, year: number, quarter: number, fiscalYearStart
   return lastDay(y1, m1);
 }
 
-function parts(period: string): { year: number; quarter: number | null; month: number | null } | null {
+function parts(
+  period: string,
+): { year: number; quarter: number | null; month: number | null } | null {
   const q = /^(\d{4})-Q([1-4])$/i.exec(period.trim());
   if (q) return { year: Number(q[1]), quarter: Number(q[2]), month: null };
   const m = /^(\d{4})-(\d{2})$/.exec(period.trim());
@@ -45,7 +57,11 @@ function parts(period: string): { year: number; quarter: number | null; month: n
 }
 
 /** The last day of the return's period ("2026-03-31"), or null if the period is not understood. */
-export function periodEndFor(form: string, period: string, fiscalYearStart: string | null): string | null {
+export function periodEndFor(
+  form: string,
+  period: string,
+  fiscalYearStart: string | null,
+): string | null {
   const p = parts(period);
   if (!p) return null;
   if (p.quarter !== null) return quarterEnd(form, p.year, p.quarter, fiscalYearStart);
@@ -54,7 +70,11 @@ export function periodEndFor(form: string, period: string, fiscalYearStart: stri
 }
 
 /** The due date ("2026-04-27"), weekend moved, or null where the Portal has none. */
-export function dueDateFor(form: string, period: string, fiscalYearStart: string | null): string | null {
+export function dueDateFor(
+  form: string,
+  period: string,
+  fiscalYearStart: string | null,
+): string | null {
   const p = parts(period);
   if (!p) return null;
   if ((form === "2550Q" || form === "2551Q") && p.quarter !== null) {

@@ -185,9 +185,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
       "Mark the return as filed first; a clear copy shows what was filed.",
     ]);
 
-    expect(
-      (await markFiledAny(app, token, id)).status,
-    ).toBe(200);
+    expect((await markFiledAny(app, token, id)).status).toBe(200);
 
     // The eBIRForms export, for what the clear copy must carry.
     const xmlExport = await as(http().post(`${API}/bir-forms/${id}/export`));

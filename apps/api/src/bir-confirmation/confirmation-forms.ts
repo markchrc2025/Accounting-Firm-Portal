@@ -41,7 +41,8 @@ export const MESSAGES = {
   receivedInFuture: "The date the BIR received the return is in the future.",
   notPdf: "The file is not a PDF.",
   tooLarge: "The PDF is larger than 5 MB.",
-  picture: "This PDF is a picture. Print the email to PDF from Gmail instead of scanning it.",
+  picture:
+    "This PDF is a picture. Print the email to PDF from Gmail instead of scanning it.",
   clientHasNoTin:
     "This client has no TIN on file, so the confirmation cannot be matched to it.",
   needsConfirmation:
@@ -49,10 +50,13 @@ export const MESSAGES = {
   noFile: 'Attach the BIR confirmation as a PDF in the multipart field "file".',
   alreadyFiled:
     "This return is already filed. To add the BIR confirmation to it, use Attach confirmation.",
-  notFiledYet: "This return is not filed yet. Mark it as filed with the BIR confirmation.",
-  hasOne: "This return already has a BIR confirmation. Only a Super Admin can replace it.",
+  notFiledYet:
+    "This return is not filed yet. Mark it as filed with the BIR confirmation.",
+  hasOne:
+    "This return already has a BIR confirmation. Only a Super Admin can replace it.",
   replaceSuperAdmin: "Only a Super Admin can replace the BIR confirmation.",
-  overrideSuperAdmin: "Only a Super Admin can file a return without the BIR confirmation.",
+  overrideSuperAdmin:
+    "Only a Super Admin can file a return without the BIR confirmation.",
   bothGiven: "Send the confirmation PDF or an override reason, not both.",
   shortReason: `Give the reason in at least ${MIN_REASON_LENGTH} characters.`,
   noFileKept: "This return has no BIR confirmation file.",
