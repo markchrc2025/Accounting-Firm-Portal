@@ -15,6 +15,7 @@ import { amendBirForm, ApiError, type BirFormDetail } from "../../lib/api";
 import { filedBannerTitle, isCertificate } from "../../lib/birFiling";
 import { Button } from "../ui";
 import { ClearCopyButton } from "./ClearCopyButton";
+import { ConfirmationCard } from "./BirConfirmation";
 
 /** The green banner a filed form shows: "Filed on …" or "Issued on …". */
 export function FiledBanner({
@@ -91,6 +92,7 @@ export function FiledFormAction({ detail }: { detail: BirFormDetail }) {
   return (
     <>
       {clearCopy}
+      <ConfirmationCard detail={detail} />
       <Button
         variant="outline"
         disabled={amend.isPending}

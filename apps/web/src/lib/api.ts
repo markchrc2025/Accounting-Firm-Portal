@@ -1072,6 +1072,10 @@ export interface BirFiledSnapshot {
   rdo?: string | null;
 }
 export interface BirFormDetail extends BirFormSummary {
+  /** U18 (W18): the BIR confirmation kept with a filed return; null when none. */
+  confirmation?: BirFormConfirmation | null;
+  /** U18 (W18): whether this form needs a BIR confirmation to be marked filed. */
+  confirmationRequired?: boolean;
   data: Record<string, unknown>;
   /** Present once a form is filed under U3; null on rows filed before it. */
   filedSnapshot?: BirFiledSnapshot | null;
@@ -1090,6 +1094,111 @@ export interface BirFormDetail extends BirFormSummary {
     | BirForm1601CComputed
     | null;
   exports: BirFormExportRef[];
+}
+/** U18 (W18): what the API keeps of a BIR confirmation (never the email's text). */
+export interface BirFormConfirmation {
+  id: string;
+  kind: "bir_email" | "override";
+  birFileName: string | null;
+  receivedAt: string | null;
+  filedOn: string | null;
+  originalFilename: string | null;
+  hasFile: boolean;
+  warnings: string[];
+  overrideReason: string | null;
+  filedWithoutConfirmation: boolean;
+  uploadedByUserId: string | null;
+  uploadedAt: string;
+}
+export type ConfirmationCheckStatus = "ok" | "error" | "warning" | "skipped";
+/** One of the nine checks, in the API's order (1 to 9). */
+export interface ConfirmationCheck {
+  n: number;
+  id:
+    | "bir-email"
+    | "file-name"
+    | "taxpayer"
+    | "form"
+    | "period"
+    | "received"
+    | "duplicate"
+    | "timing"
+    | "upload";
+  status: ConfirmationCheckStatus;
+  message: string | null;
+}
+/** What the API read of the PDF, and what each check made of it. A wrong email is
+ *  still a 200 with `ok` false; Mark as filed answers a failed check with a 409
+ *  carrying the same fields. The browser reads nothing of the PDF itself. */
+export interface ConfirmationCheckResult {
+  ok: boolean;
+  checks: ConfirmationCheck[];
+  errors: string[];
+  warnings: string[];
+  parsed: {
+    birFileName: string;
+    tin: string;
+    branch: string;
+    form: string;
+    version: string | null;
+    fyEndMonth: number | null;
+    taxYear: number;
+    quarter: number | null;
+    month: number | null;
+    amendment: number | null;
+    shape: "verified" | "derived";
+    receivedAt: string | null;
+  } | null;
+  filedOn: string | null;
+  sha256: string | null;
+}
+function confirmationForm(opts: {
+  file?: File | null;
+  overrideReason?: string;
+  replace?: boolean;
+}): FormData {
+  const form = new FormData();
+  if (opts.file) form.append("file", opts.file);
+  if (opts.overrideReason !== undefined) form.append("overrideReason", opts.overrideReason);
+  if (opts.replace) form.append("replace", "true");
+  return form;
+}
+/** U18: run the nine checks over an uploaded confirmation. No side effects. */
+export function checkConfirmation(id: string, file: File): Promise<ConfirmationCheckResult> {
+  return apiUpload(
+    `/bir-forms/${encodeURIComponent(id)}/confirmation/check`,
+    confirmationForm({ file }),
+    "Could not check the confirmation",
+  );
+}
+/** U18: Mark as filed with the BIR confirmation (the same file as checked), or with a
+ *  Super Admin's override reason in its place. 409/403/400/503 carry the server's
+ *  sentence. */
+export function markBirFormFiled(
+  id: string,
+  opts: { file?: File | null; overrideReason?: string },
+): Promise<BirFormDetail> {
+  return apiUpload(
+    `/bir-forms/${encodeURIComponent(id)}/mark-filed`,
+    confirmationForm(opts),
+    "Could not mark the form as filed",
+  );
+}
+/** U18: attach the confirmation to a return that is already filed; `replace` is a
+ *  Super Admin's. */
+export function attachBirConfirmation(
+  id: string,
+  opts: { file: File; replace?: boolean },
+): Promise<BirFormDetail> {
+  return apiUpload(
+    `/bir-forms/${encodeURIComponent(id)}/confirmation`,
+    confirmationForm(opts),
+    "Could not attach the confirmation",
+  );
+}
+/** U18: a signed link to the kept PDF (404 "This return has no BIR confirmation file."). */
+export function fetchBirConfirmationUrl(id: string): Promise<{ url: string }> {
+  return apiFetch(`/bir-forms/${encodeURIComponent(id)}/confirmation/url`);
 }
 export function fetchBirForm(id: string): Promise<BirFormDetail> {
   return apiFetch<BirFormDetail>(`/bir-forms/${id}`);

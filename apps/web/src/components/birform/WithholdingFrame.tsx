@@ -17,6 +17,7 @@ import {
 import { DeleteDraftButton } from "./DeleteDraftButton";
 import { ExportListItem, ClearCopyButton } from "./ClearCopyButton";
 import { FiledBanner, FiledFormAction } from "./FiledFormPanel";
+import { MarkAsFiledButton } from "./BirConfirmation";
 import { PreviewPdfButton } from "./PreviewPdfButton";
 import {
   BookFiledLine,
@@ -209,8 +210,8 @@ export function WithholdingFrame({
                     <FiledFormAction detail={{ ...detail, clearCopyAvailable: false }} />
                   </>
                 ) : (
-                  <Button
-                    variant="outline"
+                  <MarkAsFiledButton
+                    detail={detail!}
                     disabled={
                       draft.setStatus.isPending ||
                       draft.save.isPending ||
@@ -218,10 +219,9 @@ export function WithholdingFrame({
                       draft.needsAmendedSave ||
                       tooManyRows
                     }
-                    onClick={() => draft.setStatus.mutate("filed")}
-                  >
-                    {draft.setStatus.isPending ? "Marking…" : "Mark as filed"}
-                  </Button>
+                    pending={draft.setStatus.isPending}
+                    onPlain={() => draft.setStatus.mutate("filed")}
+                  />
                 )
               ) : null}
               {detail ? <DeleteDraftButton detail={detail} /> : null}
