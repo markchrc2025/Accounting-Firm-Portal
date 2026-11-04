@@ -14,6 +14,7 @@ import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
+import { markFiledAny } from "../helpers/file-return";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
@@ -121,9 +122,7 @@ describe("U15 R5 · _source rides with a draft and changes nothing it prints (re
     return res.body as { id: string; data: Record<string, unknown> };
   }
   async function file(id: string) {
-    const res = await as(http().patch(`${API}/bir-forms/${id}`)).send({
-      status: "filed",
-    });
+    const res = await markFiledAny(app, token, id);
     expect(res.status).toBe(200);
   }
   /** The stored bytes of an export the API just made. */

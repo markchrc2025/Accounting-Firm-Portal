@@ -1,5 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { BirFormsService } from "./bir-forms.service";
+import { ConfirmationService } from "../bir-confirmation/confirmation.service";
 import type { AuditService } from "../audit/audit.service";
 import type { ClientsService } from "../clients/clients.service";
 import type { PrismaService } from "../prisma/prisma.service";
@@ -77,7 +78,7 @@ function build(over: Record<string, unknown> = {}) {
     assertAnyClient: jest.fn().mockResolvedValue(undefined),
     authorizedClients: jest.fn().mockResolvedValue("all"),
   } as unknown as RbacService;
-  return { svc: new BirFormsService(prisma, clients, storage, audit, rbac), prisma, clients, storage, birForm };
+  return { svc: new BirFormsService(prisma, clients, storage, audit, rbac, new ConfirmationService(prisma, storage)), prisma, clients, storage, birForm };
 }
 
 describe("BirFormsService", () => {
@@ -289,7 +290,23 @@ describe("BirFormsService", () => {
   });
 
   it("stamps filedAt when a form is marked filed", async () => {
-    const { svc, birForm } = build();
+    // U18: the nine returns with a BIR confirmation are filed through POST :id/mark-filed
+    // (track-a-confirmation.db-spec.ts); a 1601-C is still filed through update().
+    const { svc, birForm } = build({
+      findFirst: jest.fn().mockResolvedValue({
+        id: "bf1",
+        firmId: "f1",
+        clientId: "c1",
+        client: { businessName: "Acme" },
+        form: "1601C",
+        status: "draft",
+        period: "2026-07",
+        dataJson: {},
+        createdAt: new Date("2026-07-01T00:00:00Z"),
+        updatedAt: new Date("2026-07-02T00:00:00Z"),
+        exports: [],
+      }),
+    });
     await svc.update(actor, "bf1", { status: "filed" });
     const data = (birForm.update as jest.Mock).mock.calls[0][0].data;
     expect(data.status).toBe("filed");

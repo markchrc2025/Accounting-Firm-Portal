@@ -25,6 +25,8 @@ import { loadAtcReference } from "./helpers/atc-reference";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
 import { PrismaService } from "../../src/prisma/prisma.service";
+import { StorageService } from "../../src/storage/storage.service";
+import { FakeStorage, markFiledAny } from "../helpers/file-return";
 
 truncateOncePerFile({ firmRoles: ["Super Admin", "Manager"] });
 
@@ -168,9 +170,7 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
     return res.body as { id: string; data: Record<string, unknown> };
   }
   async function file(id: string) {
-    const res = await auth(http().patch(`${API}/bir-forms/${id}`)).send({
-      status: "filed",
-    });
+    const res = await markFiledAny(app, saToken, id);
     expect([id, res.status]).toEqual([id, 200]);
     return res.body;
   }
@@ -178,7 +178,10 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
     auth(http().post(`${API}/bir-forms/compute`)).send({ form, data });
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(StorageService)
+      .useValue(new FakeStorage())
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix("api/v1");
     await app.init();
@@ -904,9 +907,8 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
         quarter: "3rd",
         rows: sevenRows,
       });
-      const filing = await auth(http().patch(`${API}/bir-forms/${d7.id}`)).send({
-        status: "filed",
-      });
+      // U18: a 1601-EQ is marked filed with the BIR's confirmation; the six-row refusal comes first.
+      const filing = await markFiledAny(app, saToken, d7.id);
       expect([filing.status, filing.body.message]).toEqual([409, SIX_ROWS(7)]);
       const preview = await auth(http().post(`${API}/bir-forms/${d7.id}/preview-pdf`));
       expect([preview.status, preview.body.message]).toEqual([409, SIX_ROWS(7)]);
@@ -933,34 +935,36 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
   });
 
   // =====================================================================================
-  describe("T1 · printed, not exported; print routes are not available yet", () => {
+  describe("T1 · printed, not exported; the print routes answer (C9)", () => {
     it.each([
       ["0619E", "2026-08", { year: "2026", month: "08", remittance: "100.00" }],
       ["1601EQ", "2026-Q3", { year: "2026", quarter: "3rd", rows: [] }],
       ["1601C", "2026-08", { year: "2026", month: "08", compensation: "100.00" }],
     ] as const)(
-      "the %s: export 409 with the sentence, draft and filed; preview and clear copy 409 not available yet",
+      "the %s: export 409 with the sentence, draft and filed; Preview PDF and Download clear copy are offered (C9 gave each form its print)",
       async (form, period, data) => {
         const d = await draft("NONE", form, period, { ...data });
         const exp = await auth(http().post(`${API}/bir-forms/${d.id}/export`));
         expect([exp.status, exp.body.message]).toEqual([409, PRINTED_NO_XML]);
+        // C9: a draft's preview is the BIR's blank with the figures on it (before C9 this
+        // answered "A preview of the <form> is not available yet.").
         const preview = await auth(http().post(`${API}/bir-forms/${d.id}/preview-pdf`));
-        expect([preview.status, preview.body.message]).toEqual([
-          409,
-          `A preview of the ${form} is not available yet.`,
+        expect([preview.status, preview.headers["content-type"]]).toEqual([
+          200,
+          expect.stringMatching(/^application\/pdf/),
         ]);
         const detail = await auth(http().get(`${API}/bir-forms/${d.id}`));
         expect([detail.body.previewAvailable, detail.body.clearCopyAvailable]).toEqual([
-          false,
+          true,
           false,
         ]);
         await file(d.id);
         const expFiled = await auth(http().post(`${API}/bir-forms/${d.id}/export`));
         expect([expFiled.status, expFiled.body.message]).toEqual([409, PRINTED_NO_XML]);
-        const copy = await auth(http().post(`${API}/bir-forms/${d.id}/clear-copy`));
-        expect([copy.status, copy.body.message]).toEqual([
-          409,
-          `A clear copy of the ${form} is not available yet.`,
+        const filed = await auth(http().get(`${API}/bir-forms/${d.id}`));
+        expect([filed.body.previewAvailable, filed.body.clearCopyAvailable]).toEqual([
+          false,
+          true,
         ]);
       },
     );
