@@ -17,7 +17,7 @@ import {
   type BirFormDetail,
   type ConfirmationCheckResult,
 } from "../../lib/api";
-import { useAuth } from "../../auth/AuthContext";
+import { useOptionalAuth } from "../../auth/AuthContext";
 import { downloadFromUrl } from "../../lib/download";
 import {
   canConfirm,
@@ -36,7 +36,7 @@ import { Button, Card, CardContent, Chip, cn } from "../ui";
 /** Super Admin only: the Claude connector's page is gated the same way (only the Super
  *  Admin role holds IntegrationClient:Update). The API refuses anyone else in words. */
 function useIsSuperAdmin(): boolean {
-  return useAuth().hasPermission("IntegrationClient:Update");
+  return useOptionalAuth()?.hasPermission("IntegrationClient:Update") ?? false;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,11 +387,11 @@ function useConfirmationDone() {
 
 /** Who uploaded it: the name, when the caller may read the firm's users; otherwise no name. */
 function useUploaderName(userId: string | null): string | null {
-  const { hasPermission } = useAuth();
+  const mayReadUsers = useOptionalAuth()?.hasPermission("Users:Read") ?? false;
   const users = useQuery({
     queryKey: ["users"],
     queryFn: fetchUsers,
-    enabled: !!userId && hasPermission("Users:Read"),
+    enabled: !!userId && mayReadUsers,
   });
   return users.data?.find((u) => u.id === userId)?.fullName ?? null;
 }

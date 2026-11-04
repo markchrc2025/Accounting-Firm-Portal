@@ -26,7 +26,7 @@ vi.mock("../../lib/api", async (orig) => ({
 }));
 const auth = vi.hoisted(() => ({ perms: new Set<string>() }));
 vi.mock("../../auth/AuthContext", () => ({
-  useAuth: () => ({ hasPermission: (p: string) => auth.perms.has(p) }),
+  useOptionalAuth: () => ({ hasPermission: (p: string) => auth.perms.has(p) }),
 }));
 const download = vi.hoisted(() => ({ downloadFromUrl: vi.fn() }));
 vi.mock("../../lib/download", () => download);
