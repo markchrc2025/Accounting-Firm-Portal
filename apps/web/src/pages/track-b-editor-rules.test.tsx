@@ -120,11 +120,13 @@ const payeeBranch = () => screen.getByLabelText(/Payee branch code/) as HTMLSele
 describe("T5 the 2307 editor's rules (W3 R4, R6)", () => {
   it("gives a new row no ATC, and an added row none either", async () => {
     renderAt("/bir-forms/new?form=2307");
-    const atc1 = (await screen.findByLabelText("ATC, row 1")) as HTMLSelectElement;
+    // C8: the ATC is a searchable picker over the seeded table (it was a select); a new row
+    // has no code, and nothing fills one in.
+    const atc1 = (await screen.findByLabelText("ATC, row 1")) as HTMLInputElement;
     expect(atc1.value).toBe("");
-    expect(atc1.selectedOptions[0]!.textContent).toBe("Select ATC…");
+    expect(atc1.placeholder).toBe("Select ATC…");
     fireEvent.click(screen.getByRole("button", { name: "+ Add line" }));
-    const atc2 = screen.getByLabelText("ATC, row 2") as HTMLSelectElement;
+    const atc2 = screen.getByLabelText("ATC, row 2") as HTMLInputElement;
     expect(atc2.value).toBe("");
   });
 
