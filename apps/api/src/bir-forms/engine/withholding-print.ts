@@ -21,10 +21,14 @@
 //
 // The blanks have no place for a minus sign: no sign box and no bracket box. A draft with a
 // negative figure is refused, naming the first negative item (negativeAmountSentence); the
-// editor, the compute and Mark as filed are not affected. For the same reason the 1601-EQ's
-// over-remittance ticks ("To be refunded", "To be issued TCC", "To be carried over") are
-// mapped but never written: Items 26 and 31 are negative whenever there is an
-// over-remittance, and that is refused first.
+// editor, the compute and Mark as filed are not affected. The 1601-EQ is the exception the
+// form is built for (C9b): Items 26 and 31 are labelled Tax Still Due/(Over-remittance), so an
+// over-remittance is the figure in their boxes, printed as its absolute value, with no minus
+// sign anywhere, and the filer ticks ONE of the three boxes under Item 31 (refunded, tax credit
+// certificate, carried over). A draft with an over-remittance and no choice is refused
+// (OVER_REMITTANCE_CHOICE_MISSING). Item 26 negative with Item 31 positive (penalties larger
+// than the over-remittance) prints Item 26's absolute value, Item 31 as tax due, and ticks
+// nothing.
 //
 // Pure. Refusals are ExportRefusal (the service answers 409 with the sentence).
 
@@ -57,6 +61,10 @@ export const WITHHOLDING_PRINT_VERSION: Record<WithholdingPrintForm, string> = {
 /** The refusal for a draft that holds a negative figure; `where` is "Item 26" or "Schedule I row 2". */
 export const negativeAmountSentence = (form: WithholdingPrintForm, where: string) =>
   `A negative amount cannot be printed on the ${PAPER_NAME[form]} yet: the BIR blank has no place for a minus sign. ${where} is negative.`;
+
+/** The 1601-EQ with an over-remittance and none of the three boxes chosen (C9b). */
+export const OVER_REMITTANCE_CHOICE_MISSING =
+  "Choose what to do with the over-remittance: to be refunded, to be issued a Tax Credit Certificate, or to be carried over.";
 
 type Rows = [string, string][];
 
@@ -248,7 +256,10 @@ export function build1601EQPrintRows(d: FilingData, tp: Taxpayer, period: string
   // Six rows only; a seventh ATC is never dropped (the service answers this first, too).
   const tooMany = sixRowsRefusal("1601EQ", d);
   if (tooMany) throw new ExportRefusal(tooMany);
-  const c = compute1601EQ(d);
+  // The period is the authority for the quarter, so the rule that clears a "carried" choice in
+  // the 4th quarter (compute1601EQ) follows the period too.
+  const pq = /^\d{4}-Q([1-4])$/.exec(period);
+  const c = compute1601EQ(pq ? { ...d, quarter: pq[1]! } : d);
   const rows = (Array.isArray(d.rows) ? d.rows : []) as unknown as Array<
     Record<string, unknown>
   >;
@@ -265,15 +276,18 @@ export function build1601EQPrintRows(d: FilingData, tp: Taxpayer, period: string
     ["Item 23", isNeg(d.overRemittancePrior)],
     ["Item 24", isNeg(d.otherPayments)],
     ["Item 25", isNegNum(c.i25)],
-    ["Item 26", isNegNum(c.i26)],
+    // Items 26 and 31 are not refused when negative: that is an over-remittance (C9b).
     ["Item 27", isNeg(d.surcharge)],
     ["Item 28", isNeg(d.interest)],
     ["Item 29", isNeg(d.compromise)],
     ["Item 30", isNegNum(c.i30)],
-    ["Item 31", isNegNum(c.i31)],
     ...paymentChecks(d, [32, 33, 34, 35]),
   );
   refuseFirstNegative("1601EQ", checks);
+  // An over-remittance needs the box the filer chose; none, or a choice that does not apply (a
+  // "carried" choice in the 4th quarter is already cleared by the compute), is refused.
+  if (c.overRemittance && c.overRemittanceChoice === "")
+    throw new ExportRefusal(OVER_REMITTANCE_CHOICE_MISSING);
 
   const w = writer("f1601EQ");
   const m = /^(\d{4})-Q([1-4])$/.exec(period);
@@ -305,12 +319,22 @@ export function build1601EQPrintRows(d: FilingData, tp: Taxpayer, period: string
   w.typed("i23", d.overRemittancePrior);
   w.typed("i24", d.otherPayments);
   w.computed("i25", c.i25);
-  w.computed("i26", c.i26);
+  // An over-remittance is the figure in the boxes: its absolute value, never a minus sign.
+  w.computed("i26", Math.abs(c.i26));
   w.typed("i27", d.surcharge);
   w.typed("i28", d.interest);
   w.typed("i29", d.compromise);
   w.computed("i30", c.i30);
-  w.computed("i31", c.i31);
+  w.computed("i31", Math.abs(c.i31));
+  // Only an over-remittance (Item 31 negative) ticks one of the three boxes.
+  if (c.overRemittance) {
+    const box = {
+      refunded: "overRefunded",
+      tcc: "overTcc",
+      carried: "overCarried",
+    } as const;
+    w.put(box[c.overRemittanceChoice as "refunded" | "tcc" | "carried"], "true");
+  }
   signAndPay(w, d, tp);
   return w.out;
 }

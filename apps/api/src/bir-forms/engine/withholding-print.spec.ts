@@ -306,21 +306,106 @@ describe("1601-EQ", () => {
     expect(refusal(() => eq({ rows }))).toBe("7 ATCs; the form has six rows.");
   });
 
-  it("an over-remittance is refused naming Item 26, whatever box was chosen (the blank shows it in no boxes of its own)", () => {
-    for (const overRemittanceChoice of ["", "refunded", "tcc", "carried"]) {
+  describe("an over-remittance (C9b): the figure in Items 26 and 31, one box ticked", () => {
+    const OVER = {
+      rows: [row("WC158", "100000.00", "1", "1000.00")],
+      remittance1: "1,500.00",
+      remittance2: "1,200.00",
+    };
+    const ticks = (r: Record<string, string>) =>
+      ["overRefunded", "overTcc", "overCarried"].filter(
+        (k) => r[`f1601EQ:${k}`] === "true",
+      );
+
+    it("Items 26 and 31 print the over-remittance as its absolute value, with no minus sign anywhere", () => {
+      const r = eq({ ...OVER, overRemittanceChoice: "refunded" });
+      expect([
+        r["f1601EQ:i19"],
+        r["f1601EQ:i25"],
+        r["f1601EQ:i26"],
+        r["f1601EQ:i30"],
+        r["f1601EQ:i31"],
+      ]).toEqual(["1000.00", "2700.00", "1700.00", "0.00", "1700.00"]);
+      expect(Object.values(r).filter((v) => v.startsWith("-"))).toEqual([]);
+    });
+
+    it("the chosen box is ticked, and only that one: refunded, a tax credit certificate, carried over (quarters 1 to 3)", () => {
+      for (const [choice, key] of [
+        ["refunded", "overRefunded"],
+        ["tcc", "overTcc"],
+        ["carried", "overCarried"],
+      ] as const) {
+        for (const period of ["2026-Q1", "2026-Q2", "2026-Q3"])
+          expect([
+            choice,
+            period,
+            ticks(eq({ ...OVER, overRemittanceChoice: choice }, CORP, period)),
+          ]).toEqual([choice, period, [key]]);
+      }
+    });
+
+    it("an over-remittance with no box chosen is refused in the owner's words", () => {
+      const sentence =
+        "Choose what to do with the over-remittance: to be refunded, to be issued a Tax Credit Certificate, or to be carried over.";
+      expect(refusal(() => eq({ ...OVER }))).toBe(sentence);
+      expect(refusal(() => eq({ ...OVER, overRemittanceChoice: "" }))).toBe(sentence);
+      expect(refusal(() => eq({ ...OVER, overRemittanceChoice: "somehow" }))).toBe(
+        sentence,
+      );
+    });
+
+    it("in the 4th quarter a saved 'carried' choice is already cleared, so it is refused like no choice; refunded and tcc print", () => {
+      const sentence = refusal(() => eq({ ...OVER }, CORP, "2026-Q4"));
+      expect(
+        refusal(() => eq({ ...OVER, overRemittanceChoice: "carried" }, CORP, "2026-Q4")),
+      ).toBe(sentence);
+      // the period is the authority: a typed quarter of "3rd" does not bring "carried" back
       expect(
         refusal(() =>
-          eq({
-            rows: [row("WC158", "1000", "1", "10")],
-            remittance1: "500",
-            overRemittanceChoice,
-          }),
+          eq(
+            { ...OVER, quarter: "3rd", overRemittanceChoice: "carried" },
+            CORP,
+            "2026-Q4",
+          ),
         ),
-      ).toBe(negativeAmountSentence("1601EQ", "Item 26"));
-    }
+      ).toBe(sentence);
+      expect(
+        ticks(eq({ ...OVER, overRemittanceChoice: "refunded" }, CORP, "2026-Q4")),
+      ).toEqual(["overRefunded"]);
+      expect(
+        ticks(eq({ ...OVER, overRemittanceChoice: "tcc" }, CORP, "2026-Q4")),
+      ).toEqual(["overTcc"]);
+    });
+
+    it("Item 26 negative but Item 31 positive (penalties larger than the over-remittance): Item 26 as its absolute value, Item 31 as tax due, nothing ticked, no choice needed", () => {
+      const r = eq({
+        ...OVER,
+        surcharge: "1,000.00",
+        interest: "500.00",
+        compromise: "400.00",
+        overRemittanceChoice: "refunded", // a stale choice is ignored: there is no over-remittance
+      });
+      expect([r["f1601EQ:i26"], r["f1601EQ:i30"], r["f1601EQ:i31"]]).toEqual([
+        "1700.00",
+        "1900.00",
+        "200.00",
+      ]);
+      expect(ticks(r)).toEqual([]);
+      expect(Object.values(r).filter((v) => v.startsWith("-"))).toEqual([]);
+    });
+
+    it("no over-remittance, no tick: tax still due prints as it did, a choice typed anyway is ignored", () => {
+      const r = eq({
+        rows: [row("WC158", "1", "1", "100")],
+        remittance1: "40",
+        overRemittanceChoice: "tcc",
+      });
+      expect([r["f1601EQ:i26"], r["f1601EQ:i31"]]).toEqual(["60.00", "60.00"]);
+      expect(ticks(r)).toEqual([]);
+    });
   });
 
-  it("other negative items: a row's amount (Item 13+), Item 28 typed, Item 31 alone cannot be negative without Item 26", () => {
+  it("other negative items are still refused: a row's amount (Item 13+), a typed penalty (Item 28)", () => {
     const m = (item: string) => negativeAmountSentence("1601EQ", item);
     expect(refusal(() => eq({ rows: [row("WC158", "1", "1", "-1")] }))).toBe(
       m("Item 13"),

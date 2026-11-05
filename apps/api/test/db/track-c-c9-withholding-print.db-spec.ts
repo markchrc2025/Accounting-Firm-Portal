@@ -456,7 +456,7 @@ describe("C9 T1 · the 0619-E, 1601-EQ and 1601-C print on the BIR's blanks (rea
     ).toBe(false);
   });
 
-  it("4. a 1601-EQ with seven ATCs is refused as before; an over-remittance (any choice) is refused naming Item 26", async () => {
+  it("4. a 1601-EQ with seven ATCs is refused as before; a typed negative figure is still refused, naming its item", async () => {
     const cid = await client();
     const seven = await draft(cid, "1601EQ", "2026-Q2", {
       ...D1601EQ,
@@ -464,30 +464,132 @@ describe("C9 T1 · the 0619-E, 1601-EQ and 1601-C print on the BIR's blanks (rea
     });
     const p7 = await preview(seven);
     expect([p7.status, messageOf(p7)]).toEqual([409, "7 ATCs; the form has six rows."]);
-    for (const choice of ["", "refunded", "tcc", "carried"]) {
-      const over = await draft(cid, "1601EQ", "2026-Q2", {
-        year: "2026",
-        quarter: "2nd",
-        anyWithheld: "yes",
-        rows: [{ atc: "WC158", base: "1000.00", rate: "1", withheld: "10.00" }],
-        remittance1: "500.00",
-        overRemittanceChoice: choice,
-        ...SIGN,
-      });
-      const res = await preview(over);
-      expect([choice, res.status, messageOf(res)]).toEqual([
-        choice,
-        409,
-        negative("1601-EQ", "Item 26"),
-      ]);
-    }
-    // Item 26 is positive but Item 31 is negative only through a typed negative penalty: refused too.
     const typed = await draft(cid, "1601EQ", "2026-Q2", {
       ...D1601EQ,
       interest: "-1.00",
     });
     const res = await preview(typed);
     expect([res.status, messageOf(res)]).toEqual([409, negative("1601-EQ", "Item 28")]);
+  });
+
+  // C9b: 1,000.00 withheld less 2,700.00 remitted is an over-remittance of 1,700.00.
+  const OVER = (quarter: string, choice: string, more: Record<string, unknown> = {}) => ({
+    year: "2026",
+    quarter,
+    anyWithheld: "yes",
+    rows: [{ atc: "WC158", base: "100,000.00", rate: "1", withheld: "1,000.00" }],
+    remittance1: "1,500.00",
+    remittance2: "1,200.00",
+    overRemittanceChoice: choice,
+    ...SIGN,
+    ...more,
+  });
+  const NO_CHOICE =
+    "Choose what to do with the over-remittance: to be refunded, to be issued a Tax Credit Certificate, or to be carried over.";
+
+  it("4b. an over-remittance prints as the figure in Items 26 and 31, with the chosen box ticked and no minus sign: refunded, a tax credit certificate, carried over (quarters 1 to 3)", async () => {
+    const cid = await client();
+    const cases: [string, string, string, string][] = [
+      ["refunded", "overRefunded", "1st", "2026-Q1"],
+      ["tcc", "overTcc", "2nd", "2026-Q2"],
+      ["carried", "overCarried", "3rd", "2026-Q3"],
+    ];
+    for (const [choice, box, quarter, period] of cases) {
+      const id = await draft(cid, "1601EQ", period, OVER(quarter, choice));
+      const res = await preview(id);
+      expect([choice, res.status]).toEqual([choice, 200]);
+      const items = await ink("1601EQ", res.body as Buffer, true);
+      expectPrinted("1601EQ", items, {
+        i19: "1000.00",
+        i25: "2700.00",
+        i26: "1700.00",
+        i30: "0.00",
+        i31: "1700.00",
+      });
+      const all = ["overRefunded", "overTcc", "overCarried"];
+      expect([choice, all.filter((k) => ticked("1601EQ", items, k))]).toEqual([
+        choice,
+        [box],
+      ]);
+      // no minus sign anywhere on the page
+      expect(items.filter((t) => /^-/.test(t.str))).toEqual([]);
+    }
+  });
+
+  it("4c. an over-remittance with no box chosen answers 409 on Preview PDF and on the clear copy, in the owner's words; the draft stays as it was", async () => {
+    const cid = await client();
+    const id = await draft(cid, "1601EQ", "2026-Q2", OVER("2nd", ""));
+    const res = await preview(id);
+    expect([res.status, messageOf(res)]).toEqual([409, NO_CHOICE]);
+    await file(id);
+    const copy = await as(http().post(`${API}/bir-forms/${id}/clear-copy`));
+    expect([copy.status, copy.body.message]).toEqual([409, NO_CHOICE]);
+    expect(
+      await writer.birFormExport.count({ where: { birFormId: id, kind: "pdf" } }),
+    ).toBe(0);
+  });
+
+  it("4d. in the 4th quarter a saved 'carried' choice is already cleared: refused like no choice; refunded and a tax credit certificate print", async () => {
+    const cid = await client();
+    const stale = await draft(cid, "1601EQ", "2026-Q4", OVER("4th", "carried"));
+    const res = await preview(stale);
+    expect([res.status, messageOf(res)]).toEqual([409, NO_CHOICE]);
+    for (const [choice, box] of [
+      ["refunded", "overRefunded"],
+      ["tcc", "overTcc"],
+    ] as const) {
+      const id = await draft(cid, "1601EQ", "2026-Q4", OVER("4th", choice));
+      const ok = await preview(id);
+      expect([choice, ok.status]).toEqual([choice, 200]);
+      const items = await ink("1601EQ", ok.body as Buffer, true);
+      expect(
+        ["overRefunded", "overTcc", "overCarried"].filter((k) =>
+          ticked("1601EQ", items, k),
+        ),
+      ).toEqual([box]);
+    }
+  });
+
+  it("4e. penalties larger than the over-remittance: Item 26 prints 1,700.00, Item 30 1,900.00, Item 31 prints the 200.00 due, nothing is ticked, no choice needed", async () => {
+    const cid = await client();
+    const id = await draft(
+      cid,
+      "1601EQ",
+      "2026-Q3",
+      OVER("3rd", "", {
+        surcharge: "1,000.00",
+        interest: "500.00",
+        compromise: "400.00",
+      }),
+    );
+    const res = await preview(id);
+    expect(res.status).toBe(200);
+    const items = await ink("1601EQ", res.body as Buffer, true);
+    expectPrinted("1601EQ", items, { i26: "1700.00", i30: "1900.00", i31: "200.00" });
+    expect(
+      ["overRefunded", "overTcc", "overCarried"].filter((k) =>
+        ticked("1601EQ", items, k),
+      ),
+    ).toEqual([]);
+    expect(items.filter((t) => /^-/.test(t.str))).toEqual([]);
+  });
+
+  it("4f. a filed 1601-EQ with an over-remittance prints its clear copy: the amount, the chosen box, no stamp", async () => {
+    const cid = await client();
+    const id = await draft(cid, "1601EQ", "2026-Q1", OVER("1st", "tcc"));
+    await file(id);
+    const copy = await as(http().post(`${API}/bir-forms/${id}/clear-copy`));
+    expect(copy.status).toBe(201);
+    const stored = [...storage.objects.entries()].find(([k]) =>
+      k.endsWith(`/${id}/${copy.body.filename}`),
+    )!;
+    const items = await ink("1601EQ", Buffer.from(stored[1].body), false);
+    expectPrinted("1601EQ", items, { i26: "1700.00", i31: "1700.00" });
+    expect(
+      ["overRefunded", "overTcc", "overCarried"].filter((k) =>
+        ticked("1601EQ", items, k),
+      ),
+    ).toEqual(["overTcc"]);
   });
 
   const D1601C = {
