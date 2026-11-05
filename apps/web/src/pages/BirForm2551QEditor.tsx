@@ -26,6 +26,7 @@ import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { MarkAsFiledButton } from "../components/birform/BirConfirmation";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 import { formRegimeWarning } from "../lib/regime";
@@ -507,18 +508,17 @@ export default function BirForm2551QEditor() {
               isFiled && existing.data ? (
                 <FiledFormAction detail={existing.data} />
               ) : (
-                <Button
-                  variant="outline"
+                <MarkAsFiledButton
+                  detail={existing.data!}
                   disabled={
                     setStatus.isPending ||
                     save.isPending ||
                     existing.isFetching ||
                     needsAmendedSave
                   }
-                  onClick={() => setStatus.mutate("filed")}
-                >
-                  {setStatus.isPending ? "Marking…" : "Mark as filed"}
-                </Button>
+                  pending={setStatus.isPending}
+                  onPlain={() => setStatus.mutate("filed")}
+                />
               )
             ) : null}
             {/* W15 R1: a draft the caller may delete. */}

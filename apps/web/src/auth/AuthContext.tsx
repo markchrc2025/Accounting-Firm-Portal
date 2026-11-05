@@ -212,3 +212,10 @@ export function useAuth(): AuthState {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+
+/** The signed-in state, or undefined outside an AuthProvider (a component rendered on its
+ *  own, in a test): for pieces that only narrow what they show by permission (W18). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalAuth(): AuthState | undefined {
+  return useContext(AuthContext);
+}

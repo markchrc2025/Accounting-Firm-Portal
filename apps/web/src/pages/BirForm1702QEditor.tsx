@@ -27,6 +27,7 @@ import {
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { MarkAsFiledButton } from "../components/birform/BirConfirmation";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { AtcCard } from "../components/birform/IncomeTaxBackground";
@@ -497,18 +498,17 @@ export default function BirForm1702QEditor() {
               isFiled && existing.data ? (
                 <FiledFormAction detail={existing.data} />
               ) : (
-                <Button
-                  variant="outline"
+                <MarkAsFiledButton
+                  detail={existing.data!}
                   disabled={
                     setStatus.isPending ||
                     save.isPending ||
                     existing.isFetching ||
                     needsAmendedSave
                   }
-                  onClick={() => setStatus.mutate("filed")}
-                >
-                  {setStatus.isPending ? "Marking…" : "Mark as filed"}
-                </Button>
+                  pending={setStatus.isPending}
+                  onPlain={() => setStatus.mutate("filed")}
+                />
               )
             ) : null}
             {/* W15 R1: a draft the caller may delete. */}
