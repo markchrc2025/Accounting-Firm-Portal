@@ -13,6 +13,7 @@
 
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 import { certificateFileName } from "../src/lib/sheetPdf";
+import { ATC_TABLE } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
 
 // ---------------------------------------------------------------------------
@@ -266,6 +267,7 @@ async function mockApi(
     ["GET", /^\/api\/v1\/clients$/, (r) => json(r, [CLIENT])],
     ["GET", /^\/api\/v1\/clients\/[^/]+$/, (r) => json(r, CLIENT)],
     ["GET", /^\/api\/v1\/bir-forms\/catalog$/, (r) => json(r, [])],
+    ["GET", /^\/api\/v1\/bir\/atc-codes$/, (r) => json(r, ATC_TABLE)],
     ["POST", /^\/api\/v1\/bir-forms\/compute$/, (r) => json(r, COMPUTED_2551Q)],
     // Any change to a filed form is refused (R1).
     ["PATCH", /^\/api\/v1\/bir-forms\/[^/]+$/, (r) => json(r, SEALED_409, 409)],

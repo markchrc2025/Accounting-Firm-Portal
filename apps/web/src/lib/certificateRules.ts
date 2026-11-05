@@ -48,7 +48,8 @@ export interface IssueBlocker {
     | "payor-branch"
     | "payee-branch"
     | "payee-branch-mismatch"
-    | "atc-missing";
+    | "atc-missing"
+    | "atc-missing-b";
   message: string;
 }
 
@@ -78,6 +79,8 @@ export function issueBlockers(input: {
   payeeBranch: string | null | undefined;
   payeeTin: string | null | undefined;
   rows?: RuleRow[];
+  /** Block B (money payments subject to withholding of business tax), C8. */
+  rowsB?: RuleRow[];
 }): IssueBlocker[] {
   const out: IssueBlocker[] = [];
   if (input.payorKnown === false) {
@@ -119,6 +122,18 @@ export function issueBlockers(input: {
     out.push({
       rule: "atc-missing",
       message: `${which} an amount but no ATC. Choose the ATC for every row with an amount before issuing.`,
+    });
+  }
+  // The same rule for block B's rows.
+  const noAtcB = (input.rowsB ?? [])
+    .map((r, i) => (hasAmount(r) && String(r.atc ?? "").trim() === "" ? i + 1 : 0))
+    .filter((n) => n > 0);
+  if (noAtcB.length) {
+    const which =
+      noAtcB.length === 1 ? `Row ${noAtcB[0]} has` : `Rows ${noAtcB.join(", ")} have`;
+    out.push({
+      rule: "atc-missing-b",
+      message: `In block B (money payments), ${which.charAt(0).toLowerCase()}${which.slice(1)} an amount but no ATC. Choose the ATC for every row with an amount before issuing.`,
     });
   }
   return out;
