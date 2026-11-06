@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
   ConflictException,
@@ -922,6 +923,51 @@ export class BirFormsService {
     return {
       url: await this.storage.signedGetUrl(exp.storageKey, { filename: exp.filename }),
     };
+  }
+
+  // --- U20 (D60): what the MCP connector needs of the BIR forms ----------------------------
+
+  /** The client's draft and latest filed return for one form and period (caller authorized to read). */
+  async findForPeriod(user: AuthUser, clientId: string, form: string, period: string) {
+    await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.read], clientId);
+    await this.clients.assertInFirm(user.firmId, clientId);
+    const rows = await this.prisma.birForm.findMany({
+      where: { firmId: user.firmId, clientId, form, period },
+      orderBy: [{ sequence: "desc" }, { createdAt: "desc" }],
+      select: { id: true, status: true, sequence: true },
+    });
+    return {
+      draft: rows.find((r) => r.status === "draft") ?? null,
+      filed: rows.find((r) => r.status === "filed") ?? null,
+    };
+  }
+
+  /**
+   * A short-lived signed link to the Preview PDF of a draft (the same print the web
+   * shows, stamped DRAFT). The PDF is kept in storage under a preview key so the link
+   * can be signed like an export's (1 hour); it is never the clear copy. The same
+   * refusals as the Preview PDF.
+   */
+  async previewLink(user: AuthUser, id: string): Promise<{ url: string; filename: string }> {
+    const { pdf, filename } = await this.previewPdf(user, id);
+    if (!this.storage.isEnabled()) throw new ServiceUnavailableException(MESSAGES.noStorage);
+    const key = this.storage.birFormExportKey(user.firmId, id, `preview-${randomUUID()}-DRAFT.pdf`);
+    await this.storage.putObject(key, pdf, "application/pdf");
+    return { url: await this.storage.signedGetUrl(key, { filename }), filename };
+  }
+
+  /** A short-lived signed link to the alphalist .DAT (made only when the check is ok). */
+  async alphalistLink(user: AuthUser, id: string): Promise<{ url: string; fileName: string }> {
+    const { text, fileName } = await this.alphalistFile(user, id);
+    if (!this.storage.isEnabled()) throw new ServiceUnavailableException(MESSAGES.noStorage);
+    const key = this.storage.birFormExportKey(user.firmId, id, `alphalist-${randomUUID()}-${fileName}`);
+    await this.storage.putObject(key, Buffer.from(text, "ascii"), "text/plain");
+    return { url: await this.storage.signedGetUrl(key, { filename: fileName }), fileName };
+  }
+
+  /** The alphalist check with the structured payee needs the connector turns into questions. */
+  async alphalistOutcome(user: AuthUser, id: string) {
+    return (await this.alphalistOf(user, id)).outcome;
   }
 
   // --- U19 (D59): the 1601-EQ alphalist (QAP .DAT) ----------------------------------------

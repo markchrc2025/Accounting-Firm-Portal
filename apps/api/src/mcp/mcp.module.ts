@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { BirFormsModule } from "../bir-forms/bir-forms.module";
 import { ClientsModule } from "../clients/clients.module";
 import { IncomeTransactionsModule } from "../income-transactions/income-transactions.module";
 import { InvoicesModule } from "../invoices/invoices.module";
@@ -14,6 +15,7 @@ import { McpService } from "./mcp.service";
  */
 @Module({
   imports: [
+    BirFormsModule,
     ClientsModule,
     IncomeTransactionsModule,
     PurchaseTransactionsModule,

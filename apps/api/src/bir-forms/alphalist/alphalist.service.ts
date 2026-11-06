@@ -9,7 +9,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { bookQuarter } from "../book-figures/book-period";
 import { compute1601EQ } from "../engine/compute1601EQ";
 import type { FilingData } from "../engine/types";
-import { buildSchedule1, type BookRecord } from "./payees";
+import { buildSchedule1, type BookRecord, type PayeeNeed } from "./payees";
 import { agentName, branch4, checkAgent, checkTotals } from "./qap-rules";
 import { totalsOf, type AlphalistModel } from "./qap-writer";
 import { readStoredAlphalist } from "./stored";
@@ -34,10 +34,13 @@ export interface AlphalistCheck {
   returnTotal: string;
 }
 
+/** What the connector (U20) turns into questions; the check endpoint leaves it out. */
 export interface AlphalistOutcome {
   check: AlphalistCheck;
   model: AlphalistModel | null;
+  payeeNeeds?: PayeeNeed[];
 }
+
 
 interface ReturnLike {
   status: string;
@@ -139,6 +142,7 @@ export class AlphalistService {
           whtAmount: { gt: 0 },
         },
         select: {
+          id: true,
           vendor: true,
           vendorTin: true,
           vendorBranch: true,
@@ -165,6 +169,7 @@ export class AlphalistService {
       const atc = (r.atc ?? "").trim().toUpperCase();
       if (!rates.has(atc)) continue; // not expanded withholding: not on this return (U17 names it)
       records.push({
+        id: r.id,
         tin: r.vendorTin,
         branch: r.vendorBranch,
         vendor: r.vendor,
@@ -196,7 +201,9 @@ export class AlphalistService {
       const total = checkTotals(model, returnTotal);
       if (total) refusals.push(total);
     }
-    if (refusals.length > 0) return refuse(refusals, s1.notes);
+    if (refusals.length > 0) {
+      return { ...refuse(refusals, s1.notes), payeeNeeds: s1.payeeNeeds };
+    }
     return { model, check: this.checkOf(model, "books", [], s1.notes, returnTotal) };
   }
 

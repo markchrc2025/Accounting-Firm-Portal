@@ -52,6 +52,9 @@ function build(settingsJson: unknown) {
     {} as IncomeTransactionsService,
     {} as PurchaseTransactionsService,
     {} as InvoicesService,
+    {} as never,
+    {} as never,
+    {} as never,
   );
   return { svc, prisma, audit };
 }

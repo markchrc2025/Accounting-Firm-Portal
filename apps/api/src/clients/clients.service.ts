@@ -33,8 +33,16 @@ export class ClientsService {
   private toClientData(
     input: Partial<CreateClientInput & UpdateClientInput>,
   ): ClientWritable {
-    const { businessName: _bn, taxTypes, branches, birthdate, incorpDate, taxType, ...rest } =
-      input;
+    const {
+      businessName: _bn,
+      taxTypes,
+      branches,
+      birthdate,
+      incorpDate,
+      fiscalYearStart,
+      taxType,
+      ...rest
+    } = input;
     return {
       ...(rest as ClientWritable),
       // "" means "no tax regime" (client exempt from business tax) — store NULL,
@@ -45,6 +53,9 @@ export class ClientsService {
       ...(birthdate !== undefined ? { birthdate: birthdate ? new Date(birthdate) : null } : {}),
       ...(incorpDate !== undefined
         ? { incorpDate: incorpDate ? new Date(incorpDate) : null }
+        : {}),
+      ...(fiscalYearStart !== undefined
+        ? { fiscalYearStart: fiscalYearStart ? new Date(fiscalYearStart) : null }
         : {}),
     };
   }

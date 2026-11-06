@@ -121,6 +121,9 @@ describe("R7 — MCP portal_financial_summary", () => {
       {} as IncomeTransactionsService,
       {} as PurchaseTransactionsService,
       {} as InvoicesService,
+      {} as never,
+      {} as never,
+      {} as never,
     );
     const server = service.buildServer();
     const client = new Client({ name: "test-client", version: "1.0.0" });

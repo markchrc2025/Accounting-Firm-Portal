@@ -507,6 +507,9 @@ describe("U8 T3 · the MCP record tools for a client with no regime", () => {
       real.incomes,
       real.purchases,
       svcs.invoices as unknown as InvoicesService,
+      {} as never,
+      {} as never,
+      {} as never,
     );
     return { service, real };
   }

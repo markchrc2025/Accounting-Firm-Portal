@@ -61,6 +61,8 @@ const filerFields = {
   // maps "" → null). Same pattern as `email` below.
   birthdate: isoDate.optional().or(z.literal("")),
   incorpDate: isoDate.optional().or(z.literal("")),
+  /** First day of the fiscal year (U20); "" clears it: a calendar-year client. */
+  fiscalYearStart: isoDate.optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
   citizenship: z.string().optional(),
