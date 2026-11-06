@@ -273,6 +273,41 @@ export class BirFormsController {
     return this.birForms.confirmationUrl(user, id);
   }
 
+  /**
+   * U19 (D59): the 1601-EQ alphalist as the BIR's QAP .DAT file (text/plain, an
+   * attachment named <agent TIN 9><branch 4><MMYYYY>1601EQ.DAT). Same permissions as
+   * Preview PDF. For a filed return the rows stored at filing; for a draft the client's
+   * posted expense records. 409: not a 1601-EQ ("The alphalist file is only made for the
+   * 1601-EQ."), a filed return with no stored rows, or any rule the BIR Validation
+   * program would fail (body: { message: the first, refusals: all }).
+   */
+  @Get(":id/alphalist")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
+  async alphalist(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { text, fileName } = await this.birForms.alphalistFile(user, id);
+    res.set({
+      "Content-Type": "text/plain",
+      "Content-Disposition": attachment(fileName),
+      "Cache-Control": "no-store",
+    });
+    return new StreamableFile(Buffer.from(text, "ascii"));
+  }
+
+  /**
+   * U19 (D59): the alphalist check, with no file. 200 { ok, source: "books"|"stored"|"none",
+   * fileName, refusals[], notes[], schedule1: { rows, income, tax }, schedule2: { rows,
+   * income }, returnTotal (the return's Item 19) }. Usable on a draft before filing.
+   */
+  @Get(":id/alphalist/check")
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
+  alphalistCheck(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.birForms.alphalistCheck(user, id);
+  }
+
   @Get(":id/exports/:exportId/url")
   @RequirePermissions(BIR_FORMS_PERMISSION.read)
   exportUrl(

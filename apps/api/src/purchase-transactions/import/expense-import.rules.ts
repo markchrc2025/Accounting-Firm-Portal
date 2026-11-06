@@ -154,6 +154,37 @@ export function vendorDisplayName(p: VendorNameParts): string | null {
   return p.tradeName || null;
 }
 
+/**
+ * U19 (D59): the payee details the 1601-EQ alphalist reads, from the template's name
+ * columns. A registered name is a company (non_individual; its name is `vendor`); a last
+ * or first name is an individual. Nothing is invented: no name columns, no details.
+ */
+export function payeeDetailsOf(p: {
+  regName?: string;
+  lastName?: string;
+  firstName?: string;
+  middleName?: string;
+}): {
+  payeeKind: "individual" | "non_individual" | null;
+  payeeLastName: string | null;
+  payeeFirstName: string | null;
+  payeeMiddleName: string | null;
+} {
+  const t = (v?: string) => (v ?? "").trim();
+  if (t(p.regName)) {
+    return { payeeKind: "non_individual", payeeLastName: null, payeeFirstName: null, payeeMiddleName: null };
+  }
+  if (t(p.lastName) || t(p.firstName)) {
+    return {
+      payeeKind: "individual",
+      payeeLastName: t(p.lastName) || null,
+      payeeFirstName: t(p.firstName) || null,
+      payeeMiddleName: t(p.middleName) || null,
+    };
+  }
+  return { payeeKind: null, payeeLastName: null, payeeFirstName: null, payeeMiddleName: null };
+}
+
 // --- amounts (R4, D23, D24) --------------------------------------------------
 
 export interface Breakdown {

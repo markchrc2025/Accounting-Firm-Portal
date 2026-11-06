@@ -25,6 +25,13 @@ import { CONFIRMATION_FORMS, MESSAGES, MIN_REASON_LENGTH } from "../bir-confirma
 import type { ConfirmationResult } from "../bir-confirmation/confirmation-checks";
 import { ConfirmationService, uploadedFileName } from "../bir-confirmation/confirmation.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
+import {
+  AlphalistService,
+  FILING_WARNING,
+  ONLY_1601EQ,
+} from "./alphalist/alphalist.service";
+import { readStoredAlphalist, storedAlphalist } from "./alphalist/stored";
+import { qapFileName, writeQap } from "./alphalist/qap-writer";
 import { clientToTaxpayer } from "./client-mapping";
 import { assertValidDraftSource } from "./draft-source";
 import {
@@ -273,6 +280,7 @@ export class BirFormsService {
     private readonly audit: AuditService,
     private readonly rbac: RbacService,
     private readonly confirmations: ConfirmationService,
+    private readonly alphalists: AlphalistService,
   ) {}
 
   /** The BIR form catalog + per-form rollout status. */
@@ -466,6 +474,7 @@ export class BirFormsService {
       previewAvailable: previewAvailable(f),
       // U18 (D58), additive: whether Mark as filed needs the BIR's confirmation e-mail,
       // and the live confirmation (or override) of a filed return; null if it has none.
+      alphalist: f.form === "1601EQ" ? this.alphalistState(f) : null,
       confirmationRequired: CONFIRMATION_FORMS.has(f.form),
       confirmation: f.confirmations?.[0] ? this.confirmations.summary(f.confirmations[0]) : null,
       exports: f.exports.map((e) => ({
@@ -915,6 +924,47 @@ export class BirFormsService {
     };
   }
 
+  // --- U19 (D59): the 1601-EQ alphalist (QAP .DAT) ----------------------------------------
+
+  /** The alphalist file of a 1601-EQ, or 409 with the refusals (each names the payee and the field). */
+  async alphalistFile(user: AuthUser, id: string): Promise<{ text: string; fileName: string }> {
+    const { outcome } = await this.alphalistOf(user, id);
+    if (!outcome.model) throw this.alphalistRefusal(outcome.check.refusals);
+    return { text: writeQap(outcome.model), fileName: qapFileName(outcome.model) };
+  }
+
+  /** The check: ok, the rows and totals per schedule, and every refusal as a list. No file. */
+  async alphalistCheck(user: AuthUser, id: string) {
+    return (await this.alphalistOf(user, id)).outcome.check;
+  }
+
+  private async alphalistOf(user: AuthUser, id: string) {
+    const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
+    if (f.form !== "1601EQ") throw new ConflictException(ONLY_1601EQ);
+    const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    return { f, outcome: await this.alphalists.inspect(f, client) };
+  }
+
+  private alphalistRefusal(refusals: string[]): ConflictException {
+    return new ConflictException({
+      statusCode: 409,
+      error: "Conflict",
+      message: refusals[0],
+      refusals,
+    });
+  }
+
+  /** What the return shows of its alphalist: stored at filing or not, and why not. */
+  private alphalistState(f: { status: string; filedSnapshotJson?: unknown }) {
+    if (f.status !== "filed") return { stored: false, warning: null };
+    const stored = readStoredAlphalist(f.filedSnapshotJson);
+    if (stored.model) return { stored: true, warning: null };
+    return {
+      stored: false,
+      warning: stored.refused.length > 0 ? { message: FILING_WARNING, refusals: stored.refused } : null,
+    };
+  }
+
   // --- U18 (D58): the BIR's confirmation e-mail -------------------------------------
 
   /**
@@ -945,6 +995,17 @@ export class BirFormsService {
     const basis = await this.confirmationBasis(user, f, client, input);
     const filedAt = basis.kind === "bir_email" ? basis.receivedAt : new Date();
     const snapshot = takeFiledSnapshot(client, filedAt);
+    // U19 (D59): a 1601-EQ is filed WITH its alphalist rows (a filed return is sealed, so
+    // they cannot be made later). An incomplete alphalist does not block the filing: no
+    // rows are stored and the refusals are kept, to be shown as a warning.
+    const filedSnapshot: Record<string, unknown> = { ...snapshot };
+    if (f.form === "1601EQ") {
+      const made = await this.alphalists.inspect(f, client);
+      filedSnapshot.alphalist = storedAlphalist(
+        made.model ? { model: made.model } : { refused: made.check.refusals },
+        filedAt,
+      );
+    }
     const key = await this.keepConfirmation(user.firmId, f.id, basis);
     try {
       await this.prisma.$transaction([
@@ -953,7 +1014,7 @@ export class BirFormsService {
           data: {
             status: "filed",
             filedAt,
-            filedSnapshotJson: snapshot as unknown as Prisma.InputJsonValue,
+            filedSnapshotJson: filedSnapshot as unknown as Prisma.InputJsonValue,
           },
         }),
         this.prisma.birFormConfirmation.create({

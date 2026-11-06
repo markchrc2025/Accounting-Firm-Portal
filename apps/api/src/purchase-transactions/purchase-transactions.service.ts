@@ -198,6 +198,48 @@ export class PurchaseTransactionsService {
     };
   }
 
+  /**
+   * U19 (D59): the latest payee details saved for a payee TIN of this client, so the web
+   * can prefill the expense form. Only an expense that HAS details counts (a kind or a
+   * name part); the latest is by transaction date, then by when it was recorded.
+   */
+  async payeeDetails(user: AuthUser, clientId: string, tinRaw: string | undefined) {
+    await this.clients.assertInFirm(user.firmId, clientId);
+    const tin = (tinRaw ?? "").replace(/\D/g, "");
+    if (tin.length !== 9) throw new BadRequestException("The TIN must be 9 digits.");
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        vendor: string | null;
+        vendorBranch: string | null;
+        payeeKind: string | null;
+        payeeLastName: string | null;
+        payeeFirstName: string | null;
+        payeeMiddleName: string | null;
+      }>
+    >(Prisma.sql`
+      SELECT "vendor", "vendorBranch", "payeeKind", "payeeLastName", "payeeFirstName", "payeeMiddleName"
+        FROM "purchase_transactions"
+       WHERE "clientId" = ${clientId}::uuid
+         AND regexp_replace(COALESCE("vendorTin", ''), '[^0-9]', '', 'g') = ${tin}
+         AND ("payeeKind" IS NOT NULL OR "payeeLastName" IS NOT NULL
+              OR "payeeFirstName" IS NOT NULL OR "payeeMiddleName" IS NOT NULL)
+       ORDER BY "txnDate" DESC, "createdAt" DESC
+       LIMIT 1`);
+    const r = rows[0];
+    if (!r) return { found: false };
+    return {
+      found: true,
+      tin,
+      branch: r.vendorBranch,
+      payeeKind: r.payeeKind,
+      registeredName: r.payeeKind === "non_individual" ? r.vendor : null,
+      lastName: r.payeeLastName,
+      firstName: r.payeeFirstName,
+      middleName: r.payeeMiddleName,
+      vendor: r.vendor,
+    };
+  }
+
   async get(user: AuthUser, clientId: string, txnId: string) {
     await this.clients.assertInFirm(user.firmId, clientId);
     return toPurchaseDto(await this.loadOwned(clientId, txnId, user));
@@ -382,6 +424,11 @@ export class PurchaseTransactionsService {
       deductible: input.deductible,
       source: input.source,
       vendorTin: input.vendorTin ?? null,
+      vendorBranch: input.vendorBranch ?? null,
+      payeeKind: input.payeeKind ?? null,
+      payeeLastName: blankToNull(input.payeeLastName),
+      payeeFirstName: blankToNull(input.payeeFirstName),
+      payeeMiddleName: blankToNull(input.payeeMiddleName),
       dueDate: input.dueDate ? isoToDate(input.dueDate) : null,
       account: input.account ?? null,
       atc: input.atc ?? null,
@@ -419,4 +466,10 @@ export class PurchaseTransactionsService {
 
 function num(v: Prisma.Decimal | null): number {
   return v === null ? 0 : v.toNumber();
+}
+
+/** A name part typed as spaces is no name part. */
+function blankToNull(v: string | undefined): string | null {
+  const t = (v ?? "").trim();
+  return t === "" ? null : t;
 }

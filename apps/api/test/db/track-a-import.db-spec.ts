@@ -244,6 +244,36 @@ describe("expenses import v2 (db)", () => {
     await expect(svc.postHeld(actor, id)).rejects.toThrow(ConflictException);
   });
 
+  it("U19: the name columns are kept as the alphalist reads them: an individual's parts, a company as a company", async () => {
+    const res = await svc.importFile(
+      actor,
+      nonVatClientId,
+      upload(
+        await makeFile(nonVatClientId, [
+          { ...PLAIN_INVOICE, "Reference Number": "U19-PAYEE-1", "Vendor Middlename": "Santos" },
+          { ...SUPERMARKET, "Reference Number": "U19-PAYEE-2" },
+        ]),
+      ),
+      false,
+    );
+    const ids = res.rows.flatMap((r) => r.records.map((x) => x.id as string));
+    const rows = await reader.purchaseTransaction.findMany({ where: { id: { in: ids } } });
+    const mine = (ref: string) => rows.find((r) => r.referenceNo === ref)!;
+    expect(mine("U19-PAYEE-1")).toMatchObject({
+      payeeKind: "individual",
+      payeeLastName: "Dela Cruz",
+      payeeFirstName: "Juan",
+      payeeMiddleName: "Santos",
+    });
+    expect(mine("U19-PAYEE-2")).toMatchObject({
+      payeeKind: "non_individual",
+      payeeLastName: null,
+      payeeFirstName: null,
+      payeeMiddleName: null,
+      vendor: "Invented Supermart Inc",
+    });
+  });
+
   it("T2: dryRun leaves the table unchanged", async () => {
     const before = await reader.purchaseTransaction.count({ where: { clientId: nonVatClientId } });
     const res = await svc.importFile(actor, nonVatClientId, upload(await makeFile(nonVatClientId, [{ ...PLAIN_INVOICE, "Reference Number": "DRY-1" }])), true);

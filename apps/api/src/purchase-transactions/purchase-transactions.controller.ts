@@ -58,6 +58,22 @@ export class PurchaseTransactionsController {
     return this.purchases.summary(user, clientId, query);
   }
 
+  /**
+   * U19 (D59): `GET …/purchase-transactions/payee-details?tin=123-456-789` — the latest
+   * saved payee details for that TIN, for prefilling an expense. 200 { found: false } or
+   * { found: true, tin, branch, payeeKind, registeredName, lastName, firstName,
+   * middleName, vendor }. 400 if the TIN is not 9 digits. Expenses:Read.
+   */
+  @Get("payee-details")
+  @RequirePermissions("Expenses:Read")
+  payeeDetails(
+    @CurrentUser() user: AuthUser,
+    @Param("clientId") clientId: string,
+    @Query("tin") tin?: string,
+  ) {
+    return this.purchases.payeeDetails(user, clientId, tin);
+  }
+
   @Get(":txnId")
   @RequirePermissions("Expenses:Read")
   get(
