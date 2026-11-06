@@ -285,6 +285,8 @@ describe("U19 · the BIR Validation program's rules, repeated", () => {
     expect(formulaHolds(D("100.50"), D("3"), D("3.40"))).toEqual({ ok: true, computed: "3.02" });
     // rounding to 2 decimals: 3.015 -> 3.02 (half up); tax 3.02 holds
     expect(formulaHolds(D("100.50"), D("3"), D("3.02")).ok).toBe(true);
+    // holds only by rounding: 66.50 x 3% = 1.995, rounded 2.00; dropping centavos gives 1 against 2
+    expect(formulaHolds(D("66.50"), D("3"), D("2.00")).ok).toBe(true);
     // neither: 6000.00 vs 6001.00
     expect(formulaHolds(D("300000.00"), D("2"), D("6001.00"))).toEqual({ ok: false, computed: "6000.00" });
     expect(msg(row1({ rate: "2.00", tax: "6001.00" }))).toEqual([
