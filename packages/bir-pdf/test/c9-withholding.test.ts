@@ -1,7 +1,7 @@
 // C9 — the 0619-E, 1601-EQ and 1601-C on the BIR's own blanks (D57).
 //
 //   * each map names exactly the keys the Portal's rows builder can emit (plus the three
-//     1601-EQ over-remittance ticks, mapped but never written while a negative figure is
+//     1601-EQ over-remittance ticks, written when Item 31 is an over-remittance (C9b), and
 //     refused), every key of every fixture is mapped, and the blanks are the owner's bytes;
 //   * every item of every fixture prints inside its own box: comb characters in their cells,
 //     amounts in the blank's peso and centavo boxes, ticks in their squares, text between
@@ -61,7 +61,7 @@ describe("C9 · the maps", () => {
       ).toEqual([]);
     });
 
-    it(`${form}: the map names the keys the rows builder emits, and nothing else but the over-remittance ticks`, () => {
+    it(`${form}: the map names exactly the keys the rows builder emits, the over-remittance ticks included`, () => {
       const emitted = new Set<string>();
       for (const s of Object.values(WH_SAMPLES).filter((x) => x.form === form))
         for (const [k] of buildWithholdingPrintRows(form, s.data, s.taxpayer, s.period))
@@ -98,7 +98,7 @@ describe("C9 · the maps", () => {
           ))
             emitted.add(k);
       const mapped = map.fields.map((f) => f.key);
-      const ticks = form === "1601EQ" ? ["overCarried", "overRefunded", "overTcc"] : [];
+      const ticks: string[] = []; // since C9b the builder writes them: nothing is mapped but unwritten
       const unmapped = [...emitted].filter((k) => !mapped.includes(k));
       expect(unmapped).toEqual([]);
       expect(
@@ -365,6 +365,42 @@ describe("C9 · totals are exact to the centavo", () => {
     expect(r["f1601C:i26"]).toBe("351.79");
     expect(r["f1601C:i27"]).toBe("15351.79");
     expect(r["f1601C:i31"]).toBe("12851.79");
+  });
+
+  it("the 1601-EQ with an over-remittance: Items 26 and 31 are the amount, with no minus sign on the page", () => {
+    for (const name of ["refunded", "tcc", "carried"]) {
+      const r = rowsOf(`1601EQ-over-${name}`);
+      expect([name, r["f1601EQ:i26"], r["f1601EQ:i30"], r["f1601EQ:i31"]]).toEqual([
+        name,
+        "1700.00",
+        "0.00",
+        "1700.00",
+      ]);
+    }
+    // each fixture ticks its own box and no other
+    const tickOf = (name: string) =>
+      ["overRefunded", "overTcc", "overCarried"].filter(
+        (k) => rowsOf(name)[`f1601EQ:${k}`] === "true",
+      );
+    expect([
+      tickOf("1601EQ-over-refunded"),
+      tickOf("1601EQ-over-tcc"),
+      tickOf("1601EQ-over-carried"),
+    ]).toEqual([["overRefunded"], ["overTcc"], ["overCarried"]]);
+    for (const fx of FIXTURES)
+      expect(fx.rows.filter(([, v]) => v.startsWith("-"))).toEqual([]);
+  });
+
+  it("penalties larger than the over-remittance: Item 26 prints (1,700.00) as 1700.00, Item 31 prints the 200.00 due, nothing is ticked", () => {
+    const r = rowsOf("1601EQ-over-penalties");
+    expect([r["f1601EQ:i26"], r["f1601EQ:i30"], r["f1601EQ:i31"]]).toEqual([
+      "1700.00",
+      "1900.00",
+      "200.00",
+    ]);
+    expect(
+      ["overRefunded", "overTcc", "overCarried"].filter((k) => r[`f1601EQ:${k}`]),
+    ).toEqual([]);
   });
 
   it("no floating-point residue: 0.1 + 0.2 is 0.30", () => {

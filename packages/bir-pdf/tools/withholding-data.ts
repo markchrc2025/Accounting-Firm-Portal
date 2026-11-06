@@ -198,6 +198,56 @@ const s1601EQSix: WhSample = {
   },
 };
 
+// 1601-EQ with an over-remittance (C9b): the 1st and 2nd month remittances exceed the tax
+// withheld, so Item 26 and Item 31 read (Over-remittance) and the filer ticks one box. Items 26
+// and 31 print the amount as its absolute value. 1,000.00 withheld less 2,700.00 remitted is an
+// over-remittance of 1,700.00.
+const overData = (quarter: string, choice: string): FilingData => ({
+  year: "2026",
+  quarter,
+  anyWithheld: "yes",
+  sheetsAttached: "1",
+  category: "private",
+  contact: "09180000000",
+  email: "sample.testa@example.com",
+  rows: [{ atc: "WC158", base: "100,000.00", rate: "1", withheld: "1,000.00" }],
+  remittance1: "1,500.00",
+  remittance2: "1,200.00",
+  overRemittanceChoice: choice,
+  ...SIGN_AND_PAY,
+});
+const s1601EQOverRefunded: WhSample = {
+  form: "1601EQ",
+  period: "2026-Q1",
+  taxpayer: WH_CORPORATION,
+  data: overData("1st", "refunded"),
+};
+const s1601EQOverTcc: WhSample = {
+  form: "1601EQ",
+  period: "2026-Q2",
+  taxpayer: WH_INDIVIDUAL,
+  data: overData("2nd", "tcc"),
+};
+const s1601EQOverCarried: WhSample = {
+  form: "1601EQ",
+  period: "2026-Q3",
+  taxpayer: WH_CORPORATION,
+  data: overData("3rd", "carried"),
+};
+// Penalties larger than the over-remittance: Item 26 is (1,700.00), Item 30 is 1,900.00, so
+// Item 31 is 200.00 of tax due. Item 26 prints 1,700.00, Item 31 prints 200.00, nothing is ticked.
+const s1601EQOverPenalties: WhSample = {
+  form: "1601EQ",
+  period: "2026-Q3",
+  taxpayer: WH_INDIVIDUAL,
+  data: {
+    ...overData("3rd", "refunded"),
+    surcharge: "1,000.00",
+    interest: "500.00",
+    compromise: "400.00",
+  },
+};
+
 // 1601-C, August 2026: a corporation; the specify lines, tax relief and one remittance.
 const s1601C: WhSample = {
   form: "1601C",
@@ -282,6 +332,10 @@ export const WH_SAMPLES: Record<string, WhSample> = {
   "0619E-penalties": s0619EPenalties,
   "1601EQ-sample": s1601EQ,
   "1601EQ-six-rows": s1601EQSix,
+  "1601EQ-over-refunded": s1601EQOverRefunded,
+  "1601EQ-over-tcc": s1601EQOverTcc,
+  "1601EQ-over-carried": s1601EQOverCarried,
+  "1601EQ-over-penalties": s1601EQOverPenalties,
   "1601C-sample": s1601C,
   "1601C-schedule": s1601CSchedule,
 };

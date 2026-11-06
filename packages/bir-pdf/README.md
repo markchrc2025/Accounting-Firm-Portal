@@ -218,16 +218,19 @@ own builder (`apps/api` `bir-forms/engine/withholding-print.ts`, keys `f0619E:*`
   typed, a third decimal is an error, never rounded. The totals are exact sums to the centavo.
 - **No minus sign.** The blanks have no sign box or bracket box anywhere (Part II, Schedule I,
   the adjustments). The server refuses a draft with a negative figure, naming the first
-  negative item; the engine itself is unchanged.
+  negative item; the engine itself is unchanged. The 1601-EQ is the exception (C9b): its
+  Items 26 and 31 read "Tax Still Due/(Over-remittance)", so an over-remittance prints as its
+  absolute value in their boxes and the filer's choice ticks one of the three boxes under
+  Item 31; an over-remittance with no choice is refused. Item 26 negative with Item 31
+  positive (penalties larger) prints Item 26's absolute value and Item 31 as tax due, ticked
+  nothing.
 - **Pre-printed values** (WME10 and WE on the 0619-E, WW010 on the 1601-C) are not mapped.
   The Tax Debit Memo row has no Drawee Bank/Agency box, so `payTaxDebitBank` is not printed.
-  The 1601-EQ's three over-remittance ticks are mapped but not written while an
-  over-remittance is refused.
 - **Signature area.** The blank has a For Individual and a For Non-Individual half; the
   builder writes the side of the taxpayer's `kind` (the client's, or its filing snapshot's).
 - **Map tool.** `python3 tools/map-withholding.py` writes the three maps from the blanks
   (`--check` compares content); `tools/withholding-data.ts` holds the invented drafts the
-  six `fixtures/<form>-*.json` (and their proofs) are made from. Run `prettier --write` on
+  ten `fixtures/<form>-*.json` (and their proofs) are made from. Run `prettier --write` on
   the maps and fixtures afterwards. `test/c9-geometry.test.ts` re-checks every cell boundary
   against the blank's own drawing without using the tool.
 

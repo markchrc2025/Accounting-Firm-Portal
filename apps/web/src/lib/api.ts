@@ -964,6 +964,15 @@ export interface BirForm2307Computed {
   tM1: number;
   tM2: number;
   tM3: number;
+  /** Block B (C8): the same totals for the money payments (data.rowsB), exact to the centavo. */
+  blockB?: {
+    rows: { total: number }[];
+    totalIncome: number;
+    totalTax: number;
+    tM1: number;
+    tM2: number;
+    tM3: number;
+  };
 }
 
 /** Computed 2316 (Certificate of Compensation Payment / Tax Withheld) figures. */

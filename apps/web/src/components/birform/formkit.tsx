@@ -124,7 +124,16 @@ export function BirAmt({
  *  - it is a `<span>`, not an `<input>`, so the figure is a real text node:
  *    selectable in the browser, found by a test, and rasterised as text.
  */
-export function BirAmtVal({ value, bold }: { value?: number | null; bold?: boolean }) {
+export function BirAmtVal({
+  value,
+  bold,
+  cents,
+}: {
+  value?: number | null;
+  bold?: boolean;
+  /** Show pesos and centavos as they are (block B of the 2307, C8), not rounded to whole pesos. */
+  cents?: boolean;
+}) {
   const empty = value == null || Number.isNaN(value);
   return (
     <span
@@ -132,7 +141,7 @@ export function BirAmtVal({ value, bold }: { value?: number | null; bold?: boole
       style={{ display: "block", fontWeight: bold ? 700 : undefined }}
       data-amount={empty ? "" : String(value)}
     >
-      {empty ? "" : fmtAmt(value)}
+      {empty ? "" : cents ? fmtAmt(value, { dec: 2, noRound: true }) : fmtAmt(value)}
     </span>
   );
 }

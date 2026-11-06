@@ -108,6 +108,11 @@ export function toPurchaseDto(t: PurchaseRow) {
     sourceFile: t.sourceFile ?? undefined,
     remarks: t.remarks ?? undefined,
     vendorBranch: t.vendorBranch ?? undefined,
+    // U19 (D59): what the 1601-EQ alphalist needs of the payee.
+    payeeKind: (t.payeeKind ?? undefined) as "individual" | "non_individual" | undefined,
+    payeeLastName: t.payeeLastName ?? undefined,
+    payeeFirstName: t.payeeFirstName ?? undefined,
+    payeeMiddleName: t.payeeMiddleName ?? undefined,
     tradeName: t.tradeName ?? undefined,
     province: t.province ?? undefined,
     vatClaimable: t.vatClaimable ?? undefined,

@@ -1,6 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import { BirFormsService } from "./bir-forms.service";
 import { ConfirmationService } from "../bir-confirmation/confirmation.service";
+import { AlphalistService } from "./alphalist/alphalist.service";
 import type { AuditService } from "../audit/audit.service";
 import type { ClientsService } from "../clients/clients.service";
 import type { PrismaService } from "../prisma/prisma.service";
@@ -78,7 +79,7 @@ function build(over: Record<string, unknown> = {}) {
     assertAnyClient: jest.fn().mockResolvedValue(undefined),
     authorizedClients: jest.fn().mockResolvedValue("all"),
   } as unknown as RbacService;
-  return { svc: new BirFormsService(prisma, clients, storage, audit, rbac, new ConfirmationService(prisma, storage)), prisma, clients, storage, birForm };
+  return { svc: new BirFormsService(prisma, clients, storage, audit, rbac, new ConfirmationService(prisma, storage), new AlphalistService(prisma)), prisma, clients, storage, birForm };
 }
 
 describe("BirFormsService", () => {

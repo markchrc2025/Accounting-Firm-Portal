@@ -506,6 +506,13 @@ model PurchaseTransaction {
   remarks                    String?
   /// Five-digit BIR branch code of the vendor; vendorTin holds the nine digits.
   vendorBranch               String?
+  /// U19 (D59): what the 1601-EQ alphalist needs of the payee, all optional. The payee
+  /// has no record of its own, so these ride on each expense. "individual" |
+  /// "non_individual" (CHECK in migration 39); a non_individual's registered name is `vendor`.
+  payeeKind                  String?
+  payeeLastName              String?
+  payeeFirstName             String?
+  payeeMiddleName            String?
   tradeName                  String?
   province                   String?
   /// Stamped at import from the client's regime: true when the VAT on this

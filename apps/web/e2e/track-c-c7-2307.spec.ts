@@ -6,6 +6,7 @@
 // any call that is not. All data is invented. No real name, TIN, address, phone or email.
 
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { mockAtcCodes } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
 
 const ME = {
@@ -112,6 +113,7 @@ async function mockApi(page: Page, f?: ReturnType<typeof form>): Promise<string[
   await page.route("**/api/v1/clients/*", (r) => json(r, CLIENT));
   await page.route("**/api/v1/bir-forms/catalog", (r) => json(r, []));
   await page.route("**/api/v1/bir-forms/compute", (r) => json(r, COMPUTED));
+  await mockAtcCodes(page);
   if (f) await page.route(`**/api/v1/bir-forms/${f.id}`, (r) => json(r, f));
   return unmocked;
 }
