@@ -32,7 +32,7 @@ import {
   type BirFormType,
 } from "./bir-form-types";
 import { manilaToday } from "./clock";
-import { matchClients, optionText, type ClientRow } from "./client-ref";
+import { matchClients, nearMatches, optionText, type ClientRow } from "./client-ref";
 import { chooseDefaultPeriod, type ChosenPeriod } from "./default-period";
 import { dueItems, formsFor, type ExistingReturns } from "./forms-due";
 import { BIR_KEY_LINE } from "./instructions";
@@ -251,6 +251,41 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         client: await loadClient(actor, m.rows[0]!.id),
         matchedBy: m.by,
       };
+    }
+    if (m.rows.length === 0) {
+      // U20c: not an exact match; offer the near ones (never pick one, write nothing).
+      const near = nearMatches(rows as ClientRow[], ref);
+      if (near.total > 0) {
+        const more = near.total - near.rows.length;
+        return {
+          ok: false,
+          answer: {
+            client: null,
+            matchedBy: null,
+            needs: [
+              {
+                key: "client",
+                question: "Which client do you mean?",
+                why:
+                  more > 0
+                    ? "No client has exactly that name; these are the closest, and there are more than can be listed. Give a longer name or a TIN."
+                    : "No client has exactly that name; these are the closest, and a BIR form is drafted for one.",
+                setWith:
+                  "this tool again, with client set to the TIN of the one meant (or clientId)",
+                kind: "choice",
+                options: near.rows.map(optionText),
+                refs: { clientIds: near.rows.map((r) => r.id) },
+              } satisfies Need,
+            ],
+            notes:
+              more > 0
+                ? [
+                    `${near.total} clients match; these are the first ${near.rows.length} by name. ${more} more match: give a longer name or a TIN.`,
+                  ]
+                : [],
+          },
+        };
+      }
     }
     const need: Need =
       m.rows.length === 0

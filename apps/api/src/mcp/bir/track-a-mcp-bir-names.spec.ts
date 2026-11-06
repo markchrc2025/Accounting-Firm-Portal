@@ -7,6 +7,7 @@ import { chooseDefaultPeriod, periodsOf, periodWords } from "./default-period";
 import { dueItems, formsFor, type ExistingReturns } from "./forms-due";
 import {
   matchClients,
+  nearMatches,
   normalizeName,
   optionText,
   tinOf,
@@ -89,6 +90,84 @@ describe("U20b · finding the client", () => {
       "Bravo Trading — TIN 333-444-555 — ARCHIVED (inactive)",
     );
     expect(optionText(ROWS[3]!)).toBe("No TIN Client — TIN none on file — ACTIVE");
+  });
+});
+
+describe("U20c · near matches when the name is not exact", () => {
+  const NEAR: ClientRow[] = [
+    row({
+      id: "j",
+      businessName: "JUAN DELA CRUZ TRADING",
+      regName: "Juan Santos Dela Cruz",
+      tin: "123456789",
+    }),
+    row({
+      id: "k",
+      businessName: "Cruz Hardware",
+      regName: null,
+      tradeName: "Dela Cruz Hardware",
+      tin: "123999000",
+    }),
+    row({
+      id: "m",
+      businessName: "Maria Reyes Bakery",
+      regName: null,
+      tin: "987654321",
+      status: "ARCHIVED",
+    }),
+    row({ id: "n", businessName: "No TIN Shop", regName: null, tin: null }),
+  ];
+  const nids = (r: ClientRow[]) => r.map((x) => x.id);
+
+  it("every client whose name contains all the words, in any order, folded like the exact match", () => {
+    expect(nids(nearMatches(NEAR, "dela cruz").rows)).toEqual(["k", "j"]); // sorted by name
+    expect(nids(nearMatches(NEAR, "CRUZ, juan").rows)).toEqual(["j"]);
+    expect(nids(nearMatches(NEAR, "trading   juan").rows)).toEqual(["j"]);
+    expect(nids(nearMatches(NEAR, "dela cruz hardware").rows)).toEqual(["k"]);
+    expect(nearMatches(NEAR, "dela reyes").rows).toEqual([]); // all the words, in one name
+    expect(nearMatches(NEAR, "dela cruz bakery").rows).toEqual([]);
+  });
+
+  it("the words may be spread over one name only: registered, trade or business, not mixed", () => {
+    // "juan santos" are both in the registered name of j; "trading" is only in its business
+    // name and "santos" only in its registered name, so "trading santos" is no near match
+    expect(nids(nearMatches(NEAR, "juan santos").rows)).toEqual(["j"]);
+    expect(nearMatches(NEAR, "trading santos").rows).toEqual([]);
+    expect(nearMatches(NEAR, "hardware santos").rows).toEqual([]);
+  });
+
+  it("a TIN prefix of three or more digits", () => {
+    expect(nids(nearMatches(NEAR, "123").rows)).toEqual(["k", "j"]);
+    expect(nids(nearMatches(NEAR, "123-456").rows)).toEqual(["j"]);
+    expect(nids(nearMatches(NEAR, "987 6").rows)).toEqual(["m"]);
+    expect(nearMatches(NEAR, "12").rows).toEqual([]); // two digits is not a prefix
+    expect(nearMatches(NEAR, "124").rows).toEqual([]);
+  });
+
+  it("nothing is near for an empty reference, and a full TIN is the exact match's business", () => {
+    expect(nearMatches(NEAR, "  ").rows).toEqual([]);
+    expect(nearMatches(NEAR, "123456789").rows).toEqual([]);
+  });
+
+  it("at most ten are returned, by name, with how many there were in all", () => {
+    const many = Array.from({ length: 13 }, (_, i) =>
+      row({
+        id: `x${i}`,
+        businessName: `Mega Store ${String(i + 1).padStart(2, "0")}`,
+        regName: null,
+        tin: `5000000${String(i).padStart(2, "0")}`,
+      }),
+    );
+    const r = nearMatches(many, "mega store");
+    expect(r.total).toBe(13);
+    expect(r.rows).toHaveLength(10);
+    expect(r.rows.map((x) => x.businessName)).toEqual(
+      Array.from(
+        { length: 10 },
+        (_, i) => `Mega Store ${String(i + 1).padStart(2, "0")}`,
+      ),
+    );
+    expect(nearMatches(many, "mega store 1").total).toBe(5); // 01, 10, 11, 12 and 13 contain "1"
   });
 });
 
