@@ -11,6 +11,7 @@ import {
 import { BirFormsController } from "./bir-forms.controller";
 import { BirFormsService } from "./bir-forms.service";
 import { ConfirmationService } from "../bir-confirmation/confirmation.service";
+import { AlphalistService } from "./alphalist/alphalist.service";
 import { clientToTaxpayer } from "./client-mapping";
 import { CreateBirFormSchema, UpdateBirFormSchema } from "./dto/bir-form.schemas";
 import {
@@ -116,6 +117,7 @@ function build(row: Record<string, unknown> = formRow()) {
       audit,
       rbac,
       new ConfirmationService(prisma, storage),
+      new AlphalistService(prisma),
     ),
     birForm,
     clients,

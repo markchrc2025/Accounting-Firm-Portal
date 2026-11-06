@@ -40,6 +40,7 @@ import {
   normaliseTin,
   parseMoney,
   splitRow,
+  payeeDetailsOf,
   vendorDisplayName,
   type RecordPart,
   type Regime,
@@ -429,6 +430,13 @@ export class ExpenseImportService {
       source: "import",
       vendorTin: tinResult.tin,
       vendorBranch: tinResult.branch,
+      // U19 (D59): the name columns the template already has, kept as the alphalist reads them.
+      ...payeeDetailsOf({
+        regName: text("Vendor Registered Name"),
+        lastName: text("Vendor Lastname"),
+        firstName: text("Vendor Firstname"),
+        middleName: text("Vendor Middlename"),
+      }),
       tradeName: text("Trade Name") || null,
       province: text("Province") || null,
       account: account?.name ?? null,

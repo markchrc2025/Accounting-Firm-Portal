@@ -85,6 +85,17 @@ export const PurchaseTransaction = z
     // Bill-style line metadata (additive). `atc` is the withholding/Tax Code and
     // `taxAmount` the Tax Amount shown on the bill line.
     vendorTin: z.string().optional(),
+    /** The payee's BIR branch code, digits as typed (U19). The alphalist writes it as 4 digits. */
+    vendorBranch: z
+      .string()
+      .regex(/^\d{1,5}$/, "The branch code is 1 to 5 digits.")
+      .optional(),
+    /** What the 1601-EQ alphalist needs of the payee (U19, D59), all optional. A
+     *  non_individual's registered name is `vendor`. */
+    payeeKind: z.enum(["individual", "non_individual"]).optional(),
+    payeeLastName: z.string().optional(),
+    payeeFirstName: z.string().optional(),
+    payeeMiddleName: z.string().optional(),
     dueDate: zIsoDate.optional(),
     account: z.string().optional(),
     atc: z.string().optional(),
