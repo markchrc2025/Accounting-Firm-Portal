@@ -91,7 +91,10 @@ export function totalsOf(m: AlphalistModel): {
       income: sum(m.schedule1.map((r) => r.income)),
       tax: sum(m.schedule1.map((r) => r.tax)),
     },
-    schedule2: { rows: m.schedule2.length, income: sum(m.schedule2.map((r) => r.income)) },
+    schedule2: {
+      rows: m.schedule2.length,
+      income: sum(m.schedule2.map((r) => r.income)),
+    },
   };
 }
 
@@ -99,7 +102,15 @@ export function totalsOf(m: AlphalistModel): {
 export function writeQap(m: AlphalistModel): string {
   const t = totalsOf(m);
   const out: string[] = [
-    ["HQAP", "H1601EQ", m.agent.tin, m.agent.branch, q(m.agent.name), m.period, m.agent.rdo].join(","),
+    [
+      "HQAP",
+      "H1601EQ",
+      m.agent.tin,
+      m.agent.branch,
+      q(m.agent.name),
+      m.period,
+      m.agent.rdo,
+    ].join(","),
   ];
   for (const r of m.schedule1) {
     out.push(
@@ -108,7 +119,15 @@ export function writeQap(m: AlphalistModel): string {
   }
   if (m.schedule1.length > 0) {
     out.push(
-      ["C1", "1601EQ", m.agent.tin, m.agent.branch, m.period, t.schedule1.income, t.schedule1.tax].join(","),
+      [
+        "C1",
+        "1601EQ",
+        m.agent.tin,
+        m.agent.branch,
+        m.period,
+        t.schedule1.income,
+        t.schedule1.tax,
+      ].join(","),
     );
   }
   for (const r of m.schedule2) {
@@ -116,7 +135,9 @@ export function writeQap(m: AlphalistModel): string {
   }
   if (m.schedule2.length > 0) {
     out.push(
-      ["C2", "1601EQ", m.agent.tin, m.agent.branch, m.period, t.schedule2.income].join(","),
+      ["C2", "1601EQ", m.agent.tin, m.agent.branch, m.period, t.schedule2.income].join(
+        ",",
+      ),
     );
   }
   return out.join(CRLF) + CRLF;

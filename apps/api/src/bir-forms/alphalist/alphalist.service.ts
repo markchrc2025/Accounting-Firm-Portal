@@ -89,13 +89,20 @@ export class AlphalistService {
           },
         };
       }
-      return { model: stored.model, check: this.checkOf(stored.model, "stored", [], [], returnTotal) };
+      return {
+        model: stored.model,
+        check: this.checkOf(stored.model, "stored", [], [], returnTotal),
+      };
     }
     return this.fromBooks(f, client, returnTotal);
   }
 
   /** Made from the client's posted expense records for the quarter. */
-  async fromBooks(f: ReturnLike, client: ClientLike, returnTotal: string): Promise<AlphalistOutcome> {
+  async fromBooks(
+    f: ReturnLike,
+    client: ClientLike,
+    returnTotal: string,
+  ): Promise<AlphalistOutcome> {
     const refuse = (refusals: string[], notes: string[] = []): AlphalistOutcome => ({
       model: null,
       check: {
@@ -112,7 +119,8 @@ export class AlphalistService {
 
     const m = /^(\d{4})-Q([1-4])$/i.exec(f.period.trim());
     const range = m ? bookQuarter(f.period, null) : null;
-    if (!m || !range) return refuse(["This return has no quarter, so the alphalist cannot be made."]);
+    if (!m || !range)
+      return refuse(["This return has no quarter, so the alphalist cannot be made."]);
     const period = `${String(Number(m[2]) * 3).padStart(2, "0")}/${m[1]}`;
 
     const agent = {
@@ -175,7 +183,13 @@ export class AlphalistService {
     const s1 = buildSchedule1(records, new Set(rates.keys()));
     // Schedule 2 (income not subject to withholding) has no source in the books: the seed
     // holds no ATC for it and an expense cannot carry one. The writer supports it.
-    const model: AlphalistModel = { version: 1, period, agent, schedule1: s1.rows, schedule2: [] };
+    const model: AlphalistModel = {
+      version: 1,
+      period,
+      agent,
+      schedule1: s1.rows,
+      schedule2: [],
+    };
     const refusals = [...checkAgent(agent), ...s1.refusals];
     if (refusals.length === 0 && s1.rows.length === 0) refusals.push(NO_PAYEES);
     if (refusals.length === 0) {

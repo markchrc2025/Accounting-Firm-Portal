@@ -24,8 +24,15 @@ const payee = {
 const ModelSchema = z.object({
   version: z.literal(1),
   period: z.string(),
-  agent: z.object({ tin: z.string(), branch: z.string(), name: z.string(), rdo: z.string() }),
-  schedule1: z.array(z.object({ ...payee, rate: z.string(), income: z.string(), tax: z.string() })),
+  agent: z.object({
+    tin: z.string(),
+    branch: z.string(),
+    name: z.string(),
+    rdo: z.string(),
+  }),
+  schedule1: z.array(
+    z.object({ ...payee, rate: z.string(), income: z.string(), tax: z.string() }),
+  ),
   schedule2: z.array(z.object({ ...payee, income: z.string() })),
 });
 

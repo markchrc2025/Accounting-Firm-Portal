@@ -105,7 +105,12 @@ describe("U19 · the QAP file, byte for byte", () => {
     );
     const d2 = text.split(CRLF).find((l) => l.startsWith("D2,"))!;
     expect(d2.split(",")).toHaveLength(12);
-    expect(text.split(CRLF).find((l) => l.startsWith("C2,"))!.split(",")).toHaveLength(6);
+    expect(
+      text
+        .split(CRLF)
+        .find((l) => l.startsWith("C2,"))!
+        .split(","),
+    ).toHaveLength(6);
   });
 
   it("Schedule 2 only is a file too; a file with neither schedule is not", () => {
@@ -146,9 +151,9 @@ describe("U19 · the QAP file, byte for byte", () => {
 
   it("the file name: agent TIN 9, branch 4, MMYYYY, 1601EQ.DAT", () => {
     expect(qapFileName(model())).toBe("11122233300000920261601EQ.DAT");
-    expect(qapFileName(model({ period: "12/2027", agent: { ...AGENT, branch: "0012" } }))).toBe(
-      "11122233300121220271601EQ.DAT",
-    );
+    expect(
+      qapFileName(model({ period: "12/2027", agent: { ...AGENT, branch: "0012" } })),
+    ).toBe("11122233300121220271601EQ.DAT");
   });
 
   it("control totals are the sums of the detail lines, exactly (no float drift)", () => {
@@ -182,9 +187,17 @@ describe("U19 · branch codes and names", () => {
   });
 
   it("upper-cases, converts the enye (both cases) to N and says so; refuses every other forbidden character", () => {
-    expect(convertName("dela Peña")).toEqual({ value: "DELA PENA", enye: true, bad: null });
+    expect(convertName("dela Peña")).toEqual({
+      value: "DELA PENA",
+      enye: true,
+      bad: null,
+    });
     expect(convertName("Niño")).toEqual({ value: "NINO", enye: true, bad: null });
-    expect(convertName("  Sample  Co  ")).toEqual({ value: "SAMPLE  CO", enye: false, bad: null });
+    expect(convertName("  Sample  Co  ")).toEqual({
+      value: "SAMPLE  CO",
+      enye: false,
+      bad: null,
+    });
     for (const c of ['"', "&", "'", ",", "|", "é", "€", "\t"]) {
       expect({ c, bad: convertName(`AB${c}CD`).bad }).toEqual({ c, bad: c });
     }
@@ -192,24 +205,41 @@ describe("U19 · branch codes and names", () => {
   });
 
   it("the agent's name: a company's registered name; an individual's LAST FIRST MIDDLE, single spaces, no comma", () => {
-    expect(agentName({ kind: "non-individual", regName: "Sample Agent Corp", businessName: "x" })).toBe(
-      "Sample Agent Corp",
-    );
-    expect(agentName({ kind: "non-individual", regName: null, businessName: "Trade Name Co" })).toBe(
-      "Trade Name Co",
-    );
     expect(
-      agentName({ kind: "individual", businessName: "x", lastName: "Dela  Cruz", firstName: "Juan", middleName: "Santos" }),
+      agentName({
+        kind: "non-individual",
+        regName: "Sample Agent Corp",
+        businessName: "x",
+      }),
+    ).toBe("Sample Agent Corp");
+    expect(
+      agentName({ kind: "non-individual", regName: null, businessName: "Trade Name Co" }),
+    ).toBe("Trade Name Co");
+    expect(
+      agentName({
+        kind: "individual",
+        businessName: "x",
+        lastName: "Dela  Cruz",
+        firstName: "Juan",
+        middleName: "Santos",
+      }),
     ).toBe("Dela Cruz Juan Santos");
     expect(
-      agentName({ kind: "individual", businessName: "x", lastName: "Reyes", firstName: "Ana", middleName: null }),
+      agentName({
+        kind: "individual",
+        businessName: "x",
+        lastName: "Reyes",
+        firstName: "Ana",
+        middleName: null,
+      }),
     ).toBe("Reyes Ana");
   });
 });
 
 describe("U19 · the BIR Validation program's rules, repeated", () => {
   const msg = (m: AlphalistModel) => checkModel(m, new Set(["WC158", "WC160", "WI010"]));
-  const row1 = (over: Record<string, string>) => model({ schedule1: [{ ...model().schedule1[0]!, ...over }] });
+  const row1 = (over: Record<string, string>) =>
+    model({ schedule1: [{ ...model().schedule1[0]!, ...over }] });
 
   it("a clean model has no refusals", () => {
     expect(msg(model())).toEqual([]);
@@ -217,22 +247,30 @@ describe("U19 · the BIR Validation program's rules, repeated", () => {
 
   it("the agent: TIN 9 digits and not a dummy, branch 4 digits, RDO exactly 3 characters", () => {
     const withAgent = (a: Partial<typeof AGENT>) => model({ agent: { ...AGENT, ...a } });
-    expect(msg(withAgent({ tin: "12345678" }))).toEqual(["The client's TIN must be exactly 9 digits."]);
+    expect(msg(withAgent({ tin: "12345678" }))).toEqual([
+      "The client's TIN must be exactly 9 digits.",
+    ]);
     expect(msg(withAgent({ tin: "999999999" }))).toEqual([
       "The client's TIN 999-999-999 is not accepted by the BIR alphalist.",
     ]);
     expect(msg(withAgent({ tin: "111111111" }))).toEqual([
       "The client's TIN 111-111-111 is not accepted by the BIR alphalist.",
     ]);
-    expect(msg(withAgent({ rdo: "" }))).toEqual(["Add the client's RDO code before making the alphalist."]);
-    expect(msg(withAgent({ rdo: "45" }))).toEqual(["The client's RDO code must be 3 characters."]);
+    expect(msg(withAgent({ rdo: "" }))).toEqual([
+      "Add the client's RDO code before making the alphalist.",
+    ]);
+    expect(msg(withAgent({ rdo: "45" }))).toEqual([
+      "The client's RDO code must be 3 characters.",
+    ]);
     expect(msg(withAgent({ name: "SAMPLE & CO" }))).toEqual([
       "The name of the client contains &, which the BIR alphalist does not accept. Correct the name in the client record.",
     ]);
   });
 
   it("a payee's TIN: 9 digits, never 999999999 or 111111111", () => {
-    expect(msg(row1({ tin: "12345678" }))).toEqual(["Payee 12345678 WC158: the TIN must be exactly 9 digits."]);
+    expect(msg(row1({ tin: "12345678" }))).toEqual([
+      "Payee 12345678 WC158: the TIN must be exactly 9 digits.",
+    ]);
     expect(msg(row1({ tin: "999999999" }))).toEqual([
       "Payee 999-999-999 WC158: the TIN is not accepted by the BIR alphalist.",
     ]);
@@ -242,16 +280,18 @@ describe("U19 · the BIR Validation program's rules, repeated", () => {
   });
 
   it("a payee needs a name; its characters are checked", () => {
-    expect(msg(row1({ registeredName: "", lastName: "", firstName: "", middleName: "" }))).toEqual([
-      "Payee 123-456-789 WC158: the payee has no name.",
-    ]);
+    expect(
+      msg(row1({ registeredName: "", lastName: "", firstName: "", middleName: "" })),
+    ).toEqual(["Payee 123-456-789 WC158: the payee has no name."]);
     expect(msg(row1({ lastName: "DELA, CRUZ" }))).toEqual([
       "The name of payee 123-456-789 contains ,, which the BIR alphalist does not accept. Correct the name in the payee record.",
     ]);
   });
 
   it("the ATC must be in the table; the rate at most 99", () => {
-    expect(msg(row1({ atc: "WC999" }))).toEqual(["Payee 123-456-789 WC999: the ATC is not in the BIR ATC table."]);
+    expect(msg(row1({ atc: "WC999" }))).toEqual([
+      "Payee 123-456-789 WC999: the ATC is not in the BIR ATC table.",
+    ]);
     expect(msg(row1({ rate: "99.00", tax: "297000.00" }))).toEqual([]);
     expect(msg(row1({ rate: "99.01", tax: "297030.00" }))).toEqual([
       "Payee 123-456-789 WC158: the rate 99.01% is more than 99.",
@@ -267,28 +307,51 @@ describe("U19 · the BIR Validation program's rules, repeated", () => {
     );
     const s2 = model({
       schedule1: [],
-      schedule2: [{ seq: 1, tin: "123456789", branch: "0000", registeredName: "X", lastName: "", firstName: "", middleName: "", atc: "DI900", income: "0.00" }],
+      schedule2: [
+        {
+          seq: 1,
+          tin: "123456789",
+          branch: "0000",
+          registeredName: "X",
+          lastName: "",
+          firstName: "",
+          middleName: "",
+          atc: "DI900",
+          income: "0.00",
+        },
+      ],
     });
-    expect(msg(s2)).toEqual(["Payee 123-456-789 DI900: the income payment must not be zero."]);
+    expect(msg(s2)).toEqual([
+      "Payee 123-456-789 DI900: the income payment must not be zero.",
+    ]);
     // Schedule 2's ATC is checked for shape only: the seed holds none
     const odd = { ...s2, schedule2: [{ ...s2.schedule2[0]!, atc: "", income: "5.00" }] };
     expect(msg(odd)).toEqual(["Payee 123-456-789: the Schedule 2 ATC is blank."]);
-    expect(msg({ ...s2, schedule2: [{ ...s2.schedule2[0]!, atc: "di 900", income: "5.00" }] })[0]).toContain(
-      "Schedule 2 ATC",
-    );
+    expect(
+      msg({
+        ...s2,
+        schedule2: [{ ...s2.schedule2[0]!, atc: "di 900", income: "5.00" }],
+      })[0],
+    ).toContain("Schedule 2 ATC");
   });
 
   it("the formula: income x rate / 100 equals the tax, after dropping centavos or after rounding (the BIR's own check)", () => {
     // 300000.00 at 2.00% is 6000.00
     expect(formulaHolds(D("300000.00"), D("2"), D("6000.00")).ok).toBe(true);
     // dropping centavos: 100.50 x 3% = 3.015 -> whole 3; tax 3.40 -> whole 3: holds
-    expect(formulaHolds(D("100.50"), D("3"), D("3.40"))).toEqual({ ok: true, computed: "3.02" });
+    expect(formulaHolds(D("100.50"), D("3"), D("3.40"))).toEqual({
+      ok: true,
+      computed: "3.02",
+    });
     // rounding to 2 decimals: 3.015 -> 3.02 (half up); tax 3.02 holds
     expect(formulaHolds(D("100.50"), D("3"), D("3.02")).ok).toBe(true);
     // holds only by rounding: 66.50 x 3% = 1.995, rounded 2.00; dropping centavos gives 1 against 2
     expect(formulaHolds(D("66.50"), D("3"), D("2.00")).ok).toBe(true);
     // neither: 6000.00 vs 6001.00
-    expect(formulaHolds(D("300000.00"), D("2"), D("6001.00"))).toEqual({ ok: false, computed: "6000.00" });
+    expect(formulaHolds(D("300000.00"), D("2"), D("6001.00"))).toEqual({
+      ok: false,
+      computed: "6000.00",
+    });
     expect(msg(row1({ rate: "2.00", tax: "6001.00" }))).toEqual([
       "Payee 123-456-789 WC158: 300000.00 at 2.00% is 6000.00, but the tax withheld is 6001.00.",
     ]);
@@ -320,23 +383,62 @@ describe("U19 · Schedule 1 from the books: payees, details, conflicts", () => {
     at: new Date(Date.UTC(2026, 6, 1, 0, 0, n++)),
     ...over,
   });
-  const build = (records: BookRecord[]) => buildSchedule1(records, new Set(["WC158", "WC160"]));
+  const build = (records: BookRecord[]) =>
+    buildSchedule1(records, new Set(["WC158", "WC160"]));
 
   it("groups by payee TIN, branch, ATC and rate, sums income and tax exactly, orders by TIN, numbers from 1", () => {
     const r = build([
-      rec({ tin: "987654321", branch: "00001", vendor: "SAMPLE SUPPLIER INC", kind: "non_individual", last: null, first: null, atc: "WC160", ratePct: D("2"), net: D("300000.00"), wht: D("6000.00") }),
+      rec({
+        tin: "987654321",
+        branch: "00001",
+        vendor: "SAMPLE SUPPLIER INC",
+        kind: "non_individual",
+        last: null,
+        first: null,
+        atc: "WC160",
+        ratePct: D("2"),
+        net: D("300000.00"),
+        wht: D("6000.00"),
+      }),
       rec({ net: D("100000.10"), wht: D("1000.00") }),
       rec({ net: D("199999.90"), wht: D("2000.00") }),
     ]);
     expect(r.refusals).toEqual([]);
     expect(r.rows).toEqual([
-      { seq: 1, tin: "123456789", branch: "0000", registeredName: "", lastName: "DELA CRUZ", firstName: "JUAN", middleName: "", atc: "WC158", rate: "1.00", income: "300000.00", tax: "3000.00" },
-      { seq: 2, tin: "987654321", branch: "0001", registeredName: "SAMPLE SUPPLIER INC", lastName: "", firstName: "", middleName: "", atc: "WC160", rate: "2.00", income: "300000.00", tax: "6000.00" },
+      {
+        seq: 1,
+        tin: "123456789",
+        branch: "0000",
+        registeredName: "",
+        lastName: "DELA CRUZ",
+        firstName: "JUAN",
+        middleName: "",
+        atc: "WC158",
+        rate: "1.00",
+        income: "300000.00",
+        tax: "3000.00",
+      },
+      {
+        seq: 2,
+        tin: "987654321",
+        branch: "0001",
+        registeredName: "SAMPLE SUPPLIER INC",
+        lastName: "",
+        firstName: "",
+        middleName: "",
+        atc: "WC160",
+        rate: "2.00",
+        income: "300000.00",
+        tax: "6000.00",
+      },
     ]);
   });
 
   it("two rates under one ATC are two rows", () => {
-    const r = build([rec({ ratePct: D("1") }), rec({ ratePct: D("2"), net: D("50000.00"), wht: D("1000.00") })]);
+    const r = build([
+      rec({ ratePct: D("1") }),
+      rec({ ratePct: D("2"), net: D("50000.00"), wht: D("1000.00") }),
+    ]);
     expect(r.rows.map((x) => [x.atc, x.rate, x.income, x.tax])).toEqual([
       ["WC158", "1.00", "100000.00", "1000.00"],
       ["WC158", "2.00", "50000.00", "1000.00"],
@@ -349,7 +451,11 @@ describe("U19 · Schedule 1 from the books: payees, details, conflicts", () => {
   });
 
   it("rows with blank details take the details of rows that have them", () => {
-    const r = build([rec({}), rec({ kind: null, last: null, first: null }), rec({ kind: null, last: null, first: null, vendor: null })]);
+    const r = build([
+      rec({}),
+      rec({ kind: null, last: null, first: null }),
+      rec({ kind: null, last: null, first: null, vendor: null }),
+    ]);
     expect(r.refusals).toEqual([]);
     expect(r.rows).toHaveLength(1);
     expect(r.rows[0]!.lastName).toBe("DELA CRUZ");
@@ -374,7 +480,13 @@ describe("U19 · Schedule 1 from the books: payees, details, conflicts", () => {
       rec({ kind: null, last: null, first: null }),
       rec({ tin: "987654321", kind: "individual", last: "Reyes", first: null }),
       rec({ tin: "555666777", kind: "individual", last: null, first: "Ana" }),
-      rec({ tin: "444555666", kind: "non_individual", vendor: " ", last: null, first: null }),
+      rec({
+        tin: "444555666",
+        kind: "non_individual",
+        vendor: " ",
+        last: null,
+        first: null,
+      }),
       rec({ tin: "321654987", kind: null, last: "Lopez", first: "Mia" }),
     ]);
     expect(r.refusals).toEqual([
@@ -384,7 +496,10 @@ describe("U19 · Schedule 1 from the books: payees, details, conflicts", () => {
   });
 
   it("an individual with neither name part given needs 'last and first name'", () => {
-    const r = build([rec({ tin: "987654321", kind: "individual", last: null, first: null, vendor: "X" }), rec({ tin: "987654321", kind: "individual", last: " ", first: "", vendor: "X" })]);
+    const r = build([
+      rec({ tin: "987654321", kind: "individual", last: null, first: null, vendor: "X" }),
+      rec({ tin: "987654321", kind: "individual", last: " ", first: "", vendor: "X" }),
+    ]);
     expect(r.refusals[0]).toContain("987-654-321 (last and first name)");
   });
 
@@ -393,7 +508,13 @@ describe("U19 · Schedule 1 from the books: payees, details, conflicts", () => {
       rec({}),
       rec({}),
       rec({ middle: "S" }),
-      rec({ tin: "222333444", kind: "non_individual", vendor: "ACME INC", last: null, first: null }),
+      rec({
+        tin: "222333444",
+        kind: "non_individual",
+        vendor: "ACME INC",
+        last: null,
+        first: null,
+      }),
       rec({ tin: "222333444", kind: "individual", last: "Acme", first: "Joe" }),
     ]);
     expect(r.refusals).toEqual([
@@ -402,7 +523,10 @@ describe("U19 · Schedule 1 from the books: payees, details, conflicts", () => {
   });
 
   it("agreement after upper-casing and trimming is not a conflict", () => {
-    const r = build([rec({ last: " dela cruz ", first: "JUAN" }), rec({ last: "DELA CRUZ", first: "juan " })]);
+    const r = build([
+      rec({ last: " dela cruz ", first: "JUAN" }),
+      rec({ last: "DELA CRUZ", first: "juan " }),
+    ]);
     expect(r.refusals).toEqual([]);
   });
 
@@ -452,7 +576,9 @@ describe("U19 · the Expenses import keeps the payee's name columns as the alpha
       payeeFirstName: null,
       payeeMiddleName: null,
     });
-    expect(payeeDetailsOf({ lastName: "Dela Cruz", firstName: "Juan", middleName: "" })).toEqual({
+    expect(
+      payeeDetailsOf({ lastName: "Dela Cruz", firstName: "Juan", middleName: "" }),
+    ).toEqual({
       payeeKind: "individual",
       payeeLastName: "Dela Cruz",
       payeeFirstName: "Juan",

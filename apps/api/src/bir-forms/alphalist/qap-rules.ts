@@ -32,7 +32,11 @@ export function branch4(raw: string | null | undefined): string | null {
  * A name as the file carries it: trimmed, upper-cased, the enye (both cases) converted
  * to N. `bad` is the first character the BIR program would reject, if any.
  */
-export function convertName(raw: string): { value: string; enye: boolean; bad: string | null } {
+export function convertName(raw: string): {
+  value: string;
+  enye: boolean;
+  bad: string | null;
+} {
   const trimmed = raw.trim();
   const enye = /[ñÑ]/.test(trimmed);
   const value = trimmed.toUpperCase().replace(/Ñ/g, "N");
@@ -95,9 +99,12 @@ export function checkAgent(a: AlphalistModel["agent"]): string[] {
   const out: string[] = [];
   if (!/^\d{9}$/.test(a.tin)) out.push("The client's TIN must be exactly 9 digits.");
   else if (DUMMY_TINS.has(a.tin)) {
-    out.push(`The client's TIN ${dashedTin(a.tin)} is not accepted by the BIR alphalist.`);
+    out.push(
+      `The client's TIN ${dashedTin(a.tin)} is not accepted by the BIR alphalist.`,
+    );
   }
-  if (!/^\d{4}$/.test(a.branch)) out.push("The client's branch code must be exactly 4 digits.");
+  if (!/^\d{4}$/.test(a.branch))
+    out.push("The client's branch code must be exactly 4 digits.");
   if (a.rdo === "") out.push("Add the client's RDO code before making the alphalist.");
   else if (a.rdo.length !== 3) out.push("The client's RDO code must be 3 characters.");
   const agentBad = convertName(a.name).bad;
@@ -107,7 +114,10 @@ export function checkAgent(a: AlphalistModel["agent"]): string[] {
 }
 
 /** The model as the BIR Validation program would judge it. [] means it would accept it. */
-export function checkModel(m: AlphalistModel, knownAtc: ReadonlySet<string> = new Set()): string[] {
+export function checkModel(
+  m: AlphalistModel,
+  knownAtc: ReadonlySet<string> = new Set(),
+): string[] {
   const out = checkAgent(m.agent);
   if (m.schedule1.length === 0 && m.schedule2.length === 0) {
     out.push("The alphalist has no payees to list.");
@@ -131,11 +141,15 @@ export function checkRows(
       return false;
     }
     if (DUMMY_TINS.has(r.tin)) {
-      out.push(`Payee ${label.replace("%", who)}: the TIN is not accepted by the BIR alphalist.`);
+      out.push(
+        `Payee ${label.replace("%", who)}: the TIN is not accepted by the BIR alphalist.`,
+      );
       return false;
     }
     if (!/^\d{4}$/.test(r.branch)) {
-      out.push(`Payee ${label.replace("%", who)}: the branch code must be exactly 4 digits.`);
+      out.push(
+        `Payee ${label.replace("%", who)}: the branch code must be exactly 4 digits.`,
+      );
       return false;
     }
     const parts = [r.registeredName, r.lastName, r.firstName, r.middleName];
@@ -185,7 +199,9 @@ export function checkRows(
     // The seed holds no code for income not subject to withholding (DI900, EI900…), so a
     // Schedule 2 ATC is checked for shape only.
     if (atc === "") {
-      out.push(`Payee ${/^\d{9}$/.test(r.tin) ? dashedTin(r.tin) : r.tin}: the Schedule 2 ATC is blank.`);
+      out.push(
+        `Payee ${/^\d{9}$/.test(r.tin) ? dashedTin(r.tin) : r.tin}: the Schedule 2 ATC is blank.`,
+      );
       continue;
     }
     if (!/^[A-Z0-9]{2,8}$/.test(atc)) {

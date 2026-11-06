@@ -11,13 +11,7 @@
 //
 // Nothing here talks to the database: the service passes the records in.
 import { Prisma } from "@prisma/client";
-import {
-  branch4,
-  checkRows,
-  convertName,
-  dashedTin,
-  DUMMY_TINS,
-} from "./qap-rules";
+import { branch4, checkRows, convertName, dashedTin, DUMMY_TINS } from "./qap-rules";
 import type { Schedule1Row } from "./qap-writer";
 
 type Dec = Prisma.Decimal;
@@ -48,7 +42,8 @@ export interface Schedule1Build {
 }
 
 const ZERO = new Prisma.Decimal(0);
-const norm = (v: string | null | undefined) => (v ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+const norm = (v: string | null | undefined) =>
+  (v ?? "").trim().replace(/\s+/g, " ").toUpperCase();
 const plural = (n: number) => (n === 1 ? "expense" : "expenses");
 
 interface Detail {
@@ -59,7 +54,10 @@ interface Detail {
 }
 
 const hasDetails = (r: BookRecord) =>
-  norm(r.kind) !== "" || norm(r.last) !== "" || norm(r.first) !== "" || norm(r.middle) !== "";
+  norm(r.kind) !== "" ||
+  norm(r.last) !== "" ||
+  norm(r.first) !== "" ||
+  norm(r.middle) !== "";
 const detailOf = (r: BookRecord): Detail => ({
   kind: (r.kind ?? "").trim(),
   last: norm(r.last),
@@ -67,9 +65,13 @@ const detailOf = (r: BookRecord): Detail => ({
   middle: norm(r.middle),
 });
 const sigOf = (d: Detail) => [d.kind, d.last, d.first, d.middle].join("|");
-const kindWord = (k: string) => (k === "individual" ? "individual" : k === "non_individual" ? "company" : "no kind");
+const kindWord = (k: string) =>
+  k === "individual" ? "individual" : k === "non_individual" ? "company" : "no kind";
 
-export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<string>): Schedule1Build {
+export function buildSchedule1(
+  records: BookRecord[],
+  knownAtc: ReadonlySet<string>,
+): Schedule1Build {
   const tinProblems = new Set<string>();
   const branchProblems = new Set<string>();
   const payees = new Map<string, { tin: string; branch4: string; recs: BookRecord[] }>();
@@ -89,7 +91,9 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
       continue;
     }
     if (DUMMY_TINS.has(digits)) {
-      tinProblems.add(`The vendor TIN ${dashedTin(digits)} is not accepted by the BIR alphalist. Correct it on the expense.`);
+      tinProblems.add(
+        `The vendor TIN ${dashedTin(digits)} is not accepted by the BIR alphalist. Correct it on the expense.`,
+      );
       continue;
     }
     const b = branch4(r.branch);
@@ -118,7 +122,9 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
     recs: BookRecord[];
   }> = [];
 
-  for (const p of [...payees.values()].sort((a, b) => (a.tin + a.branch4).localeCompare(b.tin + b.branch4))) {
+  for (const p of [...payees.values()].sort((a, b) =>
+    (a.tin + a.branch4).localeCompare(b.tin + b.branch4),
+  )) {
     const shown = dashedTin(p.tin);
     const withDetails = p.recs.filter(hasDetails);
 
@@ -130,10 +136,16 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
       e.n++;
       sigs.set(sigOf(d), e);
     }
-    const describe = (items: Array<{ text: string; n: number; kind?: string }>, kinds: Set<string>) =>
+    const describe = (
+      items: Array<{ text: string; n: number; kind?: string }>,
+      kinds: Set<string>,
+    ) =>
       items
         .sort((a, b) => b.n - a.n || a.text.localeCompare(b.text))
-        .map((i) => `${kinds.size > 1 ? `${kindWord(i.kind ?? "")} ` : ""}${i.text} on ${i.n} ${plural(i.n)}`)
+        .map(
+          (i) =>
+            `${kinds.size > 1 ? `${kindWord(i.kind ?? "")} ` : ""}${i.text} on ${i.n} ${plural(i.n)}`,
+        )
         .join(", ");
     if (sigs.size > 1) {
       const kinds = new Set([...sigs.values()].map((e) => e.d.kind));
@@ -152,7 +164,9 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
 
     // --- a company's vendor names must agree ------------------------------------------
     const vendors = new Map<string, number>();
-    for (const r of p.recs) if (norm(r.vendor) !== "") vendors.set(norm(r.vendor), (vendors.get(norm(r.vendor)) ?? 0) + 1);
+    for (const r of p.recs)
+      if (norm(r.vendor) !== "")
+        vendors.set(norm(r.vendor), (vendors.get(norm(r.vendor)) ?? 0) + 1);
     if (d?.kind === "non_individual" && vendors.size > 1) {
       const items = [...vendors.entries()].map(([text, n]) => ({ text, n }));
       conflicts.push(`${shown} (${describe(items, new Set())})`);
@@ -165,7 +179,9 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
       continue;
     }
     if (d.kind === "individual") {
-      const lack = [d.last === "" ? "last" : "", d.first === "" ? "first" : ""].filter(Boolean);
+      const lack = [d.last === "" ? "last" : "", d.first === "" ? "first" : ""].filter(
+        Boolean,
+      );
       if (lack.length > 0) {
         missing.push(`${shown} (${lack.join(" and ")} name)`);
         continue;
@@ -179,10 +195,12 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
     const company = d.kind === "non_individual";
     const parts = company
       ? [[...vendors.keys()][0]!]
-      : [p.recs.find(hasDetails)!.last ?? "", p.recs.find(hasDetails)!.first ?? "", p.recs.find(hasDetails)!.middle ?? ""];
-    const raw = company
-      ? [p.recs.find((r) => norm(r.vendor) !== "")!.vendor!]
-      : parts;
+      : [
+          p.recs.find(hasDetails)!.last ?? "",
+          p.recs.find(hasDetails)!.first ?? "",
+          p.recs.find(hasDetails)!.middle ?? "",
+        ];
+    const raw = company ? [p.recs.find((r) => norm(r.vendor) !== "")!.vendor!] : parts;
     if (raw.some((x) => convertName(x).enye)) {
       notes.push(`The name of payee ${shown} had Ñ; it is written as N.`);
     }
@@ -200,7 +218,9 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
 
   const refusals: string[] = [...tinProblems, ...branchProblems];
   if (missing.length > 0) {
-    refusals.push(`These payees need details before the alphalist can be made: ${missing.join(", ")}.`);
+    refusals.push(
+      `These payees need details before the alphalist can be made: ${missing.join(", ")}.`,
+    );
   }
   if (conflicts.length > 0) {
     refusals.push(
@@ -211,18 +231,28 @@ export function buildSchedule1(records: BookRecord[], knownAtc: ReadonlySet<stri
   // --- one row per payee, ATC and rate ---------------------------------------------------
   const rows: Schedule1Row[] = [];
   for (const p of resolved) {
-    const byAtcRate = new Map<string, { atc: string; rate: Dec | null; income: Dec; tax: Dec }>();
+    const byAtcRate = new Map<
+      string,
+      { atc: string; rate: Dec | null; income: Dec; tax: Dec }
+    >();
     for (const r of p.recs) {
       const rate = r.ratePct ? r.ratePct.toFixed(2) : "";
       const key = `${r.atc}|${rate}`;
-      const e = byAtcRate.get(key) ?? { atc: r.atc, rate: r.ratePct, income: ZERO, tax: ZERO };
+      const e = byAtcRate.get(key) ?? {
+        atc: r.atc,
+        rate: r.ratePct,
+        income: ZERO,
+        tax: ZERO,
+      };
       e.income = e.income.plus(r.net);
       e.tax = e.tax.plus(r.wht);
       byAtcRate.set(key, e);
     }
     for (const e of byAtcRate.values()) {
       if (!e.rate) {
-        refusals.push(`Payee ${dashedTin(p.tin)} ${e.atc}: the ATC table has no rate for ${e.atc}.`);
+        refusals.push(
+          `Payee ${dashedTin(p.tin)} ${e.atc}: the ATC table has no rate for ${e.atc}.`,
+        );
         continue;
       }
       rows.push({
