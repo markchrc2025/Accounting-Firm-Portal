@@ -1,12 +1,13 @@
 import { round2, VatClass } from "@portal/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ApiError,
   createIncome,
   createPurchase,
   fetchBirAtcCodes,
   fetchChartAccounts,
+  fetchPayeeDetails,
   updateIncome,
   updatePurchase,
   type Category,
@@ -15,6 +16,17 @@ import {
 } from "../lib/api";
 import { AccountCombobox } from "./AccountCombobox";
 import { isExempt } from "../lib/regime";
+import {
+  applyPrefill,
+  COMPANY_HINT,
+  isNineDigits,
+  payeeBoxesBlank,
+  payeeFieldsOf,
+  payeePayload,
+  PREFILL_NOTE,
+  tinDigits,
+  type PayeeFields,
+} from "../lib/payeeDetails";
 import { Button, cn, peso, RegimeChip } from "./ui";
 
 export type Regime = "VAT" | "PERCENTAGE";
@@ -105,15 +117,51 @@ export default function TransactionEntryModal({
 
   // Header
   const [docDate, setDocDate] = useState(existing?.txnDate ?? today());
-  const [dueDate, setDueDate] = useState(
-    (isIncome ? inc?.dueDate : pur?.dueDate) ?? "",
-  );
+  const [dueDate, setDueDate] = useState((isIncome ? inc?.dueDate : pur?.dueDate) ?? "");
   const [docRef, setDocRef] = useState(existing?.referenceNo ?? "");
   const [party, setParty] = useState((isIncome ? inc?.customer : pur?.vendor) ?? "");
   const [partyTin, setPartyTin] = useState(
     (isIncome ? inc?.customerTin : pur?.vendorTin) ?? "",
   );
   const [terms, setTerms] = useState(inc?.terms ?? "");
+
+  // W19: what the 1601-EQ alphalist needs of a supplier. All optional. The supplier's
+  // name above is a company's registered name; an individual's name is in three parts.
+  const [payee, setPayee] = useState<Omit<PayeeFields, "vendor">>(() => {
+    const { vendor: _vendor, ...rest } = payeeFieldsOf(pur);
+    return rest;
+  });
+  const [prefilled, setPrefilled] = useState(false);
+  const setPayeeBox = (patch: Partial<Omit<PayeeFields, "vendor">>) => {
+    setPayee((p) => ({ ...p, ...patch }));
+    setPrefilled(false);
+  };
+  // The latest boxes, for the prefill's answer to land on (the person may have typed meanwhile).
+  const latest = useRef<PayeeFields>({ vendor: "", ...payee });
+  latest.current = { vendor: party, ...payee };
+  // One ask per TIN, however often the field changes.
+  const askedTins = useRef(new Set<string>());
+  useEffect(() => {
+    if (isIncome || !isNineDigits(partyTin)) return;
+    const tin = tinDigits(partyTin);
+    if (askedTins.current.has(tin) || !payeeBoxesBlank(latest.current)) return;
+    askedTins.current.add(tin);
+    fetchPayeeDetails(clientId, tin)
+      .then((found) => {
+        const { fields, filled } = applyPrefill(latest.current, found);
+        if (!filled) return;
+        setParty(fields.vendor);
+        setPayee({
+          branch: fields.branch,
+          kind: fields.kind,
+          lastName: fields.lastName,
+          firstName: fields.firstName,
+          middleName: fields.middleName,
+        });
+        setPrefilled(true);
+      })
+      .catch(() => undefined); // a 400 shows nothing
+  }, [partyTin, isIncome, clientId]);
 
   // Lines
   const [lines, setLines] = useState<Line[]>(() => [lineFromExisting()]);
@@ -152,7 +200,8 @@ export default function TransactionEntryModal({
     const priceFallback = existing ? String(existing.netAmount) : "";
     return {
       description: existing?.description ?? "",
-      quantity: existing?.quantity != null ? String(existing.quantity) : existing ? "1" : "1",
+      quantity:
+        existing?.quantity != null ? String(existing.quantity) : existing ? "1" : "1",
       unit: existing?.unit ?? "",
       unitPrice: existing?.unitPrice != null ? String(existing.unitPrice) : priceFallback,
       discount: existing?.discount != null ? String(existing.discount) : "",
@@ -200,7 +249,9 @@ export default function TransactionEntryModal({
   function atcRate(code: string): number | null {
     const c = code.trim().toUpperCase();
     if (!c) return null;
-    const a = (atcQuery.data ?? []).find((x) => x.atc === c && x.classification !== "vat");
+    const a = (atcQuery.data ?? []).find(
+      (x) => x.atc === c && x.classification !== "vat",
+    );
     const rate = a?.rate == null ? NaN : Number(a.rate);
     return Number.isFinite(rate) && rate > 0 ? rate : null;
   }
@@ -214,7 +265,10 @@ export default function TransactionEntryModal({
         // whenever the code or the net-affecting fields change (still editable).
         if (
           !isIncome &&
-          ("atc" in patch || "quantity" in patch || "unitPrice" in patch || "discount" in patch)
+          ("atc" in patch ||
+            "quantity" in patch ||
+            "unitPrice" in patch ||
+            "discount" in patch)
         ) {
           const rate = atcRate(next.atc);
           if (rate != null) next.whtAmount = String(round2(lineNet(next) * rate));
@@ -288,6 +342,7 @@ export default function TransactionEntryModal({
       ...common,
       vendor: party || undefined,
       vendorTin: partyTin || undefined,
+      ...payeePayload({ vendor: party, ...payee }),
       deductible: true,
       ...(wht > 0 ? { whtAmount: round2(wht) } : {}),
       // A VAT client's purchase with VAT is a domestic purchase; one with no
@@ -439,7 +494,10 @@ export default function TransactionEntryModal({
                   className="input"
                 />
               </Field>
-              <Field label={`${isIncome ? "Customer" : "Supplier"} TIN`} className="md:col-span-2">
+              <Field
+                label={`${isIncome ? "Customer" : "Supplier"} TIN`}
+                className="md:col-span-2"
+              >
                 <input
                   value={partyTin}
                   onChange={(e) => setPartyTin(e.target.value)}
@@ -447,6 +505,99 @@ export default function TransactionEntryModal({
                   className="input font-mono"
                 />
               </Field>
+              {!isIncome ? (
+                <div className="md:col-span-4 space-y-3" data-payee-details>
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <Field label="Branch">
+                      <input
+                        value={payee.branch}
+                        onChange={(e) =>
+                          setPayeeBox({
+                            branch: e.target.value.replace(/\D/g, "").slice(0, 5),
+                          })
+                        }
+                        inputMode="numeric"
+                        placeholder="00000"
+                        className="input font-mono"
+                      />
+                    </Field>
+                    <div className="md:col-span-3">
+                      <span className="text-[13px] font-semibold text-content">
+                        Payee
+                      </span>
+                      <div
+                        role="radiogroup"
+                        aria-label="Payee"
+                        className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1.5"
+                      >
+                        {(
+                          [
+                            ["individual", "Individual"],
+                            ["non_individual", "Company"],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <label
+                            key={value}
+                            className="flex items-center gap-2 text-[13px] text-content"
+                          >
+                            <input
+                              type="radio"
+                              name="payee-kind"
+                              checked={payee.kind === value}
+                              onChange={() => setPayeeBox({ kind: value })}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                      {payee.kind === "non_individual" ? (
+                        <p
+                          data-company-hint
+                          className="mt-1 text-[11.5px] text-content-secondary"
+                        >
+                          {COMPANY_HINT}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {payee.kind === "individual" ||
+                  payee.lastName ||
+                  payee.firstName ||
+                  payee.middleName ? (
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <Field label="Last name">
+                        <input
+                          value={payee.lastName}
+                          onChange={(e) => setPayeeBox({ lastName: e.target.value })}
+                          className="input"
+                        />
+                      </Field>
+                      <Field label="First name">
+                        <input
+                          value={payee.firstName}
+                          onChange={(e) => setPayeeBox({ firstName: e.target.value })}
+                          className="input"
+                        />
+                      </Field>
+                      <Field label="Middle name">
+                        <input
+                          value={payee.middleName}
+                          onChange={(e) => setPayeeBox({ middleName: e.target.value })}
+                          className="input"
+                        />
+                      </Field>
+                    </div>
+                  ) : null}
+                  {prefilled ? (
+                    <p
+                      data-payee-prefilled
+                      className="text-[12px] text-content-secondary"
+                    >
+                      {PREFILL_NOTE}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {/* Line items. No overflow wrapper of its own (it would clip the
