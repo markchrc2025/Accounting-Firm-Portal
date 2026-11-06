@@ -31,6 +31,10 @@ import {
   periodFrom,
   type BirFormType,
 } from "./bir-form-types";
+import { manilaToday } from "./clock";
+import { matchClients, optionText, type ClientRow } from "./client-ref";
+import { chooseDefaultPeriod, type ChosenPeriod } from "./default-period";
+import { dueItems, formsFor, type ExistingReturns } from "./forms-due";
 import { BIR_KEY_LINE } from "./instructions";
 import {
   alphalistNeeds,
@@ -102,8 +106,6 @@ const LABELS: Record<string, Record<string, string>> = {
   },
 };
 
-const manilaToday = () =>
-  new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const asFacts = (c: Client): ClientFacts => c;
 const fiscalStart = (c: Client) =>
   c.fiscalYearStart ? c.fiscalYearStart.toISOString().slice(0, 10) : null;
@@ -142,13 +144,33 @@ function startingData(form: string, period: string): Record<string, unknown> {
   return data;
 }
 
+const clientShape = {
+  client: z
+    .string()
+    .optional()
+    .describe(
+      "The client the owner names: its registered name, trade name or business name (case and punctuation do not matter), or its TIN. Pass what the owner said; never ask for an id.",
+    ),
+  clientId: z
+    .string()
+    .uuid()
+    .optional()
+    .describe("Client id from portal_list_clients, if you already have it"),
+};
+
 const periodShape = {
-  clientId: z.string().uuid().describe("Client id from portal_list_clients"),
+  ...clientShape,
   formCode: z
     .string()
     .min(1)
     .describe("BIR form code from portal_list_bir_form_types, e.g. 1601EQ"),
-  year: z.number().int().describe("The year of the return, e.g. 2026"),
+  year: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      "The year of the return, e.g. 2026. Leave out year, quarter and month to use the period due next (the answer's periodChoice says which).",
+    ),
   quarter: z.number().int().optional().describe("1 to 4, for a quarterly form"),
   month: z.number().int().optional().describe("1 to 12, for a monthly form"),
 };
@@ -187,6 +209,127 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       );
     }
     return row;
+  }
+
+  type Resolved =
+    | { ok: true; client: Client; matchedBy: "id" | "name" | "tin" }
+    | { ok: false; answer: Record<string, unknown> };
+
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  /** The client the owner named: one client, or the question that settles which (U20b, D61). */
+  async function resolveClient(
+    actor: AuthUser,
+    args: { client?: string | undefined; clientId?: string | undefined },
+  ): Promise<Resolved> {
+    if (args.clientId)
+      return {
+        ok: true,
+        client: await loadClient(actor, args.clientId),
+        matchedBy: "id",
+      };
+    const ref = (args.client ?? "").trim();
+    if (ref === "") throw new Error("Give client (a name or TIN) or clientId.");
+    if (UUID.test(ref))
+      return { ok: true, client: await loadClient(actor, ref), matchedBy: "id" };
+    const rows = await prisma.client.findMany({
+      where: { firmId: actor.firmId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        businessName: true,
+        regName: true,
+        tradeName: true,
+        tin: true,
+        status: true,
+      },
+    });
+    const m = matchClients(rows as ClientRow[], ref);
+    if (m.rows.length === 1) {
+      return {
+        ok: true,
+        client: await loadClient(actor, m.rows[0]!.id),
+        matchedBy: m.by,
+      };
+    }
+    const need: Need =
+      m.rows.length === 0
+        ? {
+            key: "client",
+            question: `I could not find a client named ${ref}. What is the registered name or TIN?`,
+            why: "A BIR form is drafted for one client.",
+            setWith: "this tool again, with client set to the registered name or TIN",
+            kind: "text",
+          }
+        : {
+            key: "client",
+            question: "Which client do you mean?",
+            why: "More than one client has that name or TIN, and a BIR form is drafted for one.",
+            setWith:
+              "this tool again, with client set to the TIN of the one meant (or clientId)",
+            kind: "choice",
+            options: m.rows.map(optionText),
+            refs: { clientIds: m.rows.map((r) => r.id) },
+          };
+    return {
+      ok: false,
+      answer: { client: null, matchedBy: null, needs: [need], notes: [] },
+    };
+  }
+
+  /** What the answer says of the client it found. */
+  const clientEcho = (c: Client) => ({ id: c.id, name: c.businessName, tin: c.tin });
+  const inactiveNote = (c: Client) =>
+    c.status === "ACTIVE" ? [] : [`${c.businessName} is ${c.status} (inactive).`];
+
+  /** The period named, or the one due next (the answer says which and why). */
+  async function resolvePeriod(
+    actor: AuthUser,
+    client: Client,
+    args: {
+      formCode: string;
+      year?: number | undefined;
+      quarter?: number | undefined;
+      month?: number | undefined;
+    },
+  ): Promise<{ period: string; choice: ChosenPeriod | null } | { error: string }> {
+    if (
+      args.year === undefined &&
+      args.quarter === undefined &&
+      args.month === undefined
+    ) {
+      if (!typeOf(args.formCode))
+        return { error: `Form ${args.formCode} is not available yet.` };
+      const rows = await prisma.birForm.findMany({
+        where: {
+          firmId: actor.firmId,
+          clientId: client.id,
+          form: args.formCode,
+          status: "filed",
+        },
+        select: { period: true },
+      });
+      const done = new Set(rows.map((r) => r.period));
+      const chosen = chooseDefaultPeriod(
+        args.formCode,
+        manilaToday(),
+        fiscalStart(client),
+        (p) => done.has(p),
+      );
+      if (!chosen) {
+        return {
+          error: `No period could be chosen for the ${args.formCode}. Give year and quarter or month.`,
+        };
+      }
+      return { period: chosen.period, choice: chosen };
+    }
+    if (args.year === undefined) return { error: "Give year with the quarter or month." };
+    const p = periodFrom(args.formCode, {
+      year: args.year,
+      quarter: args.quarter,
+      month: args.month,
+    });
+    return "error" in p ? p : { period: p.period, choice: null };
   }
 
   const typeOf = (form: string): BirFormType | undefined =>
@@ -312,7 +455,7 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       form,
       formName: typeOf(form)?.name ?? form,
       figures: BOOKS_FED.has(form) ? "books" : "typed",
-      client: { id: client.id, name: client.businessName },
+      client: clientEcho(client),
       period: d.period,
       status: d.status,
       dueDate: due,
@@ -397,9 +540,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
     async (args) => {
       try {
         const actor = await getActor();
-        const p = periodFrom(args.formCode, args);
+        const found = await resolveClient(actor, args);
+        if (!found.ok) return ok(found.answer);
+        const client = found.client;
+        const p = await resolvePeriod(actor, client, args);
         if ("error" in p) return fail(p.error);
-        const client = await loadClient(actor, args.clientId);
+        const echo = { matchedBy: found.matchedBy, periodChoice: p.choice };
         const existing = await birForms.findForPeriod(
           actor,
           client.id,
@@ -411,8 +557,9 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           const v = await view(actor, target.id, {
             exists: true,
             existing: { draft: existing.draft, filed: existing.filed },
+            ...echo,
           });
-          return ok(v);
+          return ok({ ...v, notes: [...v.notes, ...inactiveNote(client)] });
         }
         const books = await booksFor(actor, client.id, args.formCode, p.period);
         const data: Record<string, unknown> = {
@@ -460,7 +607,8 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           form: args.formCode,
           formName: typeOf(args.formCode)?.name ?? args.formCode,
           figures: BOOKS_FED.has(args.formCode) ? "books" : "typed",
-          client: { id: client.id, name: client.businessName },
+          client: clientEcho(client),
+          ...echo,
           period: p.period,
           exists: false,
           existing: { draft: null, filed: null },
@@ -469,7 +617,7 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           computed: items,
           computedOther: other,
           warnings: open.warnings,
-          notes: open.notes,
+          notes: [...open.notes, ...inactiveNote(client)],
           needs: open.needs,
         });
       } catch (err) {
@@ -501,9 +649,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
     async (args) => {
       try {
         const actor = await getActor();
-        const p = periodFrom(args.formCode, args);
+        const found = await resolveClient(actor, args);
+        if (!found.ok) return ok({ created: false, ...found.answer });
+        const client = found.client;
+        const p = await resolvePeriod(actor, client, args);
         if ("error" in p) return fail(p.error);
-        const client = await loadClient(actor, args.clientId);
+        const echo = { matchedBy: found.matchedBy, periodChoice: p.choice };
         const existing = await birForms.findForPeriod(
           actor,
           client.id,
@@ -511,7 +662,7 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           p.period,
         );
         if (existing.draft) {
-          return ok(await view(actor, existing.draft.id, { existing: true }));
+          return ok(await view(actor, existing.draft.id, { existing: true, ...echo }));
         }
         if (existing.filed) return fail(sealedMessage(args.formCode));
 
@@ -541,8 +692,9 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           clientId: client.id,
           form: args.formCode,
           period: p.period,
+          matchedBy: found.matchedBy,
         });
-        return ok(await view(actor, created.id, { existing: false }));
+        return ok(await view(actor, created.id, { existing: false, ...echo }));
       } catch (err) {
         return fail(errMsg(err));
       }
@@ -613,17 +765,19 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       description:
         "A client's BIR returns: id, form, period, status and due date. Optional filters: formCode, year, status (draft or filed).",
       inputSchema: {
-        clientId: z.string().uuid().describe("Client id from portal_list_clients"),
+        ...clientShape,
         formCode: z.string().optional(),
         year: z.number().int().optional(),
         status: z.enum(["draft", "filed"]).optional(),
       },
       annotations: READ_ONLY,
     },
-    async ({ clientId, formCode, year, status }) => {
+    async ({ client: ref, clientId, formCode, year, status }) => {
       try {
         const actor = await getActor();
-        const client = await loadClient(actor, clientId);
+        const found = await resolveClient(actor, { client: ref, clientId });
+        if (!found.ok) return ok(found.answer);
+        const client = found.client;
         const rows = (await birForms.list(actor, client.id, status)) as Array<
           Record<string, any>
         >; // eslint-disable-line @typescript-eslint/no-explicit-any -- the list view
@@ -637,7 +791,7 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
             status: r.status,
             dueDate: dueDateOf(r.form, r.period, fiscalStart(client)),
           }));
-        return ok({ client: { id: client.id, name: client.businessName }, forms });
+        return ok({ client: clientEcho(client), matchedBy: found.matchedBy, forms });
       } catch (err) {
         return fail(errMsg(err));
       }
@@ -680,6 +834,74 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
             needs: v.needs,
           });
         }
+      } catch (err) {
+        return fail(errMsg(err));
+      }
+    },
+  );
+
+  server.registerTool(
+    "portal_bir_forms_due",
+    {
+      title: "BIR forms a client must file soon",
+      description:
+        'Call this when the owner names a client and no form ("draft the forms for client X"). Every return the ' +
+        "client must file in the coming 45 days, and any overdue period with no filed return, from the client's " +
+        "registered tax types and the filing calendar: form, period, due date, days left or days late, and whether a " +
+        "draft or filed return exists (with its id). Offer the list to the owner, then draft with " +
+        "portal_bir_form_requirements. Optional asOf date (YYYY-MM-DD), default today.",
+      inputSchema: {
+        ...clientShape,
+        asOf: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
+          .optional()
+          .describe("Calendar date to count from, default today"),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ client: ref, clientId, asOf }) => {
+      try {
+        const actor = await getActor();
+        const found = await resolveClient(actor, { client: ref, clientId });
+        if (!found.ok) return ok(found.answer);
+        const client = found.client;
+        const today = asOf ?? manilaToday();
+        if (new Date(`${today}T00:00:00.000Z`).toISOString().slice(0, 10) !== today) {
+          return fail(`asOf ${today} is not a real calendar date.`);
+        }
+        const rows = (await birForms.list(actor, client.id)) as Array<{
+          id: string;
+          form: string;
+          period: string;
+          status: string;
+        }>;
+        const lookup = (form: string, period: string): ExistingReturns => {
+          const mine = rows.filter((r) => r.form === form && r.period === period);
+          const draft = mine.find((r) => r.status === "draft");
+          const done = mine.find((r) => r.status === "filed");
+          return {
+            draft: draft ? { id: draft.id } : null,
+            filed: done ? { id: done.id } : null,
+          };
+        };
+        const out = dueItems(
+          {
+            taxType: client.taxType,
+            taxTypesJson: client.taxTypesJson,
+            fiscalYearStart: fiscalStart(client),
+          },
+          today,
+          lookup,
+        );
+        return ok({
+          client: clientEcho(client),
+          matchedBy: found.matchedBy,
+          asOf: today,
+          forms: formsFor(client),
+          items: out.items,
+          notes: [...out.notes, ...inactiveNote(client)],
+        });
       } catch (err) {
         return fail(errMsg(err));
       }

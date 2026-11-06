@@ -978,7 +978,7 @@ describe("U20 · the MCP connector drafts BIR forms (real app over HTTP, db)", (
         name: string;
         description: string;
       }>;
-      expect(tools.length).toBe(27); // 17 before, plus 10 new (portal_update_expense among them); record_expense extended
+      expect(tools.length).toBe(28); // 17 before, plus 10 new (portal_update_expense among them) and portal_bir_forms_due (U20b)
       for (const name of [
         "portal_bir_form_requirements",
         "portal_create_bir_form_draft",
