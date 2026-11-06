@@ -25,6 +25,7 @@ import {
   type ExpenseStatusFilter,
 } from "../lib/expenseStatus";
 import { manilaQuarter } from "../lib/manilaQuarter";
+import { payeeLine } from "../lib/payeeDetails";
 import { permittedFor } from "../lib/permissions";
 import { isVatRegistered, regimeLabel } from "../lib/regime";
 import { downloadSheet, EXPENSE_HEADERS } from "../lib/spreadsheet";
@@ -393,7 +394,14 @@ export default function ExpensesPage() {
                       {t.txnDate}
                     </Td>
                     <Td className="font-mono text-[12px] text-blue">{t.referenceNo ?? "—"}</Td>
-                    <Td className="text-content">{t.vendor ?? "—"}</Td>
+                    <Td className="text-content">
+                      {t.vendor ?? "—"}
+                      {payeeLine(t) ? (
+                        <div data-payee-line className="text-[11.5px] text-content-secondary">
+                          {payeeLine(t)}
+                        </div>
+                      ) : null}
+                    </Td>
                     <Td>
                       <div className="flex flex-wrap gap-1">
                         {expenseBadges(t).map((b) => (

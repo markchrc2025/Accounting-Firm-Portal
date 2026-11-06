@@ -310,6 +310,23 @@ async function mockApi(page: Page, w: World, extra: Entry[] = []) {
     ["GET", /^\/api\/v1\/clients$/, (r) => json(r, [CLIENT])],
     ["GET", /^\/api\/v1\/clients\/[^/]+$/, (r) => json(r, CLIENT)],
     ["GET", /^\/api\/v1\/bir-forms\/catalog$/, (r) => json(r, [])],
+    // W19: a saved 1601-EQ also asks for its alphalist check. These tests are not about it
+    // (track-b-w19.spec.ts is), so it answers a plain "can be made".
+    [
+      "GET",
+      /^\/api\/v1\/bir-forms\/[^/]+\/alphalist\/check$/,
+      (r) =>
+        json(r, {
+          ok: true,
+          source: "books",
+          fileName: "INVENTED.DAT",
+          refusals: [],
+          notes: [],
+          schedule1: { rows: 0, income: "0.00", tax: "0.00" },
+          schedule2: { rows: 0, income: "0.00" },
+          returnTotal: "0.00",
+        }),
+    ],
     [
       "POST",
       /^\/api\/v1\/bir-forms\/compute$/,
