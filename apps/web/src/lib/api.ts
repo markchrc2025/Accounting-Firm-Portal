@@ -1081,6 +1081,11 @@ export interface BirFiledSnapshot {
   rdo?: string | null;
 }
 export interface BirFormDetail extends BirFormSummary {
+  /** U19 (W19): a 1601-EQ's alphalist state after filing; null for any other form. */
+  alphalist?: {
+    stored: boolean;
+    warning: { message: string; refusals: string[] } | null;
+  } | null;
   /** U18 (W18): the BIR confirmation kept with a filed return; null when none. */
   confirmation?: BirFormConfirmation | null;
   /** U18 (W18): whether this form needs a BIR confirmation to be marked filed. */
@@ -1208,6 +1213,33 @@ export function attachBirConfirmation(
 /** U18: a signed link to the kept PDF (404 "This return has no BIR confirmation file."). */
 export function fetchBirConfirmationUrl(id: string): Promise<{ url: string }> {
   return apiFetch(`/bir-forms/${encodeURIComponent(id)}/confirmation/url`);
+}
+/** U19 (W19): what the alphalist check says of a 1601-EQ. Amounts are text with two
+ *  decimals, as the API sends them; nothing here is computed in the browser. */
+export interface AlphalistCheck {
+  ok: boolean;
+  /** "books" (a draft), "stored" (the rows kept at filing) or "none" (a filed return with no rows). */
+  source: "books" | "stored" | "none";
+  fileName: string | null;
+  refusals: string[];
+  notes: string[];
+  schedule1: { rows: number; income: string; tax: string };
+  schedule2: { rows: number; income: string };
+  /** The return's Item 19. */
+  returnTotal: string;
+}
+export function fetchAlphalistCheck(id: string): Promise<AlphalistCheck> {
+  return apiFetch(`/bir-forms/${encodeURIComponent(id)}/alphalist/check`);
+}
+/** U19: the alphalist file, with the user's session. A 409 is thrown with the first
+ *  refusal as its message and the whole body (with `refusals`) kept. */
+export async function downloadAlphalist(id: string): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}/bir-forms/${encodeURIComponent(id)}/alphalist`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw await errorFrom(res, "Could not make the alphalist");
+  return res.blob();
 }
 export function fetchBirForm(id: string): Promise<BirFormDetail> {
   return apiFetch<BirFormDetail>(`/bir-forms/${id}`);
@@ -1496,12 +1528,40 @@ export interface PurchaseTxn {
   sourceFile?: string;
   remarks?: string;
   vendorBranch?: string;
+  /** U19 (D59): what the 1601-EQ alphalist needs of the payee. A company's registered
+   *  name is `vendor`; an individual's name is in the three parts. All optional. */
+  payeeKind?: PayeeKind | null;
+  payeeLastName?: string | null;
+  payeeFirstName?: string | null;
+  payeeMiddleName?: string | null;
   tradeName?: string;
   province?: string;
   vatClaimable?: boolean;
   importBatchId?: string;
 }
 export type PurchaseStatus = "posted" | "held";
+export type PayeeKind = "individual" | "non_individual";
+/** U19: the latest payee details saved for a payee TIN of this client. */
+export type PayeeDetails =
+  | { found: false }
+  | {
+      found: true;
+      tin: string;
+      branch: string | null;
+      payeeKind: PayeeKind | null;
+      registeredName: string | null;
+      lastName: string | null;
+      firstName: string | null;
+      middleName: string | null;
+      vendor: string | null;
+    };
+/** U19: prefill an expense's payee fields from the latest expense with this TIN. A TIN
+ *  that is not 9 digits answers 400 "The TIN must be 9 digits." */
+export function fetchPayeeDetails(clientId: string, tin: string): Promise<PayeeDetails> {
+  return apiFetch(
+    `/clients/${encodeURIComponent(clientId)}/purchase-transactions/payee-details?tin=${encodeURIComponent(tin)}`,
+  );
+}
 export interface Paginated<T> {
   data: T[];
   page: number;

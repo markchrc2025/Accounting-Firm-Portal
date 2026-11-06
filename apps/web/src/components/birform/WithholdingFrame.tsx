@@ -32,6 +32,7 @@ export function WithholdingFrame({
   children,
   summary,
   aboveForm,
+  below,
 }: {
   draft: WithholdingDraft;
   /** The cards of the return, under the filer and period card. */
@@ -40,6 +41,8 @@ export function WithholdingFrame({
   summary: ReactNode;
   /** A note over the whole form (the 1601-C's). */
   aboveForm?: ReactNode;
+  /** Cards under the form that stay live on a filed return (the 1601-EQ's alphalist). */
+  below?: ReactNode;
 }) {
   const { form, existing, isNew, id, isFiled, books, tooManyRows } = draft;
   const title = FORM_TITLE[form];
@@ -97,65 +100,71 @@ export function WithholdingFrame({
 
       <BookProvider value={books}>
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <fieldset disabled={isFiled} className="min-w-0 space-y-6">
-            {/* Filer + period */}
-            <Card>
-              <CardContent className="space-y-4">
-                {draft.booked ? <BookSwitch books={books} /> : null}
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <label className="block sm:col-span-1">
-                    <span className="mb-1.5 block text-[13px] font-semibold text-content">
-                      Client
-                    </span>
-                    <select
-                      className="input w-full"
-                      value={draft.clientId}
-                      disabled={!isNew}
-                      onChange={(e) => draft.setClientId(e.target.value)}
-                    >
-                      <option value="">Select client…</option>
-                      {draft.clients.map((cl: ClientSummary) => (
-                        <option key={cl.id} value={cl.id}>
-                          {cl.businessName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-[13px] font-semibold text-content">
-                      Year
-                    </span>
-                    <input
-                      className="input w-full font-mono"
-                      value={draft.year}
-                      onChange={(e) =>
-                        draft.setYear(e.target.value.replace(/\D/g, "").slice(0, 4))
-                      }
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-[13px] font-semibold text-content">
-                      {subLabel}
-                    </span>
-                    <select
-                      className="input w-full"
-                      value={draft.sub}
-                      onChange={(e) => draft.setSub(e.target.value)}
-                    >
-                      {periodOptions(form).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <p className="text-[11.5px] text-content-secondary">{FORM_NAME[form]}</p>
-              </CardContent>
-            </Card>
+          <div className="min-w-0 space-y-6">
+            <fieldset disabled={isFiled} className="min-w-0 space-y-6">
+              {/* Filer + period */}
+              <Card>
+                <CardContent className="space-y-4">
+                  {draft.booked ? <BookSwitch books={books} /> : null}
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <label className="block sm:col-span-1">
+                      <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                        Client
+                      </span>
+                      <select
+                        className="input w-full"
+                        value={draft.clientId}
+                        disabled={!isNew}
+                        onChange={(e) => draft.setClientId(e.target.value)}
+                      >
+                        <option value="">Select client…</option>
+                        {draft.clients.map((cl: ClientSummary) => (
+                          <option key={cl.id} value={cl.id}>
+                            {cl.businessName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                        Year
+                      </span>
+                      <input
+                        className="input w-full font-mono"
+                        value={draft.year}
+                        onChange={(e) =>
+                          draft.setYear(e.target.value.replace(/\D/g, "").slice(0, 4))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-[13px] font-semibold text-content">
+                        {subLabel}
+                      </span>
+                      <select
+                        className="input w-full"
+                        value={draft.sub}
+                        onChange={(e) => draft.setSub(e.target.value)}
+                      >
+                        {periodOptions(form).map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <p className="text-[11.5px] text-content-secondary">
+                    {FORM_NAME[form]}
+                  </p>
+                </CardContent>
+              </Card>
 
-            {children}
-          </fieldset>
+              {children}
+            </fieldset>
+            {/* Outside the fieldset: a filed return's buttons must still work. */}
+            {below}
+          </div>
 
           {/* Computed + actions */}
           <div className="space-y-4">

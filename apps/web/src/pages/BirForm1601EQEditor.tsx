@@ -6,6 +6,7 @@
 
 import type { BirForm1601EQComputed } from "../lib/api";
 import { Button, Card, CardContent } from "../components/ui";
+import { AlphalistPanel, AlphalistWarning } from "../components/birform/AlphalistPanel";
 import { BookBadge, BookNotes } from "../components/birform/BookFigures";
 import {
   Choice,
@@ -59,6 +60,14 @@ export default function BirForm1601EQEditor() {
   return (
     <WithholdingFrame
       draft={draft}
+      aboveForm={
+        draft.existing.data ? <AlphalistWarning detail={draft.existing.data} /> : null
+      }
+      below={
+        !draft.isNew && draft.existing.data ? (
+          <AlphalistPanel detail={draft.existing.data} />
+        ) : null
+      }
       summary={
         <>
           <ReadOut

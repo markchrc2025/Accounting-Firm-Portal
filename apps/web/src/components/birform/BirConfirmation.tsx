@@ -10,6 +10,7 @@ import {
   ApiError,
   attachBirConfirmation,
   checkConfirmation,
+  fetchAlphalistCheck,
   fetchBirConfirmationUrl,
   fetchUsers,
   markBirFormFiled,
@@ -18,6 +19,12 @@ import {
   type ConfirmationCheckResult,
 } from "../../lib/api";
 import { useOptionalAuth } from "../../auth/AuthContext";
+import {
+  ALPHALIST_PROBLEMS,
+  ALPHALIST_WILL_STORE,
+  mayFile,
+  UNDERSTAND_LABEL,
+} from "../../lib/alphalist";
 import { downloadFromUrl } from "../../lib/download";
 import {
   canConfirm,
@@ -64,6 +71,20 @@ export function ConfirmationDialog({
   const [reason, setReason] = useState("");
   // One click, one request.
   const busy = useRef(false);
+
+  // W19: a 1601-EQ is filed with its alphalist. Before the confirmation step the check
+  // runs; if the alphalist cannot be made, the owner says he understands before filing.
+  const withAlphalist = mode === "mark" && detail.form === "1601EQ";
+  const alphalist = useQuery({
+    queryKey: ["bir-alphalist-check", detail.id, "mark"],
+    queryFn: () => fetchAlphalistCheck(detail.id),
+    enabled: withAlphalist,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    retry: false,
+  });
+  const [understood, setUnderstood] = useState(false);
 
   const check = useMutation({
     mutationFn: (f: File) => checkConfirmation(detail.id, f),
@@ -118,6 +139,9 @@ export function ConfirmationDialog({
   }, [check.isPending, submit.isPending, onClose]);
 
   const pending = check.isPending || submit.isPending;
+  const alphalistOk =
+    !withAlphalist ||
+    mayFile(alphalist.data, alphalist.isError, alphalist.isPending, understood);
   const ready = canConfirm(result, checked, file);
   const confirmLabel = DIALOG_TITLE[mode];
 
@@ -160,6 +184,16 @@ export function ConfirmationDialog({
         <p id={titleId} className="px-6 pb-1 pt-5 text-[14px] font-medium text-content">
           {DIALOG_TITLE[mode]}
         </p>
+
+        {withAlphalist ? (
+          <AlphalistStep
+            check={alphalist.data}
+            failed={alphalist.isError}
+            failure={alphalist.error}
+            understood={understood}
+            onUnderstood={setUnderstood}
+          />
+        ) : null}
 
         {override ? (
           <div className="space-y-2 px-6 py-3">
@@ -245,7 +279,9 @@ export function ConfirmationDialog({
             </Button>
             <Button
               size="sm"
-              disabled={pending || (override ? reason.trim() === "" : !ready)}
+              disabled={
+                pending || !alphalistOk || (override ? reason.trim() === "" : !ready)
+              }
               onClick={runSubmit}
             >
               {submit.isPending ? "Saving…" : confirmLabel}
@@ -253,6 +289,64 @@ export function ConfirmationDialog({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The alphalist step of filing a 1601-EQ: what will be stored, or why nothing will be. */
+function AlphalistStep({
+  check,
+  failed,
+  failure,
+  understood,
+  onUnderstood,
+}: {
+  check: import("../../lib/api").AlphalistCheck | undefined;
+  failed: boolean;
+  failure: unknown;
+  understood: boolean;
+  onUnderstood: (v: boolean) => void;
+}) {
+  if (!check && !failed) return null;
+  if (check?.ok) {
+    return (
+      <p
+        data-alphalist-step="ok"
+        className="mx-6 mt-2 text-[12.5px] text-content-secondary"
+      >
+        {ALPHALIST_WILL_STORE}
+      </p>
+    );
+  }
+  const refusals = check?.refusals ?? [];
+  return (
+    <div
+      data-alphalist-step="problems"
+      className="mx-6 mt-2 space-y-2 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
+    >
+      <p className="font-semibold">{ALPHALIST_PROBLEMS}</p>
+      {failed ? (
+        <p data-alphalist-step-error>
+          {failure instanceof ApiError
+            ? failure.message
+            : "Could not check the alphalist."}
+        </p>
+      ) : null}
+      {refusals.length > 0 ? (
+        <ul className="list-disc space-y-0.5 pl-5">
+          {refusals.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
+      ) : null}
+      <label className="flex items-center gap-2 text-content">
+        <input
+          type="checkbox"
+          checked={understood}
+          onChange={(e) => onUnderstood(e.target.checked)}
+        />
+        {UNDERSTAND_LABEL}
+      </label>
     </div>
   );
 }
