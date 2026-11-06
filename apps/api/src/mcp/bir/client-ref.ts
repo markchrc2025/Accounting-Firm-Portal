@@ -44,6 +44,37 @@ export function matchClients(rows: ClientRow[], ref: string): ClientMatch {
   };
 }
 
+export const NEAR_LIMIT = 10;
+
+/**
+ * U20c: when nothing matches exactly, the clients the owner may have meant. A client is a
+ * near match when ONE of its names (registered, trade or business) holds every word given,
+ * after the same folding as the exact match; or, if the reference is only digits (dashes,
+ * dots and spaces set aside), when its TIN starts with them (three or more digits, fewer
+ * than a whole TIN). Returns the first ten by name and how many matched in all.
+ */
+export function nearMatches(
+  rows: ClientRow[],
+  ref: string,
+): { rows: ClientRow[]; total: number } {
+  const folded = normalizeName(ref);
+  if (folded === "") return { rows: [], total: 0 };
+  const words = folded.split(" ");
+  const digits = ref.replace(/[\s.-]/g, "");
+  const prefix = /^\d{3,8}$/.test(digits) ? digits : null;
+  const hit = rows.filter((r) => {
+    const names = [r.regName, r.tradeName, r.businessName].map(normalizeName);
+    if (names.some((n) => n !== "" && words.every((w) => n.includes(w)))) return true;
+    return prefix !== null && (r.tin ?? "").replace(/[\s.-]/g, "").startsWith(prefix);
+  });
+  hit.sort((a, b) => {
+    const x = normalizeName(a.businessName);
+    const y = normalizeName(b.businessName);
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+  return { rows: hit.slice(0, NEAR_LIMIT), total: hit.length };
+}
+
 export const dashed = (tin9: string) =>
   `${tin9.slice(0, 3)}-${tin9.slice(3, 6)}-${tin9.slice(6, 9)}`;
 

@@ -289,6 +289,8 @@ describe("U20b · draft BIR forms from a client name (real app over HTTP, db)", 
         ],
         refs: { clientIds: [c["Twin Trading Inc"], c["Twin Trading Co"]] },
       });
+      // exact matches keep their own reason; they are not turned into near matches (U20c)
+      expect(out.needs[0].why).toContain("More than one client has that name or TIN");
       expect(
         await db.birForm.count({
           where: { clientId: { in: [c["Twin Trading Inc"]!, c["Twin Trading Co"]!] } },
@@ -379,6 +381,161 @@ describe("U20b · draft BIR forms from a client name (real app over HTTP, db)", 
       );
       expect(list.client.id).toBe(sample());
       expect((list.forms as Json[]).map((f) => f.id)).toContain(d.id);
+    });
+  });
+
+  // ======================================================================================
+  describe("U20c · near matches when the name is not exact", () => {
+    beforeAll(async () => {
+      await client("Juan Dela Cruz Trading", "123456780", {
+        businessName: "JUAN DELA CRUZ TRADING",
+      });
+      for (let i = 1; i <= 12; i++) {
+        await client(
+          `Mega Store ${String(i).padStart(2, "0")}`,
+          `5000001${String(i).padStart(2, "0")}`,
+        );
+      }
+    });
+    const dc = () => c["Juan Dela Cruz Trading"]!;
+
+    it("part of a name gives one option, never an automatic pick, and writes nothing", async () => {
+      const out = j(
+        await call("portal_create_bir_form_draft", {
+          client: "Dela Cruz",
+          formCode: "1601C",
+          year: 2026,
+          month: 7,
+        }),
+      );
+      expect(out).toMatchObject({ created: false, client: null, matchedBy: null });
+      expect(out.needs).toHaveLength(1);
+      expect(out.needs[0]).toMatchObject({
+        key: "client",
+        question: "Which client do you mean?",
+        kind: "choice",
+        options: ["JUAN DELA CRUZ TRADING — TIN 123-456-780 — ACTIVE"],
+        refs: { clientIds: [dc()] },
+      });
+      expect(await db.birForm.count({ where: { clientId: dc() } })).toBe(0);
+      // the owner's answer: the TIN of the option, or the longer name
+      const again = j(
+        await call("portal_bir_form_requirements", {
+          client: "123-456-780",
+          formCode: "1601C",
+          year: 2026,
+          month: 7,
+        }),
+      );
+      expect(again.client.id).toBe(dc());
+    });
+
+    it("two words in any order", async () => {
+      for (const words of ["cruz juan", "Trading, Dela Cruz", "JUAN   TRADING"]) {
+        const out = j(
+          await call("portal_bir_form_requirements", {
+            client: words,
+            formCode: "1601C",
+            year: 2026,
+            month: 7,
+          }),
+        );
+        expect({ words, ids: out.needs[0].refs.clientIds }).toEqual({
+          words,
+          ids: [dc()],
+        });
+      }
+    });
+
+    it("a TIN prefix of three or more digits; two digits are not a prefix", async () => {
+      const out = j(await call("portal_bir_forms_due", { client: "123-456" }));
+      expect(out.needs[0]).toMatchObject({
+        question: "Which client do you mean?",
+        refs: { clientIds: [dc()] },
+      });
+      expect(
+        j(await call("portal_bir_forms_due", { client: "50" })).needs[0].question,
+      ).toBe("I could not find a client named 50. What is the registered name or TIN?");
+    });
+
+    it("several near matches are all offered, by name", async () => {
+      const out = j(await call("portal_list_bir_forms", { client: "trading" }));
+      expect(out.client).toBeNull();
+      const options = out.needs[0].options as string[];
+      expect(options).toEqual([
+        "JUAN DELA CRUZ TRADING — TIN 123-456-780 — ACTIVE",
+        "Twin Trading — TIN 222-333-444 — ACTIVE",
+        "Twin Trading — TIN 333-444-555 — ARCHIVED (inactive)",
+      ]);
+    });
+
+    it("more than ten: the first ten by name, a note that says how many more, asking for a longer name", async () => {
+      const out = j(
+        await call("portal_create_bir_form_draft", {
+          client: "mega store",
+          formCode: "1601C",
+          year: 2026,
+          month: 7,
+        }),
+      );
+      expect(out.created).toBe(false);
+      const need = out.needs[0];
+      expect(need.question).toBe("Which client do you mean?");
+      expect(need.options).toHaveLength(10);
+      expect(need.options[0]).toBe("Mega Store 01 — TIN 500-000-101 — ACTIVE");
+      expect(need.options[9]).toBe("Mega Store 10 — TIN 500-000-110 — ACTIVE");
+      expect(need.refs.clientIds).toHaveLength(10);
+      expect(out.notes).toEqual([
+        "12 clients match; these are the first 10 by name. 2 more match: give a longer name or a TIN.",
+      ]);
+      expect(need.why).toContain("longer name");
+      expect(
+        await db.birForm.count({ where: { clientId: { in: need.refs.clientIds } } }),
+      ).toBe(0);
+      // a longer name settles it
+      const one = j(
+        await call("portal_bir_form_requirements", {
+          client: "mega store 11",
+          formCode: "1601C",
+          year: 2026,
+          month: 7,
+        }),
+      );
+      expect(one.client).toMatchObject({ name: "Mega Store 11" });
+      expect(one.matchedBy).toBe("name");
+    });
+
+    it("no near match: the could-not-find question, as before", async () => {
+      const out = j(
+        await call("portal_create_bir_form_draft", {
+          client: "Zzyzx Holdings",
+          formCode: "1601C",
+          year: 2026,
+          month: 7,
+        }),
+      );
+      expect(out.needs).toEqual([
+        expect.objectContaining({
+          key: "client",
+          question:
+            "I could not find a client named Zzyzx Holdings. What is the registered name or TIN?",
+          kind: "text",
+        }),
+      ]);
+    });
+
+    it("an exact match is still used, even when a longer name also contains the words", async () => {
+      // "Mega Store 01" is exact; "Mega Store 1" words are also in 01, 10, 11, 12
+      const out = j(
+        await call("portal_bir_form_requirements", {
+          client: "mega store 01",
+          formCode: "1601C",
+          year: 2026,
+          month: 7,
+        }),
+      );
+      expect(out.client.name).toBe("Mega Store 01");
+      expect(out.matchedBy).toBe("name");
     });
   });
 
