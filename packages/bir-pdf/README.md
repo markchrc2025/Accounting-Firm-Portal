@@ -27,6 +27,7 @@ eBIRForms to file. So the PDF shows exactly what was filed.
 | `tools/proof.ts` | Dev only: writes the proof print of a map. |
 | `tools/make-fixtures.ts` | Dev only: writes `fixtures/*-sample.xml` with the Portal's own builders for an invented taxpayer. |
 | `proofs/` | The committed proof prints (invented data only). |
+| `tools/map-withholding.py` | Dev only: writes the 0619-E, 1601-EQ and 1601-C maps from the blanks (`--check` compares). |
 | `tools/map-2307.py` | Dev only: writes the 2307 map from the blank's vector drawing (`--check` compares). |
 
 Run-time dependencies: `pdf-lib` 1.17.1 and `@pdf-lib/fontkit` 1.1.1, pinned. Nothing
@@ -193,6 +194,45 @@ certificate (`apps/api` `bir-forms/engine/certificate2307.ts`, keys `c2307:*`).
   issue and expiry. The barcode, the "For BIR Use Only" box and the form code are not
   touched.
 - **Block B** is mapped; the editor has no entry for it until C8, so it prints blank.
+
+## The 0619-E, 1601-EQ and 1601-C (C9, D57)
+
+The three expanded-withholding returns print on the BIR's own blanks and are **printed, not
+exported**: there is no eBIRForms XML for them (the server answers "This form is printed;
+eBIRForms XML is not available for it."). Like the 2307, their rows come from the Portal's
+own builder (`apps/api` `bir-forms/engine/withholding-print.ts`, keys `f0619E:*`,
+`f1601EQ:*`, `f1601C:*`), not from an export.
+
+| Form    | Blank                        | Map                   | Pages printed | Fields |
+| ------- | ---------------------------- | --------------------- | ------------- | ------ |
+| 0619-E  | `0619E-2018-01.pdf` (letter) | `0619E-2018-01.json`  | 1 of 1        | 49     |
+| 1601-EQ | `1601EQ-2019-01.pdf` (legal) | `1601EQ-2019-01.json` | 2 of 2        | 87     |
+| 1601-C  | `1601C-2018-01.pdf` (legal)  | `1601C-2018-01.json`  | 2 of 2        | 93     |
+
+- **Page 2.** The 1601-EQ's page 2 is the BIR's Schedule of Alphanumeric Tax Codes with two
+  write-in lines, the withholding agent's TIN and name, which the map fills; the schedule
+  text is the BIR's and is left as printed. The 1601-C's page 2 is Part IV, Schedule I (three
+  rows) with the same two write-in lines, above the BIR's guidelines text; the whole page
+  prints.
+- **Amounts** use the blanks' own peso and centavo boxes (`money` with `cents`): exactly as
+  typed, a third decimal is an error, never rounded. The totals are exact sums to the centavo.
+- **No minus sign.** The blanks have no sign box or bracket box anywhere (Part II, Schedule I,
+  the adjustments). The server refuses a draft with a negative figure, naming the first
+  negative item; the engine itself is unchanged. The 1601-EQ is the exception (C9b): its
+  Items 26 and 31 read "Tax Still Due/(Over-remittance)", so an over-remittance prints as its
+  absolute value in their boxes and the filer's choice ticks one of the three boxes under
+  Item 31; an over-remittance with no choice is refused. Item 26 negative with Item 31
+  positive (penalties larger) prints Item 26's absolute value and Item 31 as tax due, ticked
+  nothing.
+- **Pre-printed values** (WME10 and WE on the 0619-E, WW010 on the 1601-C) are not mapped.
+  The Tax Debit Memo row has no Drawee Bank/Agency box, so `payTaxDebitBank` is not printed.
+- **Signature area.** The blank has a For Individual and a For Non-Individual half; the
+  builder writes the side of the taxpayer's `kind` (the client's, or its filing snapshot's).
+- **Map tool.** `python3 tools/map-withholding.py` writes the three maps from the blanks
+  (`--check` compares content); `tools/withholding-data.ts` holds the invented drafts the
+  ten `fixtures/<form>-*.json` (and their proofs) are made from. Run `prettier --write` on
+  the maps and fixtures afterwards. `test/c9-geometry.test.ts` re-checks every cell boundary
+  against the blank's own drawing without using the tool.
 
 ## Adding a new form version
 

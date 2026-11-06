@@ -101,7 +101,7 @@ export function mmddyyyy(value: unknown): string {
 }
 
 /** "TITLE / TIN 000-000-000-00000"; either half alone prints alone (W3 R6). */
-function titleTinLine(title: unknown, tin: unknown): string {
+export function titleTinLine(title: unknown, tin: unknown): string {
   const t = str(title).trim();
   const n = formatTin(tin);
   return [t, n ? `TIN ${n}` : ""].filter(Boolean).join(" / ");

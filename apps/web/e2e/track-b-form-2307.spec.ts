@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { certificateFileName } from "../src/lib/sheetPdf";
+import { mockAtcCodes } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
 
 const FIXTURE = JSON.parse(
@@ -140,6 +141,7 @@ async function mockApi(page: Page): Promise<string[]> {
   await page.route("**/api/v1/clients/*", (r) => json(r, CLIENT));
   await page.route("**/api/v1/bir-forms/catalog", (r) => json(r, []));
   await page.route("**/api/v1/bir-forms/compute", (r) => json(r, COMPUTED_2307));
+  await mockAtcCodes(page);
 
   return unmocked;
 }

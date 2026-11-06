@@ -96,6 +96,8 @@ export interface FormMap {
   form: string;
   version: string;
   template: string;
+  /** The template's pages, in points (C9). */
+  pages: { width: number; height: number }[];
   fields: MapField[];
 }
 

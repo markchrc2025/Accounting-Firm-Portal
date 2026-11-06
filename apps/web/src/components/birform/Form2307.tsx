@@ -86,6 +86,16 @@ export interface Form2307Props {
   /** Block A totals, from the server's Comp2307. */
   totals: { m1: number; m2: number; m3: number; income: number; tax: number };
 
+  /**
+   * Part III block B — money payments subject to withholding of business tax (C8). Absent
+   * or empty: block B prints blank, as it always has (R3).
+   */
+  rowsB?: Form2307Row[];
+  /** Block B's per-row quarter totals, from the server's Comp2307.blockB. */
+  rowTotalsB?: number[];
+  /** Block B's totals, from the server's Comp2307.blockB. */
+  totalsB?: { m1: number; m2: number; m3: number; income: number; tax: number };
+
   payorSignatory?: Form2307Signatory;
   payeeSignatory?: Form2307Signatory;
 }
@@ -133,11 +143,6 @@ function StackCell({
       <div className="fld">{children}</div>
     </div>
   );
-}
-
-/** An empty Part III cell — block B is blank by design (R3). */
-function EmptyCell({ cls, last }: { cls: string; last?: boolean }) {
-  return <div className={cls + (last ? "" : " br")} />;
 }
 
 /** One of the five lines under a signature. */
@@ -201,6 +206,9 @@ export function Form2307({
   rows,
   rowTotals,
   totals,
+  rowsB = [],
+  rowTotalsB = [],
+  totalsB,
   payorSignatory,
   payeeSignatory,
 }: Form2307Props) {
@@ -211,6 +219,11 @@ export function Form2307({
   const blockA: Form2307Row[] = Array.from(
     { length: BLOCK_ROWS },
     (_, i) => rows[i] ?? {},
+  );
+  const anyAmountB = rowsB.some(rowHasAmount);
+  const blockB: Form2307Row[] = Array.from(
+    { length: BLOCK_ROWS },
+    (_, i) => rowsB[i] ?? {},
   );
 
   return (
@@ -444,7 +457,7 @@ export function Form2307({
         </div>
       </div>
 
-      {/* --- Block B: header, ten data rows, Total. Blank by design (R3). --- */}
+      {/* --- Block B: header, ten data rows, Total. Blank until the editor enters rows (C8). --- */}
       <div className="row b" style={{ borderTop: 0 }}>
         <div className="c-desc br bir-blockb-head">
           Money Payments Subject to Withholding of Business Tax (Government &amp; Private)
@@ -456,30 +469,54 @@ export function Form2307({
         <div className="c-tot br bir-blockb-head" />
         <div className="c-tax bir-blockb-head" />
       </div>
-      {Array.from({ length: BLOCK_ROWS }).map((_, i) => (
+      {blockB.map((r, i) => (
         <div
           className="row b bir-p3row"
           style={{ borderTop: 0 }}
           key={"b" + i}
           data-p3-row="B"
         >
-          <EmptyCell cls="c-desc" />
-          <EmptyCell cls="c-atc" />
-          <EmptyCell cls="c-m1" />
-          <EmptyCell cls="c-m2" />
-          <EmptyCell cls="c-m3" />
-          <EmptyCell cls="c-tot" />
-          <EmptyCell cls="c-tax" last />
+          <div className="c-desc br" style={{ padding: "0 4px" }}>
+            <BirVal value={r.desc} lower blank />
+          </div>
+          <div className="c-atc br" style={{ padding: "0 3px" }}>
+            <BirVal value={rowHasAmount(r) ? r.atc : ""} blank />
+          </div>
+          <div className="c-m1 br">
+            <BirAmtVal cents value={entered(r.m1)} />
+          </div>
+          <div className="c-m2 br">
+            <BirAmtVal cents value={entered(r.m2)} />
+          </div>
+          <div className="c-m3 br">
+            <BirAmtVal cents value={entered(r.m3)} />
+          </div>
+          <div className="c-tot br">
+            <BirAmtVal cents value={rowHasAmount(r) ? rowTotalsB[i] : undefined} />
+          </div>
+          <div className="c-tax">
+            <BirAmtVal cents value={entered(r.tax)} />
+          </div>
         </div>
       ))}
       <div className="row b bir-totalrow" style={{ borderTop: 0 }} data-total-row="B">
         <div className="c-desc br lbl">Total</div>
-        <EmptyCell cls="c-atc" />
-        <EmptyCell cls="c-m1" />
-        <EmptyCell cls="c-m2" />
-        <EmptyCell cls="c-m3" />
-        <EmptyCell cls="c-tot" />
-        <EmptyCell cls="c-tax" last />
+        <div className="c-atc br" />
+        <div className="c-m1 br">
+          <BirAmtVal cents value={anyAmountB ? totalsB?.m1 : undefined} bold />
+        </div>
+        <div className="c-m2 br">
+          <BirAmtVal cents value={anyAmountB ? totalsB?.m2 : undefined} bold />
+        </div>
+        <div className="c-m3 br">
+          <BirAmtVal cents value={anyAmountB ? totalsB?.m3 : undefined} bold />
+        </div>
+        <div className="c-tot br">
+          <BirAmtVal cents value={anyAmountB ? totalsB?.income : undefined} bold />
+        </div>
+        <div className="c-tax">
+          <BirAmtVal cents value={anyAmountB ? totalsB?.tax : undefined} bold />
+        </div>
       </div>
 
       {/* --------------------------------------------- declaration */}
