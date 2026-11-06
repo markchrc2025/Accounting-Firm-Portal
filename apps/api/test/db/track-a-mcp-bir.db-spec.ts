@@ -394,7 +394,13 @@ describe("U20 · the MCP connector drafts BIR forms (real app over HTTP, db)", (
       expect(p.ok).toBe(false);
       expect(p.refusals).toEqual(["7 ATCs; the form has six rows."]);
       expect(p.url).toBeUndefined();
-      expect(p.needs).toEqual(expect.any(Array));
+      // the refusal is also a need, as a question that is the sentence itself
+      expect(p.needs.find((n: Json) => n.question === "7 ATCs; the form has six rows.")).toMatchObject({
+        setWith: null,
+        kind: "text",
+        key: expect.stringMatching(/^refusal\.\d+$/),
+      });
+      expect(j(await call("portal_get_bir_form", { id: d.id })).needs.some((n: Json) => n.question === "7 ATCs; the form has six rows.")).toBe(true);
     });
 
     it("a ready 1601-C previews; a filed return gets the Portal's sentence, never a clear copy", async () => {
