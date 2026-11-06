@@ -33,7 +33,7 @@ export interface Need {
   /** For a choice: the Portal's own values. */
   options?: string[];
   /** The ids a write needs (expenses of a payee). */
-  refs?: { expenseIds?: string[] };
+  refs?: { expenseIds?: string[]; clientIds?: string[] };
 }
 
 /** The client fields the needs read. */

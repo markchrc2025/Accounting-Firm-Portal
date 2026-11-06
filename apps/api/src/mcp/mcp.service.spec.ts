@@ -43,6 +43,7 @@ const ALL_TOOLS = [
   "portal_alphalist_file",
   "portal_bir_form_preview",
   "portal_bir_form_requirements",
+  "portal_bir_forms_due", // U20b
   "portal_create_bir_form_draft",
   "portal_get_bir_form",
   "portal_list_bir_form_types",
@@ -63,6 +64,7 @@ const READ_TOOLS = new Set([
   "portal_alphalist_file",
   "portal_bir_form_preview",
   "portal_bir_form_requirements",
+  "portal_bir_forms_due", // U20b
   "portal_get_bir_form",
   "portal_list_bir_form_types",
   "portal_list_bir_forms",
@@ -265,7 +267,7 @@ function errText(res: unknown): string {
 }
 
 describe("McpService — MCP protocol surface", () => {
-  it("lists all twenty-seven portal tools with correct annotations", async () => {
+  it("lists all twenty-eight portal tools with correct annotations", async () => {
     const client = await connect(prismaStub());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(ALL_TOOLS);
