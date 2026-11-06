@@ -30,11 +30,15 @@ const PERIOD_KIND: Record<string, PeriodKind> = {
 export const BOOKS_FED = new Set(["2551Q", "2550Q", "0619E", "1601EQ"]);
 
 const DUE_RULE: Record<string, string> = {
-  "2551Q": "The 25th of the month after the quarter ends; a Saturday or Sunday moves to Monday.",
-  "2550Q": "The 25th of the month after the (fiscal) quarter ends; a Saturday or Sunday moves to Monday.",
-  "0619E": "The 10th of the next month, for months 1 and 2 of a quarter; a weekend moves to Monday.",
+  "2551Q":
+    "The 25th of the month after the quarter ends; a Saturday or Sunday moves to Monday.",
+  "2550Q":
+    "The 25th of the month after the (fiscal) quarter ends; a Saturday or Sunday moves to Monday.",
+  "0619E":
+    "The 10th of the next month, for months 1 and 2 of a quarter; a weekend moves to Monday.",
   "1601EQ": "The last day of the month after the quarter; a weekend moves to Monday.",
-  "1601C": "The 10th of the next month (December: 15 January); a weekend moves to Monday.",
+  "1601C":
+    "The 10th of the next month (December: 15 January); a weekend moves to Monday.",
 };
 const NO_DUE_RULE = "The Portal does not compute a due date for this form.";
 
@@ -70,19 +74,26 @@ export function periodFrom(
   input: { year: number; quarter?: number | undefined; month?: number | undefined },
 ): { period: string } | { error: string } {
   const kind = periodKindOf(form);
-  if (!kind || !AVAILABLE_FORMS.has(form)) return { error: `Form ${form} is not available yet.` };
+  if (!kind || !AVAILABLE_FORMS.has(form))
+    return { error: `Form ${form} is not available yet.` };
   if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) {
     return { error: "The year must be between 2000 and 2100." };
   }
   let period: string;
   if (kind === "quarter") {
-    if (input.month !== undefined) return { error: `The ${form} is filed for a quarter; give quarter (1 to 4), not month.` };
+    if (input.month !== undefined)
+      return {
+        error: `The ${form} is filed for a quarter; give quarter (1 to 4), not month.`,
+      };
     if (!Number.isInteger(input.quarter) || input.quarter! < 1 || input.quarter! > 4) {
       return { error: `The ${form} is filed for a quarter; give quarter (1 to 4).` };
     }
     period = `${input.year}-Q${input.quarter}`;
   } else if (kind === "month") {
-    if (input.quarter !== undefined) return { error: `The ${form} is filed for a month; give month (1 to 12), not quarter.` };
+    if (input.quarter !== undefined)
+      return {
+        error: `The ${form} is filed for a month; give month (1 to 12), not quarter.`,
+      };
     if (!Number.isInteger(input.month) || input.month! < 1 || input.month! > 12) {
       return { error: `The ${form} is filed for a month; give month (1 to 12).` };
     }
@@ -99,7 +110,11 @@ export function periodFrom(
 }
 
 /** The due date of a return (ISO), or null where the Portal has no rule. */
-export function dueDateOf(form: string, period: string, fiscalYearStart: string | null): string | null {
+export function dueDateOf(
+  form: string,
+  period: string,
+  fiscalYearStart: string | null,
+): string | null {
   if (form === "1601C") {
     const m = /^(\d{4})-(\d{2})$/.exec(period);
     return m ? dueDate1601C(m[1]!, m[2]!) || null : null;
@@ -109,5 +124,8 @@ export function dueDateOf(form: string, period: string, fiscalYearStart: string 
 
 /** Whole days from `todayIso` to `dueIso` (negative once past). */
 export function daysLeft(dueIso: string, todayIso: string): number {
-  return Math.round((Date.parse(`${dueIso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) / 86_400_000);
+  return Math.round(
+    (Date.parse(`${dueIso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) /
+      86_400_000,
+  );
 }

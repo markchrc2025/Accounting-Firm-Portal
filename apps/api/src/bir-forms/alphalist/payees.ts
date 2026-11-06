@@ -129,7 +129,8 @@ export function buildSchedule1(
   const missing: string[] = [];
   const conflicts: string[] = [];
   const payeeNeeds: PayeeNeed[] = [];
-  const idsOf = (recs: BookRecord[]) => recs.map((r) => r.id).filter((x): x is string => !!x);
+  const idsOf = (recs: BookRecord[]) =>
+    recs.map((r) => r.id).filter((x): x is string => !!x);
   const notes: string[] = [];
   const resolved: Array<{
     tin: string;
@@ -177,7 +178,14 @@ export function buildSchedule1(
             : [e.d.last, e.d.first, e.d.middle].filter(Boolean).join(" "),
       }));
       conflicts.push(`${shown} (${describe(items, kinds)})`);
-      payeeNeeds.push({ tin: p.tin, branch: p.branch4, type: "conflict", missing: [], expenseIds: idsOf(p.recs), shown });
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "conflict",
+        missing: [],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
     const d = withDetails.length > 0 ? detailOf(withDetails[0]!) : null;
@@ -190,14 +198,28 @@ export function buildSchedule1(
     if (d?.kind === "non_individual" && vendors.size > 1) {
       const items = [...vendors.entries()].map(([text, n]) => ({ text, n }));
       conflicts.push(`${shown} (${describe(items, new Set())})`);
-      payeeNeeds.push({ tin: p.tin, branch: p.branch4, type: "conflict", missing: [], expenseIds: idsOf(p.recs), shown });
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "conflict",
+        missing: [],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
 
     // --- what is still missing --------------------------------------------------------
     if (!d || (d.kind !== "individual" && d.kind !== "non_individual")) {
       missing.push(`${shown} (choose individual or company)`);
-      payeeNeeds.push({ tin: p.tin, branch: p.branch4, type: "details", missing: ["kind"], expenseIds: idsOf(p.recs), shown });
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "details",
+        missing: ["kind"],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
     if (d.kind === "individual") {
@@ -206,12 +228,26 @@ export function buildSchedule1(
       );
       if (lack.length > 0) {
         missing.push(`${shown} (${lack.join(" and ")} name)`);
-        payeeNeeds.push({ tin: p.tin, branch: p.branch4, type: "details", missing: lack, expenseIds: idsOf(p.recs), shown });
+        payeeNeeds.push({
+          tin: p.tin,
+          branch: p.branch4,
+          type: "details",
+          missing: lack,
+          expenseIds: idsOf(p.recs),
+          shown,
+        });
         continue;
       }
     } else if (vendors.size === 0) {
       missing.push(`${shown} (company name)`);
-      payeeNeeds.push({ tin: p.tin, branch: p.branch4, type: "details", missing: ["company"], expenseIds: idsOf(p.recs), shown });
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "details",
+        missing: ["company"],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
 

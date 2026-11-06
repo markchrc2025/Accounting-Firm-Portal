@@ -15,5 +15,5 @@ export const SERVER_INSTRUCTIONS = [
   "4. After each answer, write it with the tool named in that need's `setWith`, then call portal_get_bir_form again, and repeat until `needs` is empty.",
   "5. When `needs` is empty, give the owner the computed figures with their item numbers and the Preview PDF link (portal_bir_form_preview), and tell him that filing is done in the Portal with the BIR confirmation email.",
   "",
-  "Figures that come from the client's posted records (the books) are not asked for; the Portal fills them. Money is exact: type amounts as text with centavos, for example \"1234.50\".",
+  'Figures that come from the client\'s posted records (the books) are not asked for; the Portal fills them. Money is exact: type amounts as text with centavos, for example "1234.50".',
 ].join("\n");

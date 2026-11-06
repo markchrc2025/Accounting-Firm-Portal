@@ -41,7 +41,6 @@ export interface AlphalistOutcome {
   payeeNeeds?: PayeeNeed[];
 }
 
-
 interface ReturnLike {
   status: string;
   period: string;

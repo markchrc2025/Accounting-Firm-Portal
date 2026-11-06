@@ -102,17 +102,32 @@ const LABELS: Record<string, Record<string, string>> = {
   },
 };
 
-const manilaToday = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const manilaToday = () =>
+  new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const asFacts = (c: Client): ClientFacts => c;
-const fiscalStart = (c: Client) => (c.fiscalYearStart ? c.fiscalYearStart.toISOString().slice(0, 10) : null);
+const fiscalStart = (c: Client) =>
+  c.fiscalYearStart ? c.fiscalYearStart.toISOString().slice(0, 10) : null;
 
 /** The computed figures with their item numbers and labels; what is not an item goes to `other`. */
 function computedItems(form: string, computed: unknown) {
-  const items: Array<{ item: string; key: string; label: string | null; value: unknown }> = [];
+  const items: Array<{
+    item: string;
+    key: string;
+    label: string | null;
+    value: unknown;
+  }> = [];
   const other: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries((computed ?? {}) as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(
+    (computed ?? {}) as Record<string, unknown>,
+  )) {
     const m = /^i(\d+)([a-z]?)$/i.exec(key);
-    if (m) items.push({ item: `${m[1]}${m[2]!.toUpperCase()}`, key, label: LABELS[form]?.[key] ?? null, value });
+    if (m)
+      items.push({
+        item: `${m[1]}${m[2]!.toUpperCase()}`,
+        key,
+        label: LABELS[form]?.[key] ?? null,
+        value,
+      });
     else other[key] = value;
   }
   return { items, other };
@@ -121,14 +136,18 @@ function computedItems(form: string, computed: unknown) {
 /** The data every draft of a form starts with: the period's year (and month or quarter) as the web writes them. */
 function startingData(form: string, period: string): Record<string, unknown> {
   const data: Record<string, unknown> = { year: period.slice(0, 4) };
-  if (form === "1601EQ") data.quarter = ["1st", "2nd", "3rd", "4th"][Number(period.slice(-1)) - 1];
+  if (form === "1601EQ")
+    data.quarter = ["1st", "2nd", "3rd", "4th"][Number(period.slice(-1)) - 1];
   if (form === "0619E" || form === "1601C") data.month = period.slice(5, 7);
   return data;
 }
 
 const periodShape = {
   clientId: z.string().uuid().describe("Client id from portal_list_clients"),
-  formCode: z.string().min(1).describe("BIR form code from portal_list_bir_form_types, e.g. 1601EQ"),
+  formCode: z
+    .string()
+    .min(1)
+    .describe("BIR form code from portal_list_bir_form_types, e.g. 1601EQ"),
   year: z.number().int().describe("The year of the return, e.g. 2026"),
   quarter: z.number().int().optional().describe("1 to 4, for a quarterly form"),
   month: z.number().int().optional().describe("1 to 12, for a monthly form"),
@@ -149,25 +168,44 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       action: `mcp.${tool}`,
       entityType: "BirForm",
       entityId,
-      metadata: { firmId: actor.firmId, actor: "Claude (MCP)", source: "mcp", ...metadata },
+      metadata: {
+        firmId: actor.firmId,
+        actor: "Claude (MCP)",
+        source: "mcp",
+        ...metadata,
+      },
     });
   }
 
   async function loadClient(actor: AuthUser, clientId: string): Promise<Client> {
-    const row = await prisma.client.findFirst({ where: { id: clientId, firmId: actor.firmId } });
+    const row = await prisma.client.findFirst({
+      where: { id: clientId, firmId: actor.firmId },
+    });
     if (!row) {
-      throw new Error(`Client ${clientId} was not found. Call portal_list_clients to look up valid client ids.`);
+      throw new Error(
+        `Client ${clientId} was not found. Call portal_list_clients to look up valid client ids.`,
+      );
     }
     return row;
   }
 
-  const typeOf = (form: string): BirFormType | undefined => birFormTypes().find((t) => t.code === form);
+  const typeOf = (form: string): BirFormType | undefined =>
+    birFormTypes().find((t) => t.code === form);
 
   /** The books' figures for a draft's period, or why there are none. Never throws. */
-  async function booksFor(actor: AuthUser, clientId: string, form: string, period: string) {
-    if (!BOOKS_FED.has(form)) return { figures: null as BookFigures | null, problem: null as string | null };
+  async function booksFor(
+    actor: AuthUser,
+    clientId: string,
+    form: string,
+    period: string,
+  ) {
+    if (!BOOKS_FED.has(form))
+      return { figures: null as BookFigures | null, problem: null as string | null };
     try {
-      return { figures: await bookFigures.figures(actor, { clientId, form, period }), problem: null };
+      return {
+        figures: await bookFigures.figures(actor, { clientId, form, period }),
+        problem: null,
+      };
     } catch (err) {
       return { figures: null, problem: errMsg(err) };
     }
@@ -176,7 +214,13 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
   /** Every question still open for a draft, from the Portal's own sources. */
   async function needsFor(
     actor: AuthUser,
-    f: { id: string | null; form: string; period: string; data: Record<string, unknown>; previewAvailable: boolean },
+    f: {
+      id: string | null;
+      form: string;
+      period: string;
+      data: Record<string, unknown>;
+      previewAvailable: boolean;
+    },
     client: Client,
     books: { figures: BookFigures | null; problem: string | null },
     alphalist: Awaited<ReturnType<AlphalistService["inspect"]>> | null,
@@ -211,8 +255,15 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           const sentence = errMsg(err);
           const covered =
             needs.some((n) => n.question === sentence || n.why === sentence) ||
-            (sentence === PAYOR_NAME_MISSING && needs.some((n) => n.key.startsWith("client.")));
-          if (!covered) needs.push(refusalNeed(sentence, needs.filter((n) => n.key.startsWith("refusal.")).length));
+            (sentence === PAYOR_NAME_MISSING &&
+              needs.some((n) => n.key.startsWith("client.")));
+          if (!covered)
+            needs.push(
+              refusalNeed(
+                sentence,
+                needs.filter((n) => n.key.startsWith("refusal.")).length,
+              ),
+            );
         } else notes.push("The preview could not be tested just now.");
       }
     }
@@ -226,15 +277,35 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
     const form = d.form as string;
     const data = (d.data ?? {}) as Record<string, unknown>;
     const draft = d.status === "draft";
-    const books = draft ? await booksFor(actor, client.id, form, d.period) : { figures: null, problem: null };
+    const books = draft
+      ? await booksFor(actor, client.id, form, d.period)
+      : { figures: null, problem: null };
     const alphalist =
-      draft && form === "1601EQ" ? await birForms.alphalistOutcome(actor, id).catch(() => null) : null;
+      draft && form === "1601EQ"
+        ? await birForms.alphalistOutcome(actor, id).catch(() => null)
+        : null;
     const open = draft
-      ? await needsFor(actor, { id, form, period: d.period, data, previewAvailable: Boolean(d.previewAvailable) }, client, books, alphalist)
+      ? await needsFor(
+          actor,
+          {
+            id,
+            form,
+            period: d.period,
+            data,
+            previewAvailable: Boolean(d.previewAvailable),
+          },
+          client,
+          books,
+          alphalist,
+        )
       : { needs: [] as Need[], warnings: [] as string[], notes: [] as string[] };
     const due = dueDateOf(form, d.period, fiscalStart(client));
     const { items, other } = computedItems(form, d.computed);
-    const confirmation = d.confirmation as { kind: string; birFileName: string | null; receivedAt: string | null } | null;
+    const confirmation = d.confirmation as {
+      kind: string;
+      birFileName: string | null;
+      receivedAt: string | null;
+    } | null;
     return {
       id,
       ...extra,
@@ -274,7 +345,10 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
   }
 
   /** Update the draft's data like the web does, but merged: the supplied keys replace, null clears. */
-  function mergeData(current: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  function mergeData(
+    current: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): Record<string, unknown> {
     const next: Record<string, unknown> = { ...current };
     const touched: string[] = [];
     for (const [k, v] of Object.entries(patch)) {
@@ -282,7 +356,8 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       else next[k] = v;
       touched.push(k);
     }
-    const src = next._source as { mode?: string; fed?: Record<string, unknown>; edited?: string[] } | undefined;
+    const src = next._source as
+      { mode?: string; fed?: Record<string, unknown>; edited?: string[] } | undefined;
     if (src && src.mode === "books" && src.fed && Array.isArray(src.edited)) {
       const edited = new Set(src.edited);
       for (const k of touched) if (k in src.fed) edited.add(k);
@@ -325,21 +400,52 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const p = periodFrom(args.formCode, args);
         if ("error" in p) return fail(p.error);
         const client = await loadClient(actor, args.clientId);
-        const existing = await birForms.findForPeriod(actor, client.id, args.formCode, p.period);
+        const existing = await birForms.findForPeriod(
+          actor,
+          client.id,
+          args.formCode,
+          p.period,
+        );
         const target = existing.draft ?? existing.filed;
         if (target) {
-          const v = await view(actor, target.id, { exists: true, existing: { draft: existing.draft, filed: existing.filed } });
+          const v = await view(actor, target.id, {
+            exists: true,
+            existing: { draft: existing.draft, filed: existing.filed },
+          });
           return ok(v);
         }
         const books = await booksFor(actor, client.id, args.formCode, p.period);
-        const data: Record<string, unknown> = { ...startingData(args.formCode, p.period), ...(books.figures?.figures ?? {}) };
+        const data: Record<string, unknown> = {
+          ...startingData(args.formCode, p.period),
+          ...(books.figures?.figures ?? {}),
+        };
         const alphalist =
           args.formCode === "1601EQ"
             ? await alphalists
-                .inspect({ status: "draft", period: p.period, dataJson: data, filedSnapshotJson: null }, client)
+                .inspect(
+                  {
+                    status: "draft",
+                    period: p.period,
+                    dataJson: data,
+                    filedSnapshotJson: null,
+                  },
+                  client,
+                )
                 .catch(() => null)
             : null;
-        const open = await needsFor(actor, { id: null, form: args.formCode, period: p.period, data, previewAvailable: false }, client, books, alphalist);
+        const open = await needsFor(
+          actor,
+          {
+            id: null,
+            form: args.formCode,
+            period: p.period,
+            data,
+            previewAvailable: false,
+          },
+          client,
+          books,
+          alphalist,
+        );
         let computed: unknown = null;
         if (books.figures) {
           try {
@@ -383,7 +489,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         "Answers what portal_get_bir_form answers. Never files.",
       inputSchema: {
         ...periodShape,
-        data: z.record(z.unknown()).optional().describe("Draft data keys to set, exact amounts as text, e.g. {\"compensation\":\"100000.00\"}"),
+        data: z
+          .record(z.unknown())
+          .optional()
+          .describe(
+            'Draft data keys to set, exact amounts as text, e.g. {"compensation":"100000.00"}',
+          ),
       },
       annotations: WRITE_CREATE,
     },
@@ -393,7 +504,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const p = periodFrom(args.formCode, args);
         if ("error" in p) return fail(p.error);
         const client = await loadClient(actor, args.clientId);
-        const existing = await birForms.findForPeriod(actor, client.id, args.formCode, p.period);
+        const existing = await birForms.findForPeriod(
+          actor,
+          client.id,
+          args.formCode,
+          p.period,
+        );
         if (existing.draft) {
           return ok(await view(actor, existing.draft.id, { existing: true }));
         }
@@ -402,7 +518,11 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const books = await booksFor(actor, client.id, args.formCode, p.period);
         const fed = books.figures?.figures ?? {};
         const given = args.data ?? {};
-        const data: Record<string, unknown> = { ...startingData(args.formCode, p.period), ...fed, ...given };
+        const data: Record<string, unknown> = {
+          ...startingData(args.formCode, p.period),
+          ...fed,
+          ...given,
+        };
         if (books.figures) {
           data._source = {
             mode: "books",
@@ -438,7 +558,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         "stay, and null clears a key. Same validation as the web; a filed return is never changed. Answers what " +
         "portal_get_bir_form answers, with the needs still open.",
       inputSchema: {
-        id: z.string().uuid().describe("BIR form id from portal_create_bir_form_draft or portal_list_bir_forms"),
+        id: z
+          .string()
+          .uuid()
+          .describe(
+            "BIR form id from portal_create_bir_form_draft or portal_list_bir_forms",
+          ),
         data: z.record(z.unknown().nullable()).describe("Keys to set; null clears a key"),
       },
       annotations: WRITE_MUTATE,
@@ -446,9 +571,13 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
     async ({ id, data }) => {
       try {
         const actor = await getActor();
-        const current = (await birForms.getOne(actor, id)) as unknown as { data: Record<string, unknown> };
+        const current = (await birForms.getOne(actor, id)) as unknown as {
+          data: Record<string, unknown>;
+        };
         await birForms.update(actor, id, { data: mergeData(current.data ?? {}, data) });
-        await recordMcpWrite(actor, "portal_update_bir_form_draft", id, { fields: Object.keys(data) });
+        await recordMcpWrite(actor, "portal_update_bir_form_draft", id, {
+          fields: Object.keys(data),
+        });
         return ok(await view(actor, id));
       } catch (err) {
         return fail(errMsg(err));
@@ -495,7 +624,9 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       try {
         const actor = await getActor();
         const client = await loadClient(actor, clientId);
-        const rows = (await birForms.list(actor, client.id, status)) as Array<Record<string, any>>; // eslint-disable-line @typescript-eslint/no-explicit-any -- the list view
+        const rows = (await birForms.list(actor, client.id, status)) as Array<
+          Record<string, any>
+        >; // eslint-disable-line @typescript-eslint/no-explicit-any -- the list view
         const forms = rows
           .filter((r) => (formCode ? r.form === formCode : true))
           .filter((r) => (year ? String(r.period).startsWith(String(year)) : true))
@@ -529,7 +660,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const actor = await getActor();
         try {
           const link = await birForms.previewLink(actor, id);
-          return ok({ ok: true, url: link.url, filename: link.filename, expiresInMinutes: 60 });
+          return ok({
+            ok: true,
+            url: link.url,
+            filename: link.filename,
+            expiresInMinutes: 60,
+          });
         } catch (err) {
           if (!(err instanceof ConflictException)) throw err;
           const v = await view(actor, id);
@@ -537,7 +673,9 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
             ok: false,
             refusals: [errMsg(err)],
             ...(errMsg(err) === PREVIEW_FILED
-              ? { note: "The connector never makes the clear copy; download it in the Portal." }
+              ? {
+                  note: "The connector never makes the clear copy; download it in the Portal.",
+                }
               : {}),
             needs: v.needs,
           });
@@ -584,7 +722,12 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const outcome = await birForms.alphalistOutcome(actor, id);
         if (!outcome.check.ok) return ok({ ok: false, refusals: outcome.check.refusals });
         const link = await birForms.alphalistLink(actor, id);
-        return ok({ ok: true, url: link.url, fileName: link.fileName, expiresInMinutes: 60 });
+        return ok({
+          ok: true,
+          url: link.url,
+          fileName: link.fileName,
+          expiresInMinutes: 60,
+        });
       } catch (err) {
         return fail(errMsg(err));
       }

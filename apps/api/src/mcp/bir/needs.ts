@@ -59,7 +59,10 @@ const updateDraft = (key: string) => `portal_update_bir_form_draft field data.${
 
 /** The forms that print the client's civil status, birthdate and classification (the individual's income-tax returns). */
 const INDIVIDUAL_RETURNS = new Set(["1701", "1701A", "1701Q"]);
-const REGIME: Record<string, "VAT" | "PERCENTAGE"> = { "2550Q": "VAT", "2551Q": "PERCENTAGE" };
+const REGIME: Record<string, "VAT" | "PERCENTAGE"> = {
+  "2550Q": "VAT",
+  "2551Q": "PERCENTAGE",
+};
 
 /** The client's record, as far as a form prints it. */
 export function clientNeeds(form: string, c: ClientFacts): Need[] {
@@ -79,7 +82,8 @@ export function clientNeeds(form: string, c: ClientFacts): Need[] {
     if (blank(c.lastName) || blank(c.firstName)) {
       out.push({
         key: "client.name",
-        question: "What are the client's last name and first name, as registered with the BIR?",
+        question:
+          "What are the client's last name and first name, as registered with the BIR?",
         why: `${printed} the individual taxpayer's registered name.`,
         setWith: `${updateClient("lastName")} and ${updateClient("firstName")}`,
         kind: "text",
@@ -88,7 +92,8 @@ export function clientNeeds(form: string, c: ClientFacts): Need[] {
   } else if (blank(c.regName)) {
     out.push({
       key: "client.regName",
-      question: "What is the client's registered name, exactly as on its BIR Certificate of Registration?",
+      question:
+        "What is the client's registered name, exactly as on its BIR Certificate of Registration?",
       why: `${printed} the registered name.`,
       setWith: updateClient("regName"),
       kind: "text",
@@ -178,7 +183,8 @@ export function typedNeeds(form: string, data: FilingData): Need[] {
     if (empty("compensation")) {
       out.push({
         key: "data.compensation",
-        question: "What is the total amount of compensation paid in this month (Item 14)?",
+        question:
+          "What is the total amount of compensation paid in this month (Item 14)?",
         why: "Item 14 of the 1601-C is typed; the Portal holds no payroll records.",
         setWith: updateDraft("compensation"),
         kind: "number",
@@ -196,19 +202,41 @@ export function typedNeeds(form: string, data: FilingData): Need[] {
   }
   if (form === "2307") {
     const certificate: Array<[string, string, string, NeedKind]> = [
-      ["payeeName", "Who is the payee of this certificate (the supplier's registered name)?", "Part II of the 2307 is the payee's name.", "text"],
-      ["payeeTin", "What is the payee's TIN (9 digits)?", "Part II of the 2307 is the payee's TIN.", "tin"],
-      ["payeeBranch", "What is the payee's branch code (00000 is the head office)?", "The payee's branch code is required on the 2307.", "text"],
-      ["payeeAddress", "What is the payee's registered address?", "Part II of the 2307 is the payee's address.", "text"],
+      [
+        "payeeName",
+        "Who is the payee of this certificate (the supplier's registered name)?",
+        "Part II of the 2307 is the payee's name.",
+        "text",
+      ],
+      [
+        "payeeTin",
+        "What is the payee's TIN (9 digits)?",
+        "Part II of the 2307 is the payee's TIN.",
+        "tin",
+      ],
+      [
+        "payeeBranch",
+        "What is the payee's branch code (00000 is the head office)?",
+        "The payee's branch code is required on the 2307.",
+        "text",
+      ],
+      [
+        "payeeAddress",
+        "What is the payee's registered address?",
+        "Part II of the 2307 is the payee's address.",
+        "text",
+      ],
     ];
     for (const [k, question, why, kind] of certificate) {
-      if (empty(k)) out.push({ key: `data.${k}`, question, why, setWith: updateDraft(k), kind });
+      if (empty(k))
+        out.push({ key: `data.${k}`, question, why, setWith: updateDraft(k), kind });
     }
     const rows = Array.isArray(d.rows) ? d.rows : [];
     if (rows.length === 0) {
       out.push({
         key: "data.rows",
-        question: "What income payments were made to the payee this quarter, and how much tax was withheld on each?",
+        question:
+          "What income payments were made to the payee this quarter, and how much tax was withheld on each?",
         why: "Part III of the 2307 lists the income payments and the tax withheld.",
         setWith: updateDraft("rows"),
         kind: "text",
@@ -270,7 +298,8 @@ export function refusalNeed(sentence: string, index: number): Need {
 /** The 1601-EQ's alphalist: one need per payee whose details are missing or disagree. */
 export function alphalistNeeds(payees: PayeeNeed[], refusals: string[]): Need[] {
   const out: Need[] = [];
-  const expenses = (p: PayeeNeed) => `portal_update_expense on the payee's expenses (${p.expenseIds.slice(0, 5).join(", ")}${p.expenseIds.length > 5 ? ", …" : ""})`;
+  const expenses = (p: PayeeNeed) =>
+    `portal_update_expense on the payee's expenses (${p.expenseIds.slice(0, 5).join(", ")}${p.expenseIds.length > 5 ? ", …" : ""})`;
   for (const p of payees) {
     const refs = { expenseIds: p.expenseIds };
     if (p.type === "conflict") {
