@@ -215,6 +215,9 @@ async function connect(prisma: ReturnType<typeof prismaStub>, services = service
     {} as unknown as IncomeTransactionsService,
     {} as unknown as PurchaseTransactionsService,
     services.invoices as unknown as InvoicesService,
+    {} as never,
+    {} as never,
+    {} as never,
   );
   const server = service.buildServer();
   const client = new Client({ name: "u4-actor-test", version: "1.0.0" });

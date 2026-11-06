@@ -18,6 +18,8 @@ type Dec = Prisma.Decimal;
 
 /** One posted expense that counts (an expanded-withholding ATC and an amount withheld). */
 export interface BookRecord {
+  /** The expense's id (U20: so a need can name the expenses to correct). */
+  id?: string;
   /** vendorTin as recorded (any punctuation), or null. */
   tin: string | null;
   /** vendorBranch as typed, or null. */
@@ -35,10 +37,25 @@ export interface BookRecord {
   at: Date;
 }
 
+/** A payee whose details are incomplete or disagree, structured for U20's questions. */
+export interface PayeeNeed {
+  /** 9 digits. */
+  tin: string;
+  branch: string;
+  type: "details" | "conflict";
+  /** For "details": what is missing — "kind", "last", "first", "company". */
+  missing: string[];
+  /** The expenses to correct. */
+  expenseIds: string[];
+  /** The payee as the refusal sentence names it, e.g. "123-456-789". */
+  shown: string;
+}
+
 export interface Schedule1Build {
   rows: Schedule1Row[];
   refusals: string[];
   notes: string[];
+  payeeNeeds: PayeeNeed[];
 }
 
 const ZERO = new Prisma.Decimal(0);
@@ -111,6 +128,9 @@ export function buildSchedule1(
 
   const missing: string[] = [];
   const conflicts: string[] = [];
+  const payeeNeeds: PayeeNeed[] = [];
+  const idsOf = (recs: BookRecord[]) =>
+    recs.map((r) => r.id).filter((x): x is string => !!x);
   const notes: string[] = [];
   const resolved: Array<{
     tin: string;
@@ -158,6 +178,14 @@ export function buildSchedule1(
             : [e.d.last, e.d.first, e.d.middle].filter(Boolean).join(" "),
       }));
       conflicts.push(`${shown} (${describe(items, kinds)})`);
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "conflict",
+        missing: [],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
     const d = withDetails.length > 0 ? detailOf(withDetails[0]!) : null;
@@ -170,12 +198,28 @@ export function buildSchedule1(
     if (d?.kind === "non_individual" && vendors.size > 1) {
       const items = [...vendors.entries()].map(([text, n]) => ({ text, n }));
       conflicts.push(`${shown} (${describe(items, new Set())})`);
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "conflict",
+        missing: [],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
 
     // --- what is still missing --------------------------------------------------------
     if (!d || (d.kind !== "individual" && d.kind !== "non_individual")) {
       missing.push(`${shown} (choose individual or company)`);
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "details",
+        missing: ["kind"],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
     if (d.kind === "individual") {
@@ -184,10 +228,26 @@ export function buildSchedule1(
       );
       if (lack.length > 0) {
         missing.push(`${shown} (${lack.join(" and ")} name)`);
+        payeeNeeds.push({
+          tin: p.tin,
+          branch: p.branch4,
+          type: "details",
+          missing: lack,
+          expenseIds: idsOf(p.recs),
+          shown,
+        });
         continue;
       }
     } else if (vendors.size === 0) {
       missing.push(`${shown} (company name)`);
+      payeeNeeds.push({
+        tin: p.tin,
+        branch: p.branch4,
+        type: "details",
+        missing: ["company"],
+        expenseIds: idsOf(p.recs),
+        shown,
+      });
       continue;
     }
 
@@ -279,5 +339,5 @@ export function buildSchedule1(
   );
   rows.forEach((r, i) => (r.seq = i + 1));
   refusals.push(...checkRows(rows, [], knownAtc));
-  return { rows: refusals.length > 0 ? [] : rows, refusals, notes };
+  return { rows: refusals.length > 0 ? [] : rows, refusals, notes, payeeNeeds };
 }

@@ -38,7 +38,18 @@ const ALL_TOOLS = [
   "portal_update_invoice",
   "portal_update_invoice_status",
   "portal_whoami", // M1 R4
-];
+  // U20 (D60): the BIR-form tools
+  "portal_alphalist_check",
+  "portal_alphalist_file",
+  "portal_bir_form_preview",
+  "portal_bir_form_requirements",
+  "portal_create_bir_form_draft",
+  "portal_get_bir_form",
+  "portal_list_bir_form_types",
+  "portal_list_bir_forms",
+  "portal_update_bir_form_draft",
+  "portal_update_expense",
+].sort();
 const READ_TOOLS = new Set([
   "portal_financial_summary",
   "portal_get_client",
@@ -48,6 +59,13 @@ const READ_TOOLS = new Set([
   "portal_list_invoices",
   "portal_list_transaction_categories",
   "portal_whoami", // M1 R4: read-only
+  "portal_alphalist_check",
+  "portal_alphalist_file",
+  "portal_bir_form_preview",
+  "portal_bir_form_requirements",
+  "portal_get_bir_form",
+  "portal_list_bir_form_types",
+  "portal_list_bir_forms",
 ]);
 
 /** The firm-scoped client row the write tools look up. */
@@ -230,6 +248,9 @@ async function connect(
     services.income as unknown as IncomeTransactionsService,
     services.purchases as unknown as PurchaseTransactionsService,
     services.invoices as unknown as InvoicesService,
+    {} as never,
+    {} as never,
+    {} as never,
   );
   const server = service.buildServer();
   const client = new Client({ name: "test-client", version: "1.0.0" });
@@ -244,7 +265,7 @@ function errText(res: unknown): string {
 }
 
 describe("McpService — MCP protocol surface", () => {
-  it("lists all seventeen portal tools with correct annotations", async () => {
+  it("lists all twenty-seven portal tools with correct annotations", async () => {
     const client = await connect(prismaStub());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(ALL_TOOLS);

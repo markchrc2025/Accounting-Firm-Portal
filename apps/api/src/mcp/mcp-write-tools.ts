@@ -115,6 +115,9 @@ const clientProfileFields = {
   zip: z.string().max(10).optional().describe('ZIP code, e.g. "1800"'),
   birthdate: isoDate.optional().describe("Birthdate (individuals), e.g. 1985-04-12"),
   incorpDate: isoDate.optional().describe("Incorporation date (companies), e.g. 2019-06-01"),
+  fiscalYearStart: isoDate
+    .optional()
+    .describe("First day of the client's fiscal year, e.g. 2025-07-01 for a June year-end. Omit for a calendar-year client."),
   email: z.string().email().optional().describe("Contact email"),
   phone: z.string().max(40).optional().describe("Contact phone"),
   citizenship: z.string().max(80).optional().describe('Citizenship, e.g. "Filipino"'),
@@ -223,6 +226,56 @@ const INVOICE_TRANSITIONS: Record<string, string[]> = {
 // Registration
 // ---------------------------------------------------------------------------
 
+/**
+ * U19/U20: what the 1601-EQ alphalist needs of the payee, on an expense. The expense is
+ * posted at once (no step before the BIR compute uses it); an expense of a company needs
+ * only the kind, the registered name being the counterparty.
+ */
+const payeeFields = {
+  vendorTin: z.string().max(20).optional().describe('The payee\'s TIN, 9 digits, separators allowed, e.g. "123-456-789"'),
+  vendorBranch: z
+    .string()
+    .regex(/^\d{1,5}$/, "1 to 5 digits")
+    .optional()
+    .describe('The payee\'s branch code, digits as typed, e.g. "0" or "00001"'),
+  payeeKind: z
+    .enum(["individual", "non_individual"])
+    .optional()
+    .describe("Whether the payee is an individual or a company (non_individual); the alphalist needs it"),
+  payeeLastName: z.string().max(120).optional().describe("Individual payee's last name"),
+  payeeFirstName: z.string().max(120).optional().describe("Individual payee's first name"),
+  payeeMiddleName: z.string().max(120).optional().describe("Individual payee's middle name (optional)"),
+};
+
+type PayeeArgs = {
+  vendorTin?: string;
+  vendorBranch?: string;
+  payeeKind?: "individual" | "non_individual";
+  payeeLastName?: string;
+  payeeFirstName?: string;
+  payeeMiddleName?: string;
+};
+
+/** The payee fields of a tool call, as the shared expense schema takes them. */
+function payeeBody(a: PayeeArgs): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (a.vendorTin !== undefined) out.vendorTin = a.vendorTin.trim();
+  if (a.vendorBranch !== undefined) out.vendorBranch = a.vendorBranch;
+  if (a.payeeKind !== undefined) out.payeeKind = a.payeeKind;
+  if (a.payeeLastName !== undefined) out.payeeLastName = a.payeeLastName;
+  if (a.payeeFirstName !== undefined) out.payeeFirstName = a.payeeFirstName;
+  if (a.payeeMiddleName !== undefined) out.payeeMiddleName = a.payeeMiddleName;
+  return out;
+}
+
+/** A payee TIN that is not 9 digits is refused here, in words, before it is kept. */
+function payeeProblem(a: PayeeArgs): string | null {
+  if (a.vendorTin !== undefined && normalizeTin(a.vendorTin) === null) {
+    return `vendorTin ${a.vendorTin} is not a 9-digit TIN, e.g. 123-456-789.`;
+  }
+  return null;
+}
+
 export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void {
   const { prisma, audit, clients, income, purchases, invoices, getActor, getFirmId } = deps;
 
@@ -238,7 +291,7 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
       action: `mcp.${tool}`,
       entityType,
       entityId,
-      metadata: { firmId, actor: "Claude (MCP)", ...metadata },
+      metadata: { firmId, actor: "Claude (MCP)", source: "mcp", ...metadata },
     });
   }
 
@@ -556,6 +609,12 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
     vatAmount?: number;
     atc?: string;
     whtAmount?: number;
+    vendorTin?: string;
+    vendorBranch?: string;
+    payeeKind?: "individual" | "non_individual";
+    payeeLastName?: string;
+    payeeFirstName?: string;
+    payeeMiddleName?: string;
   }
 
   async function handleRecord(kind: "income" | "expense", args: RecordArgs) {
@@ -611,12 +670,15 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
           );
         }
         const vat = args.vatAmount ? round2(args.vatAmount) : undefined;
+        const payeeErr = payeeProblem(args);
+        if (payeeErr) return fail(payeeErr);
         dto = (await purchases.create(actor, client.id, {
           ...base,
           ...(args.counterparty ? { vendor: args.counterparty } : {}),
           // Withholding can coexist with VAT and applies regardless of regime.
           ...(args.atc ? { atc: args.atc.toUpperCase() } : {}),
           ...(args.whtAmount ? { whtAmount: round2(args.whtAmount) } : {}),
+          ...payeeBody(args),
           // The web app's rule (W8 R4, TransactionEntryModal.tsx): a VAT client's
           // purchase with input VAT is a domestic purchase; one with none is
           // DOMESTIC_NO_INPUT_TAX (2550Q item 48), as the importer books it
@@ -699,10 +761,88 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
           .nonnegative()
           .optional()
           .describe("Creditable withholding tax withheld from the supplier in PHP, e.g. 250.00"),
+        ...payeeFields,
       },
       annotations: WRITE_CREATE,
     },
     (args) => handleRecord("expense", args),
+  );
+
+  server.registerTool(
+    "portal_update_expense",
+    {
+      title: "Update an expense",
+      description:
+        "Change one recorded expense — only the supplied fields change. Use it to add the payee's " +
+        "TIN, branch, kind (individual or company) and names that a BIR alphalist needs (portal_bir_form_requirements " +
+        "names the expense ids). The expense stays posted. Verify the id with portal_list_expense_transactions.",
+      inputSchema: {
+        id: z.string().uuid().describe("Expense id from portal_list_expense_transactions or a need's refs"),
+        txnDate: isoDate.optional(),
+        amount: z.number().positive().optional().describe("Amount in PHP, NET of VAT"),
+        category: z.string().min(1).max(CATEGORY_MAX).optional(),
+        description: z.string().max(TEXT_MAX).optional(),
+        counterparty: z.string().max(200).optional().describe("Vendor / payee name (a company's registered name)"),
+        reference: z.string().max(100).optional(),
+        vatAmount: z.number().nonnegative().optional().describe("Input VAT in PHP (VAT-registered clients only)"),
+        atc: z.string().max(10).optional(),
+        whtAmount: z.number().nonnegative().optional(),
+        ...payeeFields,
+      },
+      annotations: WRITE_MUTATE,
+    },
+    async (args) => {
+      try {
+        const actor = await getActor();
+        const row = await prisma.purchaseTransaction.findFirst({
+          where: { id: args.id, client: { firmId: actor.firmId } },
+          select: { id: true, clientId: true, client: { select: { taxType: true, businessName: true } } },
+        });
+        if (!row) {
+          return fail(
+            `No expense ${args.id} was found. Check the id with portal_list_expense_transactions.`,
+          );
+        }
+        const { id: _id, amount, category, counterparty, reference, vatAmount, atc, txnDate, description, whtAmount, ...payee } = args;
+        const problem = payeeProblem(payee);
+        if (problem) return fail(problem);
+        if (txnDate !== undefined && !isRealDate(txnDate)) {
+          return fail(`txnDate ${txnDate} is not a real calendar date.`);
+        }
+        if (vatAmount !== undefined && row.client.taxType !== "VAT") {
+          return fail(
+            `${row.client.businessName} is not VAT-registered (regime: ${row.client.taxType ?? "none"}) — omit vatAmount.`,
+          );
+        }
+        const body: Record<string, unknown> = {
+          ...(txnDate !== undefined ? { txnDate } : {}),
+          ...(amount !== undefined ? { netAmount: round2(amount) } : {}),
+          ...(category !== undefined ? { account: category.trim() } : {}),
+          ...(description !== undefined ? { description } : {}),
+          ...(counterparty !== undefined ? { vendor: counterparty } : {}),
+          ...(reference !== undefined ? { referenceNo: reference } : {}),
+          ...(atc !== undefined ? { atc: atc.toUpperCase() } : {}),
+          ...(whtAmount !== undefined ? { whtAmount: round2(whtAmount) } : {}),
+          ...(vatAmount !== undefined
+            ? vatAmount > 0
+              ? { inputVATCategory: "DOMESTIC_PURCHASES", inputVAT: round2(vatAmount), taxAmount: round2(vatAmount) }
+              : { inputVATCategory: "DOMESTIC_NO_INPUT_TAX", inputVAT: 0, taxAmount: 0 }
+            : {}),
+          ...payeeBody(payee),
+        };
+        if (Object.keys(body).length === 0) {
+          return fail("Empty update — supply at least one field to change.");
+        }
+        const dto = (await purchases.update(actor, row.clientId, row.id, body)) as unknown as Record<string, unknown>;
+        await recordMcpWrite(actor.firmId, "portal_update_expense", "PurchaseTransaction", row.id, {
+          clientId: row.clientId,
+          fields: Object.keys(body),
+        });
+        return ok({ id: row.id, transaction: dto });
+      } catch (err) {
+        return fail(errMsg(err));
+      }
+    },
   );
 
   server.registerTool(

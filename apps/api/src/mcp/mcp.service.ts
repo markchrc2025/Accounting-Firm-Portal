@@ -29,6 +29,11 @@ import { PurchaseTransactionsService } from "../purchase-transactions/purchase-t
 import { SUPER_ADMIN_ROLE } from "../rbac/permissions.constants";
 import { fail, isoDate, ok, READ_ONLY } from "./mcp-common";
 import { mcpEnabled } from "./mcp-secret";
+import { AlphalistService } from "../bir-forms/alphalist/alphalist.service";
+import { BirFormsService } from "../bir-forms/bir-forms.service";
+import { BookFiguresService } from "../bir-forms/book-figures/book-figures.service";
+import { SERVER_INSTRUCTIONS } from "./bir/instructions";
+import { registerBirTools } from "./bir/mcp-bir-tools";
 import { registerWriteTools } from "./mcp-write-tools";
 
 /** A person, as the connector card and portal_whoami name them. */
@@ -105,6 +110,9 @@ export class McpService {
     private readonly income: IncomeTransactionsService,
     private readonly purchases: PurchaseTransactionsService,
     private readonly invoices: InvoicesService,
+    private readonly birForms: BirFormsService,
+    private readonly bookFigures: BookFiguresService,
+    private readonly alphalists: AlphalistService,
   ) {}
 
   /** The single firm this deployment serves (same model as the BIR caller). */
@@ -330,7 +338,11 @@ export class McpService {
 
   /** Build a fresh, fully-registered server instance for one request. */
   buildServer(): McpServer {
-    const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+    const server = new McpServer(
+      { name: SERVER_NAME, version: SERVER_VERSION },
+      // U20 (D60): how Claude drafts BIR forms through this connector.
+      { instructions: SERVER_INSTRUCTIONS },
+    );
 
     server.registerTool(
       "portal_whoami",
@@ -718,6 +730,17 @@ export class McpService {
       invoices: this.invoices,
       getActor: () => this.getActor(),
       getFirmId: () => this.firmId(),
+    });
+
+    // U20 (D60): the BIR-form tools. They draft; filing stays in the Portal.
+    registerBirTools(server, {
+      prisma: this.prisma,
+      audit: this.audit,
+      clients: this.clients,
+      birForms: this.birForms,
+      bookFigures: this.bookFigures,
+      alphalists: this.alphalists,
+      getActor: () => this.getActor(),
     });
 
     return server;

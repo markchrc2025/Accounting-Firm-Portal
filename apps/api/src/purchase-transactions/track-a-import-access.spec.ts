@@ -245,6 +245,9 @@ describe("T2: list query validation (R2)", () => {
       {} as IncomeTransactionsService,
       {} as PurchaseTransactionsService,
       {} as InvoicesService,
+      {} as never,
+      {} as never,
+      {} as never,
     );
     const server = service.buildServer();
     const client = new Client({ name: "test-client", version: "1.0.0" });

@@ -10,6 +10,6 @@ import { BookFiguresService } from "./book-figures/book-figures.service";
   imports: [ClientsModule, ConfirmationModule], // ClientsService.assertInFirm; U18 confirmations
   controllers: [BirFormsController],
   providers: [BirFormsService, BookFiguresService, AlphalistService],
-  exports: [BirFormsService], // U10: the tax estimate lists the filed forms
+  exports: [BirFormsService, BookFiguresService, AlphalistService], // U10: the tax estimate lists the filed forms; U20: the connector reads the books' figures
 })
 export class BirFormsModule {}
