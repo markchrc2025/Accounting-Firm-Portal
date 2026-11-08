@@ -67,6 +67,7 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
   ): Promise<string> {
     const c = await db.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${TAG} ${key} TRADING CORP`,
         regName: `${TAG} ${key} TRADING CORP`,

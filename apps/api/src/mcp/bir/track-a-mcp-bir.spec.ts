@@ -23,6 +23,7 @@ const FULL: ClientFacts = {
   firstName: null,
   address: "1 Invented St",
   zip: "1800",
+  phone: "09171234567",
   taxType: "VAT",
   civilStatus: null,
   classification: null,

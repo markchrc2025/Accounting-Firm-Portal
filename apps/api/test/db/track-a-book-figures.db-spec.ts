@@ -77,6 +77,7 @@ describe("U15 · the Portal's books fill the 2551Q and the 2550Q (real app over 
   ) {
     const c = await writer.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${TAG} ${key}`,
         tin: `000000${String(Object.keys(ids).length + 801).padStart(3, "0")}`,
@@ -592,7 +593,12 @@ describe("U15 · the Portal's books fill the 2551Q and the 2550Q (real app over 
     it("another firm's client is 404", async () => {
       const other = await writer.firm.create({ data: { name: `${TAG} Other Firm` } });
       const foreign = await writer.client.create({
-        data: { firmId: other.id, businessName: `${TAG} foreign`, taxType: "VAT" },
+        data: {
+          phone: "09170000000",
+          firmId: other.id,
+          businessName: `${TAG} foreign`,
+          taxType: "VAT",
+        },
       });
       const res = await figures(foreign.id, "2550Q", "2026-Q3");
       expect(res.status).toBe(404);

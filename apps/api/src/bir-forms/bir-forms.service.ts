@@ -90,6 +90,12 @@ import {
   withholdingPrintBaseName,
   type WithholdingPrintForm,
 } from "./engine/withholding-print";
+import {
+  CONTACT_FORMS,
+  contactNumberOf,
+  contactRefusal,
+  printRowsWithContact,
+} from "./engine/contact-number";
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
 /** Forms whose engine has been ported and are usable end-to-end. */
@@ -518,12 +524,14 @@ export class BirFormsService {
 
     // The draft → filed write carries filedAt and the taxpayer snapshot together (D12).
     const filedAt = input.status === "filed" ? new Date() : null;
-    const snapshot = filedAt
-      ? takeFiledSnapshot(
-          await this.clients.assertInFirm(user.firmId, f.clientId),
-          filedAt,
-        )
+    const filingClient = filedAt
+      ? await this.clients.assertInFirm(user.firmId, f.clientId)
       : null;
+    // U21: the 1601-C is marked filed here; like the other returns it needs a contact number.
+    if (filingClient)
+      this.assertContact(f.form, input.data ?? f.dataJson, filingClient.phone);
+    const snapshot =
+      filedAt && filingClient ? takeFiledSnapshot(filingClient, filedAt) : null;
     try {
       await this.prisma.birForm.update({
         where: { id },
@@ -768,7 +776,7 @@ export class BirFormsService {
     if (f.form !== "2307") {
       const { xml, filename, snapshotAudit } = await this.buildExport(user, f, opts);
       return {
-        rows: parseEbirExport(xml),
+        rows: printRowsWithContact(f.form, parseEbirExport(xml)),
         baseName: filename.replace(/\.xml$/i, ""),
         snapshotAudit,
       };
@@ -821,6 +829,7 @@ export class BirFormsService {
       throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
     }
     const tp = clientToTaxpayer(snapshot ? snapshotToClient(snapshot) : client);
+    if (!snapshot) this.assertContact(f.form, f.dataJson, tp.phone); // U21
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
@@ -875,6 +884,9 @@ export class BirFormsService {
       throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
     }
     const taxpayer = clientToTaxpayer(snapshot ? snapshotToClient(snapshot) : client);
+    // U21: a return does not leave the Portal without a contact number. A filed return's
+    // sealed snapshot is never refused (it answers what it was filed with).
+    if (!snapshot) this.assertContact(f.form, f.dataJson, taxpayer.phone);
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
@@ -1038,6 +1050,9 @@ export class BirFormsService {
     const six = sixRowsRefusal(f.form, f.dataJson);
     if (six) throw new ConflictException(six);
     const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+    // U21: the contact number is checked before the confirmation is (the snapshot below is
+    // taken from this client, and a return without one cannot be submitted).
+    this.assertContact(f.form, f.dataJson, client.phone);
     const basis = await this.confirmationBasis(user, f, client, input);
     const filedAt = basis.kind === "bir_email" ? basis.receivedAt : new Date();
     const snapshot = takeFiledSnapshot(client, filedAt);
@@ -1258,6 +1273,20 @@ export class BirFormsService {
   // --- internals -------------------------------------------------------------
 
   /** U17 R2: the withholding returns take a calendar month or quarter, and only theirs. */
+  /** U21: refuse a return with no contact number (or one the paper cannot carry), in words. */
+  private assertContact(
+    form: string,
+    data: unknown,
+    clientPhone: string | null | undefined,
+  ): void {
+    if (!CONTACT_FORMS.has(form)) return;
+    const sentence = contactRefusal(
+      form,
+      contactNumberOf(form, data as Record<string, unknown> | null, clientPhone),
+    );
+    if (sentence) throw new ConflictException(sentence);
+  }
+
   private assertWithholdingPeriod(form: string, period: string): void {
     const refusal = checkWithholdingPeriod(form, period);
     if (refusal) throw new BadRequestException(refusal);

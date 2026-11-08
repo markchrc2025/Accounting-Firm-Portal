@@ -118,6 +118,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
     clientId = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Halimbawa Sari-Sari`,
           kind: "individual",
@@ -305,6 +306,7 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
       return (
         await writer.client.create({
           data: {
+            phone: "09170000000",
             firmId,
             businessName: `${TAG} ${randomUUID().slice(0, 6)} Invented Client`,
             tin: "000555999",
@@ -550,7 +552,12 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
 
     it("a firm user not assigned to the client gets 403 (D42), for the copy and its download", async () => {
       const other = await writer.client.create({
-        data: { firmId, businessName: `${TAG} Other Invented Co`, tin: "000444333" },
+        data: {
+          phone: "09170000000",
+          firmId,
+          businessName: `${TAG} Other Invented Co`,
+          tin: "000444333",
+        },
       });
       const manager = await writer.user.create({
         data: {

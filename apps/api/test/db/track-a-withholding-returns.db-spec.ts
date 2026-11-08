@@ -68,6 +68,7 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
   ) {
     const c = await writer.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${TAG} ${key} TRADING CORP`,
         regName: `${TAG} ${key} TRADING CORP`, // the BIR registered name the withholding agent files under
@@ -1131,7 +1132,12 @@ describe("U17 · the expanded-withholding returns (real app over HTTP, db)", () 
     it("another firm's client is 404; an unassigned firm user is 403; a client principal is 403", async () => {
       const other = await writer.firm.create({ data: { name: `${TAG} Other Firm` } });
       const foreign = await writer.client.create({
-        data: { firmId: other.id, businessName: `${TAG} foreign`, taxType: "VAT" },
+        data: {
+          phone: "09170000000",
+          firmId: other.id,
+          businessName: `${TAG} foreign`,
+          taxType: "VAT",
+        },
       });
       for (const [form, period] of [
         ["0619E", "2026-08"],

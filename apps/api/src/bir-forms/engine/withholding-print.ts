@@ -146,7 +146,8 @@ function common(w: W, d: FilingData, tp: Taxpayer): void {
   w.put("name", fullName(tp));
   w.put("address", [tp.address, tp.city].filter(Boolean).join(", "));
   w.put("zip", tp.zip);
-  w.put("contact", d.contact);
+  // U21: the number typed in the draft, else the client's own.
+  w.put("contact", str(d.contact) || tp.phone);
   w.put("email", d.email);
   const cat = str(d.category).toLowerCase();
   if (cat === "private") w.put("catPrivate", "true");

@@ -119,7 +119,9 @@ const clientProfileFields = {
     .optional()
     .describe("First day of the client's fiscal year, e.g. 2025-07-01 for a June year-end. Omit for a calendar-year client."),
   email: z.string().email().optional().describe("Contact email"),
-  phone: z.string().max(40).optional().describe("Contact phone"),
+  phone: z.string().max(40).optional().describe(
+    "Contact number (landline or mobile; 12 digits at most). A BIR return is not exported, previewed or marked filed without one.",
+  ),
   citizenship: z.string().max(80).optional().describe('Citizenship, e.g. "Filipino"'),
   civilStatus: z.string().max(40).optional().describe('Civil status, e.g. "Single"'),
   taxpayerType: z.string().max(120).optional().describe("Taxpayer type label from the COR"),

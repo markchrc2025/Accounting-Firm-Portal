@@ -67,6 +67,7 @@ describe("U20b · draft BIR forms from a client name (real app over HTTP, db)", 
   async function client(key: string, tin: string, extra: Record<string, unknown> = {}) {
     const row = await db.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${key}`,
         regName: key,

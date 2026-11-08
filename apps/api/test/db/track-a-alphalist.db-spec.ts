@@ -44,6 +44,7 @@ describe("U19 · the 1601-EQ alphalist (real app over HTTP, db)", () => {
   async function client(key: string, tin: string, extra: Record<string, unknown> = {}) {
     const c = await db.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${TAG} ${key}`,
         regName: "SAMPLE AGENT CORP",

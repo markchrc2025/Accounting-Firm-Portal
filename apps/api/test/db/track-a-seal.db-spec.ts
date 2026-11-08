@@ -63,6 +63,7 @@ describe("U3 · the seal at the database (bir_forms)", () => {
     const firm = await writer.firm.create({ data: { name: `${TAG} firm` } });
     const client = await writer.client.create({
       data: {
+        phone: "09170000000",
         firmId: firm.id,
         businessName: `${TAG} Trading Co`,
         tin: "000111222",
@@ -515,6 +516,7 @@ describe("U3 · the service against the real database (far end)", () => {
     actor = { id: user.id, firmId: firm.id, userType: "FIRM", email: user.email };
     const client = await writer.client.create({
       data: {
+        phone: "09170000000",
         firmId: firm.id,
         businessName: `${TAG} Trading Co`,
         regName: "HALIMBAWA TRADING CORP",

@@ -447,6 +447,7 @@ describe("C2 T1 · the five other returns on the BIR's form: Preview PDF and cle
     clients.individual = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Halimbawa Tindahan`,
           kind: "individual",
@@ -468,6 +469,7 @@ describe("C2 T1 · the five other returns on the BIR's form: Preview PDF and cle
     clients.company = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: "HALIMBAWA TRADING CORP",
           regName: "HALIMBAWA TRADING CORP",
@@ -535,7 +537,12 @@ describe("C2 T1 · the five other returns on the BIR's form: Preview PDF and cle
       clientId: clients.individual,
     });
     const other = await writer.client.create({
-      data: { firmId, businessName: `${TAG} Other Invented Co`, tin: "000444222" },
+      data: {
+        phone: "09170000000",
+        firmId,
+        businessName: `${TAG} Other Invented Co`,
+        tin: "000444222",
+      },
     });
     const manager = await writer.user.create({
       data: {

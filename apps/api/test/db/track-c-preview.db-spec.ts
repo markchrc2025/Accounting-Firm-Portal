@@ -116,6 +116,7 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
     clientId = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Halimbawa Tindahan`,
           kind: "individual",
@@ -327,7 +328,7 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
     expect((await preview(draftId, portalToken)).status).toBe(403);
 
     const other = await writer.client.create({
-      data: { firmId, businessName: `${TAG} Other Invented Co`, tin: "000444222" },
+      data: { phone: "09170000000", firmId, businessName: `${TAG} Other Invented Co`, tin: "000444222" },
     });
     const manager = await writer.user.create({
       data: {
