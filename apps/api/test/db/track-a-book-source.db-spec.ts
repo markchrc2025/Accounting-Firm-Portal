@@ -162,6 +162,7 @@ describe("U15 R5 · _source rides with a draft and changes nothing it prints (re
     clientId = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Halimbawa Tindahan`,
           kind: "individual",

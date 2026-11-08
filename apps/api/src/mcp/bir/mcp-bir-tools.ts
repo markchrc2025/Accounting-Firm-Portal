@@ -407,7 +407,7 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
     const warnings: string[] = [...(books.figures?.warnings ?? [])];
     if (books.problem) notes.push(books.problem);
     const needs: Need[] = [
-      ...clientNeeds(f.form, asFacts(client)),
+      ...clientNeeds(f.form, asFacts(client), f.data),
       ...typedNeeds(f.form, f.data as unknown as FilingData),
       ...choiceNeeds(f.form, f.data as unknown as FilingData, f.period),
     ];

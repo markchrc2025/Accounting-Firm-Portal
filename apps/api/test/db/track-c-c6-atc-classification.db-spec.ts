@@ -513,6 +513,7 @@ describe("C6 T1 · Item 6 is the Classification, Item 7 is chosen (real app over
     seq += 1;
     const row = await writer.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${TAG} case ${seq}`,
         tin: "000555777",

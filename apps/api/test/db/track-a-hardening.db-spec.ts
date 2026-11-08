@@ -97,6 +97,7 @@ describe("U9 · sign-in hardened; posted records for clients (real app over HTTP
     clientId = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Invented Trading`,
           tin: "000000501",
@@ -462,7 +463,12 @@ describe("U9 · sign-in hardened; posted records for clients (real app over HTTP
       data: { name: `${TAG} Other Invented Firm` },
     });
     const foreign = await writer.client.create({
-      data: { firmId: other.id, businessName: `${TAG} Foreign Client`, tin: "000000502" },
+      data: {
+        phone: "09170000000",
+        firmId: other.id,
+        businessName: `${TAG} Foreign Client`,
+        tin: "000000502",
+      },
     });
     const report = await writer.fsReport.create({
       data: {

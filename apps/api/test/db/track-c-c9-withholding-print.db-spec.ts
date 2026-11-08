@@ -109,6 +109,7 @@ describe("C9 T1 · the 0619-E, 1601-EQ and 1601-C print on the BIR's blanks (rea
     return (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Halimbawa Trading ${seq}`,
           kind: "non-individual",

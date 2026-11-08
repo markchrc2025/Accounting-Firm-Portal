@@ -95,6 +95,7 @@ describe("U14 · delete a draft return (real app over HTTP, db)", () => {
     clientId = (
       await writer.client.create({
         data: {
+          phone: "09170000000",
           firmId,
           businessName: `${TAG} Invented Sari-Sari`,
           tin: "000666777",
@@ -230,7 +231,12 @@ describe("U14 · delete a draft return (real app over HTTP, db)", () => {
       ).toBe(403);
       // A Manager assigned to another client only.
       const other = await writer.client.create({
-        data: { firmId, businessName: `${TAG} Other Invented Co`, tin: "000888999" },
+        data: {
+          phone: "09170000000",
+          firmId,
+          businessName: `${TAG} Other Invented Co`,
+          tin: "000888999",
+        },
       });
       const manager = await writer.user.create({
         data: {

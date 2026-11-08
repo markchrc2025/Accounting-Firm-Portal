@@ -78,6 +78,7 @@ describe("U20 · the MCP connector drafts BIR forms (real app over HTTP, db)", (
   async function client(key: string, tin: string, extra: Record<string, unknown> = {}) {
     const row = await db.client.create({
       data: {
+        phone: "09170000000",
         firmId,
         businessName: `${TAG} ${key} TRADING CORP`,
         regName: `${TAG} ${key} TRADING CORP`,
@@ -920,7 +921,12 @@ describe("U20 · the MCP connector drafts BIR forms (real app over HTTP, db)", (
     it("another firm's return is not found", async () => {
       const other = await db.firm.create({ data: { name: `${TAG} Other Firm` } });
       const oc = await db.client.create({
-        data: { firmId: other.id, businessName: `${TAG} Other`, tin: "999000111" },
+        data: {
+          phone: "09170000000",
+          firmId: other.id,
+          businessName: `${TAG} Other`,
+          tin: "999000111",
+        },
       });
       const f = await db.birForm.create({
         data: {

@@ -16,6 +16,11 @@ import {
 } from "../../bir-forms/engine/taxpayer-background";
 import { OVER_REMITTANCE_CHOICE_MISSING } from "../../bir-forms/engine/withholding-print";
 import type { FilingData } from "../../bir-forms/engine/types";
+import {
+  CONTACT_FORMS,
+  contactNumberOf,
+  contactRefusal,
+} from "../../bir-forms/engine/contact-number";
 import type { PayeeNeed } from "../../bir-forms/alphalist/payees";
 
 export type NeedKind = "text" | "number" | "date" | "choice" | "atc" | "tin";
@@ -47,6 +52,8 @@ export interface ClientFacts {
   firstName: string | null;
   address: string | null;
   zip: string | null;
+  /** The client's contact number (Client.phone). */
+  phone: string | null;
   taxType: string | null;
   civilStatus: string | null;
   classification: string | null;
@@ -65,7 +72,12 @@ const REGIME: Record<string, "VAT" | "PERCENTAGE"> = {
 };
 
 /** The client's record, as far as a form prints it. */
-export function clientNeeds(form: string, c: ClientFacts): Need[] {
+export function clientNeeds(
+  form: string,
+  c: ClientFacts,
+  /** The draft's own data: the withholding returns take a contact number typed there. */
+  data?: Record<string, unknown> | null,
+): Need[] {
   const out: Need[] = [];
   const printed = `The BIR ${form} prints`;
 
@@ -125,6 +137,21 @@ export function clientNeeds(form: string, c: ClientFacts): Need[] {
       setWith: updateClient("zip"),
       kind: "text",
     });
+  }
+  if (CONTACT_FORMS.has(form)) {
+    // U21: eBIRForms will not submit a return without a contact number.
+    const sentence = contactRefusal(form, contactNumberOf(form, data, c.phone));
+    if (sentence !== null) {
+      out.push({
+        key: "client.contactNumber",
+        question: blank(contactNumberOf(form, data, c.phone))
+          ? "What is the client's contact number (landline or mobile)?"
+          : `${sentence}. What is the client's contact number (landline or mobile, 12 digits at most)?`,
+        why: `${printed} the contact number, and eBIRForms will not submit a return without one.`,
+        setWith: updateClient("phone"),
+        kind: "text",
+      });
+    }
   }
   const regime = REGIME[form];
   if (regime && c.taxType === null) {
