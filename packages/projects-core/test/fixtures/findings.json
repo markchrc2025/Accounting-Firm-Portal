@@ -1,0 +1,406 @@
+[
+  {
+    "verdict": "confirmed",
+    "fingerprint": "api-critical-account-takeover",
+    "title": "Sample reset token never expires",
+    "description": "An invented weakness in the sample service (critical).",
+    "root_cause": "The handler in src/sample/api-critical-account-takeover.ts trusts a value the caller controls.",
+    "intended_behavior": "The handler should check the value against the signed-in account before using it.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/sample/api-critical-account-takeover.ts",
+        "line": 14,
+        "scope": "handle",
+        "description": "The route reads the value from the request."
+      },
+      {
+        "kind": "sink",
+        "file": "src/sample/store.ts",
+        "line": 88,
+        "scope": "save",
+        "description": "The value is stored without a check."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/sample/api-critical-account-takeover.ts",
+        "line": 20,
+        "description": "No ownership check precedes the call."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Any signed-in user."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A signed-in user of another account.",
+      "payloads": ["{\"accountId\":\"other-account\"}"],
+      "instructions": [
+        "Start the sample service locally.",
+        "Send the payload to the route as the second user."
+      ],
+      "observed_result": "The service stored the record under the other account."
+    },
+    "remediation": {
+      "strategy": "Compare the value with the session account and refuse a mismatch.",
+      "code_changes": [
+        {
+          "file_name": "src/sample/api-critical-account-takeover.ts",
+          "fixed_code": "if (body.accountId !== session.accountId) throw forbidden();"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "critical",
+        "reason": "Invented reason for critical."
+      },
+      "impact": {
+        "score": "critical",
+        "reason": "Invented reason for critical."
+      },
+      "overall_severity": "critical"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Reproduced locally."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "api-high-missing-ownership-check",
+    "title": "Sample route lets a user write to another account",
+    "description": "An invented weakness in the sample service (high).",
+    "root_cause": "The handler in src/sample/api-high-missing-ownership-check.ts trusts a value the caller controls.",
+    "intended_behavior": "The handler should check the value against the signed-in account before using it.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/sample/api-high-missing-ownership-check.ts",
+        "line": 14,
+        "scope": "handle",
+        "description": "The route reads the value from the request."
+      },
+      {
+        "kind": "sink",
+        "file": "src/sample/store.ts",
+        "line": 88,
+        "scope": "save",
+        "description": "The value is stored without a check."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/sample/api-high-missing-ownership-check.ts",
+        "line": 20,
+        "description": "No ownership check precedes the call."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Any signed-in user."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A signed-in user of another account.",
+      "payloads": ["{\"accountId\":\"other-account\"}"],
+      "instructions": [
+        "Start the sample service locally.",
+        "Send the payload to the route as the second user."
+      ],
+      "observed_result": "The service stored the record under the other account."
+    },
+    "remediation": {
+      "strategy": "Compare the value with the session account and refuse a mismatch.",
+      "code_changes": [
+        {
+          "file_name": "src/sample/api-high-missing-ownership-check.ts",
+          "fixed_code": "if (body.accountId !== session.accountId) throw forbidden();"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "Invented reason for high."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "Invented reason for high."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Reproduced locally."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "api-info-missing-header",
+    "title": "Sample responses lack a hardening header",
+    "description": "An invented weakness in the sample service (informational).",
+    "root_cause": "The handler in src/sample/api-info-missing-header.ts trusts a value the caller controls.",
+    "intended_behavior": "The handler should check the value against the signed-in account before using it.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/sample/api-info-missing-header.ts",
+        "line": 14,
+        "scope": "handle",
+        "description": "The route reads the value from the request."
+      },
+      {
+        "kind": "sink",
+        "file": "src/sample/store.ts",
+        "line": 88,
+        "scope": "save",
+        "description": "The value is stored without a check."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/sample/api-info-missing-header.ts",
+        "line": 20,
+        "description": "No ownership check precedes the call."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Any signed-in user."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A signed-in user of another account.",
+      "payloads": ["{\"accountId\":\"other-account\"}"],
+      "instructions": [
+        "Start the sample service locally.",
+        "Send the payload to the route as the second user."
+      ],
+      "observed_result": "The service stored the record under the other account."
+    },
+    "remediation": {
+      "strategy": "Compare the value with the session account and refuse a mismatch.",
+      "code_changes": [
+        {
+          "file_name": "src/sample/api-info-missing-header.ts",
+          "fixed_code": "if (body.accountId !== session.accountId) throw forbidden();"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "informational",
+        "reason": "Invented reason for informational."
+      },
+      "impact": {
+        "score": "informational",
+        "reason": "Invented reason for informational."
+      },
+      "overall_severity": "informational"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Reproduced locally."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "api-low-verbose-error",
+    "title": "Sample error page shows a stack trace",
+    "description": "An invented weakness in the sample service (low).",
+    "root_cause": "The handler in src/sample/api-low-verbose-error.ts trusts a value the caller controls.",
+    "intended_behavior": "The handler should check the value against the signed-in account before using it.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/sample/api-low-verbose-error.ts",
+        "line": 14,
+        "scope": "handle",
+        "description": "The route reads the value from the request."
+      },
+      {
+        "kind": "sink",
+        "file": "src/sample/store.ts",
+        "line": 88,
+        "scope": "save",
+        "description": "The value is stored without a check."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/sample/api-low-verbose-error.ts",
+        "line": 20,
+        "description": "No ownership check precedes the call."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Any signed-in user."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A signed-in user of another account.",
+      "payloads": ["{\"accountId\":\"other-account\"}"],
+      "instructions": [
+        "Start the sample service locally.",
+        "Send the payload to the route as the second user."
+      ],
+      "observed_result": "The service stored the record under the other account."
+    },
+    "remediation": {
+      "strategy": "Compare the value with the session account and refuse a mismatch.",
+      "code_changes": [
+        {
+          "file_name": "src/sample/api-low-verbose-error.ts",
+          "fixed_code": "if (body.accountId !== session.accountId) throw forbidden();"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "low",
+        "reason": "Invented reason for low."
+      },
+      "impact": {
+        "score": "low",
+        "reason": "Invented reason for low."
+      },
+      "overall_severity": "low"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Reproduced locally."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "fingerprint": "api-medium-open-redirect",
+    "title": "Sample sign-in redirect accepts any address",
+    "description": "An invented weakness in the sample service (medium).",
+    "root_cause": "The handler in src/sample/api-medium-open-redirect.ts trusts a value the caller controls.",
+    "intended_behavior": "The handler should check the value against the signed-in account before using it.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/sample/api-medium-open-redirect.ts",
+        "line": 14,
+        "scope": "handle",
+        "description": "The route reads the value from the request."
+      },
+      {
+        "kind": "sink",
+        "file": "src/sample/store.ts",
+        "line": 88,
+        "scope": "save",
+        "description": "The value is stored without a check."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/sample/api-medium-open-redirect.ts",
+        "line": 20,
+        "description": "No ownership check precedes the call."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authentication_level",
+        "description": "Any signed-in user."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A signed-in user of another account.",
+      "payloads": ["{\"accountId\":\"other-account\"}"],
+      "instructions": [
+        "Start the sample service locally.",
+        "Send the payload to the route as the second user."
+      ],
+      "observed_result": "The service stored the record under the other account."
+    },
+    "remediation": {
+      "strategy": "Compare the value with the session account and refuse a mismatch.",
+      "code_changes": [
+        {
+          "file_name": "src/sample/api-medium-open-redirect.ts",
+          "fixed_code": "if (body.accountId !== session.accountId) throw forbidden();"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "Invented reason for medium."
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "Invented reason for medium."
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "Reproduced locally."
+    }
+  },
+  {
+    "verdict": "needs_validation",
+    "fingerprint": "web-needs-sample-upload-limit",
+    "title": "Sample upload may have no size limit",
+    "description": "The upload route might accept very large files.",
+    "claimed_root_cause": "The body parser limit is not set in src/web/upload.ts.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/web/upload.ts",
+        "line": 9,
+        "scope": "upload",
+        "description": "The route streams the body to disk."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/web/upload.ts",
+        "line": 12,
+        "description": "No limit option is passed to the parser."
+      }
+    ],
+    "blockers": [
+      "The reverse proxy in front of the service may already cap the body size."
+    ],
+    "validation_plan": {
+      "local": "Post a 2 GB file to a local run.",
+      "deployment": "Ask the owner what the proxy allows."
+    }
+  },
+  {
+    "verdict": "rejected",
+    "fingerprint": "web-rejected-sample-xss",
+    "title": "Sample comment field may allow script injection",
+    "description": "The comment field is rendered on the page.",
+    "claimed_root_cause": "The comment is written into the page unescaped.",
+    "trace": [
+      {
+        "kind": "sink",
+        "file": "src/web/comment.tsx",
+        "line": 31,
+        "scope": "Comment",
+        "description": "The text reaches the page."
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/web/comment.tsx",
+        "line": 30,
+        "description": "The framework escapes the text before it is rendered."
+      }
+    ],
+    "reason": "The framework escapes the value, and a local run showed the script as plain text."
+  }
+]

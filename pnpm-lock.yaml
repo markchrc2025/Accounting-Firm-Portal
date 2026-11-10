@@ -273,6 +273,30 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@20.19.43)(jsdom@25.0.1)
 
+  packages/projects-core:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.16.10
+        version: 20.19.43
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^7.18.0
+        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^7.18.0
+        version: 7.18.0(eslint@8.57.1)(typescript@5.9.3)
+      eslint:
+        specifier: ^8.57.1
+        version: 8.57.1
+      eslint-config-prettier:
+        specifier: ^9.1.0
+        version: 9.1.2(eslint@8.57.1)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@25.0.1)
+
   packages/shared:
     dependencies:
       zod:
