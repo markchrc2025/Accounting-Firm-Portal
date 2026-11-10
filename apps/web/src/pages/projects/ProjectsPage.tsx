@@ -19,6 +19,7 @@ import {
   ProjectStatusChip,
   SuccessBanner,
 } from "../../components/projects/parts";
+import { SecurityChip } from "../../components/projects/SecurityChip";
 import { ProjectsNav } from "../../components/projects/ProjectsNav";
 import { useProjectsCan } from "../../components/projects/useProjectsCan";
 import {
@@ -110,6 +111,7 @@ export default function ProjectsPage() {
                 <th className="px-3 py-3 font-medium">Status</th>
                 <th className="px-3 py-3 font-medium">Progress</th>
                 <th className="px-3 py-3 font-medium">Issues</th>
+                <th className="px-3 py-3 font-medium">Security</th>
                 <th className="px-3 py-3 font-medium">Next milestone</th>
                 <th className="px-4 py-3 font-medium">Last activity</th>
               </tr>
@@ -189,6 +191,9 @@ function ProjectRow({ p }: { p: ProjectSummary }) {
           <Count name="overdue" label="overdue" value={p.counts.overdue} hot />
           <Count name="openBugs" label="open bugs" value={p.counts.openBugs} hot />
         </div>
+      </td>
+      <td className="px-3 py-3" data-security>
+        <SecurityChip badge={p.security} />
       </td>
       <td className="min-w-[170px] px-3 py-3">
         {m ? (

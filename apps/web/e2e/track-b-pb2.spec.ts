@@ -219,6 +219,7 @@ const projectDto = {
   updatedAt: "2026-11-01T00:00:00.000Z",
 };
 const overview = {
+  security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
   project: projectDto,
   status: { value: "ON_TRACK", note: "", updatedAt: null },
   statusUpdates: [],
@@ -328,6 +329,7 @@ async function mockApi(
           parent: null,
           children: [],
           commentCount: 0,
+          githubLinks: [], // PB4
         });
       },
     ],
@@ -417,6 +419,7 @@ async function mockApi(
           parent: null,
           children: [],
           commentCount: 0,
+          githubLinks: [], // PB4
         }),
     ],
     ["GET", /^\/api\/v1\/projects\/PAY\/issues\/PAY-12\/comments$/, (r) => json(r, [])],

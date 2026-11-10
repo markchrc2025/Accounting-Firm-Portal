@@ -147,6 +147,7 @@ const detail = (over: Partial<IssueDetail> = {}): IssueDetail => ({
   parent: null,
   children: [],
   commentCount: 0,
+  githubLinks: [], // PB4
   ...over,
 });
 const MS: Milestone = {
@@ -883,6 +884,7 @@ describe("PB1 the milestones", () => {
 });
 
 const OVERVIEW: ProjectOverview = {
+  security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
   project: {
     id: "p1",
     key: "PAY",
@@ -1024,6 +1026,7 @@ describe("PB1 the project page", () => {
 
 const SUMMARY = (over: Partial<ProjectSummary> = {}): ProjectSummary => ({
   ...OVERVIEW.project,
+  security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
   status: "AT_RISK",
   statusNote: "Late",
   statusUpdatedAt: "2026-11-05T01:00:00.000Z",

@@ -192,7 +192,7 @@ function MilestoneDialog({
   return (
     <Modal title={milestone ? "Edit milestone" : "New milestone"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <ErrorBanner lines={errors} />
+        <ErrorBanner lines={errors} linkKeys />
         <Field label="Name">
           <input
             className="input"
