@@ -531,12 +531,8 @@
       "reason": "Sentire Projects owner, member and viewer do not map to Portal roles; the owner grants Projects:Read, Create, Update and Configure in the role editor."
     },
     {
-      "field": "users.createdAt, users.lastLoginAt, users.disabledAt",
-      "reason": "Portal users are separate accounts. People are matched by e-mail only."
-    },
-    {
-      "field": "users.id",
-      "reason": "An internal id. Every reference in the plan is by e-mail."
+      "field": "users.id, users.createdAt, users.lastLoginAt, users.disabledAt",
+      "reason": "No user is created. People are matched to active Portal users by e-mail; someone with no account leaves the user empty (an issue's assignee or author, a comment's author, a session's person) and the importer lists the e-mail."
     },
     {
       "field": "sessions",
@@ -548,7 +544,7 @@
     },
     {
       "field": "notifications",
-      "reason": "A per-user inbox of short-lived messages. The Portal has no notifications table yet."
+      "reason": "Short-lived messages of Sentire Projects users. The importer does not carry them: the Portal's notifications are raised by events in the Portal, and an import raises none."
     },
     {
       "field": "projects.archivedAt",
@@ -559,40 +555,24 @@
       "reason": "The Portal keeps a deleted flag only; the time of deleting is lost. Deleted issues are still imported, flagged, so their numbers stay used."
     },
     {
-      "field": "issues.fingerprint",
-      "reason": "The Portal has no fingerprint column yet. The plan carries it, so the security-audit phase can match re-imports to these issues."
-    },
-    {
       "field": "milestones.closedAt",
-      "reason": "The Portal's milestone has a state but no closing time."
+      "reason": "The Portal's milestone has no closing time; the importer keeps it only as the milestone's last-updated time."
     },
     {
       "field": "comments.actorKind, comments.sessionId",
-      "reason": "The Portal's comment table has no actor type or session yet. The plan carries both."
+      "reason": "The Portal's comment table has no actor type and no session. The plan carries both; the importer does not store them."
     },
     {
-      "field": "activities.client",
-      "reason": "The Portal records a channel (web, api, mcp, github, system), worked out from the actor type here. The plan carries the original client text."
+      "field": "securityAudits.report",
+      "reason": "The audit's markdown report. The Portal's audit table has no column for it. The plan carries it; the importer does not store it."
+    },
+    {
+      "field": "workSessions (no project)",
+      "reason": "A work session that belongs to no project is not imported, because the Portal's session needs a project. Activity that pointed to it loses its session link."
     },
     {
       "field": "activities (no project)",
-      "reason": "The Portal's activity log needs a project; rows with none are left out."
-    },
-    {
-      "field": "workSessions",
-      "reason": "The Portal has no work-session table yet. The plan carries every session for the later phase that adds it."
-    },
-    {
-      "field": "githubLinks",
-      "reason": "The Portal has no GitHub link table yet. The plan carries every link."
-    },
-    {
-      "field": "securityAudits",
-      "reason": "The Portal has no audit table yet. The plan carries every audit record."
-    },
-    {
-      "field": "projects.status, projects.statusNote",
-      "reason": "The Portal takes a project's current status from its latest status update. A status update is added to the plan when the history does not already end with the current status."
+      "reason": "The Portal's activity log needs a project; rows with none are left out and counted in the plan's warnings."
     }
   ]
 }
