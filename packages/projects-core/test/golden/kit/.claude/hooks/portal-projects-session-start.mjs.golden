@@ -1,0 +1,61 @@
+// Portal Projects SessionStart hook for Claude Code (written by the Portal repo kit).
+// Starts a work session for this repository's project and prints the briefing, which Claude Code
+// adds to the context.
+// Needs: .sentire-projects.json in the repository root and PORTAL_PROJECTS_TOKEN in the environment.
+// Fails quietly: a tracking problem must never block a coding session.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const TOKEN_ENV_VAR = "PORTAL_PROJECTS_TOKEN";
+const DEFAULT_SERVER = "https://portal.example.test";
+const SESSION_START_PATH = "/api/v1/projects/sessions/start";
+
+const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+let cfg;
+try {
+  cfg = JSON.parse(readFileSync(join(root, ".sentire-projects.json"), "utf8"));
+} catch {
+  process.exit(0);
+}
+const token = process.env[TOKEN_ENV_VAR];
+if (!token) {
+  console.log(
+    "Portal Projects: " + TOKEN_ENV_VAR + " is not set, so this session is not tracked. Call start_session if the MCP server is connected.",
+  );
+  process.exit(0);
+}
+// Start one work session per Claude Code session (resume and compact fire SessionStart again).
+let input = "";
+try {
+  input = readFileSync(0, "utf8");
+} catch {}
+let source = "startup";
+try {
+  source = JSON.parse(input).source || "startup";
+} catch {}
+if (source === "compact") process.exit(0);
+
+const server = String(cfg.server || DEFAULT_SERVER).replace(/\/$/, "");
+try {
+  const res = await fetch(server + SESSION_START_PATH + "?briefing=1", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + token,
+      "content-type": "application/json",
+      "x-portal-client": "claude-code",
+    },
+    body: JSON.stringify({ project_key: cfg.project }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    console.log("Portal Projects: could not start a session (" + res.status + ").");
+    process.exit(0);
+  }
+  const data = await res.json();
+  console.log(
+    "Portal Projects session_id: " + data.session.id + " (pass it to update_issue, add_comment and end_session)\n",
+  );
+  console.log(data.briefing || "");
+} catch (e) {
+  console.log("Portal Projects: tracking unavailable (" + (e && e.message ? e.message : e) + ").");
+}
