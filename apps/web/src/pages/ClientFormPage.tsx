@@ -25,6 +25,7 @@ import {
 } from "../components/ui";
 import { CityCombobox } from "../components/CityCombobox";
 import { proposeRegime, regimeLabel } from "../lib/regime";
+import { CONTACT_HINT } from "../lib/undoFiling";
 import type { PhLocation } from "../lib/phLocations";
 // Type-only import — erased at build, so pdf.js/tesseract stay OUT of the main
 // chunk (the extractor itself is loaded lazily in onPickCor). parseCor.ts is the
@@ -1174,7 +1175,7 @@ function ClientForm({ existing }: { existing: Client | null }) {
                   className="input"
                 />
               </Field>
-              <Field label="Phone" error={fieldErrors.phone}>
+              <Field label="Phone" error={fieldErrors.phone} hint={CONTACT_HINT}>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -1606,11 +1607,14 @@ function SummaryRow({ label, value }: { label: string; value?: string }) {
 function Field({
   label,
   error,
+  hint,
   className,
   children,
 }: {
   label: string;
   error?: string;
+  /** W22: a line under the box that never blocks saving. */
+  hint?: string;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -1618,6 +1622,11 @@ function Field({
     <label className={cn("block", className)}>
       <span className="text-[13px] font-semibold text-content">{label}</span>
       <div className="mt-1.5">{children}</div>
+      {hint && (
+        <span data-field-hint className="mt-1 block text-xs text-content-secondary">
+          {hint}
+        </span>
+      )}
       {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
     </label>
   );

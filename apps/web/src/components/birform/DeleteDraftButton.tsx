@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ApiError, deleteBirForm, type BirFormDetail } from "../../lib/api";
 import { deleteDraftBody } from "../../lib/birDraft";
+import { hasFilingHistory } from "../../lib/undoFiling";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { Button } from "../ui";
 
@@ -33,7 +34,9 @@ export function DeleteDraftButton({ detail }: { detail: BirFormDetail }) {
       setError(e instanceof ApiError ? e.message : "Could not delete this draft."),
   });
 
-  if (!detail.canDelete) return null;
+  // W22: a draft that was filed and had its filing undone keeps its history; the API
+  // refuses to delete it (and says so), so the button is not offered.
+  if (!detail.canDelete || hasFilingHistory(detail)) return null;
   return (
     <>
       <Button
