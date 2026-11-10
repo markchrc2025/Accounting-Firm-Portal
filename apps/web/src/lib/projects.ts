@@ -121,7 +121,16 @@ export interface Milestone {
   createdAt: string;
   updatedAt: string;
 }
+export type SecurityState = "clear" | "open" | "blocked";
+/** What the portfolio and the overview carry of a project's security (PA4). */
+export interface SecurityBadge {
+  state: SecurityState;
+  open: number;
+  critical: number;
+  high: number;
+}
 export interface ProjectSummary extends ProjectDto {
+  security: SecurityBadge;
   status: ProjectStatus;
   statusNote: string;
   statusUpdatedAt: string | null;
@@ -167,12 +176,28 @@ export interface IssueItem {
   parentKey: string | null;
   labels: LabelRef[];
 }
+/** A pull request or commit that names an issue (Track A PA4, D68). */
+export interface GithubLink {
+  kind: "pr" | "commit";
+  /** owner/repo */
+  repo: string;
+  number: number | null;
+  sha: string | null;
+  title: string;
+  /** open, closed, merged or pushed */
+  state: string;
+  merged: boolean;
+  url: string;
+  updatedAt: string;
+}
 export interface IssueDetail extends IssueItem {
   description: string;
   author: { id: string; fullName: string } | null;
   parent: { key: string; title: string } | null;
   children: IssueItem[];
   commentCount: number;
+  /** PB4: the pull requests and commits that name this issue, the latest first. */
+  githubLinks: GithubLink[];
 }
 export interface IssueComment {
   id: string;
@@ -220,6 +245,7 @@ export interface ActivityPage {
   total: number;
 }
 export interface ProjectOverview {
+  security: SecurityBadge;
   project: ProjectDto;
   status: { value: ProjectStatus; note: string; updatedAt: string | null };
   statusUpdates: StatusUpdate[];
@@ -309,6 +335,93 @@ export interface RepoKit {
   /** The NAME of the environment variable that holds the person's token. The kit holds no token. */
   tokenEnvVar: string;
   files: RepoKitFile[];
+}
+
+// --- PB4: checklist import, security -------------------------------------------------------------
+
+export interface ChecklistItem {
+  title: string;
+  closed: boolean;
+  labels: string[];
+  description: string;
+  milestone: string | null;
+}
+export interface ChecklistImportResult {
+  dryRun: boolean;
+  items: { total: number; open: number; closed: number };
+  milestones: { name: string; created: boolean }[];
+  labels: { name: string; created: boolean }[];
+  warnings: string[];
+  /** The keys made; empty for a preview. */
+  keys: string[];
+  /** A preview only: every item, as it would be made. */
+  plan?: ChecklistItem[];
+}
+export const SEVERITIES = ["critical", "high", "medium", "low", "informational"] as const;
+export type Severity = (typeof SEVERITIES)[number];
+export interface SecurityCounts {
+  open: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  informational: number;
+  needsValidation: number;
+  unrated: number;
+}
+export interface OpenSecurityIssue {
+  key: string;
+  title: string;
+  /** null: no sev label (a lead, or labelled by hand) */
+  severity: Severity | null;
+  needsValidation: boolean;
+  fingerprint: string | null;
+}
+export interface SecurityAudit {
+  id: string;
+  runId: string;
+  commit: string;
+  profile: string;
+  /** Paths the run was limited to; empty for the whole repository. */
+  scope: string[];
+  complete: boolean;
+  incompleteReason: string;
+  /** A quick, scoped or incomplete run. */
+  partial: boolean;
+  /** Ledger units by status. */
+  coverage: Record<string, number>;
+  findings: {
+    total: number;
+    confirmed: number;
+    needsValidation: number;
+    rejected: number;
+    bySeverity: Record<Severity, number>;
+  };
+  created: string[];
+  updated: string[];
+  reopened: string[];
+  notReported: string[];
+  rejectedNoted: string[];
+  rejected: { fingerprint: string; title: string; reason: string }[];
+  importedBy: { id: string; fullName: string } | null;
+  actorType: ActorType;
+  channel: string;
+  createdAt: string;
+}
+export interface SecurityStatus {
+  projectKey: string;
+  state: SecurityState;
+  /** The open critical and high issues that stop a milestone from closing. */
+  blockedBy: string[];
+  counts: SecurityCounts;
+  open: OpenSecurityIssue[];
+  lastAudit: SecurityAudit | null;
+}
+/** What the import sends: findings.json as text or array, the run metadata, the ledger. */
+export interface AuditImportBody {
+  findings: unknown;
+  run?: Record<string, unknown>;
+  ledger?: unknown[];
 }
 export type AdminType = IssueTypeRow & { issueCount: number };
 export type AdminStatus = IssueStatusRow & { issueCount: number };
@@ -412,6 +525,20 @@ export const searchProjects = (q: string) =>
   apiFetch<SearchResult>(`/projects/search${query({ q })}`);
 export const fetchRepoKit = (key: string) =>
   apiFetch<RepoKit>(`/projects/${enc(key)}/repo-kit`);
+export const importChecklist = (
+  key: string,
+  b: { markdown: string; headingsAsMilestones: boolean; dryRun: boolean },
+) =>
+  apiFetch<ChecklistImportResult>(`/projects/${enc(key)}/import`, {
+    method: "POST",
+    ...json(b),
+  });
+export const fetchSecurity = (key: string) =>
+  apiFetch<SecurityStatus>(`/projects/${enc(key)}/security`);
+export const fetchAudits = (key: string) =>
+  apiFetch<{ items: SecurityAudit[] }>(`/projects/${enc(key)}/audits`);
+export const importAudit = (key: string, b: AuditImportBody) =>
+  apiFetch<SecurityAudit>(`/projects/${enc(key)}/audits`, { method: "POST", ...json(b) });
 export const fetchIssues = (key: string, params: Record<string, string>) =>
   apiFetch<IssueList>(`/projects/${enc(key)}/issues${query(params)}`);
 export const quickAddIssue = (key: string, title: string) =>
@@ -827,3 +954,68 @@ export const issuePath = (projectKey: string, issueKey: string): string =>
   `/projects/${encodeURIComponent(projectKey)}/issues/${encodeURIComponent(issueKey)}`;
 /** The project an issue key belongs to (PAY-12 is in PAY). */
 export const projectKeyOf = (issueKey: string): string => issueKey.split("-")[0] ?? "";
+
+// --- PB4: small helpers for GitHub links, security and sentences with issue keys -----------------
+
+/** A link's address is followed only when it is a web address (it came from a webhook). */
+export function safeWebUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** "Merged", "Open", "Closed" or "Pushed" for a pull request or commit link. */
+export function githubStateLabel(l: Pick<GithubLink, "state" | "merged">): string {
+  if (l.merged) return "Merged";
+  const s = l.state.trim().toLowerCase();
+  if (s === "open") return "Open";
+  if (s === "closed") return "Closed";
+  if (s === "pushed") return "Pushed";
+  return l.state;
+}
+
+/** The reference a link shows: owner/repo#12 for a pull request, owner/repo@abc1234 for a commit. */
+export function githubRef(l: Pick<GithubLink, "kind" | "repo" | "number" | "sha">): string {
+  if (l.kind === "pr") return l.number !== null ? `${l.repo}#${l.number}` : l.repo;
+  return l.sha ? `${l.repo}@${l.sha.slice(0, 7)}` : l.repo;
+}
+
+/** What the badge says: "Clear", "3 open", or "Blocked: 1 critical, 2 high". */
+export function securityText(b: SecurityBadge): string {
+  if (b.state === "clear") return "Clear";
+  if (b.state === "open") return `${b.open} open`;
+  const parts = [
+    b.critical > 0 ? `${b.critical} critical` : "",
+    b.high > 0 ? `${b.high} high` : "",
+  ].filter(Boolean);
+  return `Blocked: ${parts.join(", ")}`;
+}
+
+/** A sentence cut into text and the issue keys in it (PAY-3), so the keys can be links. */
+export function splitIssueKeys(
+  sentence: string,
+): Array<{ text: string; key: boolean }> {
+  const out: Array<{ text: string; key: boolean }> = [];
+  const re = /\b[A-Z][A-Z0-9]{1,9}-\d{1,7}\b/g;
+  let at = 0;
+  for (const m of sentence.matchAll(re)) {
+    if (m.index! > at) out.push({ text: sentence.slice(at, m.index), key: false });
+    out.push({ text: m[0], key: true });
+    at = m.index! + m[0].length;
+  }
+  if (at < sentence.length) out.push({ text: sentence.slice(at), key: false });
+  return out;
+}
+
+/** The text of a file the person chose. */
+export function readFileText(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result ?? ""));
+    r.onerror = () => reject(r.error);
+    r.readAsText(file);
+  });
+}

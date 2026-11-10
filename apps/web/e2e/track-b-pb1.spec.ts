@@ -242,6 +242,7 @@ const issueDetail = (w: World, i: IssueRec) => ({
     : null,
   children: w.issues.filter((c) => c.parentKey === i.key && !c.deleted).map(issueItem),
   commentCount: (w.comments[i.key] ?? []).length,
+  githubLinks: [], // PB4
 });
 const live = (w: World) => w.issues.filter((i) => !i.deleted);
 const counts = (w: World) => {
@@ -283,6 +284,7 @@ const summary = (w: World, p: World["projects"][number]) => {
   const total = c.todo + c.inProgress + c.done;
   return {
     ...projectDto(p),
+    security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
     status: p.status,
     statusNote: "",
     statusUpdatedAt: "2026-11-05T01:00:00.000Z",
@@ -305,6 +307,7 @@ const overview = (w: World, p: World["projects"][number]) => {
     actor: { id: USER_ID, fullName: "Ana Reyes" },
   }));
   return {
+    security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
     project: projectDto(p),
     status: {
       value: updates[0]?.status ?? "NOT_STARTED",

@@ -3,7 +3,7 @@
 
 import { useMemo, type MouseEvent, type ReactNode } from "react";
 import { useQueries } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Chip, cn } from "../ui";
 import { findIssueKeys, linkIssueKeys, renderMarkdown } from "../../lib/markdown";
 import {
@@ -13,6 +13,7 @@ import {
   PROJECT_STATUS_LABEL,
   PROJECT_STATUS_VARIANT,
   projectKeyOf,
+  splitIssueKeys,
   type IssueItem,
   type Priority,
   type ProjectStatus,
@@ -94,11 +95,30 @@ export function PriorityChip({ priority }: { priority: Priority }) {
 export function ErrorBanner({
   lines,
   className,
+  linkKeys = false,
 }: {
   lines: string[];
   className?: string;
+  /** Show the issue keys in a sentence (PAY-3) as links to those issues. */
+  linkKeys?: boolean;
 }) {
   if (lines.length === 0) return null;
+  const show = (line: string): ReactNode =>
+    linkKeys
+      ? splitIssueKeys(line).map((part, i) =>
+          part.key ? (
+            <Link
+              key={i}
+              to={issuePath(projectKeyOf(part.text), part.text)}
+              className="font-mono underline underline-offset-2"
+            >
+              {part.text}
+            </Link>
+          ) : (
+            <span key={i}>{part.text}</span>
+          ),
+        )
+      : line;
   return (
     <div
       role="alert"
@@ -109,11 +129,11 @@ export function ErrorBanner({
       )}
     >
       {lines.length === 1 ? (
-        <p>{lines[0]}</p>
+        <p>{show(lines[0]!)}</p>
       ) : (
         <ul className="list-disc space-y-0.5 pl-5">
           {lines.map((l, i) => (
-            <li key={i}>{l}</li>
+            <li key={i}>{show(l)}</li>
           ))}
         </ul>
       )}

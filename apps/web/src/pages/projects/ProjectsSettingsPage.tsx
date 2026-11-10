@@ -16,6 +16,8 @@ import {
   PageHeader,
   Skeleton,
 } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
+import { GithubWebhookHelp } from "../../components/projects/GithubWebhookHelp";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   ColourChip,
@@ -55,6 +57,7 @@ interface Row {
 export default function ProjectsSettingsPage() {
   const can = useProjectsCan();
   const navigate = useNavigate();
+  const superAdmin = useAuth().hasPermission("IntegrationClient:Update");
   if (!can.read) return <Navigate to="/" replace />;
   return (
     <div className="animate-fade-rise">
@@ -89,6 +92,8 @@ export default function ProjectsSettingsPage() {
           withCategory
         />
         <Section kind="labels" title="Labels" noun="label" canWrite={can.configure} />
+        {/* PB4: only a Super Admin sees how to connect GitHub (the role that holds IntegrationClient:Update). */}
+        {superAdmin ? <GithubWebhookHelp /> : null}
       </div>
     </div>
   );

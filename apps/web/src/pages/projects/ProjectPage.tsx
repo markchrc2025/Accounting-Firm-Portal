@@ -3,6 +3,7 @@
 // overview and of the lists the forms need (issue types, statuses, labels, people).
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   Link,
   Navigate,
@@ -17,6 +18,7 @@ import {
   ProjectStatusChip,
   SuccessBanner,
 } from "../../components/projects/parts";
+import { SecurityChip } from "../../components/projects/SecurityChip";
 import { useProjectsCan } from "../../components/projects/useProjectsCan";
 import {
   errorLines,
@@ -32,9 +34,11 @@ import { IssueDetails } from "./IssueDetails";
 import { IssuesTab } from "./IssuesTab";
 import { MilestonesTab } from "./MilestonesTab";
 import { OverviewTab } from "./OverviewTab";
+import { SecurityTab } from "./SecurityTab";
+import { ImportChecklistDialog } from "./ImportChecklistDialog";
 
 export type ProjectTab =
-  "overview" | "issues" | "issue" | "board" | "milestones" | "activity";
+  "overview" | "issues" | "issue" | "board" | "milestones" | "security" | "activity";
 
 export default function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { key = "", issueKey = "" } = useParams<{ key: string; issueKey: string }>();
@@ -42,6 +46,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
   const navigate = useNavigate();
   const location = useLocation();
   const notice = (location.state as { notice?: string } | null)?.notice;
+  const [importing, setImporting] = useState(false);
 
   const overview = useQuery({
     queryKey: ["projects", "overview", key],
@@ -89,6 +94,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
     { id: "issues", label: "Issues", to: projectPath(key, "issues") },
     { id: "board", label: "Board", to: projectPath(key, "board") },
     { id: "milestones", label: "Milestones", to: projectPath(key, "milestones") },
+    { id: "security", label: "Security", to: projectPath(key, "security") },
     { id: "activity", label: "Activity", to: projectPath(key, "activity") },
   ];
 
@@ -108,6 +114,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
         description={
           <span className="flex flex-wrap items-center gap-2">
             <ProjectStatusChip status={ov.status.value} />
+            {ov.security.state !== "clear" ? <SecurityChip badge={ov.security} /> : null}
             {p.archived ? <Chip variant="neutral">Archived</Chip> : null}
             {p.client ? <span data-client>Client: {p.client.businessName}</span> : null}
           </span>
@@ -127,6 +134,9 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
         }
       />
       {notice ? <SuccessBanner className="mb-4">{notice}</SuccessBanner> : null}
+      {importing ? (
+        <ImportChecklistDialog projectKey={key} onClose={() => setImporting(false)} />
+      ) : null}
 
       <nav className="mb-5 flex gap-1 border-b border-line" aria-label="Project">
         {tabs.map((t) => (
@@ -156,6 +166,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
       {tab === "milestones" ? (
         <MilestonesTab projectKey={key} canWrite={can.update} />
       ) : null}
+      {tab === "security" ? <SecurityTab projectKey={key} can={can} /> : null}
       {tab === "activity" ? <ActivityTab projectKey={key} /> : null}
       {tab === "issue" ? (
         <div className="max-w-4xl">
