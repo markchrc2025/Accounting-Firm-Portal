@@ -242,6 +242,33 @@ export class BirFormsController {
   }
 
   /**
+   * U23 (D64): the Preview PDF of the editor's UNSAVED data, for a live preview pane. JSON
+   * body { data } in the shape PATCH sends; it replaces the saved data for this one render
+   * and nothing is saved, stored or audited. 200 application/pdf, inline, named like
+   * Preview PDF's file. 409 { statusCode, error, message, refusals[] } for every refusal
+   * Preview PDF gives (message is the first); 400 for a body PATCH would refuse; a filed
+   * return ignores the body (409 as Preview PDF); 429 above 40 a minute per user.
+   * Same permission as Preview PDF (BIRForms:Read).
+   */
+  @Post(":id/preview")
+  @HttpCode(200)
+  @RequirePermissions(BIR_FORMS_PERMISSION.read)
+  async previewUnsaved(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { pdf, filename } = await this.birForms.previewUnsaved(user, id, body);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": attachment(filename).replace(/^attachment;/, "inline;"),
+      "Cache-Control": "no-store",
+    });
+    return new StreamableFile(Buffer.from(pdf));
+  }
+
+  /**
    * U22 (D63): take back a filing made WITHOUT the BIR confirmation e-mail. JSON body
    * { reason } (at least 10 characters). A Super Admin only. 200 with the return (status
    * "draft", data as filed, `filingUndos` with the history). 409: it was not marked filed
