@@ -38,7 +38,8 @@ describe("PA3 · Projects MCP instructions and tool list", () => {
     expect(t).toContain("add_comment");
     expect(t).toContain("create_issue");
     expect(t).toContain("end_session");
-    expect(t).toContain(".sentire-projects.json");
+    expect(t).toContain(".portal-projects.json");
+    expect(t).not.toContain(".sentire-projects.json"); // Sentire Projects keeps its own file
     expect(t).toMatch(/do not invent issue keys/i);
     expect(t).toMatch(/search_issues/);
     expect(t).not.toMatch(/Sentire Projects tracks/); // it is the Portal's own words
