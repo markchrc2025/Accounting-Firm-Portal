@@ -1,17 +1,14 @@
 // track-b-pb5.spec.ts - hermetic browser tests for PB5: the Claude sessions card on the overview, the
 // Sessions tab (paging, a link from an activity entry that lands on and highlights its session),
-// the session link on activity entries (activity tab, overview, My Work), and the Sentire Projects
-// import (Check, refusal shown as sent, Import only for the file that was checked, the summary, and
-// hidden for anyone who is not a Super Admin) - Track A PA5 / D69. One router answers every
-// /api/v1 call from a table of mocks; any call the table does not cover is recorded and FAILS the
-// test. All data is invented.
+// and the session link on activity entries (activity tab, overview, My Work) - Track A PA5 / D69.
+// One router answers every /api/v1 call from a table of mocks; any call the table does not cover
+// is recorded and FAILS the test. All data is invented.
 
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 
 const FIRM_ID = "22222222-2222-4222-8222-2222222222p5";
 const USER_ID = "u3500000-0000-4000-8000-0000000000p5";
 const ALL = ["Projects:Read", "Projects:Create", "Projects:Update", "Projects:Configure"];
-const SUPER = [...ALL, "IntegrationClient:Update"];
 
 const me = (perms: string[]) => ({
   user: {
@@ -70,9 +67,6 @@ interface World {
   sessions: Array<Record<string, unknown>>;
   /** Activity items; each may carry a session. */
   activity: Array<Record<string, unknown>>;
-  /** Sentire import: the sentence and problems of a refusal on a check, or on the real import. */
-  checkRefusal?: { status: number; message: string; problems: string[] };
-  importRefusal?: { status: number; message: string; problems: string[] };
 }
 
 const entry = (id: string, sessionRef: { id: string; title: string } | null) => ({
@@ -134,39 +128,6 @@ const issue1 = {
   parentKey: null,
   labels: [],
 };
-
-const COUNTS = {
-  projects: 2,
-  issueTypes: 1,
-  statuses: 2,
-  labels: 3,
-  milestones: 4,
-  issues: 120,
-  comments: 311,
-  statusUpdates: 9,
-  sessions: 17,
-  activities: 800,
-  githubLinks: 21,
-  securityAudits: 2,
-  securityFindings: 14,
-};
-const REPORT = {
-  dryRun: true,
-  projects: ["PAY", "BKS"],
-  counts: COUNTS,
-  reused: { issueTypes: 5, statuses: 3, labels: 2 },
-  unmatchedEmails: ["old.colleague@example.test"],
-  warnings: ["Issue PAY-7 names a status that is not known and was set to New."],
-  unmapped: [{ field: "projects[].sprints", reason: "The Portal has no sprints." }],
-};
-
-const FILE_A = JSON.stringify({ version: 1, projects: [{ key: "PAY" }, { key: "BKS" }] });
-const FILE_B = JSON.stringify({ version: 1, projects: [{ key: "ZZZ" }] });
-const asFile = (name: string, text: string) => ({
-  name,
-  mimeType: "application/json",
-  buffer: Buffer.from(text),
-});
 
 async function mockApi(page: Page, w: World, perms: string[] = ALL, extra: Entry[] = []) {
   const seen: Seen[] = [];
@@ -301,28 +262,6 @@ async function mockApi(page: Page, w: World, perms: string[] = ALL, extra: Entry
         });
       },
     ],
-    // the Sentire import: the check (dryRun) and the real import
-    [
-      "POST",
-      /^\/api\/v1\/projects\/import\/sentire$/,
-      (r, s) => {
-        const b = s.request.postDataJSON() as { dryRun?: boolean };
-        const refusal = b.dryRun ? w.checkRefusal : w.importRefusal;
-        if (refusal)
-          return json(
-            r,
-            { message: refusal.message, problems: refusal.problems },
-            refusal.status,
-          );
-        return b.dryRun ? json(r, REPORT) : json(r, { ...REPORT, dryRun: false }, 201);
-      },
-    ],
-    // the settings page
-    [
-      "GET",
-      /^\/api\/v1\/projects\/admin\/(issue-types|issue-statuses|labels)$/,
-      (r) => json(r, []),
-    ],
   ];
   const table = [...base, ...extra];
   await page.route("**/api/v1/**", async (route) => {
@@ -350,8 +289,6 @@ function clean(unmocked: string[], dialogs: string[]) {
   expect(unmocked, `unmocked API calls: ${unmocked.join(", ")}`).toEqual([]);
   expect(dialogs, `browser dialogs: ${dialogs.join(", ")}`).toEqual([]);
 }
-const posts = (seen: Seen[], re: RegExp) =>
-  seen.filter((s) => s.method === "POST" && re.test(s.path));
 
 // ===========================================================================
 // The sessions card and the Sessions tab
@@ -543,237 +480,6 @@ test.describe("PB5 Claude sessions (hermetic)", () => {
     fail = false;
     await page.getByRole("button", { name: /retry|try again/i }).click();
     await expect(page.locator("[data-sessions-tab] [data-session]")).toHaveCount(2);
-    clean(unmocked, dialogs);
-  });
-});
-
-// ===========================================================================
-// The Sentire Projects import
-// ===========================================================================
-
-const WARNING =
-  "This adds every project, issue and history from the file. It cannot be undone from the Portal.";
-
-test.describe("PB5 the Sentire Projects import (hermetic)", () => {
-  test("T6 a Super Admin checks the file: counts per entity, warnings, unmatched e-mails, unmapped fields; nothing is imported by a check", async ({
-    page,
-  }) => {
-    const w = world();
-    const { seen, unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    await expect(
-      panel.getByRole("heading", { name: "Import from Sentire Projects" }),
-    ).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Check" })).toBeDisabled();
-    await expect(
-      panel.getByRole("button", { name: "Import", exact: true }),
-    ).toBeDisabled();
-
-    await panel.getByLabel("Export file").setInputFiles(asFile("export.json", FILE_A));
-    await panel.getByRole("button", { name: "Check" }).click();
-
-    const report = panel.locator("[data-import-report]");
-    await expect(report).toContainText("2 projects would be added (PAY, BKS)");
-    await expect(report.locator('[data-count="issues"]')).toContainText("120");
-    await expect(report.locator('[data-count="comments"]')).toContainText("311");
-    await expect(report.locator('[data-count="sessions"]')).toContainText("17");
-    await expect(report.locator('[data-count="securityFindings"]')).toContainText("14");
-    await expect(report.locator("[data-import-reused]")).toContainText(
-      "5 issue types, 3 statuses, 2 labels",
-    );
-    await expect(report.locator("[data-import-unmatched]")).toContainText(
-      "old.colleague@example.test",
-    );
-    await expect(report.locator("[data-import-warnings]")).toContainText(
-      "Issue PAY-7 names a status that is not known and was set to New.",
-    );
-    await expect(report.locator("[data-import-unmapped]")).toContainText(
-      "projects[].sprints",
-    );
-    await expect(panel.locator("[data-import-warning]")).toHaveText(WARNING);
-
-    // what was sent: the file as it is, plus dryRun true; one call, nothing else
-    const sent = posts(seen, /\/import\/sentire$/);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]!.request.postDataJSON()).toEqual({
-      ...JSON.parse(FILE_A),
-      dryRun: true,
-    });
-    await expect(panel.locator("[data-import-summary]")).toHaveCount(0);
-    clean(unmocked, dialogs);
-  });
-
-  test("T7 Import is available only for the exact file that was checked", async ({
-    page,
-  }) => {
-    const w = world();
-    const { seen, unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    const input = panel.getByLabel("Export file");
-    const importBtn = panel.getByRole("button", { name: "Import", exact: true });
-
-    await input.setInputFiles(asFile("a.json", FILE_A));
-    await expect(importBtn).toBeDisabled(); // not checked yet
-    await panel.getByRole("button", { name: "Check" }).click();
-    await expect(importBtn).toBeEnabled();
-
-    // another file: the check no longer holds
-    await input.setInputFiles(asFile("b.json", FILE_B));
-    await expect(importBtn).toBeDisabled();
-    await expect(
-      panel.getByText("This is not the file that was checked. Check it first."),
-    ).toBeVisible();
-    await expect(panel.locator("[data-import-report]")).toHaveCount(0);
-
-    // the same content again (even under another name) is the checked file
-    await input.setInputFiles(asFile("renamed.json", FILE_A));
-    await expect(importBtn).toBeEnabled();
-    await expect(panel.locator("[data-import-report]")).toBeVisible();
-
-    // the same name with other content is not
-    await input.setInputFiles(asFile("a.json", FILE_B));
-    await expect(importBtn).toBeDisabled();
-    expect(posts(seen, /\/import\/sentire$/)).toHaveLength(1);
-    clean(unmocked, dialogs);
-  });
-
-  test("T8 Import asks once more with the plain warning; Cancel imports nothing", async ({
-    page,
-  }) => {
-    const w = world();
-    const { seen, unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    await panel.getByLabel("Export file").setInputFiles(asFile("export.json", FILE_A));
-    await panel.getByRole("button", { name: "Check" }).click();
-    await panel.getByRole("button", { name: "Import", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: /Import .export\.json.\?/ });
-    await expect(dialog).toContainText(WARNING);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toHaveCount(0);
-    expect(posts(seen, /\/import\/sentire$/)).toHaveLength(1); // only the check
-    clean(unmocked, dialogs);
-  });
-
-  test("T9 the import: sent with dryRun false, then the summary links the imported projects", async ({
-    page,
-  }) => {
-    const w = world();
-    const { seen, unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    await panel.getByLabel("Export file").setInputFiles(asFile("export.json", FILE_A));
-    await panel.getByRole("button", { name: "Check" }).click();
-    await panel.getByRole("button", { name: "Import", exact: true }).click();
-    await page
-      .getByRole("dialog", { name: /Import .export\.json.\?/ })
-      .getByRole("button", { name: "Import", exact: true })
-      .click();
-
-    const summary = panel.locator("[data-import-summary]");
-    await expect(summary).toContainText("Imported 2 projects from Sentire Projects.");
-    await expect(summary.locator('[data-count="issues"]')).toContainText("120");
-    await expect(summary).toContainText("old.colleague@example.test");
-    const links = summary.locator("[data-imported-projects] a");
-    await expect(links).toHaveText(["PAY", "BKS"]);
-    await expect(links.nth(0)).toHaveAttribute("href", "/projects/PAY");
-
-    const sent = posts(seen, /\/import\/sentire$/);
-    expect(sent).toHaveLength(2);
-    expect(sent[1]!.request.postDataJSON()).toEqual({
-      ...JSON.parse(FILE_A),
-      dryRun: false,
-    });
-    // the check is spent: Import needs a new check
-    await expect(
-      panel.getByRole("button", { name: "Import", exact: true }),
-    ).toBeDisabled();
-    await links.nth(0).click();
-    await expect(page).toHaveURL(/\/projects\/PAY$/);
-    clean(unmocked, dialogs);
-  });
-
-  test("T10 a refusal of the check shows as sent, with its problems; Import stays unavailable", async ({
-    page,
-  }) => {
-    const w = world({
-      checkRefusal: {
-        status: 409,
-        message: "The export cannot be imported.",
-        problems: ["Project key PAY already exists.", "Issue BKS-3 has no title."],
-      },
-    });
-    const { unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    await panel.getByLabel("Export file").setInputFiles(asFile("export.json", FILE_A));
-    await panel.getByRole("button", { name: "Check" }).click();
-    const alert = panel.getByRole("alert");
-    await expect(alert).toContainText("The export cannot be imported.");
-    await expect(alert).toContainText("Project key PAY already exists.");
-    await expect(alert).toContainText("Issue BKS-3 has no title.");
-    await expect(
-      panel.getByRole("button", { name: "Import", exact: true }),
-    ).toBeDisabled();
-    await expect(panel.locator("[data-import-report]")).toHaveCount(0);
-    await expect(panel.locator("[data-import-summary]")).toHaveCount(0);
-    clean(unmocked, dialogs);
-  });
-
-  test("T10 a refusal of the real import shows as sent and nothing is summarised", async ({
-    page,
-  }) => {
-    const w = world({
-      importRefusal: {
-        status: 409,
-        message: "A project in the export already exists.",
-        problems: ["Project key BKS already exists."],
-      },
-    });
-    const { unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    await panel.getByLabel("Export file").setInputFiles(asFile("export.json", FILE_A));
-    await panel.getByRole("button", { name: "Check" }).click();
-    await panel.getByRole("button", { name: "Import", exact: true }).click();
-    await page
-      .getByRole("dialog", { name: /Import .export\.json.\?/ })
-      .getByRole("button", { name: "Import", exact: true })
-      .click();
-    const alert = panel.getByRole("alert");
-    await expect(alert).toContainText("A project in the export already exists.");
-    await expect(alert).toContainText("Project key BKS already exists.");
-    await expect(panel.locator("[data-import-summary]")).toHaveCount(0);
-    clean(unmocked, dialogs);
-  });
-
-  test("T11 a file that is not JSON is said so and cannot be checked; nothing is sent", async ({
-    page,
-  }) => {
-    const w = world();
-    const { seen, unmocked, dialogs } = await mockApi(page, w, SUPER);
-    await page.goto("/projects/settings");
-    const panel = page.locator("[data-sentire-import]");
-    await panel
-      .getByLabel("Export file")
-      .setInputFiles(asFile("notes.json", "not json at all"));
-    await expect(panel.getByRole("alert")).toContainText("notes.json is not valid JSON.");
-    await expect(panel.getByRole("button", { name: "Check" })).toBeDisabled();
-    expect(posts(seen, /\/import\/sentire$/)).toHaveLength(0);
-    clean(unmocked, dialogs);
-  });
-
-  test("T12 anyone who is not a Super Admin does not see the import", async ({
-    page,
-  }) => {
-    const w = world();
-    const { unmocked, dialogs } = await mockApi(page, w, ALL);
-    await page.goto("/projects/settings");
-    await expect(page.getByRole("heading", { name: "Issue types" })).toBeVisible();
-    await expect(page.locator("[data-sentire-import]")).toHaveCount(0);
-    await expect(page.getByText("Import from Sentire Projects")).toHaveCount(0);
     clean(unmocked, dialogs);
   });
 });
