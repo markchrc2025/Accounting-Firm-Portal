@@ -109,16 +109,14 @@ export class ChecklistImportService {
     if (parsed.items.length === 0) return result;
 
     const [type, open, done] = await Promise.all([
-      this.prisma.issueType
-        .findFirst({ where: { firmId, name: "Task" } })
-        .then(
-          (t) =>
-            t ??
-            this.prisma.issueType.findFirst({
-              where: { firmId },
-              orderBy: { order: "asc" },
-            }),
-        ),
+      this.prisma.issueType.findFirst({ where: { firmId, name: "Task" } }).then(
+        (t) =>
+          t ??
+          this.prisma.issueType.findFirst({
+            where: { firmId },
+            orderBy: { order: "asc" },
+          }),
+      ),
       this.prisma.issueStatus.findFirst({ where: { firmId, isDefault: true } }),
       closed
         ? this.prisma.issueStatus.findFirst({
