@@ -29,7 +29,9 @@ beforeEach(() => {
     }),
   );
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 const last = () => {
   const c = calls.at(-1)!;
   const u = new URL(c.url, "http://x.test");
