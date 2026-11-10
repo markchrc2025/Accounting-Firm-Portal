@@ -12,6 +12,7 @@
 // All data is invented. No real name, TIN, address, phone or email.
 
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { answerBell } from "./helpers/bell";
 
 const FIRM_ID = "22222222-2222-4222-8222-2222222222f1";
 const ROBOT = "portal-robot@invented-project.iam.gserviceaccount.test";
@@ -165,6 +166,7 @@ async function mockApi(page: Page, extra: Entry[], client = CLIENT) {
       const [m, re, h] = table[i]!;
       if (m === s.method && re.test(s.path)) return h(route, s);
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${s.method} ${s.path}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

@@ -4,6 +4,7 @@
 // it does not look). All data is invented.
 
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { answerBell } from "./helpers/bell";
 
 const FIRM_ID = "22222222-2222-4222-8222-2222222222p1";
 const CLIENT = {
@@ -257,6 +258,8 @@ const counts = (w: World) => {
 const milestoneDto = (m: World["milestones"][number]) => ({
   ...m,
   progress: { done: 1, total: 4, percent: 25 },
+  percent: 25,
+  today: "2026-11-10",
   overdueIssues: 0,
   createdAt: "2026-11-01T00:00:00.000Z",
   updatedAt: "2026-11-01T00:00:00.000Z",
@@ -400,6 +403,20 @@ async function mockApi(
           regimeMix: { vat: 0, percentage: 0 },
         }),
     ],
+    // PB2: Projects opens on My Work
+    [
+      "GET",
+      /^\/api\/v1\/projects\/my-work$/,
+      (r) =>
+        json(r, {
+          today: "2026-11-10",
+          totals: { assignedOpen: 0, overdue: 0, dueThisWeek: 0 },
+          assigned: [],
+          overdue: [],
+          upcomingMilestones: [],
+          recentActivity: [],
+        }),
+    ],
     ["GET", /^\/api\/v1\/projects\/meta$/, (r) => json(r, META)],
     [
       "GET",
@@ -464,6 +481,17 @@ async function mockApi(
           actor: { id: USER_ID, fullName: "Ana Reyes" },
         });
       },
+    ],
+    // PB2: the Milestones tab also draws the roadmap
+    [
+      "GET",
+      /^\/api\/v1\/projects\/[^/]+\/roadmap$/,
+      (r) =>
+        json(r, {
+          today: "2026-11-10",
+          dated: w.milestones.filter((m) => m.startDate || m.dueDate).map(milestoneDto),
+          undated: w.milestones.filter((m) => !m.startDate && !m.dueDate).map(milestoneDto),
+        }),
     ],
     [
       "GET",
@@ -669,6 +697,7 @@ async function mockApi(
       const hit = re.exec(s.path);
       if (m === s.method && hit) return h(route, s, hit);
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${s.method} ${s.path}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });
@@ -686,7 +715,7 @@ const nav = (page: Page) => page.locator("aside");
 // ===========================================================================
 
 test.describe("PB1 the sidebar and who sees Projects (hermetic)", () => {
-  test("T1 a firm user with Projects:Read sees the Projects item and it opens the portfolio", async ({
+  test("T1 a firm user with Projects:Read sees the Projects item and it opens Projects (My Work since PB2)", async ({
     page,
   }) => {
     const w = world();
@@ -694,7 +723,7 @@ test.describe("PB1 the sidebar and who sees Projects (hermetic)", () => {
     await page.goto("/");
     await nav(page).getByRole("link", { name: "Projects" }).click();
     await expect(page).toHaveURL(/\/projects$/);
-    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "My Work" })).toBeVisible();
     clean(unmocked, dialogs);
   });
 
@@ -733,7 +762,7 @@ test.describe("PB1 the portfolio and creating a project (hermetic)", () => {
   }) => {
     const w = world();
     const { unmocked, dialogs } = await mockApi(page, w);
-    await page.goto("/projects");
+    await page.goto("/projects/all"); // PB2: the portfolio moved to All projects
     const row = page.locator('[data-project="PAY"]');
     await expect(row).toBeVisible();
     await expect(row.locator("[data-client]")).toHaveText(
@@ -762,7 +791,7 @@ test.describe("PB1 the portfolio and creating a project (hermetic)", () => {
   }) => {
     const w = world();
     const { seen, unmocked, dialogs } = await mockApi(page, w);
-    await page.goto("/projects");
+    await page.goto("/projects/all"); // PB2: the portfolio moved to All projects
     await page.getByRole("button", { name: "New project" }).click();
     await expect(page).toHaveURL(/\/projects\/new$/);
     // The key format is a hint here; the API decides.
@@ -1126,7 +1155,7 @@ test.describe("PB1 a Viewer (hermetic)", () => {
     const w = world();
     const { unmocked, dialogs } = await mockApi(page, w, { perms: VIEWER });
     // Portfolio
-    await page.goto("/projects");
+    await page.goto("/projects/all"); // PB2: the portfolio moved to All projects
     await expect(page.locator('[data-project="PAY"]')).toBeVisible();
     await expect(page.getByRole("button", { name: "New project" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Settings" })).toHaveCount(0);

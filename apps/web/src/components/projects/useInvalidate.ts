@@ -10,5 +10,9 @@ export function useInvalidateProject(projectKey: string) {
     void qc.invalidateQueries({ queryKey: ["projects", "milestones", projectKey] });
     void qc.invalidateQueries({ queryKey: ["projects", "activity", projectKey] });
     void qc.invalidateQueries({ queryKey: ["projects", "portfolio"] });
+    // PB2: the board, the roadmap and My Work show the same issues and milestones
+    void qc.invalidateQueries({ queryKey: ["projects", "board", projectKey] });
+    void qc.invalidateQueries({ queryKey: ["projects", "roadmap", projectKey] });
+    void qc.invalidateQueries({ queryKey: ["projects", "my-work"] });
   };
 }
