@@ -978,7 +978,9 @@ export function githubStateLabel(l: Pick<GithubLink, "state" | "merged">): strin
 }
 
 /** The reference a link shows: owner/repo#12 for a pull request, owner/repo@abc1234 for a commit. */
-export function githubRef(l: Pick<GithubLink, "kind" | "repo" | "number" | "sha">): string {
+export function githubRef(
+  l: Pick<GithubLink, "kind" | "repo" | "number" | "sha">,
+): string {
   if (l.kind === "pr") return l.number !== null ? `${l.repo}#${l.number}` : l.repo;
   return l.sha ? `${l.repo}@${l.sha.slice(0, 7)}` : l.repo;
 }
@@ -995,9 +997,7 @@ export function securityText(b: SecurityBadge): string {
 }
 
 /** A sentence cut into text and the issue keys in it (PAY-3), so the keys can be links. */
-export function splitIssueKeys(
-  sentence: string,
-): Array<{ text: string; key: boolean }> {
+export function splitIssueKeys(sentence: string): Array<{ text: string; key: boolean }> {
   const out: Array<{ text: string; key: boolean }> = [];
   const re = /\b[A-Z][A-Z0-9]{1,9}-\d{1,7}\b/g;
   let at = 0;

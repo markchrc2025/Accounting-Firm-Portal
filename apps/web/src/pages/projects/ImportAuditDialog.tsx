@@ -31,7 +31,10 @@ function KeyList({
   return (
     <div data-outcome={label}>
       <h3 className="mb-1 font-semibold text-content">
-        {label} <span className="font-mono text-[11px] text-content-secondary">{keys.length}</span>
+        {label}{" "}
+        <span className="font-mono text-[11px] text-content-secondary">
+          {keys.length}
+        </span>
       </h3>
       <ul className="flex flex-wrap gap-2">
         {keys.map((k) => (
@@ -50,7 +53,13 @@ function KeyList({
 }
 
 /** What an imported audit did: the issues it made, updated and reopened, and what it did not report. */
-export function AuditOutcome({ a, projectKey }: { a: SecurityAudit; projectKey: string }) {
+export function AuditOutcome({
+  a,
+  projectKey,
+}: {
+  a: SecurityAudit;
+  projectKey: string;
+}) {
   const nothing =
     a.created.length +
       a.updated.length +
@@ -65,11 +74,21 @@ export function AuditOutcome({ a, projectKey }: { a: SecurityAudit; projectKey: 
       <KeyList label="Created" keys={a.created} projectKey={projectKey} />
       <KeyList label="Updated" keys={a.updated} projectKey={projectKey} />
       <KeyList label="Reopened" keys={a.reopened} projectKey={projectKey} />
-      <KeyList label="Not reported by this run" keys={a.notReported} projectKey={projectKey} />
-      <KeyList label="Rejection noted on" keys={a.rejectedNoted} projectKey={projectKey} />
+      <KeyList
+        label="Not reported by this run"
+        keys={a.notReported}
+        projectKey={projectKey}
+      />
+      <KeyList
+        label="Rejection noted on"
+        keys={a.rejectedNoted}
+        projectKey={projectKey}
+      />
       {a.rejected.length > 0 ? (
         <div data-outcome="Rejected">
-          <h3 className="mb-1 font-semibold text-content">Rejected findings (kept on the audit)</h3>
+          <h3 className="mb-1 font-semibold text-content">
+            Rejected findings (kept on the audit)
+          </h3>
           <ul className="list-disc space-y-0.5 pl-5">
             {a.rejected.map((r) => (
               <li key={r.fingerprint}>
@@ -127,10 +146,11 @@ export function ImportAuditDialog({
         findings: findingsFile ? await readFileText(findingsFile) : findingsText,
       };
       if (runFile) {
-        body.run = parseFile("run-metadata.json", await readFileText(runFile), "object") as Record<
-          string,
-          unknown
-        >;
+        body.run = parseFile(
+          "run-metadata.json",
+          await readFileText(runFile),
+          "object",
+        ) as Record<string, unknown>;
       }
       if (ledgerFile) {
         body.ledger = parseFile(
@@ -163,8 +183,8 @@ export function ImportAuditDialog({
         <div className="space-y-4" data-audit-imported>
           <p className="text-[13px] font-semibold text-navy">
             Run {result.runId || "(no run id)"}: {result.findings.total} findings,{" "}
-            {result.findings.confirmed} confirmed, {result.findings.needsValidation} to validate,{" "}
-            {result.findings.rejected} rejected.
+            {result.findings.confirmed} confirmed, {result.findings.needsValidation} to
+            validate, {result.findings.rejected} rejected.
             {!result.complete ? " The run is incomplete." : ""}
           </p>
           <AuditOutcome a={result} projectKey={projectKey} />

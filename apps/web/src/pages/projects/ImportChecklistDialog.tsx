@@ -45,7 +45,8 @@ export function ImportChecklistDialog({
   const [done, setDone] = useState<ChecklistImportResult | null>(null);
 
   // Import is for what was previewed: any change to the text or the switch asks for a new preview.
-  const previewed = preview && preview.markdown === markdown && preview.headings === headings;
+  const previewed =
+    preview && preview.markdown === markdown && preview.headings === headings;
 
   async function run(dryRun: boolean) {
     setBusy(true);
@@ -108,7 +109,9 @@ export function ImportChecklistDialog({
       <div className="space-y-4 text-[13px]">
         <ErrorBanner lines={errors} />
         <label className="block">
-          <span className="mb-1.5 block font-semibold text-content">Markdown checklist</span>
+          <span className="mb-1.5 block font-semibold text-content">
+            Markdown checklist
+          </span>
           <textarea
             className="input min-h-[170px] font-mono text-[12px]"
             value={markdown}
@@ -116,8 +119,8 @@ export function ImportChecklistDialog({
             onChange={(e) => setMarkdown(e.target.value)}
           />
           <span className="mt-1 block text-[11.5px] text-content-secondary">
-            One line per item: <code>- [ ] open</code> or <code>- [x] closed</code>. A #word is a
-            label. Indented bullets under an item are its description.
+            One line per item: <code>- [ ] open</code> or <code>- [x] closed</code>. A
+            #word is a label. Indented bullets under an item are its description.
           </span>
         </label>
         <label className="flex items-center gap-2">
@@ -198,7 +201,10 @@ function Made({ result }: { result: ChecklistImportResult }) {
 function Warnings({ warnings }: { warnings: string[] }) {
   if (warnings.length === 0) return null;
   return (
-    <div data-import-warnings className="rounded-input border border-gold bg-warn-bg-2 px-3 py-2">
+    <div
+      data-import-warnings
+      className="rounded-input border border-gold bg-warn-bg-2 px-3 py-2"
+    >
       <h3 className="mb-1 font-semibold text-content">Warnings</h3>
       <ul className="list-disc space-y-0.5 pl-5">
         {warnings.map((w, i) => (
@@ -236,7 +242,11 @@ function Preview({ result }: { result: ChecklistImportResult }) {
             </thead>
             <tbody>
               {result.plan.map((it, i) => (
-                <tr key={i} className="border-b border-line last:border-0" data-preview-item>
+                <tr
+                  key={i}
+                  className="border-b border-line last:border-0"
+                  data-preview-item
+                >
                   <td className="px-3 py-1.5">{it.title}</td>
                   <td className="px-3 py-1.5 font-mono text-[11.5px]">
                     {it.labels.length ? it.labels.map((l) => `#${l}`).join(" ") : ""}

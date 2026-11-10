@@ -136,9 +136,7 @@ export function SecurityTab({
         <ImportAuditDialog
           projectKey={projectKey}
           onClose={() => setImporting(false)}
-          onImported={(a) =>
-            setNotice(`Imported audit ${a.runId || "(no run id)"}.`)
-          }
+          onImported={(a) => setNotice(`Imported audit ${a.runId || "(no run id)"}.`)}
         />
       ) : null}
     </div>
@@ -165,8 +163,8 @@ function StatusCards({ s, projectKey }: { s: SecurityStatus; projectKey: string 
             <p>No open security issues.</p>
           ) : s.state === "open" ? (
             <p>
-              {s.counts.open} open security {s.counts.open === 1 ? "issue" : "issues"}. None of
-              them is critical or high, so no milestone is held back.
+              {s.counts.open} open security {s.counts.open === 1 ? "issue" : "issues"}.
+              None of them is critical or high, so no milestone is held back.
             </p>
           ) : (
             <div data-blocked-by>
@@ -187,7 +185,10 @@ function StatusCards({ s, projectKey }: { s: SecurityStatus; projectKey: string 
               </ul>
             </div>
           )}
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4" data-security-counts>
+          <dl
+            className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4"
+            data-security-counts
+          >
             {COUNT_ROWS.map((r) => (
               <div key={r.id} data-count={r.id}>
                 <dt className="text-[11.5px] text-content-secondary">{r.label}</dt>
@@ -297,7 +298,13 @@ function findingsText(a: SecurityAudit): string {
   return `${f.total} total, ${f.confirmed} confirmed, ${f.needsValidation} to validate, ${f.rejected} rejected`;
 }
 
-function AuditTable({ audits, projectKey }: { audits: SecurityAudit[]; projectKey: string }) {
+function AuditTable({
+  audits,
+  projectKey,
+}: {
+  audits: SecurityAudit[];
+  projectKey: string;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <div className="overflow-x-auto">
@@ -386,7 +393,10 @@ function AuditRows({
         </td>
       </tr>
       {open ? (
-        <tr className="border-b border-line bg-paper last:border-0" data-audit-outcome={a.id}>
+        <tr
+          className="border-b border-line bg-paper last:border-0"
+          data-audit-outcome={a.id}
+        >
           <td colSpan={9} className="px-4 py-3">
             <AuditOutcome a={a} projectKey={projectKey} />
           </td>

@@ -46,13 +46,7 @@ export function GithubLinks({ links }: { links: GithubLink[] }) {
                 {l.title}
               </span>
               <Chip
-                variant={
-                  l.merged
-                    ? "success"
-                    : l.state === "open"
-                      ? "info"
-                      : "neutral"
-                }
+                variant={l.merged ? "success" : l.state === "open" ? "info" : "neutral"}
                 data-github-state={state}
               >
                 {state}
