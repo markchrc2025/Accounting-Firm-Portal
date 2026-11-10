@@ -1527,7 +1527,7 @@ model ProjectWorkSession {
   id        String    @id @default(uuid()) @db.Uuid
   firmId    String    @db.Uuid
   projectId String    @db.Uuid
-  /// null for a session imported from Sentire Projects whose person has no account in the Portal
+  /// Nullable since migration 45; nothing writes a session without a user today, and readers allow it
   userId    String?   @db.Uuid
   tokenId   String?   @db.Uuid
   /// claude-code | claude.ai | rest | ...

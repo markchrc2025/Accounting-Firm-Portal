@@ -26,7 +26,7 @@ type SessionRow = {
   issueKeys: string[];
   projectId: string;
   project: { key: string };
-  /** null for a session imported from Sentire Projects whose person has no account here. */
+  /** Nullable since migration 45; nothing writes a session without a user today, and readers allow it. */
   user: { id: string; fullName: string } | null;
 };
 
