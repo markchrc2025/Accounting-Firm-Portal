@@ -9,6 +9,7 @@ import { HttpAdapterHost, NestFactory } from "@nestjs/core";
 import { SentryExceptionFilter } from "./observability/sentry-exception.filter";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { applyProjectsMcpBodyLimit } from "./projects-mcp/body-limit";
 
 const API_PREFIX = "api/v1";
 
@@ -16,6 +17,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
 
   app.setGlobalPrefix(API_PREFIX);
+  // PA3 (D67): the Projects MCP endpoint reads a body of up to 1 MB (Express's own default is 100 KB).
+  applyProjectsMcpBodyLimit(app, `/${API_PREFIX}`);
   // NOTE: request validation is done with Zod schemas from @portal/shared via a
   // dedicated pipe added in Phase 1 — we intentionally avoid class-validator.
   // Expose Content-Disposition so the browser can read download filenames

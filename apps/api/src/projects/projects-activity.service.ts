@@ -34,6 +34,20 @@ export class ProjectsActivity {
         changes: (input.changes ?? []) as unknown as Prisma.InputJsonValue,
       },
     });
+    // PA3: a change made in a work session adds its issue to the session, in the same statement
+    // of the same transaction, in the order the issues were first touched.
+    if (actor.sessionId && input.issueId) {
+      await tx.$executeRaw`
+        UPDATE "project_work_sessions" s
+        SET "issueKeys" = ARRAY(
+          SELECT k FROM (
+            SELECT k, min(o) AS o
+            FROM unnest(s."issueKeys" || ARRAY[i."key"]) WITH ORDINALITY AS t(k, o)
+            GROUP BY k
+          ) x ORDER BY o)
+        FROM "issues" i
+        WHERE s."id" = ${actor.sessionId}::uuid AND i."id" = ${input.issueId}::uuid`;
+    }
   }
 
   /** A project's activity, newest first, paged; optionally one kind of actor. */

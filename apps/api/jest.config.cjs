@@ -15,6 +15,7 @@ module.exports = {
   moduleNameMapper: {
     "^@portal/shared$": "<rootDir>/../../packages/shared/src/index.ts",
     "^@portal/bir-pdf$": "<rootDir>/../../packages/bir-pdf/src/index.ts",
+    "^@portal/projects-core$": "<rootDir>/../../packages/projects-core/src/index.ts",
   },
   transformIgnorePatterns: ["/node_modules/(?!(.pnpm/)?(zod)/)"],
   collectCoverageFrom: ["src/**/*.ts", "!src/main.ts", "!src/**/*.module.ts"],

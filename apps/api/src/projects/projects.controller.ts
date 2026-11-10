@@ -8,15 +8,20 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
+  Headers,
   HttpCode,
   Param,
   Patch,
   Post,
   Query,
+  Req,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
 import type { z } from "zod";
 import type { AuthUser } from "../common/auth/auth-user";
+import { AcceptsApiToken } from "../common/decorators/accepts-api-token.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
@@ -43,7 +48,12 @@ import {
   UpdateMilestoneSchema,
   UpdateProjectSchema,
 } from "./dto/projects.schemas";
-import { webActor } from "./projects.access";
+import {
+  EndSessionSchema,
+  StartSessionByKeySchema,
+  StartSessionSchema,
+} from "./dto/sessions.schemas";
+import { webActor, type ProjectsActor } from "./projects.access";
 import { PROJECTS_PERMISSION as P } from "./projects.constants";
 import { BoardService } from "./board.service";
 import { IssuesService } from "./issues.service";
@@ -51,12 +61,26 @@ import { MyWorkService } from "./my-work.service";
 import { SearchService } from "./search.service";
 import { MilestonesService } from "./milestones.service";
 import { ProjectsAdminService } from "./projects-admin.service";
+import { ProjectsContextService } from "./projects-context.service";
+import { ProjectsRepoKitService } from "./projects-repo-kit.service";
 import { ProjectsService } from "./projects.service";
+import { WorkSessionsService } from "./work-sessions.service";
 
 type Body<S extends z.ZodTypeAny> = z.infer<S>;
 
+/** The caller as a session's client: what the caller says it is, else the way it came in. */
+function sessionActor(user: AuthUser, client: string | undefined): ProjectsActor {
+  const actor = webActor(user);
+  const named = client?.trim();
+  return {
+    ...actor,
+    client: named ? named.slice(0, 40) : actor.channel === "api" ? "rest" : "web",
+  };
+}
+
 /** Routes with fixed paths come first, so a project key can never be mistaken for one. */
 @ApiTags("projects")
+@AcceptsApiToken()
 @Controller("projects")
 export class ProjectsConfigController {
   constructor(
@@ -64,7 +88,41 @@ export class ProjectsConfigController {
     private readonly issues: IssuesService,
     private readonly myWork: MyWorkService,
     private readonly searcher: SearchService,
+    private readonly sessions: WorkSessionsService,
+    private readonly context: ProjectsContextService,
   ) {}
+
+  /**
+   * Start a work session for the repo kit's hook: { project_key, title? }. ?briefing=1 also
+   * answers the briefing. (The same as POST :key/sessions, with the key in the body.)
+   */
+  @Post("sessions/start")
+  @RequirePermissions(P.update)
+  async startByKey(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(StartSessionByKeySchema))
+    b: z.infer<typeof StartSessionByKeySchema>,
+    @Query("briefing") briefing: string | undefined,
+    @Headers("x-portal-client") client: string | undefined,
+  ) {
+    const actor = sessionActor(user, client);
+    const session = await this.sessions.start(actor, b.project_key, { title: b.title });
+    return briefing === "1"
+      ? { session, briefing: await this.context.briefing(actor, b.project_key) }
+      : { session };
+  }
+
+  /** End a work session: { summary, nextSteps? }. Your own sessions only. */
+  @Post("sessions/:id/end")
+  @RequirePermissions(P.update)
+  @HttpCode(200)
+  async endSession(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(EndSessionSchema)) b: Body<typeof EndSessionSchema>,
+  ) {
+    return { session: await this.sessions.end(webActor(user), { sessionId: id, ...b }) };
+  }
 
   /** The lists a screen needs for its filters and forms: types, statuses, labels, assignable users. */
   @Get("meta")
@@ -187,6 +245,7 @@ export class ProjectsConfigController {
 }
 
 @ApiTags("projects")
+@AcceptsApiToken()
 @Controller("projects")
 export class ProjectsController {
   constructor(
@@ -194,6 +253,9 @@ export class ProjectsController {
     private readonly issues: IssuesService,
     private readonly milestones: MilestonesService,
     private readonly boards: BoardService,
+    private readonly sessions: WorkSessionsService,
+    private readonly context: ProjectsContextService,
+    private readonly repoKit: ProjectsRepoKitService,
   ) {}
 
   // ---- Projects ---------------------------------------------------------------------------
@@ -246,6 +308,42 @@ export class ProjectsController {
   @RequirePermissions(P.update)
   unarchive(@CurrentUser() user: AuthUser, @Param("key") key: string) {
     return this.projects.setArchived(webActor(user), key, false);
+  }
+
+  // ---- Briefing, work sessions, repo kit (PA3, D67) -----------------------------------------
+
+  /** The briefing as markdown, for the SessionStart hook and for Claude. */
+  @Get(":key/context")
+  @RequirePermissions(P.read)
+  @Header("Content-Type", "text/markdown; charset=utf-8")
+  briefing(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.context.briefing(webActor(user), key);
+  }
+
+  /** Start a work session on this project: { title? }. Answers the session and the briefing. */
+  @Post(":key/sessions")
+  @RequirePermissions(P.update)
+  async startSession(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Body(new ZodValidationPipe(StartSessionSchema)) b: Body<typeof StartSessionSchema>,
+    @Headers("x-portal-client") client: string | undefined,
+  ) {
+    const actor = sessionActor(user, client);
+    const session = await this.sessions.start(actor, key, { title: b.title });
+    return { session, briefing: await this.context.briefing(actor, key) };
+  }
+
+  /** The files a code repository needs to work with this project (never a token). */
+  @Get(":key/repo-kit")
+  @RequirePermissions(P.read)
+  kit(@CurrentUser() user: AuthUser, @Param("key") key: string, @Req() req: Request) {
+    return this.repoKit.kit(webActor(user), key, {
+      protocol: req.protocol,
+      host: req.get("host"),
+      forwardedProto: req.headers["x-forwarded-proto"],
+      forwardedHost: req.headers["x-forwarded-host"],
+    });
   }
 
   // ---- Status updates ---------------------------------------------------------------------
