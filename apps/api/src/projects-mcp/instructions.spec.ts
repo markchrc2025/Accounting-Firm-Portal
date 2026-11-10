@@ -2,7 +2,7 @@
 import { PROJECTS_MCP_INSTRUCTIONS, PROJECTS_MCP_TOOL_NAMES } from "./instructions";
 
 describe("PA3 · Projects MCP instructions and tool list", () => {
-  it("the 16 tools of this unit, and no tool that deletes", () => {
+  it("the 18 tools, and no tool that deletes", () => {
     expect([...PROJECTS_MCP_TOOL_NAMES].sort()).toEqual(
       [
         "add_comment",
@@ -13,6 +13,8 @@ describe("PA3 · Projects MCP instructions and tool list", () => {
         "get_issue",
         "get_project",
         "get_project_context",
+        "get_security_status",
+        "import_security_audit",
         "list_milestones",
         "list_projects",
         "post_status_update",
@@ -23,12 +25,9 @@ describe("PA3 · Projects MCP instructions and tool list", () => {
         "update_project",
       ].sort(),
     );
-    expect(PROJECTS_MCP_TOOL_NAMES).toHaveLength(16);
+    expect(PROJECTS_MCP_TOOL_NAMES).toHaveLength(18);
     for (const n of PROJECTS_MCP_TOOL_NAMES)
       expect(n).not.toMatch(/delete|remove|destroy/);
-    // the two security tools come with the audit tables, in the next unit
-    expect(PROJECTS_MCP_TOOL_NAMES).not.toContain("import_security_audit");
-    expect(PROJECTS_MCP_TOOL_NAMES).not.toContain("get_security_status");
   });
 
   it("the instructions tell Claude the session workflow and the rules", () => {
@@ -44,6 +43,9 @@ describe("PA3 · Projects MCP instructions and tool list", () => {
     expect(t).toMatch(/search_issues/);
     expect(t).not.toMatch(/Sentire Projects tracks/); // it is the Portal's own words
     expect(t).not.toContain("—"); // no em dashes
-    expect(t).not.toMatch(/security/i); // the security tools are not in this unit
+    // the security audit workflow
+    expect(t).toContain("import_security_audit");
+    expect(t).toContain("get_security_status");
+    expect(t).toMatch(/critical or high/);
   });
 });

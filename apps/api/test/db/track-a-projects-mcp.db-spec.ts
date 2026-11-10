@@ -5,7 +5,7 @@
  *
  * M1  The door: Bearer and capability URL, wrong tokens, methods, separate from the BIR connector.
  * M2  Limits: body size, the per-token rate limit shared through Redis by two instances.
- * M3  The 16 tools.
+ * M3  The 18 tools.
  * M4  Sessions through the MCP and what the briefing shows next.
  * M5  Attribution (CLAUDE through mcp), permissions, read-only, visibility, notifications.
  */
@@ -19,7 +19,7 @@ import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
-import { applyProjectsMcpBodyLimit } from "../../src/projects-mcp/body-limit";
+import { applyProjectsBodyReaders } from "../../src/projects-mcp/body-limit";
 import {
   PROJECTS_MCP_INSTRUCTIONS,
   PROJECTS_MCP_TOOL_NAMES,
@@ -39,7 +39,12 @@ const READ_ONLY = "This token is read-only.";
 const INVALID = "Invalid or revoked token.";
 const missing = (...p: string[]) => `Missing permission(s): ${p.join(", ")}`;
 const hasRedisBinary = spawnSync("which", ["redis-server"]).status === 0;
-const itRedis = hasRedisBinary ? it : it.skip;
+// The Redis rate-limit test uses (in this order) a Redis at REDIS_URL, as CI provides, a
+// redis-server started for the run, or none. In CI none is a failure, not a skip: the test
+// must always run there. Elsewhere it is skipped, with a warning, when there is no Redis.
+const redisExpected =
+  Boolean(process.env.REDIS_URL) || hasRedisBinary || Boolean(process.env.CI);
+const itRedis = redisExpected ? it : it.skip;
 
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -184,44 +189,64 @@ describe("PA3 · the Projects MCP server (real app over HTTP, db, Redis)", () =>
     });
   }
 
-  async function startRedis(): Promise<string | null> {
-    if (!hasRedisBinary) {
-      // eslint-disable-next-line no-console -- say so in the run output: the Redis tests are skipped
-      console.warn(
-        "[PA3] redis-server is not installed: the Redis rate-limit tests are skipped.",
-      );
-      return null;
-    }
-    const port = await freePort();
-    redisProc = spawn(
-      "redis-server",
-      ["--port", String(port), "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"],
-      { stdio: "ignore" },
-    );
-    const url = `redis://127.0.0.1:${port}`;
+  async function pingable(url: string): Promise<boolean> {
     const probe = new Redis(url, {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       retryStrategy: () => null,
     });
-    for (let n = 0; n < 50; n++) {
-      try {
-        await probe.connect();
-        await probe.ping();
-        probe.disconnect();
-        return url;
-      } catch {
+    probe.on("error", () => undefined);
+    try {
+      await probe.connect();
+      return (await probe.ping()) === "PONG";
+    } catch {
+      return false;
+    } finally {
+      probe.disconnect();
+    }
+  }
+  async function startRedis(): Promise<string | null> {
+    const given = process.env.REDIS_URL;
+    if (given && (await pingable(given))) return given;
+    if (hasRedisBinary) {
+      const port = await freePort();
+      redisProc = spawn(
+        "redis-server",
+        [
+          "--port",
+          String(port),
+          "--bind",
+          "127.0.0.1",
+          "--save",
+          "",
+          "--appendonly",
+          "no",
+        ],
+        { stdio: "ignore" },
+      );
+      const url = `redis://127.0.0.1:${port}`;
+      for (let n = 0; n < 50; n++) {
+        if (await pingable(url)) return url;
         await new Promise((r) => setTimeout(r, 100));
       }
+      throw new Error("redis-server did not start");
     }
-    probe.disconnect();
-    throw new Error("redis-server did not start");
+    if (process.env.CI) {
+      throw new Error(
+        "Redis is required in CI for the rate-limit test: set REDIS_URL to a Redis service.",
+      );
+    }
+    // eslint-disable-next-line no-console -- say so in the run output: the Redis test is skipped
+    console.warn(
+      "[PA4] No Redis (REDIS_URL or redis-server): the rate-limit test is skipped.",
+    );
+    return null;
   }
   async function makeApp(): Promise<INestApplication> {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     const app = moduleRef.createNestApplication();
     app.setGlobalPrefix("api/v1");
-    applyProjectsMcpBodyLimit(app, "/api/v1");
+    applyProjectsBodyReaders(app, "/api/v1");
     await app.init();
     return app;
   }
@@ -463,15 +488,15 @@ describe("PA3 · the Projects MCP server (real app over HTTP, db, Redis)", () =>
   });
 
   // ======================================================================================
-  describe("M3 · the 16 tools", () => {
-    it("exactly the 16, with a description each, no delete tool; the six readers are marked read only and the ten writers are not", async () => {
+  describe("M3 · the 18 tools", () => {
+    it("exactly the 18, with a description each, no delete tool; the seven readers are marked read only and the eleven writers are not", async () => {
       const t = await mint("member");
       const res = await rpc(appA, t.token, "tools/list");
       const tools = res.body.result.tools as Json[];
       expect(tools.map((x) => x.name).sort()).toEqual(
         [...PROJECTS_MCP_TOOL_NAMES].sort(),
       );
-      expect(tools).toHaveLength(16);
+      expect(tools).toHaveLength(18);
       for (const x of tools) {
         expect(String(x.description).length).toBeGreaterThan(20);
         expect(x.name).not.toMatch(/delete|remove|destroy/);
@@ -484,6 +509,7 @@ describe("PA3 · the Projects MCP server (real app over HTTP, db, Redis)", () =>
         "get_issue",
         "get_project",
         "get_project_context",
+        "get_security_status",
         "list_milestones",
         "list_projects",
         "search_issues",
@@ -1195,7 +1221,7 @@ describe("PA3 · the Projects MCP server (real app over HTTP, db, Redis)", () =>
       expect(comment).toMatchObject({ authorId: uid["member"] });
     });
 
-    it("a read token can use the six readers and is refused, with one sentence, by every writer", async () => {
+    it("a read token can use the seven readers and is refused, with one sentence, by every writer", async () => {
       await project({ key: "ROT1" });
       const sa = await mint("sa");
       await tool(sa.token, "create_issue", { project_key: "ROT1", title: "Exists" });
@@ -1207,6 +1233,7 @@ describe("PA3 · the Projects MCP server (real app over HTTP, db, Redis)", () =>
         ["search_issues", { project_key: "ROT1" }],
         ["get_issue", { key: "ROT1-1" }],
         ["list_milestones", { project_key: "ROT1" }],
+        ["get_security_status", { project_key: "ROT1" }],
       ] as const) {
         const r = await tool(t.token, name, args);
         expect(r.isError).toBeFalsy();
@@ -1222,6 +1249,7 @@ describe("PA3 · the Projects MCP server (real app over HTTP, db, Redis)", () =>
         ["save_milestone", { project_key: "ROT1", name: "x" }],
         ["start_session", { project_key: "ROT1" }],
         ["end_session", { project_key: "ROT1", summary: "x" }],
+        ["import_security_audit", { project_key: "ROT1", findings: [] }],
       ] as const) {
         const r = await tool(t.token, name, args);
         expect(r.isError).toBe(true);
