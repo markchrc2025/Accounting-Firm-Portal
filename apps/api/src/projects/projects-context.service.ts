@@ -134,7 +134,7 @@ export class ProjectsContextService {
       sessions: sessions.map((s) => ({
         startedAt: s.startedAt,
         client: s.client,
-        userName: s.user.fullName,
+        userName: s.user?.fullName ?? null,
         title: s.title,
         summary: s.summary,
         endedAt: s.endedAt,

@@ -17,6 +17,8 @@ import { ChecklistImportService } from "./checklist-import.service";
 import { ProjectsGithubController } from "./github.controller";
 import { GithubService } from "./github.service";
 import { IssueWrites } from "./issue-writes";
+import { SentireImportController } from "./sentire-import.controller";
+import { SentireImportService } from "./sentire-import.service";
 import { SecurityAuditsService } from "./security-audits.service";
 import { SecurityQueries } from "./security-queries";
 import { ProjectsConfigController, ProjectsController } from "./projects.controller";
@@ -34,10 +36,12 @@ import { WorkSessionsService } from "./work-sessions.service";
 @Module({
   imports: [AuditModule, RbacModule, NotificationsModule],
   // The Projects MCP endpoint is first: /projects/mcp must never be read as a project key.
-  // The GitHub webhook is first too: /projects/github/webhook is no project key.
+  // The GitHub webhook and the Sentire import are first too: /projects/github/webhook and
+  // /projects/import/sentire are no project keys.
   controllers: [
     ProjectsMcpController,
     ProjectsGithubController,
+    SentireImportController,
     ProjectsConfigController,
     ProjectsController,
   ],
@@ -62,6 +66,7 @@ import { WorkSessionsService } from "./work-sessions.service";
     SecurityAuditsService,
     ChecklistImportService,
     GithubService,
+    SentireImportService,
   ],
   exports: [
     ProjectsAccess,

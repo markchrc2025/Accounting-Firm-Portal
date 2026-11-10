@@ -85,6 +85,7 @@ export class MyWorkService {
         include: {
           actorUser: { select: { id: true, fullName: true } },
           issue: { select: { key: true, title: true } },
+          session: { select: { id: true, title: true } },
           project: { select: { key: true, name: true } },
         },
       }),
