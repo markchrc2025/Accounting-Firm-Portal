@@ -53,7 +53,7 @@ vi.mock("../auth/AuthContext", () => ({
 }));
 
 import { ApiError } from "../lib/api";
-import type { ApiToken, CreatedApiToken, FirmApiToken } from "../lib/apiTokens";
+import type { ApiToken, FirmApiToken } from "../lib/apiTokens";
 import { ConnectClaudeHelp } from "../components/projects/ConnectClaudeHelp";
 import ApiTokensPage from "./ApiTokensPage";
 import ProfilePage from "./ProfilePage";
