@@ -27,7 +27,11 @@ export class ProjectsActivity {
         projectId: input.projectId,
         issueId: input.issueId ?? null,
         actorType: actor.actorType,
-        actorUserId: actor.user.id,
+        // GitHub and the system are not users: no row of the users table stands for them
+        actorUserId:
+          actor.actorType === "GITHUB" || actor.actorType === "SYSTEM"
+            ? null
+            : actor.user.id,
         channel: actor.channel,
         sessionId: actor.sessionId ?? null,
         action: input.action,

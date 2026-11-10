@@ -13,6 +13,12 @@ import { ProjectsAdminService } from "./projects-admin.service";
 import { McpRateLimitService } from "../projects-mcp/mcp-rate-limit.service";
 import { ProjectsMcpController } from "../projects-mcp/projects-mcp.controller";
 import { ProjectsMcpService } from "../projects-mcp/projects-mcp.service";
+import { ChecklistImportService } from "./checklist-import.service";
+import { ProjectsGithubController } from "./github.controller";
+import { GithubService } from "./github.service";
+import { IssueWrites } from "./issue-writes";
+import { SecurityAuditsService } from "./security-audits.service";
+import { SecurityQueries } from "./security-queries";
 import { ProjectsConfigController, ProjectsController } from "./projects.controller";
 import { ProjectsContextService } from "./projects-context.service";
 import { ProjectsNotifier } from "./projects.notifier";
@@ -28,7 +34,13 @@ import { WorkSessionsService } from "./work-sessions.service";
 @Module({
   imports: [AuditModule, RbacModule, NotificationsModule],
   // The Projects MCP endpoint is first: /projects/mcp must never be read as a project key.
-  controllers: [ProjectsMcpController, ProjectsConfigController, ProjectsController],
+  // The GitHub webhook is first too: /projects/github/webhook is no project key.
+  controllers: [
+    ProjectsMcpController,
+    ProjectsGithubController,
+    ProjectsConfigController,
+    ProjectsController,
+  ],
   providers: [
     ProjectsAccess,
     ProjectsActivity,
@@ -45,6 +57,11 @@ import { WorkSessionsService } from "./work-sessions.service";
     ProjectsRepoKitService,
     ProjectsMcpService,
     McpRateLimitService,
+    IssueWrites,
+    SecurityQueries,
+    SecurityAuditsService,
+    ChecklistImportService,
+    GithubService,
   ],
   exports: [
     ProjectsAccess,
@@ -56,6 +73,7 @@ import { WorkSessionsService } from "./work-sessions.service";
     SearchService,
     WorkSessionsService,
     ProjectsContextService,
+    SecurityAuditsService,
   ],
 })
 export class ProjectsModule {}

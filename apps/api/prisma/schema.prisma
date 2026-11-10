@@ -105,6 +105,9 @@ model Firm {
   notificationPrefs    NotificationPreference[]
   apiTokens            ApiToken[]
   workSessions         ProjectWorkSession[]
+  githubLinks          GithubLink[]
+  securityAudits       SecurityAudit[]
+  securityFindings     SecurityFinding[]
 
   @@map("firms")
 }
@@ -249,6 +252,7 @@ model User {
   notificationPref     NotificationPreference?
   apiTokens            ApiToken[]
   workSessions         ProjectWorkSession[]
+  securityAudits       SecurityAudit[]
 
   @@map("users")
 }
@@ -1228,6 +1232,9 @@ model Project {
   milestones    Milestone[]
   activities    ProjectActivity[]
   workSessions  ProjectWorkSession[]
+  githubLinks   GithubLink[]
+  securityAudits SecurityAudit[]
+  securityFindings SecurityFinding[]
 
   @@unique([firmId, key])
   @@index([firmId])
@@ -1333,6 +1340,8 @@ model Issue {
   labels      IssueLabel[]
   comments    IssueComment[]
   activities  ProjectActivity[]
+  githubLinks GithubLink[]
+  securityFinding SecurityFinding[]
 
   @@unique([firmId, key])
   @@unique([projectId, number])
@@ -1540,4 +1549,100 @@ model ProjectWorkSession {
   @@index([projectId, startedAt])
   @@index([userId])
   @@map("project_work_sessions")
+}
+
+/// PA4 (D68): a pull request or commit that names an issue. One row per issue and PR or commit,
+/// updated by later events, never duplicated (unique on the issue and the url).
+model GithubLink {
+  id        String   @id @default(uuid()) @db.Uuid
+  firmId    String   @db.Uuid
+  projectId String   @db.Uuid
+  issueId   String   @db.Uuid
+  /// pr | commit
+  kind      String
+  /// owner/repo
+  repo      String
+  number    Int?
+  sha       String?
+  url       String
+  title     String   @default("")
+  /// open | closed | merged | pushed
+  state     String   @default("")
+  merged    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  firm    Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue   Issue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, url])
+  @@index([firmId])
+  @@index([projectId])
+  @@map("project_github_links")
+}
+
+/// PA4 (D68): one imported run of the security-audit skill. Rejected findings are kept here and
+/// never become issues.
+model SecurityAudit {
+  id               String   @id @default(uuid()) @db.Uuid
+  firmId           String   @db.Uuid
+  projectId        String   @db.Uuid
+  runId            String   @default("")
+  /// The commit that was audited.
+  commit           String   @default("")
+  /// quick | standard | deep
+  profile          String   @default("standard")
+  /// Paths the run was limited to; empty for the whole repository.
+  scope            String[] @default([])
+  complete         Boolean
+  incompleteReason String   @default("")
+  /// Ledger units by status.
+  coverage         Json     @default("{}")
+  /// { critical, high, medium, low, informational, needsValidation, rejected, total }
+  counts           Json     @default("{}")
+  /// { created, updated, reopened, notReported, rejectedNoted }: issue keys.
+  outcome          Json     @default("{}")
+  /// [{ fingerprint, title, reason }]
+  rejected         Json     @default("[]")
+  importedById     String?  @db.Uuid
+  actorType        String
+  channel          String
+  createdAt        DateTime @default(now())
+
+  firm       Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  importedBy User?             @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  findings   SecurityFinding[]
+
+  @@index([firmId])
+  @@index([projectId, createdAt])
+  @@map("project_security_audits")
+}
+
+/// PA4 (D68): the identity of a finding in a project (the skill's fingerprint) and the issue it
+/// became. A later audit that reports the same fingerprint updates that issue.
+model SecurityFinding {
+  id              String   @id @default(uuid()) @db.Uuid
+  firmId          String   @db.Uuid
+  projectId       String   @db.Uuid
+  fingerprint     String
+  issueId         String?  @db.Uuid
+  lastSeenAuditId String?  @db.Uuid
+  /// confirmed | needs_validation: the verdict of the last audit that reported it
+  state           String
+  /// critical | high | medium | low | informational, null for a lead that needs validation
+  severity        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+
+  firm      Firm           @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue     Issue?         @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  lastSeen  SecurityAudit? @relation(fields: [lastSeenAuditId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, fingerprint])
+  @@index([firmId])
+  @@index([issueId])
+  @@map("project_security_findings")
 }

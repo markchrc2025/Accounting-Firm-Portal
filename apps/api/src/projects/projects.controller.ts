@@ -16,9 +16,10 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import type { z } from "zod";
 import type { AuthUser } from "../common/auth/auth-user";
 import { AcceptsApiToken } from "../common/decorators/accepts-api-token.decorator";
@@ -26,6 +27,9 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import {
+  AuditImportSchema,
+  AuditListQuerySchema,
+  ChecklistImportSchema,
   ActivityQuerySchema,
   BoardQuerySchema,
   SearchQuerySchema,
@@ -61,9 +65,11 @@ import { MyWorkService } from "./my-work.service";
 import { SearchService } from "./search.service";
 import { MilestonesService } from "./milestones.service";
 import { ProjectsAdminService } from "./projects-admin.service";
+import { ChecklistImportService } from "./checklist-import.service";
 import { ProjectsContextService } from "./projects-context.service";
 import { ProjectsRepoKitService } from "./projects-repo-kit.service";
 import { ProjectsService } from "./projects.service";
+import { SecurityAuditsService } from "./security-audits.service";
 import { WorkSessionsService } from "./work-sessions.service";
 
 type Body<S extends z.ZodTypeAny> = z.infer<S>;
@@ -256,6 +262,8 @@ export class ProjectsController {
     private readonly sessions: WorkSessionsService,
     private readonly context: ProjectsContextService,
     private readonly repoKit: ProjectsRepoKitService,
+    private readonly importer: ChecklistImportService,
+    private readonly audits: SecurityAuditsService,
   ) {}
 
   // ---- Projects ---------------------------------------------------------------------------
@@ -344,6 +352,52 @@ export class ProjectsController {
       forwardedProto: req.headers["x-forwarded-proto"],
       forwardedHost: req.headers["x-forwarded-host"],
     });
+  }
+
+  // ---- Checklist import, security audits (PA4, D68) --------------------------------------------
+
+  /** Import a markdown checklist as milestones and issues. dryRun answers the plan and writes nothing. */
+  @Post(":key/import")
+  @RequirePermissions(P.create)
+  async importChecklist(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Body(new ZodValidationPipe(ChecklistImportSchema))
+    b: Body<typeof ChecklistImportSchema>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (b.dryRun) res.status(200);
+    return this.importer.run(webActor(user), key, b);
+  }
+
+  /** Import a run of the security-audit skill: findings.json, the run metadata and the ledger. */
+  @Post(":key/audits")
+  @RequirePermissions(P.create, P.update)
+  importAudit(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Body(new ZodValidationPipe(AuditImportSchema)) b: Body<typeof AuditImportSchema>,
+  ) {
+    return this.audits.import(webActor(user), key, b);
+  }
+
+  /** The audit history of the project, newest first. */
+  @Get(":key/audits")
+  @RequirePermissions(P.read)
+  auditHistory(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(AuditListQuerySchema))
+    q: Body<typeof AuditListQuerySchema>,
+  ) {
+    return this.audits.list(webActor(user), key, q.limit);
+  }
+
+  /** The security state: the release gate, the open findings by severity, the last audit. */
+  @Get(":key/security")
+  @RequirePermissions(P.read)
+  securityStatus(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.audits.status(webActor(user), key);
   }
 
   // ---- Status updates ---------------------------------------------------------------------

@@ -399,7 +399,13 @@ describe("U14 · receipt photos stay in Google Drive (real app over HTTP, db, fa
     expect([doc.status, doc.headers["content-type"]]).toEqual([200, "application/pdf"]);
     expect((doc.body as Buffer).subarray(0, 5).toString("latin1")).toBe("%PDF-");
     // A tampered link is refused; so is one past its hour.
-    const tampered = path(shown[1]!.imageUrl!).replace(/signature=./, "signature=0");
+    // Always change the first character of the signature (0 becomes 1, anything else becomes 0),
+    // so the tamper never passes by accident when the real signature already starts with 0.
+    const tampered = path(shown[1]!.imageUrl!).replace(
+      /signature=(.)/,
+      (_m, c: string) => `signature=${c === "0" ? "1" : "0"}`,
+    );
+    expect(tampered).not.toBe(path(shown[1]!.imageUrl!));
     expect((await http().get(tampered)).status).toBe(403);
     clockNow = new Date(clockNow.getTime() + 2 * 3600_000);
     expect((await http().get(path(shown[1]!.imageUrl!))).status).toBe(403);

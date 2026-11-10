@@ -15,6 +15,7 @@ import type {
   UpdateIssueInput,
 } from "./dto/projects.schemas";
 import { ProjectsAccess, type ProjectsActor, type Tx } from "./projects.access";
+import { IssueWrites } from "./issue-writes";
 import { ProjectsActivity } from "./projects-activity.service";
 import { ProjectsNotifier, type IssueEvent } from "./projects.notifier";
 import type { PendingNotification } from "../notifications/notifications.service";
@@ -40,6 +41,7 @@ export class IssuesService {
     private readonly access: ProjectsAccess,
     private readonly activity: ProjectsActivity,
     private readonly notifier: ProjectsNotifier,
+    private readonly writes: IssueWrites,
   ) {}
 
   // ---------------------------------------------------------------------------------------
@@ -162,6 +164,7 @@ export class IssuesService {
       include: {
         ...ISSUE_INCLUDE,
         author: { select: { id: true, fullName: true } },
+        githubLinks: { orderBy: [{ updatedAt: "desc" }, { id: "asc" }] },
         children: {
           where: { deleted: false },
           include: ISSUE_INCLUDE,
@@ -177,6 +180,18 @@ export class IssuesService {
       parent: i.parent ? { key: i.parent.key, title: i.parent.title } : null,
       children: i.children.map((c) => issueItem(c, today)),
       commentCount: i._count.comments,
+      // PA4: the pull requests and commits that name this issue, the latest first
+      githubLinks: i.githubLinks.map((l) => ({
+        kind: l.kind,
+        repo: l.repo,
+        number: l.number,
+        sha: l.sha,
+        title: l.title,
+        state: l.state,
+        merged: l.merged,
+        url: l.url,
+        updatedAt: l.updatedAt.toISOString(),
+      })),
     };
   }
 
@@ -323,60 +338,18 @@ export class IssuesService {
     const priority = input.priority ?? "NORMAL";
 
     const created = await this.prisma.$transaction(async (tx) => {
-      // The next number: an atomic increment (the UPDATE locks the project row), so parallel
-      // creates get distinct consecutive numbers and a number is never given twice.
-      const { issueCounter: number } = await tx.project.update({
-        where: { id: project.id },
-        data: { issueCounter: { increment: 1 } },
-        select: { issueCounter: true },
-      });
-      const last = await tx.issue.aggregate({
-        where: { projectId: project.id },
-        _max: { position: true },
-      });
-      const issue = await tx.issue.create({
-        data: {
-          firmId,
-          projectId: project.id,
-          number,
-          key: `${project.key}-${number}`,
-          title,
-          description: input.description ?? "",
-          typeId: type.id,
-          statusId: status.id,
-          priority,
-          assigneeId: assignee?.id ?? null,
-          authorId: actor.user.id,
-          milestoneId: milestone?.id ?? null,
-          parentIssueId: parent?.id ?? null,
-          startDate: dayToDate(input.startDate),
-          dueDate: dayToDate(input.dueDate),
-          position: (last._max.position ?? 0) + 1,
-          closedAt: status.category === "DONE" ? new Date() : null,
-          ...(labels?.length
-            ? { labels: { create: labels.map((l) => ({ labelId: l.id, firmId })) } }
-            : {}),
-        },
-      });
-      const changes: Change[] = [
-        { field: "title", old: null, new: title },
-        { field: "type", old: null, new: type.name },
-        { field: "status", old: null, new: status.name },
-        { field: "priority", old: null, new: priority },
-        ...(assignee ? [{ field: "assignee", old: null, new: assignee.fullName }] : []),
-        ...(milestone ? [{ field: "milestone", old: null, new: milestone.name }] : []),
-        ...(parent ? [{ field: "parent", old: null, new: parent.key }] : []),
-        ...(input.startDate
-          ? [{ field: "startDate", old: null, new: input.startDate }]
-          : []),
-        ...(input.dueDate ? [{ field: "dueDate", old: null, new: input.dueDate }] : []),
-        ...(labels?.length ? [{ field: "labels", old: null, new: names(labels) }] : []),
-      ];
-      await this.activity.log(tx, actor, {
-        projectId: project.id,
-        issueId: issue.id,
-        action: "issue.created",
-        changes,
+      const issue = await this.writes.insert(tx, actor, project, {
+        title,
+        description: input.description,
+        type,
+        status,
+        priority,
+        assignee,
+        milestone,
+        parent,
+        startDate: input.startDate,
+        dueDate: input.dueDate,
+        labels,
       });
       const pending = await this.notifier.plan(
         tx,
@@ -700,22 +673,7 @@ export class IssuesService {
     if (!text) throw new BadRequestException(MESSAGES.commentEmpty);
     const { project, issue } = await this.load(actor, projectKey, issueKey);
     const done = await this.prisma.$transaction(async (tx) => {
-      const c = await tx.issueComment.create({
-        data: {
-          firmId: actor.user.firmId,
-          issueId: issue.id,
-          authorId: actor.user.id,
-          body: text,
-        },
-        include: { author: { select: { id: true, fullName: true } } },
-      });
-      await tx.issue.update({ where: { id: issue.id }, data: { updatedAt: new Date() } });
-      await this.activity.log(tx, actor, {
-        projectId: project.id,
-        issueId: issue.id,
-        action: "comment.added",
-        changes: [{ field: "comment", old: null, new: text.slice(0, 300) }],
-      });
+      const c = await this.writes.comment(tx, actor, project.id, issue.id, text);
       const pending = await this.notifier.plan(
         tx,
         actor,
@@ -754,13 +712,6 @@ function applyStatus(
   if (to.category !== "DONE" && wasDone) data.closedAt = null;
   return { name: to.name, closed: to.category === "DONE" && !wasDone };
 }
-
-const names = (rows: { name: string }[]) =>
-  rows
-    .map((r) => r.name)
-    .sort()
-    .join(", ");
-
 function commentDto(c: {
   id: string;
   body: string;

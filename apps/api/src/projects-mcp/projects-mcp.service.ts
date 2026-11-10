@@ -23,6 +23,7 @@ import { errMsg } from "../mcp/mcp-common";
 import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
 import { manilaStamp, projectStatusLabel } from "../projects/briefing";
+import { SEVERITIES } from "@portal/projects-core";
 import type {
   CreateIssueInput,
   UpdateIssueInput,
@@ -39,6 +40,7 @@ import {
   PROJECTS_PERMISSION as P,
 } from "../projects/projects.constants";
 import { ProjectsService } from "../projects/projects.service";
+import { SecurityAuditsService } from "../projects/security-audits.service";
 import { WorkSessionsService } from "../projects/work-sessions.service";
 import { PROJECTS_MCP_INSTRUCTIONS } from "./instructions";
 
@@ -90,6 +92,7 @@ export class ProjectsMcpService {
     private readonly admin: ProjectsAdminService,
     private readonly context: ProjectsContextService,
     private readonly sessions: WorkSessionsService,
+    private readonly audits: SecurityAuditsService,
   ) {}
 
   /** A server for one request. Stateless: nothing here outlives the call. */
@@ -719,6 +722,128 @@ export class ProjectsMcpService {
             nextSteps: a.next_steps,
           });
           return "Session closed and summary saved.";
+        }),
+    );
+
+    // --------------------------------------------------------------- security
+
+    server.registerTool(
+      "import_security_audit",
+      {
+        title: "Import security audit results",
+        description:
+          "Import the output of the security-audit skill into a project. findings is the findings.json array (confirmed, needs_validation and rejected records). Confirmed findings become Bug issues labelled security and sev-<severity>, needs_validation leads become Tasks labelled security and needs-validation, rejected records are kept on the audit record. Issues are matched by fingerprint, so re-imports update and reopen instead of duplicating.",
+        inputSchema: {
+          project_key: z.string(),
+          findings: z
+            .union([z.array(z.record(z.string(), z.unknown())), z.string()])
+            .describe("findings.json content: the array, or the file text"),
+          run: z
+            .object({
+              run_id: optStr,
+              source_ref: optStr.describe("Commit SHA that was audited"),
+              profile: optStr.describe("quick, standard or deep"),
+              scope_paths: z
+                .array(z.string())
+                .optional()
+                .describe("Empty or omitted for a whole-repo run"),
+              run_status: optStr.describe("complete or incomplete"),
+              incomplete_reason: optStr,
+            })
+            .optional()
+            .describe("Fields from run-metadata.json"),
+          ledger: z
+            .array(z.unknown())
+            .optional()
+            .describe("coverage-ledger.json: the array of units"),
+          coverage: z
+            .record(z.string(), z.number())
+            .optional()
+            .describe(
+              "Ledger unit counts by status, e.g. {covered: 40, candidate: 3}, when there is no ledger",
+            ),
+          session_id: optStr,
+        },
+        annotations: RW,
+      },
+      async (a) =>
+        write(async () => {
+          const r = await this.audits.import(
+            await actorFor(a.session_id),
+            a.project_key,
+            {
+              findings: a.findings,
+              run: a.run,
+              ledger: a.ledger,
+              coverage: a.coverage,
+            },
+          );
+          const f = r.findings;
+          const sev = SEVERITIES.filter((s) => f.bySeverity[s]).map(
+            (s) => `${f.bySeverity[s]} ${s}`,
+          );
+          return [
+            `Imported audit ${r.id} into ${a.project_key.trim().toUpperCase()}.`,
+            `Confirmed: ${sev.length ? sev.join(", ") : "none"}. Needs validation: ${f.needsValidation}. Rejected: ${f.rejected}.`,
+            r.created.length ? `Created: ${r.created.join(", ")}` : "",
+            r.updated.length ? `Updated: ${r.updated.join(", ")}` : "",
+            r.reopened.length ? `Reopened: ${r.reopened.join(", ")}` : "",
+            r.notReported.length
+              ? `Open but not reported this run (check if fixed): ${r.notReported.join(", ")}`
+              : "",
+            r.rejectedNoted.length
+              ? `Open issues this run rejected (comment added): ${r.rejectedNoted.join(", ")}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+        }),
+    );
+
+    server.registerTool(
+      "get_security_status",
+      {
+        title: "Security status",
+        description:
+          "Last security audit and open security issues for a project, and whether a milestone can close.",
+        inputSchema: { project_key: z.string() },
+        annotations: RO,
+      },
+      async (a) =>
+        run(async () => {
+          const s = await this.audits.status(base, a.project_key);
+          const hist = (await this.audits.list(base, a.project_key, 5)).items;
+          const lines = [`# ${s.projectKey} security`];
+          const last = s.lastAudit;
+          if (!last) lines.push("Never audited.");
+          else {
+            lines.push(
+              `Last audit: ${manilaStamp(new Date(last.createdAt))}, ${last.profile}, ${last.scope.length ? `scoped: ${last.scope.join(", ")}` : "whole repo"}, commit ${last.commit.slice(0, 12) || "?"}${last.complete ? "" : `, INCOMPLETE${last.incompleteReason ? ` (${last.incompleteReason})` : ""}`}`,
+            );
+          }
+          lines.push(
+            `Release gate: ${s.blockedBy.length ? `BLOCKED by ${s.blockedBy.join(", ")}` : "clear (no open critical or high security issues)"}`,
+            "",
+            "## Open security issues",
+            ...(s.open.length
+              ? s.open.map(
+                  (i) =>
+                    `- ${i.key} [${i.severity ?? (i.needsValidation ? "needs validation" : "unrated")}] ${i.title}`,
+                )
+              : ["- none"]),
+          );
+          if (hist.length > 1) {
+            lines.push("", "## Recent audits");
+            for (const au of hist) {
+              const sev = SEVERITIES.filter((x) => au.findings.bySeverity[x]).map(
+                (x) => `${au.findings.bySeverity[x]} ${x}`,
+              );
+              lines.push(
+                `- ${au.createdAt.slice(0, 10)} ${au.profile}${au.scope.length ? " scoped" : ""} @ ${au.commit.slice(0, 12) || "?"}: ${sev.join(", ") || "no confirmed"}, ${au.findings.needsValidation} needs validation`,
+              );
+            }
+          }
+          return lines.join("\n");
         }),
     );
 
