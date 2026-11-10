@@ -10,9 +10,15 @@ import { MilestonesService } from "./milestones.service";
 import { ProjectsAccess } from "./projects.access";
 import { ProjectsActivity } from "./projects-activity.service";
 import { ProjectsAdminService } from "./projects-admin.service";
+import { McpRateLimitService } from "../projects-mcp/mcp-rate-limit.service";
+import { ProjectsMcpController } from "../projects-mcp/projects-mcp.controller";
+import { ProjectsMcpService } from "../projects-mcp/projects-mcp.service";
 import { ProjectsConfigController, ProjectsController } from "./projects.controller";
+import { ProjectsContextService } from "./projects-context.service";
 import { ProjectsNotifier } from "./projects.notifier";
+import { ProjectsRepoKitService } from "./projects-repo-kit.service";
 import { ProjectsService } from "./projects.service";
+import { WorkSessionsService } from "./work-sessions.service";
 
 /**
  * PA1 (D65): the Projects module, inside the Portal. One service layer: every later door (the
@@ -21,7 +27,8 @@ import { ProjectsService } from "./projects.service";
  */
 @Module({
   imports: [AuditModule, RbacModule, NotificationsModule],
-  controllers: [ProjectsConfigController, ProjectsController],
+  // The Projects MCP endpoint is first: /projects/mcp must never be read as a project key.
+  controllers: [ProjectsMcpController, ProjectsConfigController, ProjectsController],
   providers: [
     ProjectsAccess,
     ProjectsActivity,
@@ -33,6 +40,11 @@ import { ProjectsService } from "./projects.service";
     BoardService,
     MyWorkService,
     SearchService,
+    WorkSessionsService,
+    ProjectsContextService,
+    ProjectsRepoKitService,
+    ProjectsMcpService,
+    McpRateLimitService,
   ],
   exports: [
     ProjectsAccess,
@@ -41,6 +53,9 @@ import { ProjectsService } from "./projects.service";
     IssuesService,
     MilestonesService,
     ProjectsAdminService,
+    SearchService,
+    WorkSessionsService,
+    ProjectsContextService,
   ],
 })
 export class ProjectsModule {}

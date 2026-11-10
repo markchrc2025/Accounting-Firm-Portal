@@ -1,16 +1,26 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import {
+  ApiTokensService,
+  TOKEN_INVALID,
+  TOKEN_NOT_HERE,
+  TOKEN_READ_ONLY,
+} from "../../api-tokens/api-tokens.service";
+import { TOKEN_PREFIX } from "../../api-tokens/token-format";
 import { TokenService } from "../../auth/token.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import type {
   RequestWithIntegration,
   RequestWithUser,
 } from "../auth/auth-user";
+import { ACCEPTS_API_TOKEN_KEY } from "../decorators/accepts-api-token.decorator";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
 /** U9 R1 a (D44): what a user who is not ACTIVE reads, at refresh and on every request. */
@@ -82,6 +92,8 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly tokens: TokenService,
     private readonly prisma: PrismaService,
+    /** PA3 (D67): personal API tokens. Optional so a guard built without it still works. */
+    @Optional() private readonly apiTokens?: ApiTokensService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -99,6 +111,12 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException("Missing bearer token");
     }
 
+    // PA3 (D67): a personal API token ("ppt_..."), accepted only on routes that opt in.
+    if (token.startsWith(TOKEN_PREFIX)) {
+      await this.admitApiToken(context, request, token);
+      return true;
+    }
+
     try {
       if (this.tokens.peekType(token) === "integration") {
         request.integration = this.tokens.verifyIntegration(token);
@@ -114,6 +132,41 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException(ACCOUNT_DISABLED_MESSAGE);
     }
     return true;
+  }
+
+  /**
+   * PA3 (D67): sign in with a personal API token. The route must accept tokens; the token must be
+   * valid; a call that changes anything needs a token that may write (it was made read_write and
+   * its user can change Projects data). The session the caller names with `x-portal-session` is
+   * kept only if it is theirs.
+   */
+  private async admitApiToken(
+    context: ExecutionContext,
+    request: RequestWithUser & RequestWithIntegration,
+    token: string,
+  ): Promise<void> {
+    const accepts = this.reflector.getAllAndOverride<boolean>(ACCEPTS_API_TOKEN_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!accepts) throw new ForbiddenException(TOKEN_NOT_HERE);
+    const principal = this.apiTokens ? await this.apiTokens.authenticate(token) : null;
+    if (!principal || !this.apiTokens) throw new UnauthorizedException(TOKEN_INVALID);
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      if ((await this.apiTokens.effectiveScope(principal)) === "read") {
+        throw new ForbiddenException(TOKEN_READ_ONLY);
+      }
+    }
+    const header = request.headers["x-portal-session"];
+    const sessionId = await this.apiTokens.ownSessionId(
+      principal.user,
+      Array.isArray(header) ? header[0] : header,
+    );
+    request.user = {
+      ...principal.user,
+      via: { channel: "api", sessionId, tokenId: principal.tokenId },
+    };
+    request.apiToken = { id: principal.tokenId };
   }
 
   /** The user's status, read at most every statusCacheMs() (R1 a: ≤ 60 s). */
