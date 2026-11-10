@@ -689,7 +689,9 @@ export function errorLines(e: unknown, fallback = "Something went wrong."): stri
     // an import that cannot be made answers its sentence and a list of problems (D69)
     const problems = (e.body as { problems?: unknown } | undefined)?.problems;
     if (Array.isArray(problems)) {
-      const lines = problems.filter((x): x is string => typeof x === "string" && x !== "");
+      const lines = problems.filter(
+        (x): x is string => typeof x === "string" && x !== "",
+      );
       if (lines.length > 0) return [e.message, ...lines];
     }
     return [e.message];

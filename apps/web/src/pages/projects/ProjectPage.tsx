@@ -39,7 +39,14 @@ import { SessionsTab } from "./SessionsTab";
 import { ImportChecklistDialog } from "./ImportChecklistDialog";
 
 export type ProjectTab =
-  "overview" | "issues" | "issue" | "board" | "milestones" | "sessions" | "security" | "activity";
+  | "overview"
+  | "issues"
+  | "issue"
+  | "board"
+  | "milestones"
+  | "sessions"
+  | "security"
+  | "activity";
 
 export default function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { key = "", issueKey = "" } = useParams<{ key: string; issueKey: string }>();

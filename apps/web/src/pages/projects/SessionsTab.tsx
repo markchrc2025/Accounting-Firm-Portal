@@ -119,7 +119,8 @@ export function SessionsTab({ projectKey }: { projectKey: string }) {
   const q = useInfiniteQuery({
     queryKey: ["projects", "sessions", projectKey],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => fetchSessions(projectKey, { page: pageParam, pageSize: PAGE_SIZE }),
+    queryFn: ({ pageParam }) =>
+      fetchSessions(projectKey, { page: pageParam, pageSize: PAGE_SIZE }),
     getNextPageParam: (last) =>
       last.page * last.pageSize < last.total ? last.page + 1 : undefined,
     retry: false,
@@ -129,12 +130,15 @@ export function SessionsTab({ projectKey }: { projectKey: string }) {
 
   // A link from the activity may name a session on a later page: fetch on until it is here.
   useEffect(() => {
-    if (target && !found && q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage();
+    if (target && !found && q.hasNextPage && !q.isFetchingNextPage)
+      void q.fetchNextPage();
   }, [target, found, q, q.hasNextPage, q.isFetchingNextPage]);
   useEffect(() => {
-    if (found) document.getElementById(`session-${target}`)?.scrollIntoView?.({ block: "center" });
+    if (found)
+      document.getElementById(`session-${target}`)?.scrollIntoView?.({ block: "center" });
   }, [found, target]);
-  const lost = !!target && !found && !q.hasNextPage && !q.isPending && !q.isFetchingNextPage;
+  const lost =
+    !!target && !found && !q.hasNextPage && !q.isPending && !q.isFetchingNextPage;
 
   return (
     <div className="space-y-4" data-sessions-tab>
@@ -152,7 +156,10 @@ export function SessionsTab({ projectKey }: { projectKey: string }) {
       ) : q.isError ? (
         <>
           <ErrorBanner lines={errorLines(q.error)} className="mb-3" />
-          <ErrorState message="Could not load the sessions." onRetry={() => void q.refetch()} />
+          <ErrorState
+            message="Could not load the sessions."
+            onRetry={() => void q.refetch()}
+          />
         </>
       ) : items.length === 0 ? (
         <Card>
@@ -164,7 +171,12 @@ export function SessionsTab({ projectKey }: { projectKey: string }) {
       ) : (
         <>
           {items.map((s) => (
-            <SessionCard key={s.id} s={s} projectKey={projectKey} highlighted={s.id === target} />
+            <SessionCard
+              key={s.id}
+              s={s}
+              projectKey={projectKey}
+              highlighted={s.id === target}
+            />
           ))}
           {q.hasNextPage ? (
             <Button
