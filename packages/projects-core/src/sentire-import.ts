@@ -248,9 +248,9 @@ export interface ImportPlan {
 }
 
 /**
- * What cannot be carried over, and why. "Portal has no ... yet" means the Portal's PA1 tables have
- * no column or table for it; the plan still carries the value where it is cheap, so a later phase
- * can add the column and run the import again.
+ * What the Portal does not store today, and why. Checked against the importer of PA5 (D69,
+ * apps/api/src/projects/sentire-import.service.ts): everything else the plan holds has a place,
+ * listed in {@link MAPPED_SENTIRE_FIELDS}. The same list for every plan.
  */
 export const UNMAPPED_SENTIRE_FIELDS: readonly UnmappedField[] = [
   {
@@ -269,12 +269,9 @@ export const UNMAPPED_SENTIRE_FIELDS: readonly UnmappedField[] = [
       "Sentire Projects owner, member and viewer do not map to Portal roles; the owner grants Projects:Read, Create, Update and Configure in the role editor.",
   },
   {
-    field: "users.createdAt, users.lastLoginAt, users.disabledAt",
-    reason: "Portal users are separate accounts. People are matched by e-mail only.",
-  },
-  {
-    field: "users.id",
-    reason: "An internal id. Every reference in the plan is by e-mail.",
+    field: "users.id, users.createdAt, users.lastLoginAt, users.disabledAt",
+    reason:
+      "No user is created. People are matched to active Portal users by e-mail; someone with no account leaves the user empty (an issue's assignee or author, a comment's author, a session's person) and the importer lists the e-mail.",
   },
   {
     field: "sessions",
@@ -289,7 +286,7 @@ export const UNMAPPED_SENTIRE_FIELDS: readonly UnmappedField[] = [
   {
     field: "notifications",
     reason:
-      "A per-user inbox of short-lived messages. The Portal has no notifications table yet.",
+      "Short-lived messages of Sentire Projects users. The importer does not carry them: the Portal's notifications are raised by events in the Portal, and an import raises none.",
   },
   {
     field: "projects.archivedAt",
@@ -301,45 +298,93 @@ export const UNMAPPED_SENTIRE_FIELDS: readonly UnmappedField[] = [
       "The Portal keeps a deleted flag only; the time of deleting is lost. Deleted issues are still imported, flagged, so their numbers stay used.",
   },
   {
-    field: "issues.fingerprint",
-    reason:
-      "The Portal has no fingerprint column yet. The plan carries it, so the security-audit phase can match re-imports to these issues.",
-  },
-  {
     field: "milestones.closedAt",
-    reason: "The Portal's milestone has a state but no closing time.",
+    reason:
+      "The Portal's milestone has no closing time; the importer keeps it only as the milestone's last-updated time.",
   },
   {
     field: "comments.actorKind, comments.sessionId",
     reason:
-      "The Portal's comment table has no actor type or session yet. The plan carries both.",
+      "The Portal's comment table has no actor type and no session. The plan carries both; the importer does not store them.",
   },
   {
-    field: "activities.client",
+    field: "securityAudits.report",
     reason:
-      "The Portal records a channel (web, api, mcp, github, system), worked out from the actor type here. The plan carries the original client text.",
+      "The audit's markdown report. The Portal's audit table has no column for it. The plan carries it; the importer does not store it.",
+  },
+  {
+    field: "workSessions (no project)",
+    reason:
+      "A work session that belongs to no project is not imported, because the Portal's session needs a project. Activity that pointed to it loses its session link.",
   },
   {
     field: "activities (no project)",
-    reason: "The Portal's activity log needs a project; rows with none are left out.",
-  },
-  {
-    field: "workSessions",
     reason:
-      "The Portal has no work-session table yet. The plan carries every session for the later phase that adds it.",
+      "The Portal's activity log needs a project; rows with none are left out and counted in the plan's warnings.",
   },
+];
+
+/** Where a part of the plan goes in the Portal. */
+export interface MappedField {
+  /** Sentire Projects table, or table.column. */
+  field: string;
+  /** Portal table or column, and anything that changes on the way. */
+  to: string;
+}
+
+/**
+ * Where the rest of the plan goes, as the importer of PA5 (D69) writes it. Documentation: it is not
+ * part of the plan. Together with {@link UNMAPPED_SENTIRE_FIELDS} it covers every section of the plan.
+ */
+export const MAPPED_SENTIRE_FIELDS: readonly MappedField[] = [
   {
-    field: "githubLinks",
-    reason: "The Portal has no GitHub link table yet. The plan carries every link.",
-  },
-  {
-    field: "securityAudits",
-    reason: "The Portal has no audit table yet. The plan carries every audit record.",
+    field: "projects",
+    to: "projects: key, name, description, repoUrl, liveUrl, issueCounter, createdAt and updatedAt as they are; dokployApp to deployAppName; the parent to parentProjectId; archivedAt to the archived flag.",
   },
   {
     field: "projects.status, projects.statusNote",
-    reason:
-      "The Portal takes a project's current status from its latest status update. A status update is added to the plan when the history does not already end with the current status.",
+    to: "The project's latest row in project_status_updates (the Portal takes the current status from it). An update by SYSTEM is added to the plan when the history does not end with the current status.",
+  },
+  {
+    field: "statusUpdates",
+    to: "project_status_updates: status, note, actor type and createdAt as they are; the author by e-mail to actorUserId.",
+  },
+  {
+    field: "issueTypes, statuses, labels",
+    to: "issue_types, issue_statuses and labels. A type, status or label the firm already has under the same name (any letter case) is reused and keeps the firm's own colour and category; new ones are added after the firm's own, in the plan's order. A new status is the default only if the firm has none.",
+  },
+  {
+    field: "milestones",
+    to: "milestones: name, description, dates, state and createdAt as they are (closedAt: see the unmapped list).",
+  },
+  {
+    field: "issues",
+    to: "issues: key, number, title, description, priority, dates, position, closedAt, createdAt and updatedAt as they are; type, status and milestone by name; assignee and author by e-mail; the parent by key; deletedAt to the deleted flag.",
+  },
+  { field: "issueLabels", to: "issue_labels, by label name." },
+  {
+    field: "issues.fingerprint",
+    to: "project_security_findings.fingerprint: one finding per issue that has one, linked to the issue and to the latest audit that names it; state and severity are read from the issue's labels security, sev-<severity> and needs-validation.",
+  },
+  {
+    field: "comments",
+    to: "issue_comments: body, author by e-mail and createdAt as they are; editedAt to updatedAt (comments.actorKind and comments.sessionId: see the unmapped list).",
+  },
+  {
+    field: "workSessions",
+    to: "project_work_sessions: client (cut to 40 characters), title, startedAt, endedAt, summary and nextSteps as they are; issuesTouched to issueKeys; the person by e-mail, and empty when there is no account.",
+  },
+  {
+    field: "activities",
+    to: "project_activities, written as SYSTEM on the channel system with no user. The original actor, e-mail and client are kept as text in the row's changes (an importedFrom entry), and Sentire's own summary as a summary entry. The action is named the Portal's way (issue.updated, github.linked, session.started ...) or kept as imported.<action>. The session link goes to sessionId.",
+  },
+  {
+    field: "githubLinks",
+    to: "project_github_links: kind, repo, number, sha, url, title, state, merged and updatedAt as they are; the issue by key. A link that is already there is skipped.",
+  },
+  {
+    field: "securityAudits",
+    to: "project_security_audits: runId, sourceRef to commit, profile, scope, coverage, rejected, actor type and createdAt as they are; runStatus to complete (yes or no); counts re-read into the Portal's shape; the issue keys to outcome.updated; the channel from the actor type; the importer by e-mail (securityAudits.report: see the unmapped list).",
   },
 ];
 
