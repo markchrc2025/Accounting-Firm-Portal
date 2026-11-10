@@ -1,0 +1,11 @@
+{
+  "run_id": "sample-run-2026-11-01",
+  "repo": "sample-org/sample-service",
+  "target": "sample-service",
+  "source_ref": "0123456789abcdef0123456789abcdef01234567",
+  "profile": "standard",
+  "scope_paths": [],
+  "budget": null,
+  "execution_policy": "sandboxed-source-and-local-only",
+  "run_status": "complete"
+}
