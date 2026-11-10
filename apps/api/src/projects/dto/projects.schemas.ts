@@ -185,3 +185,14 @@ export const UpdateLabelSchema = LabelSchema.partial().refine(
   (v) => Object.keys(v).length > 0,
   { message: "At least one field is required" },
 );
+
+export const BoardQuerySchema = z.object({
+  milestoneId: z.union([uuid, z.literal("none")]).optional(),
+  assigneeId: z.union([uuid, z.literal("none"), z.literal("me")]).optional(),
+  doneRange: z.enum(["14d", "all"]).default("14d"),
+});
+export type BoardQuery = z.infer<typeof BoardQuerySchema>;
+
+export const SearchQuerySchema = z.object({
+  q: z.string().trim().min(1, "Type something to search for.").max(200),
+});

@@ -1,7 +1,7 @@
 // projects.mappers.ts — PA1 (D65): the shapes the API answers with. Dates are YYYY-MM-DD
 // (calendar dates) or ISO instants (moments); colours, categories and priorities are as stored.
 import type { Prisma } from "@prisma/client";
-import { dayOf, isOverdue, percent } from "./projects.constants";
+import { dayOf, isOverdue, manilaToday, percent } from "./projects.constants";
 
 export const ISSUE_INCLUDE = {
   project: { select: { key: true, name: true } },
@@ -95,6 +95,9 @@ export function milestoneDto(
     dueDate: dayOf(m.dueDate),
     state: m.state,
     progress: { done: p.done, total: p.total, percent: percent(p.done, p.total) },
+    // PA2: what a roadmap bar needs, beside startDate and dueDate: percent done, and today (Manila)
+    percent: percent(p.done, p.total),
+    today: manilaToday(),
     overdueIssues: p.overdue ?? 0,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),

@@ -483,3 +483,24 @@ export const EMAIL_TEMPLATES = {
   messageNotification: messageNotificationEmail,
   returnFiled: returnFiledEmail,
 } as const;
+
+// ------------------------------------------------ Notifications (PA2, D66)
+
+/** A notification the user chose to also receive by email: what happened, and a link to it. */
+export function notificationEmail(
+  v: { title: string; body: string; linkUrl: string; linkLabel?: string },
+  theme: EmailTheme,
+): RenderedEmail {
+  const body = [
+    eyebrow("Notification"),
+    heading(v.title),
+    v.body ? para(esc(v.body)) : "",
+    v.linkUrl ? button(v.linkLabel ?? "Open in the portal", v.linkUrl, theme) : "",
+    v.linkUrl ? rawLinkFallback(v.linkUrl) : "",
+    finePrint(
+      "You get this email because email notifications are on in your portal settings. You can turn them off there at any time.",
+    ),
+  ].join("");
+  const text = `${v.title}\n\n${v.body}${v.linkUrl ? `\n\nOpen in the portal:\n${v.linkUrl}` : ""}\n\nYou get this email because email notifications are on in your portal settings. You can turn them off there at any time.`;
+  return make(theme, "notifications", v.title, body, text);
+}
