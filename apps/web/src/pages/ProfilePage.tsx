@@ -12,6 +12,7 @@ import {
   uploadAvatar,
   type Profile,
 } from "../lib/api";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   fetchNotificationPreferences,
@@ -85,6 +86,8 @@ export default function ProfilePage() {
             <LoginEmailCard profile={profile.data} />
           )}
           <NotificationsCard />
+          {/* PB3: personal API tokens are for firm users. */}
+          {profile.data.userType === "FIRM" && <ApiTokensCard />}
           <SecurityCard profile={profile.data} />
         </div>
       )}
@@ -436,6 +439,28 @@ function NotificationsCard() {
             Saved
           </span>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------ API tokens card (PB3) */
+
+function ApiTokensCard() {
+  return (
+    <Card>
+      <CardContent className="space-y-3">
+        <div className="eyebrow">API tokens</div>
+        <p className="text-[12.5px] leading-relaxed text-content-secondary">
+          A personal token lets Claude Code, a script or a Claude connector act as you in
+          Projects, with your permissions.
+        </p>
+        <Link
+          to="/profile/tokens"
+          className="inline-block text-[13px] font-semibold text-blue underline-offset-2 hover:underline"
+        >
+          My API tokens
+        </Link>
       </CardContent>
     </Card>
   );

@@ -294,6 +294,22 @@ export interface SearchResult {
   issues: IssueItem[];
   projects: SearchProject[];
 }
+
+// --- PB3: the repo kit -------------------------------------------------------------------------
+
+export interface RepoKitFile {
+  /** Relative to the repository root, forward slashes. */
+  path: string;
+  content: string;
+}
+export interface RepoKit {
+  projectKey: string;
+  /** The Portal's address the kit was made for (no path). */
+  serverUrl: string;
+  /** The NAME of the environment variable that holds the person's token. The kit holds no token. */
+  tokenEnvVar: string;
+  files: RepoKitFile[];
+}
 export type AdminType = IssueTypeRow & { issueCount: number };
 export type AdminStatus = IssueStatusRow & { issueCount: number };
 export type AdminLabel = LabelRef & { issueCount: number };
@@ -394,6 +410,8 @@ export const reorderIssue = (
 export const fetchMyWork = () => apiFetch<MyWork>("/projects/my-work");
 export const searchProjects = (q: string) =>
   apiFetch<SearchResult>(`/projects/search${query({ q })}`);
+export const fetchRepoKit = (key: string) =>
+  apiFetch<RepoKit>(`/projects/${enc(key)}/repo-kit`);
 export const fetchIssues = (key: string, params: Record<string, string>) =>
   apiFetch<IssueList>(`/projects/${enc(key)}/issues${query(params)}`);
 export const quickAddIssue = (key: string, title: string) =>
