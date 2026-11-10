@@ -3,7 +3,7 @@
  * the last five on the overview, and the session on every activity item, over HTTP against the real
  * Nest app and the local PostgreSQL. Every firm, user and title is invented.
  *
- * L1  GET /projects/:key/sessions: order, paging, shape, an imported session with no user.
+ * L1  GET /projects/:key/sessions: order, paging, shape, a session with no user.
  * L2  Who may read it.
  * L3  recentSessions on the overview.
  * L4  session on the activity items: the project's feed, the overview, My Work.
@@ -247,7 +247,7 @@ describe("PA5 · sessions list and the session on activity (real app over HTTP, 
       ).toBe(100);
     });
 
-    it("a session imported with no user is listed with user null, and the briefing still reads", async () => {
+    it("a session with no user is listed with user null, and the briefing still reads", async () => {
       const key = await project({ key: "LST2" });
       const p = await db.project.findFirstOrThrow({ where: { key, firmId } });
       await db.projectWorkSession.create({
@@ -256,16 +256,16 @@ describe("PA5 · sessions list and the session on activity (real app over HTTP, 
           projectId: p.id,
           userId: null,
           client: "claude-code",
-          title: "From Sentire",
-          summary: "Imported.",
+          title: "Detached",
+          summary: "No user.",
           issueKeys: [],
         },
       });
       const list = await as("get", `/projects/${key}/sessions`, "viewer");
-      expect(list.body.items[0]).toMatchObject({ title: "From Sentire", user: null });
+      expect(list.body.items[0]).toMatchObject({ title: "Detached", user: null });
       const brief = await as("get", `/projects/${key}/context`, "viewer");
       expect(brief.status).toBe(200);
-      expect(brief.text).toContain("From Sentire: Imported.");
+      expect(brief.text).toContain("Detached: No user.");
     });
 
     it("an empty project has an empty list", async () => {

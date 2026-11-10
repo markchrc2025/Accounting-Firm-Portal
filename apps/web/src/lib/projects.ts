@@ -253,7 +253,7 @@ export interface ClaudeSession {
   summary: string;
   nextSteps: string;
   issueKeys: string[];
-  /** null for a session imported from Sentire Projects whose person has no account here */
+  /** null when no person is known: the session was run by Claude */
   user: { id: string; fullName: string } | null;
 }
 export interface SessionPage {
@@ -450,35 +450,6 @@ export interface AuditImportBody {
   ledger?: unknown[];
 }
 
-// --- PB5: the Sentire Projects import ------------------------------------------------------------
-
-export interface SentireImportCounts {
-  projects: number;
-  issueTypes: number;
-  statuses: number;
-  labels: number;
-  milestones: number;
-  issues: number;
-  comments: number;
-  statusUpdates: number;
-  sessions: number;
-  activities: number;
-  githubLinks: number;
-  securityAudits: number;
-  securityFindings: number;
-}
-export interface SentireImportReport {
-  dryRun: boolean;
-  /** The project keys of the export, sorted. */
-  projects: string[];
-  counts: SentireImportCounts;
-  /** Types, statuses and labels the firm already had under the same name. */
-  reused: { issueTypes: number; statuses: number; labels: number };
-  /** People of the export with no active account; the rows that named them keep no user. */
-  unmatchedEmails: string[];
-  warnings: string[];
-  unmapped: { field: string; reason: string }[];
-}
 export type AdminType = IssueTypeRow & { issueCount: number };
 export type AdminStatus = IssueStatusRow & { issueCount: number };
 export type AdminLabel = LabelRef & { issueCount: number };
@@ -602,20 +573,6 @@ export const fetchAudits = (key: string) =>
   apiFetch<{ items: SecurityAudit[] }>(`/projects/${enc(key)}/audits`);
 export const importAudit = (key: string, b: AuditImportBody) =>
   apiFetch<SecurityAudit>(`/projects/${enc(key)}/audits`, { method: "POST", ...json(b) });
-/**
- * Check (dryRun: nothing is written) or make the import of a Sentire Projects export. The export
- * is sent as it is, with dryRun beside its own fields; a value that is not an object is sent as
- * it is too, so that the API says what is wrong with it.
- */
-export const importSentire = (exported: unknown, dryRun: boolean) =>
-  apiFetch<SentireImportReport>("/projects/import/sentire", {
-    method: "POST",
-    body: JSON.stringify(
-      exported && typeof exported === "object" && !Array.isArray(exported)
-        ? { ...(exported as Record<string, unknown>), dryRun }
-        : exported,
-    ),
-  });
 export const fetchIssues = (key: string, params: Record<string, string>) =>
   apiFetch<IssueList>(`/projects/${enc(key)}/issues${query(params)}`);
 export const quickAddIssue = (key: string, title: string) =>
@@ -685,14 +642,6 @@ export function errorLines(e: unknown, fallback = "Something went wrong."): stri
         .map((x) => (x as { message?: unknown } | null)?.message)
         .filter((m): m is string => typeof m === "string" && m !== "");
       if (lines.length > 0) return lines;
-    }
-    // an import that cannot be made answers its sentence and a list of problems (D69)
-    const problems = (e.body as { problems?: unknown } | undefined)?.problems;
-    if (Array.isArray(problems)) {
-      const lines = problems.filter(
-        (x): x is string => typeof x === "string" && x !== "",
-      );
-      if (lines.length > 0) return [e.message, ...lines];
     }
     return [e.message];
   }

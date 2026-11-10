@@ -1,8 +1,6 @@
 // track-b-pb5-screens.test.tsx - PB5: the Claude sessions (the overview card, the Sessions tab,
-// paging, the link from an activity entry), the session link on activity everywhere, and the
-// Sentire Projects import (check, the same file only, the plain warning, the summary, refusals as
-// sent, Super Admin only). The API module is mocked; its sentences are shown as sent. All data is
-// invented.
+// paging, the link from an activity entry) and the session link on activity everywhere. The API
+// module is mocked; its sentences are shown as sent. All data is invented.
 
 import {
   cleanup,
@@ -20,8 +18,6 @@ const api = vi.hoisted(() => ({
   fetchSessions: vi.fn(),
   fetchActivity: vi.fn(),
   fetchMyWork: vi.fn(),
-  importSentire: vi.fn(),
-  listAdmin: vi.fn(),
   lookupIssueKey: vi.fn(),
 }));
 vi.mock("../../lib/projects", async (orig) => ({
@@ -50,15 +46,12 @@ import type {
   ClaudeSession,
   MyWork,
   ProjectOverview,
-  SentireImportReport,
 } from "../../lib/projects";
 import { SessionLink } from "../../components/projects/SessionLink";
 import { ActivityEntries, ActivityTab } from "./ActivityTab";
 import MyWorkPage from "./MyWorkPage";
 import { OverviewTab } from "./OverviewTab";
 import { RecentSessionsCard, SessionCard, SessionsTab } from "./SessionsTab";
-import { SentireImportPanel } from "./SentireImportPanel";
-import ProjectsSettingsPage from "./ProjectsSettingsPage";
 
 const ALL = ["Projects:Read", "Projects:Create", "Projects:Update", "Projects:Configure"];
 const CAN = { read: true, create: true, update: true, configure: true };
@@ -415,256 +408,5 @@ describe("PB5 the session on an activity entry", () => {
     expect(
       (await screen.findByRole("link", { name: /Work session/ })).getAttribute("href"),
     ).toBe("/projects/OPS/sessions?session=s7");
-  });
-});
-
-// =============================================================================================
-
-const REPORT: SentireImportReport = {
-  dryRun: true,
-  projects: ["BKS", "PAY"],
-  counts: {
-    projects: 2,
-    issueTypes: 1,
-    statuses: 0,
-    labels: 3,
-    milestones: 4,
-    issues: 120,
-    comments: 80,
-    statusUpdates: 6,
-    sessions: 9,
-    activities: 300,
-    githubLinks: 12,
-    securityAudits: 2,
-    securityFindings: 7,
-  },
-  reused: { issueTypes: 3, statuses: 3, labels: 2 },
-  unmatchedEmails: ["gone@old.example"],
-  warnings: ["2 comments name an issue that is not in the export."],
-  unmapped: [{ field: "users.passwordHash", reason: "A secret. It is never read." }],
-};
-const EXPORT_A = { projects: [{ key: "PAY" }], issues: [] };
-const file = (name: string, text: string) =>
-  new File([text], name, { type: "application/json" });
-
-describe("PB5 the Sentire Projects import", () => {
-  const open = () => mount(<SentireImportPanel />, "/projects/settings");
-  const choose = (f: File) =>
-    fireEvent.change(screen.getByLabelText("Export file"), { target: { files: [f] } });
-  const btn = (name: string) => screen.getByRole("button", { name }) as HTMLButtonElement;
-  const chooseAndWait = async (f: File) => {
-    choose(f);
-    await waitFor(() => expect(btn("Check").disabled).toBe(false));
-  };
-
-  it("starts with Check and Import both off", () => {
-    open();
-    expect(btn("Check").disabled).toBe(true);
-    expect(btn("Import").disabled).toBe(true);
-  });
-
-  it("Check sends the export with dryRun true and shows counts per entity, the reused, warnings, unmatched e-mails and the unmapped fields", async () => {
-    api.importSentire.mockResolvedValue(REPORT);
-    open();
-    await chooseAndWait(file("export.json", JSON.stringify(EXPORT_A)));
-    fireEvent.click(btn("Check"));
-    await screen.findByText(/Checked: 2 projects would be added \(BKS, PAY\)\./);
-    expect(api.importSentire).toHaveBeenCalledWith(EXPORT_A, true);
-    const count = (id: string) =>
-      document.querySelector(`[data-import-counts] [data-count="${id}"] dd`)!.textContent;
-    expect(count("projects")).toBe("2");
-    expect(count("issues")).toBe("120");
-    expect(count("comments")).toBe("80");
-    expect(count("sessions")).toBe("9");
-    expect(count("activities")).toBe("300");
-    expect(count("githubLinks")).toBe("12");
-    expect(count("securityFindings")).toBe("7");
-    expect(document.querySelector("[data-import-reused]")!.textContent).toContain(
-      "3 issue types, 3 statuses, 2 labels",
-    );
-    expect(
-      within(document.querySelector("[data-import-unmatched]") as HTMLElement).getByText(
-        "gone@old.example",
-      ),
-    ).toBeTruthy();
-    expect(
-      within(document.querySelector("[data-import-warnings]") as HTMLElement).getByText(
-        "2 comments name an issue that is not in the export.",
-      ),
-    ).toBeTruthy();
-    expect(
-      within(document.querySelector("[data-import-unmapped]") as HTMLElement).getByText(
-        "users.passwordHash",
-      ),
-    ).toBeTruthy();
-  });
-
-  it("Import is for the exact file that was checked; the plain warning shows with the check", async () => {
-    api.importSentire.mockResolvedValue(REPORT);
-    open();
-    await chooseAndWait(file("export.json", JSON.stringify(EXPORT_A)));
-    expect(btn("Import").disabled).toBe(true); // not checked yet
-    fireEvent.click(btn("Check"));
-    await screen.findByText(/Checked:/);
-    expect(btn("Import").disabled).toBe(false);
-    expect(document.querySelector("[data-import-warning]")!.textContent).toBe(
-      "This adds every project, issue and history from the file. It cannot be undone from the Portal.",
-    );
-    // another file: off, with the reason, and the check's results are gone
-    choose(file("other.json", JSON.stringify({ projects: [{ key: "OTH" }] })));
-    await screen.findByText("This is not the file that was checked. Check it first.");
-    expect(btn("Import").disabled).toBe(true);
-    expect(document.querySelector("[data-import-report]")).toBeNull();
-    // the same content again is the same file
-    choose(file("export-copy.json", JSON.stringify(EXPORT_A)));
-    await waitFor(() => expect(btn("Import").disabled).toBe(false));
-  });
-
-  it("a file of the same length but other content is not the checked file", async () => {
-    api.importSentire.mockResolvedValue(REPORT);
-    open();
-    const a = JSON.stringify({ projects: [{ key: "PAY" }] });
-    const b = JSON.stringify({ projects: [{ key: "ZZZ" }] });
-    expect(b.length).toBe(a.length);
-    await chooseAndWait(file("export.json", a));
-    fireEvent.click(btn("Check"));
-    await screen.findByText(/Checked:/);
-    choose(file("export.json", b));
-    await screen.findByText("This is not the file that was checked. Check it first.");
-    expect(btn("Import").disabled).toBe(true);
-  });
-
-  it("Import asks first with the warning; Cancel sends nothing", async () => {
-    api.importSentire.mockResolvedValue(REPORT);
-    open();
-    await chooseAndWait(file("export.json", JSON.stringify(EXPORT_A)));
-    fireEvent.click(btn("Check"));
-    await screen.findByText(/Checked:/);
-    fireEvent.click(btn("Import"));
-    const dlg = within(screen.getByRole("dialog"));
-    expect(dlg.getByText("Import “export.json”?")).toBeTruthy();
-    expect(
-      dlg.getByText(
-        "This adds every project, issue and history from the file. It cannot be undone from the Portal.",
-      ),
-    ).toBeTruthy();
-    fireEvent.click(dlg.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(api.importSentire).toHaveBeenCalledTimes(1); // the check only
-  });
-
-  it("confirming imports for real (dryRun false) and the summary links the imported projects", async () => {
-    api.importSentire
-      .mockResolvedValueOnce(REPORT)
-      .mockResolvedValueOnce({ ...REPORT, dryRun: false });
-    open();
-    await chooseAndWait(file("export.json", JSON.stringify(EXPORT_A)));
-    fireEvent.click(btn("Check"));
-    await screen.findByText(/Checked:/);
-    fireEvent.click(btn("Import"));
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Import" }),
-    );
-    await screen.findByText("Imported 2 projects from Sentire Projects.");
-    expect(api.importSentire).toHaveBeenLastCalledWith(EXPORT_A, false);
-    const links = within(
-      document.querySelector("[data-imported-projects]") as HTMLElement,
-    ).getAllByRole("link");
-    expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-      ["BKS", "/projects/BKS"],
-      ["PAY", "/projects/PAY"],
-    ]);
-    expect(
-      document.querySelector("[data-import-summary] [data-count='issues'] dd")!
-        .textContent,
-    ).toBe("120");
-    expect(screen.queryByRole("dialog")).toBeNull();
-    // the check's panel is gone, so there is nothing left to import twice
-    expect(btn("Import").disabled).toBe(true);
-  });
-
-  it("a refusal of the check shows as sent (a key that already exists)", async () => {
-    const sentence =
-      "These projects already exist in the firm: PAY. An import never merges into live data; remove them from the export or rename them there.";
-    api.importSentire.mockRejectedValue(new ApiError(409, sentence, {}));
-    open();
-    await chooseAndWait(file("export.json", JSON.stringify(EXPORT_A)));
-    fireEvent.click(btn("Check"));
-    await waitFor(() =>
-      expect(document.querySelector("[data-projects-error]")!.textContent).toBe(sentence),
-    );
-    expect(document.querySelector("[data-import-report]")).toBeNull();
-    expect(btn("Import").disabled).toBe(true);
-  });
-
-  it("a refusal of the import shows its sentence and each problem, and nothing is summarised", async () => {
-    api.importSentire.mockResolvedValueOnce(REPORT).mockRejectedValueOnce(
-      new ApiError(400, "The export cannot be imported.", {
-        problems: ["issues[3].key is not a key.", "And 2 more problems."],
-      }),
-    );
-    open();
-    await chooseAndWait(file("export.json", JSON.stringify(EXPORT_A)));
-    fireEvent.click(btn("Check"));
-    await screen.findByText(/Checked:/);
-    fireEvent.click(btn("Import"));
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Import" }),
-    );
-    await waitFor(() =>
-      expect(document.querySelector("[data-projects-error]")).not.toBeNull(),
-    );
-    expect(
-      Array.from(document.querySelectorAll("[data-projects-error] li")).map(
-        (e) => e.textContent,
-      ),
-    ).toEqual([
-      "The export cannot be imported.",
-      "issues[3].key is not a key.",
-      "And 2 more problems.",
-    ]);
-    expect(document.querySelector("[data-import-summary]")).toBeNull();
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("a file that is not JSON is said so and cannot be checked", async () => {
-    open();
-    choose(file("broken.json", "{oops"));
-    await screen.findByText("broken.json is not valid JSON.");
-    expect(btn("Check").disabled).toBe(true);
-    expect(api.importSentire).not.toHaveBeenCalled();
-  });
-
-  it("an export that is not an object goes to the API as it is, and its sentence shows", async () => {
-    api.importSentire.mockRejectedValue(
-      new ApiError(400, "The export must be a JSON object.", {}),
-    );
-    open();
-    await chooseAndWait(file("list.json", "[1,2]"));
-    fireEvent.click(btn("Check"));
-    await waitFor(() =>
-      expect(document.querySelector("[data-projects-error]")!.textContent).toBe(
-        "The export must be a JSON object.",
-      ),
-    );
-    expect(api.importSentire).toHaveBeenCalledWith([1, 2], true);
-  });
-
-  describe("on the Projects settings page", () => {
-    beforeEach(() => {
-      api.listAdmin.mockResolvedValue([]);
-    });
-    it("a Super Admin sees it", async () => {
-      auth.perms = new Set([...ALL, "IntegrationClient:Update"]);
-      mount(<ProjectsSettingsPage />, "/projects/settings");
-      await screen.findByText("Import from Sentire Projects");
-      expect(document.querySelector("[data-sentire-import]")).not.toBeNull();
-    });
-    it("anyone else does not, however much they may configure", async () => {
-      mount(<ProjectsSettingsPage />, "/projects/settings");
-      await screen.findByText("Issue types");
-      expect(screen.queryByText("Import from Sentire Projects")).toBeNull();
-      expect(document.querySelector("[data-sentire-import]")).toBeNull();
-    });
   });
 });

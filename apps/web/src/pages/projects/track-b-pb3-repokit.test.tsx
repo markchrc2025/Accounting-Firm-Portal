@@ -30,7 +30,7 @@ const KIT: RepoKit = {
   serverUrl: "https://portal.example.test",
   tokenEnvVar: "PORTAL_PROJECTS_TOKEN",
   files: [
-    { path: ".sentire-projects.json", content: '{\n  "project": "PAY"\n}\n' },
+    { path: ".portal-projects.json", content: '{\n  "project": "PAY"\n}\n' },
     {
       path: ".mcp.json",
       content:
