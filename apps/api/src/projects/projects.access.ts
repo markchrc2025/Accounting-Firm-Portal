@@ -1,0 +1,111 @@
+// projects.access.ts — PA1 (D65): who may see and change what in the Projects module.
+//
+// The roles are the Portal's data-driven ones: Projects:Read, Create, Update, Configure.
+// Tenant: every query filters by the caller's firmId, so another firm's project is a 404.
+// Client link: a project linked to a client follows the Portal's client visibility (a firm user
+// sees it only if they can see that client: Clients:ViewAll, or assigned). A project with no
+// client is visible to every firm user with Projects:Read. A client user never sees Projects.
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
+import type { AuthUser } from "../common/auth/auth-user";
+import { PrismaService } from "../prisma/prisma.service";
+import { missingPermissionsMessage, RbacService } from "../rbac/rbac.service";
+import {
+  DEFAULT_ISSUE_STATUSES,
+  DEFAULT_ISSUE_TYPES,
+  MESSAGES,
+  PROJECT_KEY_RE,
+  type ActorType,
+  type Channel,
+} from "./projects.constants";
+
+/** Who is making a change, and through which door. Every change is logged with both. */
+export interface ProjectsActor {
+  user: AuthUser;
+  actorType: ActorType;
+  channel: Channel;
+  sessionId?: string | null;
+}
+
+/** An actor for a signed-in person using the web. */
+export const webActor = (user: AuthUser): ProjectsActor => ({
+  user,
+  actorType: "USER",
+  channel: "web",
+});
+
+export type Tx = Prisma.TransactionClient;
+
+@Injectable()
+export class ProjectsAccess {
+  /** Firms whose starting issue types and statuses are known to exist (kept per process). */
+  private readonly seeded = new Set<string>();
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rbac: RbacService,
+  ) {}
+
+  /** The caller must hold every permission firm-wide (and be firm staff); else 403 in the Portal's words. */
+  async need(actor: ProjectsActor, ...required: string[]): Promise<void> {
+    if (
+      actor.user.userType !== "FIRM" ||
+      !(await this.rbac.authorize(actor.user, required))
+    ) {
+      throw new ForbiddenException(missingPermissionsMessage(required));
+    }
+    await this.ensureDefaults(actor.user.firmId);
+  }
+
+  /** The starting issue types and statuses, for a firm that has none yet. Safe to call twice. */
+  async ensureDefaults(firmId: string): Promise<void> {
+    if (this.seeded.has(firmId)) return;
+    const [types, statuses] = await Promise.all([
+      this.prisma.issueType.count({ where: { firmId } }),
+      this.prisma.issueStatus.count({ where: { firmId } }),
+    ]);
+    if (types === 0) {
+      await this.prisma.issueType.createMany({
+        data: DEFAULT_ISSUE_TYPES.map((t) => ({ firmId, ...t })),
+        skipDuplicates: true,
+      });
+    }
+    if (statuses === 0) {
+      await this.prisma.issueStatus
+        .createMany({
+          data: DEFAULT_ISSUE_STATUSES.map((s) => ({ firmId, ...s })),
+          skipDuplicates: true,
+        })
+        .catch(() => undefined); // two requests seeding at once: the other one won
+    }
+    this.seeded.add(firmId);
+  }
+
+  /** The projects the caller may see: their firm's, with a client only if the caller can see it. */
+  async visibleWhere(user: AuthUser): Promise<Prisma.ProjectWhereInput> {
+    const scope = await this.rbac.authorizedClients(user, []);
+    if (scope === "all") return { firmId: user.firmId };
+    return {
+      firmId: user.firmId,
+      OR: [{ clientId: null }, { clientId: { in: [...scope] } }],
+    };
+  }
+
+  /** Can the caller see this client at all (Clients:ViewAll, or assigned)? */
+  async canSeeClient(user: AuthUser, clientId: string): Promise<boolean> {
+    return this.rbac.authorize(user, [], clientId);
+  }
+
+  /** A project by key, for a caller who may see it; else 404 (it makes no difference which). */
+  async project(user: AuthUser, key: string, db: Tx | PrismaService = this.prisma) {
+    const k = (key ?? "").trim().toUpperCase();
+    const row = PROJECT_KEY_RE.test(k)
+      ? await db.project.findFirst({ where: { firmId: user.firmId, key: k } })
+      : null;
+    if (!row) throw new NotFoundException(MESSAGES.projectNotFound);
+    if (row.clientId && !(await this.canSeeClient(user, row.clientId))) {
+      throw new NotFoundException(MESSAGES.projectNotFound);
+    }
+    return row;
+  }
+}

@@ -288,6 +288,14 @@ async function mockApi(
   await page.clock.setFixedTime(new Date("2026-10-12T10:00:00+08:00"));
   await page.addInitScript(() => {
     window.localStorage.setItem("portal_token", "test-token-not-a-secret");
+    // W23: the live Preview pane is not what this spec is about: it stays hidden for every
+    // user, so it asks the API for nothing (track-b-w23.spec.ts is the one that shows it).
+    const readItem = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      return String(key).startsWith("portal:bir-preview-pane:")
+        ? "hidden"
+        : readItem.call(this, key);
+    };
   });
   const get = (s: Seen) => w.store.get(s.path.split("/")[4]!)!;
   const base: Entry[] = [

@@ -27,6 +27,7 @@ import {
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { usePublishPreviewFeed } from "../components/birform/previewFeed";
 import { MarkAsFiledButton } from "../components/birform/BirConfirmation";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { IncomeTaxBackground } from "../components/birform/IncomeTaxBackground";
@@ -138,6 +139,8 @@ export default function BirForm1701AEditor() {
     enabled: debounced !== null,
   });
 
+  // W23: what Save would send, for the Preview pane in the shared page.
+  usePublishPreviewFeed(data, year);
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) return createBirForm({ clientId, form: "1701A", period: year, data });
