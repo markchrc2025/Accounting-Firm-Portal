@@ -138,6 +138,7 @@ const projectDto = {
   updatedAt: "2026-11-01T00:00:00.000Z",
 };
 const overview = {
+  security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
   project: projectDto,
   status: { value: "ON_TRACK", note: "", updatedAt: null },
   statusUpdates: [],

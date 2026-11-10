@@ -14,6 +14,7 @@ import {
   Markdown,
   PriorityChip,
 } from "../../components/projects/parts";
+import { GithubLinks } from "../../components/projects/GithubLinks";
 import { useInvalidateProject } from "../../components/projects/useInvalidate";
 import {
   addComment,
@@ -295,6 +296,8 @@ export function IssueDetails({
           canWrite={canWrite}
           onSave={(description) => save({ description })}
         />
+
+        <GithubLinks links={i.githubLinks} />
 
         {i.children.length > 0 ? (
           <div data-sub-issues>

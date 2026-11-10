@@ -15,6 +15,7 @@ import {
   ProjectStatusChip,
   SuccessBanner,
 } from "../../components/projects/parts";
+import { SecurityChip } from "../../components/projects/SecurityChip";
 import { RepoKitPanel } from "./RepoKitPanel";
 import { useInvalidateProject } from "../../components/projects/useInvalidate";
 import {
@@ -119,6 +120,25 @@ export function OverviewTab({ ov, can }: { ov: ProjectOverview; can: ProjectsCan
             ) : (
               <ActivityEntries items={ov.recentActivity} />
             )}
+          </CardContent>
+        </Card>
+        <Card data-overview-security>
+          <CardHeader>
+            <CardTitle>Security</CardTitle>
+            <Link
+              to={projectPath(key, "security")}
+              className="text-[12.5px] text-blue underline-offset-2 hover:underline"
+            >
+              Security details
+            </Link>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-3 text-[13px]">
+            <SecurityChip badge={ov.security} />
+            <span className="text-content-secondary">
+              {ov.security.state === "clear"
+                ? "No open security issues."
+                : `${ov.security.open} open security ${ov.security.open === 1 ? "issue" : "issues"}.`}
+            </span>
           </CardContent>
         </Card>
         <RepoKitPanel projectKey={key} />
