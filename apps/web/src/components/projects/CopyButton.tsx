@@ -33,7 +33,9 @@ export function CopyButton({
       </Button>
       <span role="status" className="text-[12px] text-content-secondary">
         {state === "copied" ? "Copied to the clipboard." : ""}
-        {state === "failed" ? "Could not copy. Select the text and copy it yourself." : ""}
+        {state === "failed"
+          ? "Could not copy. Select the text and copy it yourself."
+          : ""}
       </span>
     </span>
   );

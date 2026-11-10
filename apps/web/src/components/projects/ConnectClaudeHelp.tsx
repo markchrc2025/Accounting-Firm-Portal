@@ -38,7 +38,11 @@ export function ConnectClaudeHelp({
   envVar?: string;
 }) {
   return (
-    <section id="connect-claude" aria-labelledby="connect-claude-title" data-connect-claude>
+    <section
+      id="connect-claude"
+      aria-labelledby="connect-claude-title"
+      data-connect-claude
+    >
       <h2
         id="connect-claude-title"
         className="mb-2 font-serif text-[19px] font-medium text-navy"
@@ -49,9 +53,10 @@ export function ConnectClaudeHelp({
         <div className="space-y-2.5">
           <h3 className="font-semibold text-navy">Claude Code</h3>
           <p className="text-content-secondary">
-            Add the Portal as an MCP server. Claude Code sends your token in a header and reads
-            it from the environment variable <code className="font-mono">{envVar}</code> on your
-            computer, so the token is never written into a file.
+            Add the Portal as an MCP server. Claude Code sends your token in a header and
+            reads it from the environment variable{" "}
+            <code className="font-mono">{envVar}</code> on your computer, so the token is
+            never written into a file.
           </p>
           <Line label="Address" value={claudeCodeAddress(origin)} />
           <Line label="Header" value={bearerHeader(envVar)} />
@@ -59,8 +64,9 @@ export function ConnectClaudeHelp({
         <div className="space-y-2.5 border-t border-line pt-4">
           <h3 className="font-semibold text-navy">claude.ai custom connector</h3>
           <p className="text-content-secondary">
-            A custom connector has no header to fill in, so its address holds the token. Replace{" "}
-            <code className="font-mono">{TOKEN_PLACEHOLDER}</code> with a token you made.
+            A custom connector has no header to fill in, so its address holds the token.
+            Replace <code className="font-mono">{TOKEN_PLACEHOLDER}</code> with a token
+            you made.
           </p>
           <Line label="Address" value={capabilityAddress(origin)} />
           <p

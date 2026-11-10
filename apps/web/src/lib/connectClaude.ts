@@ -15,8 +15,10 @@ export const claudeCodeAddress = (origin: string): string => `${origin}${MCP_PAT
 export const bearerHeader = (envVar: string = TOKEN_ENV_VAR): string =>
   `Authorization: Bearer \${${envVar}}`;
 /** For a claude.ai custom connector: the address holds the token, so it is as secret as the token. */
-export const capabilityAddress = (origin: string, token: string = TOKEN_PLACEHOLDER): string =>
-  `${origin}${MCP_PATH}/${token}`;
+export const capabilityAddress = (
+  origin: string,
+  token: string = TOKEN_PLACEHOLDER,
+): string => `${origin}${MCP_PATH}/${token}`;
 
 export const CAPABILITY_WARNING =
   "This address contains your token. Anyone who has it can act as you. Do not share it.";
