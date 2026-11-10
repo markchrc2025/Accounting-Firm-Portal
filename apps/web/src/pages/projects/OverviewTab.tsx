@@ -15,6 +15,7 @@ import {
   ProjectStatusChip,
   SuccessBanner,
 } from "../../components/projects/parts";
+import { RepoKitPanel } from "./RepoKitPanel";
 import { useInvalidateProject } from "../../components/projects/useInvalidate";
 import {
   actorName,
@@ -120,6 +121,7 @@ export function OverviewTab({ ov, can }: { ov: ProjectOverview; can: ProjectsCan
             )}
           </CardContent>
         </Card>
+        <RepoKitPanel projectKey={key} />
       </div>
 
       <div className="min-w-0 space-y-5">
