@@ -113,6 +113,10 @@ export interface Milestone {
   dueDate: string | null;
   state: MilestoneState;
   progress: Progress;
+  /** PB2: percent done as the API worked it out, for a roadmap bar. */
+  percent: number;
+  /** PB2: today in Manila (YYYY-MM-DD). */
+  today: string;
   overdueIssues: number;
   createdAt: string;
   updatedAt: string;
@@ -241,6 +245,55 @@ export interface ProjectsMeta {
   labels: LabelRef[];
   users: { id: string; fullName: string; email: string }[];
 }
+
+// --- PB2: board, roadmap, My Work, search -----------------------------------------------------
+
+export interface BoardColumn {
+  status: IssueStatusRef & { isDefault: boolean };
+  items: IssueItem[];
+  /** Done columns only: how many closed cards the 14-day window left out. */
+  olderHidden: number;
+}
+export interface Board {
+  today: string;
+  doneRange: "14d" | "all";
+  doneSince: string | null;
+  total: number;
+  columns: BoardColumn[];
+}
+export interface BoardFilters {
+  /** "" = any, "none" = no milestone, else a milestone id. */
+  milestone: string;
+  /** "" = anyone, "me", "none" = unassigned, else a user id. */
+  assignee: string;
+  /** true = every closed card, not just the last 14 days. */
+  doneAll: boolean;
+}
+export interface Roadmap {
+  today: string;
+  dated: Milestone[];
+  undated: Milestone[];
+}
+export interface MyWork {
+  today: string;
+  totals: { assignedOpen: number; overdue: number; dueThisWeek: number };
+  assigned: IssueItem[];
+  overdue: IssueItem[];
+  upcomingMilestones: (Milestone & { project: ProjectRef })[];
+  recentActivity: (ActivityItem & { project: ProjectRef })[];
+}
+export interface SearchProject {
+  id: string;
+  key: string;
+  name: string;
+  archived: boolean;
+  client: { id: string; businessName: string } | null;
+}
+export interface SearchResult {
+  jump: { projectKey: string; issueKey: string } | null;
+  issues: IssueItem[];
+  projects: SearchProject[];
+}
 export type AdminType = IssueTypeRow & { issueCount: number };
 export type AdminStatus = IssueStatusRow & { issueCount: number };
 export type AdminLabel = LabelRef & { issueCount: number };
@@ -319,6 +372,28 @@ export const updateMilestone = (key: string, id: string, b: MilestoneInput) =>
     method: "PATCH",
     ...json(b),
   });
+export const fetchRoadmap = (key: string) =>
+  apiFetch<Roadmap>(`/projects/${enc(key)}/roadmap`);
+export const fetchBoard = (key: string, f: BoardFilters) =>
+  apiFetch<Board>(
+    `/projects/${enc(key)}/board${query({
+      milestoneId: f.milestone,
+      assigneeId: f.assignee,
+      doneRange: f.doneAll ? "all" : undefined,
+    })}`,
+  );
+export const reorderIssue = (
+  key: string,
+  issueKey: string,
+  b: { position: number; statusId?: string },
+) =>
+  apiFetch<IssueDetail>(`/projects/${enc(key)}/issues/${enc(issueKey)}/reorder`, {
+    method: "POST",
+    ...json(b),
+  });
+export const fetchMyWork = () => apiFetch<MyWork>("/projects/my-work");
+export const searchProjects = (q: string) =>
+  apiFetch<SearchResult>(`/projects/search${query({ q })}`);
 export const fetchIssues = (key: string, params: Record<string, string>) =>
   apiFetch<IssueList>(`/projects/${enc(key)}/issues${query(params)}`);
 export const quickAddIssue = (key: string, title: string) =>

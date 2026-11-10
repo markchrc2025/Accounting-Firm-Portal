@@ -30,6 +30,7 @@ const api = vi.hoisted(() => ({
   updateIssue: vi.fn(),
   deleteIssue: vi.fn(),
   fetchMilestones: vi.fn(),
+  fetchRoadmap: vi.fn(),
   createMilestone: vi.fn(),
   updateMilestone: vi.fn(),
   fetchActivity: vi.fn(),
@@ -156,6 +157,8 @@ const MS: Milestone = {
   dueDate: "2026-12-01",
   state: "OPEN",
   progress: { done: 1, total: 4, percent: 25 },
+  percent: 25,
+  today: "2026-11-10",
   overdueIssues: 0,
   createdAt: "2026-11-01T00:00:00.000Z",
   updatedAt: "2026-11-01T00:00:00.000Z",
@@ -200,6 +203,8 @@ beforeEach(() => {
     offset: 0,
   });
   api.fetchMilestones.mockResolvedValue([MS]);
+  // PB2: the Milestones tab also draws the roadmap; an empty one keeps these PB1 checks unchanged
+  api.fetchRoadmap.mockResolvedValue({ today: "2026-11-10", dated: [], undated: [] });
   api.fetchProjectsMeta.mockResolvedValue(META);
   api.lookupIssueKey.mockRejectedValue(new ApiError(404, "Issue not found.", {}));
 });

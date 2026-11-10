@@ -1645,12 +1645,16 @@ describe("PA1 · the Projects module core (real app over HTTP, db)", () => {
       const p = await project({ key: "ACV" });
       await issue("ACV", { title: "One" });
       await issue("ACV", { title: "Two" });
-      for (const actorType of ["CLAUDE", "GITHUB", "SYSTEM"]) {
+      // Distinct, explicit times: rows made one after another can share a millisecond, and then
+      // "newest first" would fall to the order of their random ids.
+      const later = Date.now() + 60_000;
+      for (const [i, actorType] of ["CLAUDE", "GITHUB", "SYSTEM"].entries()) {
         await db.projectActivity.create({
           data: {
             firmId,
             projectId: p.id,
             actorType,
+            createdAt: new Date(later + i * 1000),
             channel:
               actorType === "CLAUDE"
                 ? "mcp"

@@ -151,7 +151,7 @@ export default function ProjectFormPage() {
         actions={
           <Button
             variant="ghost"
-            onClick={() => navigate(editing ? projectPath(editKey!) : "/projects")}
+            onClick={() => navigate(editing ? projectPath(editKey!) : "/projects/all")}
           >
             Back
           </Button>

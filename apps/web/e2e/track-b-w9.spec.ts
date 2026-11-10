@@ -10,6 +10,7 @@
 //
 // All data is invented. No real name, TIN, address, phone or email.
 
+import { answerBell } from "./helpers/bell";
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 
 const FIRM_ID = "22222222-2222-4222-8222-222222222291";
@@ -172,6 +173,7 @@ async function mockApi(
       const [m, re, h] = table[i]!;
       if (m === s.method && re.test(s.path)) return h(route, s);
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${s.method} ${s.path}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

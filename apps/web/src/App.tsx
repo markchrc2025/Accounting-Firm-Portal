@@ -37,6 +37,8 @@ import TaxRulesPage from "./pages/TaxRulesPage";
 import UsersPage from "./pages/UsersPage";
 
 // Projects (PB1) loads on its own: the markdown libraries stay out of the main bundle.
+const MyWorkPage = lazy(() => import("./pages/projects/MyWorkPage"));
+const SearchPage = lazy(() => import("./pages/projects/SearchPage"));
 const ProjectsPage = lazy(() => import("./pages/projects/ProjectsPage"));
 const ProjectFormPage = lazy(() => import("./pages/projects/ProjectFormPage"));
 const ProjectsSettingsPage = lazy(() => import("./pages/projects/ProjectsSettingsPage"));
@@ -114,7 +116,10 @@ export default function App() {
         {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
         <Route path="/billing" element={<BillingPage />} />
         {/* Projects (PB1): firm users with Projects:Read; each page sends anyone else home. */}
-        <Route path="/projects" element={<Later><ProjectsPage /></Later>} />
+        {/* PB2: My Work is where Projects opens; the portfolio is "All projects". */}
+        <Route path="/projects" element={<Later><MyWorkPage /></Later>} />
+        <Route path="/projects/all" element={<Later><ProjectsPage /></Later>} />
+        <Route path="/projects/search" element={<Later><SearchPage /></Later>} />
         <Route path="/projects/new" element={<Later><ProjectFormPage /></Later>} />
         <Route path="/projects/settings" element={<Later><ProjectsSettingsPage /></Later>} />
         <Route path="/projects/:key" element={<Later><ProjectPage tab="overview" /></Later>} />
@@ -124,6 +129,7 @@ export default function App() {
           path="/projects/:key/issues/:issueKey"
           element={<Later><ProjectPage tab="issue" /></Later>}
         />
+        <Route path="/projects/:key/board" element={<Later><ProjectPage tab="board" /></Later>} />
         <Route path="/projects/:key/milestones" element={<Later><ProjectPage tab="milestones" /></Later>} />
         <Route path="/projects/:key/activity" element={<Later><ProjectPage tab="activity" /></Later>} />
         <Route path="/bir-forms" element={<BirFormsPage />} />

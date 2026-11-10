@@ -25,13 +25,16 @@ import {
   fetchProjectsMeta,
   projectPath,
 } from "../../lib/projects";
+import { ProjectsSearchBox } from "../../components/projects/ProjectsNav";
 import { ActivityTab } from "./ActivityTab";
+import { BoardTab } from "./BoardTab";
 import { IssueDetails } from "./IssueDetails";
 import { IssuesTab } from "./IssuesTab";
 import { MilestonesTab } from "./MilestonesTab";
 import { OverviewTab } from "./OverviewTab";
 
-export type ProjectTab = "overview" | "issues" | "issue" | "milestones" | "activity";
+export type ProjectTab =
+  "overview" | "issues" | "issue" | "board" | "milestones" | "activity";
 
 export default function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { key = "", issueKey = "" } = useParams<{ key: string; issueKey: string }>();
@@ -84,6 +87,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
   const tabs: { id: ProjectTab; label: string; to: string; end?: boolean }[] = [
     { id: "overview", label: "Overview", to: projectPath(key), end: true },
     { id: "issues", label: "Issues", to: projectPath(key, "issues") },
+    { id: "board", label: "Board", to: projectPath(key, "board") },
     { id: "milestones", label: "Milestones", to: projectPath(key, "milestones") },
     { id: "activity", label: "Activity", to: projectPath(key, "activity") },
   ];
@@ -93,7 +97,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
       <PageHeader
         eyebrow={
           <span className="flex items-center gap-2">
-            <Link to="/projects" className="hover:underline">
+            <Link to="/projects/all" className="hover:underline">
               Projects
             </Link>
             <span aria-hidden>/</span>
@@ -109,11 +113,17 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
           </span>
         }
         actions={
-          can.update ? (
-            <Button variant="outline" onClick={() => navigate(projectPath(key, "edit"))}>
-              Edit project
-            </Button>
-          ) : null
+          <>
+            <ProjectsSearchBox />
+            {can.update ? (
+              <Button
+                variant="outline"
+                onClick={() => navigate(projectPath(key, "edit"))}
+              >
+                Edit project
+              </Button>
+            ) : null}
+          </>
         }
       />
       {notice ? <SuccessBanner className="mb-4">{notice}</SuccessBanner> : null}
@@ -142,6 +152,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
       {tab === "issues" ? (
         <IssuesTab projectKey={key} can={can} meta={meta.data} />
       ) : null}
+      {tab === "board" ? <BoardTab projectKey={key} can={can} meta={meta.data} /> : null}
       {tab === "milestones" ? (
         <MilestonesTab projectKey={key} canWrite={can.update} />
       ) : null}

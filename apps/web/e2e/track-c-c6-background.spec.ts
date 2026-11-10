@@ -14,6 +14,7 @@
 //     unanswered one is not saved, and a saved answer for a client who is not married
 //     is dropped on the next save.
 
+import { answerBell } from "./helpers/bell";
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 
 const FIRM_ID = "22222222-2222-4222-8222-2222222222c6";
@@ -181,6 +182,7 @@ async function mockApi(page: Page, formBody: unknown, id: string, extra: Entry[]
       const [m, re, h] = table[i]!;
       if (m === e.method && re.test(e.path)) return h(route, e);
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${e.method} ${e.path}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });
