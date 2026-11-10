@@ -15,6 +15,7 @@ import {
   cn,
 } from "../../components/ui";
 import { ErrorBanner } from "../../components/projects/parts";
+import { SessionLink } from "../../components/projects/SessionLink";
 import {
   ACTOR_FILTERS,
   actorName,
@@ -25,6 +26,7 @@ import {
   groupByManilaDay,
   issuePath,
   manilaTime,
+  projectKeyOf,
   type ActivityItem,
   type ActorType,
 } from "../../lib/projects";
@@ -32,7 +34,14 @@ import {
 const PAGE_SIZE = 25;
 
 /** The entries of an activity list, grouped by Manila day. */
-export function ActivityEntries({ items }: { items: ActivityItem[] }) {
+export function ActivityEntries({
+  items,
+  projectKey,
+}: {
+  items: ActivityItem[];
+  /** The project the entries belong to (for the link to a session). */
+  projectKey?: string;
+}) {
   const groups = groupByManilaDay(items);
   return (
     <div className="space-y-5">
@@ -58,6 +67,10 @@ export function ActivityEntries({ items }: { items: ActivityItem[] }) {
                   {a.issueTitle ? (
                     <span className="text-content-secondary">{a.issueTitle}</span>
                   ) : null}
+                  <SessionLink
+                    projectKey={projectKey ?? projectKeyOf(a.issueKey ?? "")}
+                    session={a.session}
+                  />
                   <span className="ml-auto font-mono text-[11px] text-content-secondary">
                     {manilaTime(a.createdAt)}
                   </span>
@@ -140,7 +153,7 @@ export function ActivityTab({ projectKey }: { projectKey: string }) {
       ) : (
         <Card>
           <CardContent>
-            <ActivityEntries items={items} />
+            <ActivityEntries items={items} projectKey={projectKey} />
             {q.hasNextPage ? (
               <div className="mt-5">
                 <Button

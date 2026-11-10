@@ -238,29 +238,48 @@ present, assignee and author in the people list, parents present and no loops; t
 status updates, sessions, activity, GitHub links and audits point to; every date a real calendar date or time
 (`2026-02-30` is refused); counters not below the highest number.
 
-### Sentire Projects fields that cannot be mapped
+### Sentire Projects fields the Portal does not store
 
-The same list is in every plan as `unmapped` (exported as `UNMAPPED_SENTIRE_FIELDS`). "Carried" means the plan
-holds the value for a later phase, but the Portal's PA1 tables have no place for it today.
+Checked against the Portal's importer (PA5, D69: `POST /api/v1/projects/import/sentire`, in
+`apps/api/src/projects/sentire-import.service.ts`). The same list is in every plan as `unmapped` (exported as
+`UNMAPPED_SENTIRE_FIELDS`). The plan still carries some of these values (the audit report, a comment's actor
+type and session); the importer does not store them.
 
-| Sentire Projects field                                                  | Why                                                                                                                         |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `organizations`                                                         | The import goes into the firm that runs it.                                                                                 |
-| `users.passwordHash`                                                    | A secret; never read.                                                                                                       |
-| `users.role` (owner, member, viewer)                                    | Portal permissions are `Projects:*` grants on Portal roles; no automatic mapping.                                           |
-| `users.createdAt`, `lastLoginAt`, `disabledAt`, `users.id`              | Portal users are separate accounts, matched by e-mail.                                                                      |
-| `sessions` (logins)                                                     | Temporary, tied to its cookies.                                                                                             |
-| `apiTokens`                                                             | Hashes are secrets and the tokens do not work on the Portal; issue new ones.                                                |
-| `notifications`                                                         | The Portal has no notifications table yet.                                                                                  |
-| `projects.archivedAt`                                                   | The Portal has an archived flag only; the time is lost.                                                                     |
-| `issues.deletedAt`                                                      | The Portal has a deleted flag only; the time is lost. Deleted issues are imported so their numbers stay used.               |
-| `issues.fingerprint`                                                    | No column yet. Carried, so the security-audit phase can match re-imports.                                                   |
-| `milestones.closedAt`                                                   | The Portal's milestone has no closing time.                                                                                 |
-| `comments.actorKind`, `comments.sessionId`                              | The Portal's comment has neither yet. Carried.                                                                              |
-| `activities.client`                                                     | The Portal records a channel instead; worked out from the actor type (github, system, mcp for Claude, web for users). Carried. |
-| `activities` with no project                                            | The Portal's activity log needs a project; left out and counted in `warnings`.                                              |
-| `workSessions`, `githubLinks`, `securityAudits`                         | No tables in the Portal yet. Carried whole.                                                                                 |
-| `projects.status`, `projects.statusNote`                                | The Portal derives status from the latest update; see the added update above.                                               |
+| Sentire Projects field                                           | Why                                                                                                                                                                                                        |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organizations`                                                  | The import goes into the firm that runs it.                                                                                                                                                                |
+| `users.passwordHash`                                             | A secret; never read.                                                                                                                                                                                      |
+| `users.role` (owner, member, viewer)                             | Portal permissions are `Projects:*` grants on Portal roles; no automatic mapping.                                                                                                                          |
+| `users.id`, `createdAt`, `lastLoginAt`, `disabledAt`             | No user is created. People are matched to active Portal users by e-mail; someone with no account leaves the user empty and the importer lists the e-mail.                                                  |
+| `sessions` (logins)                                              | Temporary, tied to its cookies.                                                                                                                                                                            |
+| `apiTokens`                                                      | Hashes are secrets and the tokens do not work on the Portal; issue new ones.                                                                                                                               |
+| `notifications`                                                  | Short-lived messages. The Portal's notifications are raised by events in the Portal, and an import raises none.                                                                                           |
+| `projects.archivedAt`                                            | The Portal has an archived flag only; the time is lost.                                                                                                                                                    |
+| `issues.deletedAt`                                               | The Portal has a deleted flag only; the time is lost. Deleted issues are imported so their numbers stay used.                                                                                              |
+| `milestones.closedAt`                                            | The Portal's milestone has no closing time; it is kept only as the milestone's last-updated time.                                                                                                          |
+| `comments.actorKind`, `comments.sessionId`                       | The Portal's comment table has no actor type and no session.                                                                                                                                               |
+| `securityAudits.report`                                          | The audit's markdown report; the Portal's audit table has no column for it.                                                                                                                                |
+| `workSessions` with no project                                   | Not imported: the Portal's session needs a project. Activity that pointed to it loses its session link.                                                                                                    |
+| `activities` with no project                                     | The Portal's activity log needs a project; left out and counted in `warnings`.                                                                                                                             |
+
+### Where the rest goes
+
+Exported as `MAPPED_SENTIRE_FIELDS` (documentation; it is not part of the plan).
+
+| Sentire Projects                          | Portal                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`                                | `projects`: key, name, description, repoUrl, liveUrl, issueCounter and dates as they are; `dokployApp` to `deployAppName`; the parent to `parentProjectId`; `archivedAt` to the archived flag.                                                                                           |
+| `projects.status`, `statusNote`           | The project's latest row in `project_status_updates` (an update by SYSTEM is added to the plan when the history does not end with the current status).                                                                                                                                  |
+| `statusUpdates`                           | `project_status_updates`: status, note, actor type and date as they are; the author by e-mail.                                                                                                                                                                                          |
+| `issueTypes`, `statuses`, `labels`        | `issue_types`, `issue_statuses`, `labels`. One the firm already has under the same name (any letter case) is reused and keeps the firm's colour and category; new ones are added after the firm's own. A new status is the default only if the firm has none.                          |
+| `milestones`                              | `milestones`: name, description, dates, state and createdAt as they are.                                                                                                                                                                                                                |
+| `issues`, `issueLabels`                   | `issues` and `issue_labels`: key and number kept; type, status, milestone and labels by name; assignee and author by e-mail; parent by key; `deletedAt` to the deleted flag.                                                                                                            |
+| `issues.fingerprint`                      | `project_security_findings.fingerprint`: one finding per issue that has one, linked to the issue and to the latest audit that names it; state and severity are read from the issue's labels `security`, `sev-<severity>` and `needs-validation`.                                         |
+| `comments`                                | `issue_comments`: body, author by e-mail, createdAt; `editedAt` to `updatedAt`.                                                                                                                                                                                                          |
+| `workSessions`                            | `project_work_sessions`: client (cut to 40 characters), title, start, end, summary and next steps as they are; `issuesTouched` to `issueKeys`; the person by e-mail, empty when there is no account.                                                                                     |
+| `activities`                              | `project_activities`, written as SYSTEM on the channel `system` with no user. The original actor, e-mail and client are kept as text in the row's changes (`importedFrom`), Sentire's own summary as a `summary` entry. The action is named the Portal's way or kept as `imported.<action>`. The session link goes to `sessionId`. |
+| `githubLinks`                             | `project_github_links`: kind, repo, number, sha, url, title, state, merged and date as they are; the issue by key.                                                                                                                                                                      |
+| `securityAudits`                          | `project_security_audits`: run id, `sourceRef` to `commit`, profile, scope, coverage, rejected, actor type and date as they are; `runStatus` to `complete` (yes or no); counts re-read into the Portal's shape; issue keys to `outcome.updated`; the channel from the actor type.         |
 
 ## Decisions that were not given
 
@@ -295,6 +314,12 @@ PC2 (repo kit and import mapping):
 14. **Plan choices**: work sessions are named by a made-up `ref`; the channel of an activity is worked out from the
     actor type; a status update is added when the history does not end with the current status; people are matched by
     e-mail; a duplicate is kept for the validator; rows with a missing parent are dropped or emptied with a warning.
+
+PC3 (the unmapped list):
+
+15. **The list follows the importer**, not the plan: an entry is there only if the Portal's importer (PA5, D69) does
+    not store the value. `MAPPED_SENTIRE_FIELDS` says where the rest goes; it is documentation and not part of the
+    plan, so the plan's shape is unchanged. Plans made before PC3 differ only in `unmapped`.
 
 ## Tests
 

@@ -220,6 +220,7 @@ const projectDto = {
 };
 const overview = {
   security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
+  recentSessions: [], // PB5
   project: projectDto,
   status: { value: "ON_TRACK", note: "", updatedAt: null },
   statusUpdates: [],
@@ -410,7 +411,7 @@ async function mockApi(
     // the issue a jump opens
     [
       "GET",
-      /^\/api\/v1\/projects\/PAY\/issues\/PAY-12$/,
+      /^\/api\/v1\/projects\/PAY\/issues\/PAY-\d+$/,
       (r) =>
         json(r, {
           ...issueItem(rec(12, { title: "The jumped to issue" })),
@@ -422,7 +423,7 @@ async function mockApi(
           githubLinks: [], // PB4
         }),
     ],
-    ["GET", /^\/api\/v1\/projects\/PAY\/issues\/PAY-12\/comments$/, (r) => json(r, [])],
+    ["GET", /^\/api\/v1\/projects\/PAY\/issues\/PAY-\d+\/comments$/, (r) => json(r, [])],
     // notifications
     [
       "GET",

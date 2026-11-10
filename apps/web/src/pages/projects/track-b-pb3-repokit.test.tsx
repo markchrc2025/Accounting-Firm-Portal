@@ -30,7 +30,7 @@ const KIT: RepoKit = {
   serverUrl: "https://portal.example.test",
   tokenEnvVar: "PORTAL_PROJECTS_TOKEN",
   files: [
-    { path: ".sentire-projects.json", content: '{\n  "project": "PAY"\n}\n' },
+    { path: ".portal-projects.json", content: '{\n  "project": "PAY"\n}\n' },
     {
       path: ".mcp.json",
       content:
@@ -215,6 +215,7 @@ describe("PB3 who did it, in the activity", () => {
     actor,
     channel: "mcp",
     changes: [],
+    session: null, // PB5
     createdAt: "2026-11-10T16:30:00.000Z",
   });
   it("entries made by Claude say Claude, even though a person's account made them; GitHub and System say so too", () => {

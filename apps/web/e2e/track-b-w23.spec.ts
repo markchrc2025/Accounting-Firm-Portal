@@ -63,8 +63,19 @@ interface World {
   replies: Array<
     (call: number, data: Record<string, unknown>) => Parameters<Route["fulfill"]>[0]
   >;
-  /** A delay before the live route answers, in ms. */
-  delay: number;
+  /**
+   * Holds the answer to every live call from `fromCall` on (1-based) until `release()` is called,
+   * so a test can look at the "Updating…" state for as long as it needs instead of racing a
+   * timer. Calls before `fromCall` are answered at once.
+   */
+  gate?: { fromCall: number; open: Promise<void>; release: () => void };
+}
+function makeGate(fromCall: number): NonNullable<World["gate"]> {
+  let release = () => {};
+  const open = new Promise<void>((res) => {
+    release = res;
+  });
+  return { fromCall, open, release };
 }
 const idOf = (k: number) => `f2300000-0000-4000-8000-${String(k).padStart(12, "0")}`;
 
@@ -160,7 +171,7 @@ async function mockApi(page: Page, w: World, extra: Entry[] = []) {
         liveCalls += 1;
         const call = liveCalls;
         const body = s.request.postDataJSON() as { data: Record<string, unknown> };
-        if (w.delay) await new Promise((res) => setTimeout(res, w.delay));
+        if (w.gate && call >= w.gate.fromCall) await w.gate.open;
         const reply = w.replies[Math.min(call, w.replies.length) - 1]!;
         return r.fulfill(reply(call, body.data));
       },
@@ -194,7 +205,6 @@ async function mockApi(page: Page, w: World, extra: Entry[] = []) {
 const world = (over: Partial<World> = {}): World => ({
   store: new Map(),
   replies: [OK_REPLY],
-  delay: 0,
   ...over,
 });
 function clean(unmocked: string[], dialogs: string[]) {
@@ -212,7 +222,10 @@ test.describe("W23 the live Preview pane (hermetic)", () => {
   test("T1 typing in a 2551Q: one request after the pause with the whole data, and the PDF shown inline", async ({
     page,
   }) => {
-    const w = world({ delay: 1500 });
+    // The second request (the one after the edit) is held until the test lets it go, so the
+    // "Updating…" label stays on screen as long as we need to look at it.
+    const gate = makeGate(2);
+    const w = world({ gate });
     const id = idOf(1);
     w.store.set(id, detail({ id }));
     const { seen, unmocked, dialogs } = await mockApi(page, w);
@@ -240,17 +253,20 @@ test.describe("W23 the live Preview pane (hermetic)", () => {
     // An edit: nothing is asked at once (the pause is 1000 ms; rapid edits are in the unit
     // tests), then ONE request.
     await page.getByLabel(ITEM15).fill("123");
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
     expect(lives(seen)).toHaveLength(1);
-    // After the pause ONE request goes out; while it works: "Updating…", and the previous
+    // After the pause ONE request goes out and is held: "Updating…" stays up, and the previous
     // PDF is still there.
     await expect(page.locator("[data-preview-updating]")).toHaveText("Updating…");
-    expect(lives(seen)).toHaveLength(2);
+    await expect.poll(() => lives(seen).length).toBe(2);
     expect(
       (lives(seen)[1]!.request.postDataJSON() as { data: { i15: string } }).data.i15,
     ).toBe("123");
     await expect(frame(page)).toHaveAttribute("src", firstSrc!);
+    // Let the answer go: the PDF is replaced and the label goes.
+    gate.release();
     await expect(frame(page)).not.toHaveAttribute("src", firstSrc!);
+    await expect(frame(page)).toHaveAttribute("src", /^blob:/);
     await expect(page.locator("[data-preview-updating]")).toHaveCount(0);
     // Quiet again: no more requests.
     await page.waitForTimeout(1500);

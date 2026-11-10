@@ -107,7 +107,7 @@ const KIT = {
   serverUrl: "https://portal.example.test",
   tokenEnvVar: "PORTAL_PROJECTS_TOKEN",
   files: [
-    { path: ".sentire-projects.json", content: '{\n  "project": "PAY"\n}\n' },
+    { path: ".portal-projects.json", content: '{\n  "project": "PAY"\n}\n' },
     {
       path: ".mcp.json",
       content: '{\n  "url": "https://portal.example.test/api/v1/projects/mcp"\n}\n',
@@ -139,6 +139,7 @@ const projectDto = {
 };
 const overview = {
   security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
+  recentSessions: [], // PB5
   project: projectDto,
   status: { value: "ON_TRACK", note: "", updatedAt: null },
   statusUpdates: [],

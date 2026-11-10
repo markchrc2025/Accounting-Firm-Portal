@@ -236,7 +236,31 @@ export interface ActivityItem {
   actor: { id: string; fullName: string } | null;
   channel: string;
   changes: Change[];
+  /** PB5: the Claude work session the change was made in, or null. */
+  session: { id: string; title: string } | null;
   createdAt: string;
+}
+/** A Claude work session on a project (Track A PA3 / PA5, D69). */
+export interface ClaudeSession {
+  id: string;
+  projectKey: string;
+  /** web, claude-code, or what the client called itself */
+  client: string;
+  title: string;
+  startedAt: string;
+  /** null while the session is open */
+  endedAt: string | null;
+  summary: string;
+  nextSteps: string;
+  issueKeys: string[];
+  /** null when no person is known: the session was run by Claude */
+  user: { id: string; fullName: string } | null;
+}
+export interface SessionPage {
+  items: ClaudeSession[];
+  page: number;
+  pageSize: number;
+  total: number;
 }
 export interface ActivityPage {
   items: ActivityItem[];
@@ -246,6 +270,8 @@ export interface ActivityPage {
 }
 export interface ProjectOverview {
   security: SecurityBadge;
+  /** PB5: the latest five Claude work sessions. */
+  recentSessions: ClaudeSession[];
   project: ProjectDto;
   status: { value: ProjectStatus; note: string; updatedAt: string | null };
   statusUpdates: StatusUpdate[];
@@ -423,6 +449,7 @@ export interface AuditImportBody {
   run?: Record<string, unknown>;
   ledger?: unknown[];
 }
+
 export type AdminType = IssueTypeRow & { issueCount: number };
 export type AdminStatus = IssueStatusRow & { issueCount: number };
 export type AdminLabel = LabelRef & { issueCount: number };
@@ -481,6 +508,13 @@ export const fetchActivity = (
   apiFetch<ActivityPage>(
     `/projects/${enc(key)}/activity${query({
       actorType: o.actorType,
+      page: String(o.page),
+      pageSize: String(o.pageSize),
+    })}`,
+  );
+export const fetchSessions = (key: string, o: { page: number; pageSize: number }) =>
+  apiFetch<SessionPage>(
+    `/projects/${enc(key)}/sessions${query({
       page: String(o.page),
       pageSize: String(o.pageSize),
     })}`,
@@ -1019,3 +1053,16 @@ export function readFileText(file: Blob): Promise<string> {
     r.readAsText(file);
   });
 }
+
+// --- PB5: sessions ---------------------------------------------------------------------------------
+
+/** Who ran a session: the person, or Claude when no person is known. */
+export const sessionWho = (s: Pick<ClaudeSession, "user">): string =>
+  s.user ? s.user.fullName : "Claude";
+/** A session's title, or the word Session when it has none. */
+export const sessionTitle = (s: { title: string }): string => s.title.trim() || "Session";
+/** The Sessions tab of a project, optionally at one session. */
+export const sessionPath = (projectKey: string, sessionId?: string): string =>
+  `/projects/${encodeURIComponent(projectKey)}/sessions${
+    sessionId ? `?session=${encodeURIComponent(sessionId)}` : ""
+  }`;

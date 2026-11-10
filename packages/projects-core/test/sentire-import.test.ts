@@ -6,6 +6,7 @@ import {
   IMPORT_APPLY_ORDER,
   IMPORT_PLAN_FORMAT,
   IMPORT_PLAN_VERSION,
+  MAPPED_SENTIRE_FIELDS,
   SentireExportError,
   UNMAPPED_SENTIRE_FIELDS,
   mapSentireExport,
@@ -411,12 +412,44 @@ describe("mapSentireExport: refusals", () => {
   });
 });
 
-describe("the fields that cannot be mapped", () => {
+describe("the fields that cannot be mapped, and where the rest goes (PA5, D69)", () => {
   const p = planOf();
 
   it("every plan lists them, the same list", () => {
     expect(p.unmapped).toEqual(UNMAPPED_SENTIRE_FIELDS);
-    expect(p.unmapped.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it("lists only what the Portal does not store today", () => {
+    expect(p.unmapped.map((u) => u.field)).toEqual([
+      "organizations",
+      "users.passwordHash",
+      "users.role",
+      "users.id, users.createdAt, users.lastLoginAt, users.disabledAt",
+      "sessions",
+      "apiTokens",
+      "notifications",
+      "projects.archivedAt",
+      "issues.deletedAt",
+      "milestones.closedAt",
+      "comments.actorKind, comments.sessionId",
+      "securityAudits.report",
+      "workSessions (no project)",
+      "activities (no project)",
+    ]);
+  });
+
+  it("no longer lists what the importer now stores", () => {
+    const listed = p.unmapped.map((u) => u.field);
+    for (const stored of [
+      "workSessions",
+      "githubLinks",
+      "securityAudits",
+      "issues.fingerprint",
+      "activities.client",
+      "projects.status, projects.statusNote",
+    ]) {
+      expect(listed, stored).not.toContain(stored);
+    }
   });
 
   it("each one has a reason, and none contains a dash", () => {
@@ -427,24 +460,54 @@ describe("the fields that cannot be mapped", () => {
     }
   });
 
-  it("names the secrets and the fields the Portal has no place for", () => {
-    const fields = p.unmapped.map((u) => u.field).join("\n");
-    for (const f of [
-      "users.passwordHash",
-      "users.role",
-      "apiTokens",
-      "sessions",
-      "notifications",
-      "projects.archivedAt",
-      "issues.deletedAt",
-      "issues.fingerprint",
-      "milestones.closedAt",
-      "comments.actorKind, comments.sessionId",
+  it("says that the audit report and a comment's actor and session are not stored", () => {
+    const reason = (field: string) => p.unmapped.find((u) => u.field === field)!.reason;
+    expect(reason("securityAudits.report")).toContain("no column");
+    expect(reason("comments.actorKind, comments.sessionId")).toContain(
+      "no actor type and no session",
+    );
+  });
+
+  it("says where everything else goes, and every section of the plan is covered", () => {
+    expect(MAPPED_SENTIRE_FIELDS.length).toBeGreaterThanOrEqual(12);
+    const tables = [
+      "projects",
+      "issueTypes",
+      "statuses",
+      "labels",
+      "milestones",
+      "issues",
+      "comments",
+      "statusUpdates",
       "workSessions",
+      "activities",
       "githubLinks",
       "securityAudits",
-    ]) {
-      expect(fields, f).toContain(f);
+    ];
+    for (const t of tables) {
+      expect(
+        MAPPED_SENTIRE_FIELDS.some((m) => m.field.includes(t)),
+        t,
+      ).toBe(true);
+    }
+    const to = (field: string) =>
+      MAPPED_SENTIRE_FIELDS.find((m) => m.field === field)!.to;
+    expect(to("workSessions")).toContain("project_work_sessions");
+    expect(to("githubLinks")).toContain("project_github_links");
+    expect(to("securityAudits")).toContain("project_security_audits");
+    expect(to("issues.fingerprint")).toContain("project_security_findings.fingerprint");
+    expect(to("activities")).toContain("importedFrom");
+    expect(to("projects.status, projects.statusNote")).toContain(
+      "project_status_updates",
+    );
+  });
+
+  it("a field is either mapped or unmapped, never both, and no text has a dash", () => {
+    const unmapped = new Set(p.unmapped.map((u) => u.field));
+    for (const m of MAPPED_SENTIRE_FIELDS) {
+      expect(unmapped.has(m.field), m.field).toBe(false);
+      expect(m.to.length).toBeGreaterThan(10);
+      expect(`${m.field} ${m.to}`).not.toMatch(DASHES);
     }
   });
 });
