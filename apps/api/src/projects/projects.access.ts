@@ -25,13 +25,23 @@ export interface ProjectsActor {
   actorType: ActorType;
   channel: Channel;
   sessionId?: string | null;
+  /** PA3: the personal API token the call came with, if any (a work session remembers it). */
+  tokenId?: string | null;
+  /** PA3: what is calling, for a work session: claude-code, claude.ai, rest, web ... */
+  client?: string;
 }
 
-/** An actor for a signed-in person using the web. */
+/**
+ * An actor for a signed-in person. On the web it is the "web" channel; with a personal API token
+ * (PA3, D67) the sign-in guard marks the user and the change is logged through "api", with the work
+ * session the caller named, if any. Either way the person is a USER: Claude acts through the MCP.
+ */
 export const webActor = (user: AuthUser): ProjectsActor => ({
   user,
   actorType: "USER",
-  channel: "web",
+  channel: user.via?.channel ?? "web",
+  sessionId: user.via?.sessionId ?? null,
+  tokenId: user.via?.tokenId ?? null,
 });
 
 export type Tx = Prisma.TransactionClient;

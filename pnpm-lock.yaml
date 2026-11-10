@@ -50,6 +50,9 @@ importers:
       '@portal/bir-pdf':
         specifier: workspace:*
         version: link:../../packages/bir-pdf
+      '@portal/projects-core':
+        specifier: workspace:*
+        version: link:../../packages/projects-core
       '@portal/shared':
         specifier: workspace:*
         version: link:../../packages/shared

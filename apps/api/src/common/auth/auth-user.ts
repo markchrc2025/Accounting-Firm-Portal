@@ -14,6 +14,11 @@ export interface AuthUser {
   userType: UserType;
   email: string;
   clientId?: string;
+  /**
+   * PA3 (D67): set by the sign-in guard when the call came with a personal API token. The Projects
+   * module logs such a change through the "api" channel, with the work session the caller named.
+   */
+  via?: { channel: "api"; sessionId: string | null; tokenId: string };
 }
 
 /** Token kinds issued by the auth service. */
@@ -31,6 +36,8 @@ export interface JwtPayload {
 
 export interface RequestWithUser extends Request {
   user?: AuthUser;
+  /** PA3 (D67): the personal API token the call came with, when it did. */
+  apiToken?: { id: string };
 }
 
 /**

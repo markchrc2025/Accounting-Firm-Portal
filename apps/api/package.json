@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "start": "ts-node src/main.ts",
-    "build": "pnpm --filter @portal/shared build && pnpm --filter @portal/bir-pdf build && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @portal/shared build && pnpm --filter @portal/bir-pdf build && pnpm --filter @portal/projects-core build && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest",
@@ -34,6 +34,7 @@
     "@nestjs/platform-express": "^10.4.4",
     "@nestjs/swagger": "^7.4.2",
     "@portal/bir-pdf": "workspace:*",
+    "@portal/projects-core": "workspace:*",
     "@portal/shared": "workspace:*",
     "@prisma/client": "^5.20.0",
     "@sentry/node": "^10.68.0",
