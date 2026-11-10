@@ -91,6 +91,16 @@ model Firm {
   receiptScans       ReceiptScan[]
   birFormConfirmations BirFormConfirmation[]
   birFormFilingUndos   BirFormFilingUndo[]
+  projects             Project[]
+  projectStatusUpdates ProjectStatusUpdate[]
+  issueTypes           IssueType[]
+  issueStatuses        IssueStatus[]
+  issues               Issue[]
+  labels               Label[]
+  issueLabels          IssueLabel[]
+  milestones           Milestone[]
+  issueComments        IssueComment[]
+  projectActivities    ProjectActivity[]
 
   @@map("firms")
 }
@@ -187,6 +197,8 @@ model Client {
   @@index([defaultServiceId])
   receiptScans ReceiptScan[]
 
+  projects Project[]
+
   @@map("clients")
 }
 
@@ -224,6 +236,11 @@ model User {
   receiptScans ReceiptScan[]
   birFormConfirmations BirFormConfirmation[]
   birFormFilingUndos   BirFormFilingUndo[]
+  assignedIssues       Issue[]                @relation("IssueAssignee")
+  authoredIssues       Issue[]                @relation("IssueAuthor")
+  issueComments        IssueComment[]
+  projectStatusUpdates ProjectStatusUpdate[]
+  projectActivities    ProjectActivity[]
 
   @@map("users")
 }
@@ -1166,4 +1183,253 @@ model BirFormFilingUndo {
 
   @@index([birFormId])
   @@map("bir_form_filing_undos")
+}
+
+// ---------------------------------------------------------------------------
+// PA1 (D65) · Projects module: project management inside the Portal. Every table carries
+// firmId (the tenant). Words that are a closed set (status, category, priority, state, actor
+// type, channel) are TEXT with a CHECK, as elsewhere in the Portal.
+// ---------------------------------------------------------------------------
+
+/// A project; optionally the engagement work for one Portal client. The key never changes.
+model Project {
+  id              String   @id @default(uuid()) @db.Uuid
+  firmId          String   @db.Uuid
+  /// 2 to 10 capital letters or digits, starting with a letter; unique per firm; never changes.
+  key             String
+  name            String
+  /// Markdown.
+  description     String   @default("")
+  repoUrl         String   @default("")
+  liveUrl         String   @default("")
+  deployAppName   String   @default("")
+  parentProjectId String?  @db.Uuid
+  clientId        String?  @db.Uuid
+  archived        Boolean  @default(false)
+  /// The last issue number given; only ever incremented, so numbers are never reused.
+  issueCounter    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  firm          Firm                  @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  client        Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  parent        Project?              @relation("ProjectParent", fields: [parentProjectId], references: [id], onDelete: SetNull)
+  children      Project[]             @relation("ProjectParent")
+  statusUpdates ProjectStatusUpdate[]
+  issues        Issue[]
+  milestones    Milestone[]
+  activities    ProjectActivity[]
+
+  @@unique([firmId, key])
+  @@index([firmId])
+  @@index([clientId])
+  @@map("projects")
+}
+
+/// A status update on a project; the latest is its current status (none = NOT_STARTED).
+model ProjectStatusUpdate {
+  id          String   @id @default(uuid()) @db.Uuid
+  firmId      String   @db.Uuid
+  projectId   String   @db.Uuid
+  /// NOT_STARTED | ON_TRACK | AT_RISK | OFF_TRACK | ON_HOLD | FINISHED
+  status      String
+  note        String   @default("")
+  /// USER | CLAUDE | GITHUB | SYSTEM
+  actorType   String   @default("USER")
+  actorUserId String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  firm      Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorUser User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([firmId])
+  @@index([projectId, createdAt])
+  @@map("project_status_updates")
+}
+
+/// Issue types, firm-wide and editable (Task, Bug, Feature, Epic to start with).
+model IssueType {
+  id     String @id @default(uuid()) @db.Uuid
+  firmId String @db.Uuid
+  name   String
+  colour String @default("#57606a")
+  order  Int    @default(0)
+
+  firm   Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  issues Issue[]
+
+  @@unique([firmId, name])
+  @@index([firmId])
+  @@map("issue_types")
+}
+
+/// Issue statuses, firm-wide and editable; the category says whether an issue is open.
+model IssueStatus {
+  id        String  @id @default(uuid()) @db.Uuid
+  firmId    String  @db.Uuid
+  name      String
+  colour    String  @default("#57606a")
+  order     Int     @default(0)
+  /// TODO | IN_PROGRESS | DONE
+  category  String
+  isDefault Boolean @default(false)
+
+  firm   Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  issues Issue[]
+
+  @@unique([firmId, name])
+  @@index([firmId])
+  @@map("issue_statuses")
+}
+
+model Issue {
+  id            String    @id @default(uuid()) @db.Uuid
+  firmId        String    @db.Uuid
+  projectId     String    @db.Uuid
+  /// 1, 2, 3 ... within the project; never reused, never changes.
+  number        Int
+  /// PROJECTKEY-number, e.g. PAY-12; never changes.
+  key           String
+  title         String
+  /// Markdown.
+  description   String    @default("")
+  typeId        String    @db.Uuid
+  statusId      String    @db.Uuid
+  /// LOW | NORMAL | HIGH | URGENT
+  priority      String    @default("NORMAL")
+  assigneeId    String?   @db.Uuid
+  authorId      String?   @db.Uuid
+  milestoneId   String?   @db.Uuid
+  parentIssueId String?   @db.Uuid
+  startDate     DateTime? @db.Date
+  dueDate       DateTime? @db.Date
+  /// Order on the board, within a status.
+  position      Float     @default(0)
+  /// Set when the issue enters a DONE status, cleared when it leaves.
+  closedAt      DateTime?
+  deleted       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  firm        Firm          @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type        IssueType     @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  status      IssueStatus   @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  assignee    User?         @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  author      User?         @relation("IssueAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  milestone   Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parent      Issue?        @relation("IssueParent", fields: [parentIssueId], references: [id], onDelete: SetNull)
+  children    Issue[]       @relation("IssueParent")
+  labels      IssueLabel[]
+  comments    IssueComment[]
+  activities  ProjectActivity[]
+
+  @@unique([firmId, key])
+  @@unique([projectId, number])
+  @@index([firmId])
+  @@index([projectId, statusId])
+  @@index([assigneeId])
+  @@index([milestoneId])
+  @@index([parentIssueId])
+  @@map("issues")
+}
+
+model Label {
+  id     String @id @default(uuid()) @db.Uuid
+  firmId String @db.Uuid
+  name   String
+  colour String @default("#0969da")
+
+  firm   Firm         @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  issues IssueLabel[]
+
+  @@unique([firmId, name])
+  @@index([firmId])
+  @@map("labels")
+}
+
+model IssueLabel {
+  issueId String @db.Uuid
+  labelId String @db.Uuid
+  firmId  String @db.Uuid
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  firm  Firm  @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, labelId])
+  @@index([firmId])
+  @@index([labelId])
+  @@map("issue_labels")
+}
+
+model Milestone {
+  id          String    @id @default(uuid()) @db.Uuid
+  firmId      String    @db.Uuid
+  projectId   String    @db.Uuid
+  name        String
+  description String    @default("")
+  startDate   DateTime? @db.Date
+  dueDate     DateTime? @db.Date
+  /// OPEN | LOCKED | CLOSED
+  state       String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  firm    Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues  Issue[]
+
+  @@index([firmId])
+  @@index([projectId])
+  @@map("milestones")
+}
+
+model IssueComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  firmId    String   @db.Uuid
+  issueId   String   @db.Uuid
+  authorId  String?  @db.Uuid
+  /// Markdown.
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  firm   Firm  @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  issue  Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([firmId])
+  @@index([issueId, createdAt])
+  @@map("issue_comments")
+}
+
+/// What changed, by whom, through which channel. Written in the same transaction as the
+/// change it records; a change that rolls back leaves no row.
+model ProjectActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  firmId      String   @db.Uuid
+  projectId   String   @db.Uuid
+  issueId     String?  @db.Uuid
+  /// USER | CLAUDE | GITHUB | SYSTEM
+  actorType   String
+  actorUserId String?  @db.Uuid
+  /// web | api | mcp | github | system
+  channel     String
+  sessionId   String?  @db.Uuid
+  action      String
+  /// [{ field, old, new }]
+  changes     Json     @default("[]")
+  createdAt   DateTime @default(now())
+
+  firm      Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue     Issue?  @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  actorUser User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([firmId])
+  @@index([projectId, createdAt])
+  @@index([issueId, createdAt])
+  @@map("project_activities")
 }

@@ -46,6 +46,8 @@ const FIRM_PERMISSIONS: Record<string, string[]> = {
   InputTaxAsset: ["Read"],
   IntegrationClient: ["Create", "Read", "Update", "Delete"],
   AuditLogs: ["Read"],
+  // PA1 (D65): the Projects module. Configure covers issue types, statuses and labels.
+  Projects: ["Read", "Create", "Update", "Configure"],
 };
 
 const CLIENT_PERMISSIONS: Record<string, string[]> = {
