@@ -1,6 +1,7 @@
 // body-limit.ts — PA3/PA4 (D67, D68): two Projects endpoints read their body by hand, before
 // Express's own 100 KB parser: the MCP endpoint (up to 1 MB), the GitHub webhook (up to 5 MB, and
-// the exact bytes are kept, because GitHub signs the bytes) and the audit import (up to 5 MB). Call applyProjectsBodyReaders
+// the exact bytes are kept, because GitHub signs the bytes), the audit import (up to 5 MB) and the
+// Sentire Projects import (up to 25 MB). Call applyProjectsBodyReaders
 // before the app starts: main.ts does, and so do tests that build their own app.
 //
 // The body is read by hand, not with a second body-parser, because the tree holds two Express
@@ -115,6 +116,18 @@ export function auditsBodyReader() {
   });
 }
 
+/** An export of a whole Sentire Projects database: up to 25 MB, parsed as usual. */
+export const IMPORT_BODY_LIMIT_BYTES = 25_000_000;
+export function sentireImportBodyReader() {
+  return bodyReader({
+    limit: IMPORT_BODY_LIMIT_BYTES,
+    tooLarge: (res) =>
+      res.status(413).json({ statusCode: 413, message: REQUEST_TOO_LARGE }),
+    badJson: (res) =>
+      res.status(400).json({ statusCode: 400, message: WEBHOOK_BAD_JSON }),
+  });
+}
+
 export function applyProjectsBodyReaders(
   app: INestApplication,
   prefix = "/api/v1",
@@ -122,6 +135,7 @@ export function applyProjectsBodyReaders(
   app.use(`${prefix}/projects/mcp`, projectsMcpBodyReader());
   app.use(`${prefix}/projects/:key/audits`, auditsBodyReader());
   app.use(`${prefix}/projects/github/webhook`, githubWebhookBodyReader());
+  app.use(`${prefix}/projects/import/sentire`, sentireImportBodyReader());
 }
 
 /** PA3's name for it, kept so nothing that called it breaks. */

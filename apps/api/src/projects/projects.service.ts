@@ -16,6 +16,7 @@ import type {
 import { SecurityQueries } from "./security-queries";
 import { ProjectsAccess, type ProjectsActor } from "./projects.access";
 import { ProjectsActivity } from "./projects-activity.service";
+import { projectSessions } from "./work-sessions.service";
 import {
   diffFields,
   manilaToday,
@@ -249,6 +250,10 @@ export class ProjectsService {
           _max: { createdAt: true },
         }),
       ]);
+    // PA5: the last five Claude work sessions
+    const recentSessions = (
+      await projectSessions(this.prisma, user.firmId, p.id, { skip: 0, take: 5 })
+    ).items;
     const [statuses, types] = await Promise.all([
       this.prisma.issueStatus.findMany({
         where: { firmId: user.firmId },
@@ -303,6 +308,7 @@ export class ProjectsService {
       ),
       inProgress: inProgress.map((i) => issueItem(i, today)),
       recentActivity: recent.items,
+      recentSessions,
       lastActivityAt: lastAct._max.createdAt?.toISOString() ?? null,
       // PA4: the project's security state, additive
       security: (await this.security.badges(user.firmId, [p.id])).get(p.id) ?? {
