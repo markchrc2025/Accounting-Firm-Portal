@@ -31,6 +31,7 @@ import {
   AuditListQuerySchema,
   ChecklistImportSchema,
   ActivityQuerySchema,
+  SessionsQuerySchema,
   BoardQuerySchema,
   SearchQuerySchema,
   CommentSchema,
@@ -340,6 +341,18 @@ export class ProjectsController {
     const actor = sessionActor(user, client);
     const session = await this.sessions.start(actor, key, { title: b.title });
     return { session, briefing: await this.context.briefing(actor, key) };
+  }
+
+  /** The project's Claude work sessions, newest first, paged. */
+  @Get(":key/sessions")
+  @RequirePermissions(P.read)
+  listSessions(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(SessionsQuerySchema))
+    q: Body<typeof SessionsQuerySchema>,
+  ) {
+    return this.sessions.list(webActor(user), key, q);
   }
 
   /** The files a code repository needs to work with this project (never a token). */

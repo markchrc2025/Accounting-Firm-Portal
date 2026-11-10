@@ -1527,7 +1527,8 @@ model ProjectWorkSession {
   id        String    @id @default(uuid()) @db.Uuid
   firmId    String    @db.Uuid
   projectId String    @db.Uuid
-  userId    String    @db.Uuid
+  /// null for a session imported from Sentire Projects whose person has no account in the Portal
+  userId    String?   @db.Uuid
   tokenId   String?   @db.Uuid
   /// claude-code | claude.ai | rest | ...
   client    String    @default("claude-code")
@@ -1541,7 +1542,7 @@ model ProjectWorkSession {
 
   firm       Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
   project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
   token      ApiToken?         @relation(fields: [tokenId], references: [id], onDelete: SetNull)
   activities ProjectActivity[]
 

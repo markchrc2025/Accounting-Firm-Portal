@@ -75,6 +75,7 @@ export class ProjectsActivity {
         include: {
           actorUser: { select: { id: true, fullName: true } },
           issue: { select: { key: true, title: true } },
+          session: { select: { id: true, title: true } },
         },
       }),
     ]);
@@ -91,6 +92,7 @@ type ActivityRow = Prisma.ProjectActivityGetPayload<{
   include: {
     actorUser: { select: { id: true; fullName: true } };
     issue: { select: { key: true; title: true } };
+    session: { select: { id: true; title: true } };
   };
 }>;
 
@@ -104,6 +106,8 @@ export function activityDto(a: ActivityRow) {
     actorType: a.actorType,
     actor: a.actorUser ? { id: a.actorUser.id, fullName: a.actorUser.fullName } : null,
     channel: a.channel,
+    // PA5: the work session the change was made in, or null
+    session: a.session ? { id: a.session.id, title: a.session.title } : null,
     changes: a.changes as unknown as Change[],
     createdAt: a.createdAt.toISOString(),
   };

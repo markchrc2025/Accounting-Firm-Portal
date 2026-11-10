@@ -154,6 +154,12 @@ export const ActivityQuerySchema = z.object({
   pageSize: intQuery(1, 100, 25),
 });
 
+/** GET /projects/:key/sessions (PA5) */
+export const SessionsQuerySchema = z.object({
+  page: intQuery(1, 100000, 1),
+  pageSize: intQuery(1, 100, 25),
+});
+
 const colour = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, "The colour must look like #1a7f37.");

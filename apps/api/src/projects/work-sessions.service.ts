@@ -26,7 +26,8 @@ type SessionRow = {
   issueKeys: string[];
   projectId: string;
   project: { key: string };
-  user: { id: string; fullName: string };
+  /** null for a session imported from Sentire Projects whose person has no account here. */
+  user: { id: string; fullName: string } | null;
 };
 
 const INCLUDE = {
@@ -45,8 +46,29 @@ export function sessionDto(s: SessionRow) {
     summary: s.summary,
     nextSteps: s.nextSteps,
     issueKeys: s.issueKeys,
-    user: { id: s.user.id, fullName: s.user.fullName },
+    user: s.user ? { id: s.user.id, fullName: s.user.fullName } : null,
   };
+}
+
+/** A project's sessions, newest first (ties by id), with the total. Shared by the list and the overview. */
+export async function projectSessions(
+  prisma: PrismaService,
+  firmId: string,
+  projectId: string,
+  opts: { skip: number; take: number },
+) {
+  const where = { firmId, projectId };
+  const [total, rows] = await Promise.all([
+    prisma.projectWorkSession.count({ where }),
+    prisma.projectWorkSession.findMany({
+      where,
+      orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+      skip: opts.skip,
+      take: opts.take,
+      include: INCLUDE,
+    }),
+  ]);
+  return { total, items: rows.map(sessionDto) };
 }
 
 @Injectable()
@@ -68,6 +90,23 @@ export class WorkSessionsService {
       select: { id: true },
     });
     return s ? { ...actor, sessionId: s.id } : actor;
+  }
+
+  /** A project's work sessions, newest first, paged. Needs Projects:Read on a project the caller sees. */
+  async list(
+    actor: ProjectsActor,
+    projectKey: string,
+    opts: { page: number; pageSize: number },
+  ) {
+    await this.access.need(actor, P.read);
+    const project = await this.access.project(actor.user, projectKey);
+    const { total, items } = await projectSessions(
+      this.prisma,
+      actor.user.firmId,
+      project.id,
+      { skip: (opts.page - 1) * opts.pageSize, take: opts.pageSize },
+    );
+    return { items, page: opts.page, pageSize: opts.pageSize, total };
   }
 
   /** Open a session on a project. Needs Projects:Update. */
