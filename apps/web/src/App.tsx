@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { AppShell } from "./components/AppShell";
@@ -34,6 +35,22 @@ import ServicesPage from "./pages/ServicesPage";
 import TaxPage from "./pages/TaxPage";
 import TaxRulesPage from "./pages/TaxRulesPage";
 import UsersPage from "./pages/UsersPage";
+
+// Projects (PB1) loads on its own: the markdown libraries stay out of the main bundle.
+const ProjectsPage = lazy(() => import("./pages/projects/ProjectsPage"));
+const ProjectFormPage = lazy(() => import("./pages/projects/ProjectFormPage"));
+const ProjectsSettingsPage = lazy(() => import("./pages/projects/ProjectsSettingsPage"));
+const ProjectPage = lazy(() => import("./pages/projects/ProjectPage"));
+
+function Later({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={<div className="p-6 text-[13.5px] text-content-secondary">Loading…</div>}
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 /** Home route: firm users get the dashboard; client users go to their portal. */
 function HomeRoute() {
@@ -96,6 +113,19 @@ export default function App() {
         <Route path="/receipt-scans/:id" element={<ReceiptScanPage />} />
         {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
         <Route path="/billing" element={<BillingPage />} />
+        {/* Projects (PB1): firm users with Projects:Read; each page sends anyone else home. */}
+        <Route path="/projects" element={<Later><ProjectsPage /></Later>} />
+        <Route path="/projects/new" element={<Later><ProjectFormPage /></Later>} />
+        <Route path="/projects/settings" element={<Later><ProjectsSettingsPage /></Later>} />
+        <Route path="/projects/:key" element={<Later><ProjectPage tab="overview" /></Later>} />
+        <Route path="/projects/:key/edit" element={<Later><ProjectFormPage /></Later>} />
+        <Route path="/projects/:key/issues" element={<Later><ProjectPage tab="issues" /></Later>} />
+        <Route
+          path="/projects/:key/issues/:issueKey"
+          element={<Later><ProjectPage tab="issue" /></Later>}
+        />
+        <Route path="/projects/:key/milestones" element={<Later><ProjectPage tab="milestones" /></Later>} />
+        <Route path="/projects/:key/activity" element={<Later><ProjectPage tab="activity" /></Later>} />
         <Route path="/bir-forms" element={<BirFormsPage />} />
         <Route path="/bir-forms/new" element={<BirFormEditorPage />} />
         <Route path="/bir-forms/:id" element={<BirFormEditorPage />} />
