@@ -25,6 +25,7 @@ import {
   BookQuestionDialog,
   BookSwitch,
 } from "./BookFigures";
+import { usePublishPreviewFeed } from "./previewFeed";
 import type { WithholdingDraft } from "./useWithholdingDraft";
 
 export function WithholdingFrame({
@@ -44,6 +45,8 @@ export function WithholdingFrame({
   /** Cards under the form that stay live on a filed return (the 1601-EQ's alphalist). */
   below?: ReactNode;
 }) {
+  // W23: what Save would send, for the Preview pane in the shared page.
+  usePublishPreviewFeed(draft.saveData, draft.period);
   const { form, existing, isNew, id, isFiled, books, tooManyRows } = draft;
   const title = FORM_TITLE[form];
 
