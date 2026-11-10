@@ -39,6 +39,7 @@ import {
   type ConfirmationMode,
 } from "../../lib/birConfirmation";
 import { Button, Card, CardContent, Chip, cn } from "../ui";
+import { UndoFilingControl } from "./UndoFiling";
 
 /** Super Admin only: the Claude connector's page is gated the same way (only the Super
  *  Admin role holds IntegrationClient:Update). The API refuses anyone else in words. */
@@ -554,6 +555,7 @@ export function ConfirmationCard({ detail }: { detail: BirFormDetail }) {
               {c.overrideReason}
             </p>
             <UploadedLine c={c} />
+            <UndoFilingControl detail={detail} superAdmin={superAdmin} />
           </>
         ) : (
           <>
