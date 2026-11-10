@@ -137,7 +137,16 @@ export function AppShell() {
             </>
           ) : (
             <>
-              <NavGroup label="Overview" items={OVERVIEW_NAV} />
+              <NavGroup
+                label="Overview"
+                items={[
+                  ...OVERVIEW_NAV,
+                  // PB1: Projects, for firm users who may read them.
+                  ...(hasPermission("Projects:Read")
+                    ? [{ to: "/projects", label: "Projects" }]
+                    : []),
+                ]}
+              />
 
               {workspaceClientId ? (
                 <NavGroup
