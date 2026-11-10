@@ -20,6 +20,7 @@ import {
   CONTACT_FORMS,
   contactNumberOf,
   contactRefusal,
+  normalisedContact,
 } from "../../bir-forms/engine/contact-number";
 import type { PayeeNeed } from "../../bir-forms/alphalist/payees";
 
@@ -144,10 +145,10 @@ export function clientNeeds(
     if (sentence !== null) {
       out.push({
         key: "client.contactNumber",
-        question: blank(contactNumberOf(form, data, c.phone))
+        question: blank(normalisedContact(contactNumberOf(form, data, c.phone)))
           ? "What is the client's contact number (landline or mobile)?"
-          : `${sentence}. What is the client's contact number (landline or mobile, 12 digits at most)?`,
-        why: `${printed} the contact number, and eBIRForms will not submit a return without one.`,
+          : "What is the client's contact number as 11 digits (for example 09171234567)?",
+        why: `${printed} the contact number, and eBIRForms will not submit a return without one, nor one that is not 11 digits.`,
         setWith: updateClient("phone"),
         kind: "text",
       });

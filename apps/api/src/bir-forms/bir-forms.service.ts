@@ -94,7 +94,9 @@ import {
   CONTACT_FORMS,
   contactNumberOf,
   contactRefusal,
+  normalisedContact,
   printRowsWithContact,
+  validContact,
 } from "./engine/contact-number";
 import type { CreateBirFormInput, UpdateBirFormInput } from "./dto/bir-form.schemas";
 
@@ -181,6 +183,14 @@ export function clearCopyMapped(form: string): boolean {
       birLog.error(`print map ${key} cannot be used: ${(err as Error).message}`);
     return false;
   }
+}
+
+/**
+ * U22: the client row the filed snapshot is taken from. A contact number that is valid is
+ * kept as the 11 digits the return was exported with; anything else is kept as it is.
+ */
+function withPlainPhone<T extends { phone: string | null }>(c: T): T {
+  return c.phone && validContact(c.phone) ? { ...c, phone: normalisedContact(c.phone) } : c;
 }
 
 /** True for a print-engine error that is the Portal's fault (a map, the package,
@@ -415,6 +425,10 @@ export class BirFormsService {
   async remove(user: AuthUser, id: string): Promise<{ deleted: true; id: string }> {
     const f = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.create);
     if (f.status === "filed") throw new ConflictException(FILED_NOT_DELETABLE);
+    // U22 (D63): a draft that was filed and had its filing undone keeps its history.
+    if ((f.filingUndos ?? []).length > 0) {
+      throw new ConflictException(MESSAGES.undoneNotDeletable);
+    }
     let removed: Array<{ id: string; storageKey: string; filename: string }>;
     try {
       // Its exports read in the same transaction as the delete, so one made a
@@ -484,6 +498,15 @@ export class BirFormsService {
       alphalist: f.form === "1601EQ" ? this.alphalistState(f) : null,
       confirmationRequired: CONFIRMATION_FORMS.has(f.form),
       confirmation: f.confirmations?.[0] ? this.confirmations.summary(f.confirmations[0]) : null,
+      // U22 (D63), additive: the filings taken back (oldest first); [] if none.
+      filingUndos: (f.filingUndos ?? []).map((u) => ({
+        id: u.id,
+        reason: u.reason,
+        filedAt: u.filedAt.toISOString(),
+        undoneAt: u.undoneAt.toISOString(),
+        undoneByUserId: u.undoneByUserId,
+        overrideReason: u.overrideReason,
+      })),
       exports: f.exports.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -531,7 +554,9 @@ export class BirFormsService {
     if (filingClient)
       this.assertContact(f.form, input.data ?? f.dataJson, filingClient.phone);
     const snapshot =
-      filedAt && filingClient ? takeFiledSnapshot(filingClient, filedAt) : null;
+      filedAt && filingClient
+        ? takeFiledSnapshot(withPlainPhone(filingClient), filedAt)
+        : null;
     try {
       await this.prisma.birForm.update({
         where: { id },
@@ -829,18 +854,20 @@ export class BirFormsService {
       throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
     }
     const tp = clientToTaxpayer(snapshot ? snapshotToClient(snapshot) : client);
-    if (!snapshot) this.assertContact(f.form, f.dataJson, tp.phone); // U21
+    // U21/U22: refused unless 11 digits; the print carries the normalised 11 digits.
+    let data = (f.dataJson ?? {}) as FilingData;
+    if (!snapshot) {
+      this.assertContact(f.form, f.dataJson, tp.phone);
+      const plain = normalisedContact(contactNumberOf(f.form, data, tp.phone));
+      tp.phone = plain;
+      data = { ...data, contact: plain };
+    }
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
     const form = f.form as WithholdingPrintForm;
     try {
-      const rows = buildWithholdingPrintRows(
-        form,
-        (f.dataJson ?? {}) as FilingData,
-        tp,
-        f.period,
-      );
+      const rows = buildWithholdingPrintRows(form, data, tp, f.period);
       return {
         rows,
         baseName: withholdingPrintBaseName(form, f.period, tp),
@@ -884,9 +911,13 @@ export class BirFormsService {
       throw new InternalServerErrorException(`Form ${f.id}: ${(err as Error).message}`);
     }
     const taxpayer = clientToTaxpayer(snapshot ? snapshotToClient(snapshot) : client);
-    // U21: a return does not leave the Portal without a contact number. A filed return's
-    // sealed snapshot is never refused (it answers what it was filed with).
-    if (!snapshot) this.assertContact(f.form, f.dataJson, taxpayer.phone);
+    // U21/U22: a return does not leave the Portal without a contact number of 11 digits,
+    // and the XML and the print carry those 11 digits. A filed return's sealed snapshot is
+    // never refused and is answered as it was filed.
+    if (!snapshot) {
+      this.assertContact(f.form, f.dataJson, taxpayer.phone);
+      taxpayer.phone = normalisedContact(taxpayer.phone);
+    }
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
@@ -1055,7 +1086,7 @@ export class BirFormsService {
     this.assertContact(f.form, f.dataJson, client.phone);
     const basis = await this.confirmationBasis(user, f, client, input);
     const filedAt = basis.kind === "bir_email" ? basis.receivedAt : new Date();
-    const snapshot = takeFiledSnapshot(client, filedAt);
+    const snapshot = takeFiledSnapshot(withPlainPhone(client), filedAt);
     // U19 (D59): a 1601-EQ is filed WITH its alphalist rows (a filed return is sealed, so
     // they cannot be made later). An incomplete alphalist does not block the filing: no
     // rows are stored and the refusals are kept, to be shown as a warning.
@@ -1092,6 +1123,59 @@ export class BirFormsService {
       entityType: "BirForm",
       entityId: id,
       metadata: this.confirmationAudit(f, basis, { filedAt: filedAt.toISOString() }),
+    });
+    return this.detail(await this.loadOwned(user.firmId, id));
+  }
+
+  /**
+   * U22 (D63): take back a filing made WITHOUT the BIR confirmation e-mail (the Super
+   * Admin's override). Only when the return is filed, its live confirmation is an override,
+   * no BIR e-mail was ever attached to it and nothing amends it; every other case is 409.
+   * The return goes back to a draft with its data as filed; the filed date, the snapshot
+   * (with a 1601-EQ's stored alphalist) and the override row are kept as history. The seal
+   * is opened for this one transition by the database function bir_form_undo_filing,
+   * which checks the same conditions itself.
+   */
+  async undoFiling(user: AuthUser, id: string, input: { reason?: unknown }) {
+    const f = await this.loadOwned(user.firmId, id);
+    if (!(await this.confirmations.isSuperAdmin(user))) {
+      throw new ForbiddenException(MESSAGES.undoSuperAdmin);
+    }
+    await this.rbac.assertClient(user, [BIR_FORMS_PERMISSION.file], f.clientId);
+    const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+    if (reason.length < MIN_REASON_LENGTH) throw new BadRequestException(MESSAGES.shortReason);
+    const live = f.confirmations?.[0] ?? null;
+    const everEmailed = await this.prisma.birFormConfirmation.count({
+      where: { birFormId: f.id, kind: "bir_email" },
+    });
+    if (f.status !== "filed" || !live || live.kind !== "override" || everEmailed > 0) {
+      throw new ConflictException(MESSAGES.undoNotAllowed);
+    }
+    const amendments = await this.prisma.birForm.count({ where: { amendsId: f.id } });
+    if (amendments > 0) throw new ConflictException(MESSAGES.undoAmended);
+    try {
+      await this.prisma.$queryRaw`
+        SELECT bir_form_undo_filing(${f.id}::uuid, ${user.firmId}::uuid, ${user.id}::uuid, ${reason})`;
+    } catch (err) {
+      // Someone changed the return between the reads above and the function's own checks.
+      if (/BIR_UNDO_REFUSED/.test(String((err as Error)?.message))) {
+        throw new ConflictException(MESSAGES.undoNotAllowed);
+      }
+      throw err;
+    }
+    await this.audit.record({
+      userId: user.id,
+      action: "bir-form.filing.undone",
+      entityType: "BirForm",
+      entityId: id,
+      metadata: {
+        reason,
+        form: f.form,
+        period: f.period,
+        filedAt: f.filedAt ? f.filedAt.toISOString() : null,
+        confirmationId: live.id,
+        overrideReason: live.overrideReason ?? null,
+      },
     });
     return this.detail(await this.loadOwned(user.firmId, id));
   }
@@ -1453,6 +1537,8 @@ export class BirFormsService {
         exports: true,
         // U18: the live confirmation (a replaced one is kept, but not shown here)
         confirmations: { where: { supersededAt: null } },
+        // U22 (D63): the filings taken back, oldest first
+        filingUndos: { orderBy: { undoneAt: "asc" } },
       },
     });
     if (!f) throw new NotFoundException("Form not found");

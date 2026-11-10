@@ -6,10 +6,13 @@
 // withholding returns carry a contact number of their own typed in the draft
 // (data.contact); when that is blank they use the client's.
 //
-// The digits rule is the one the print engine already applies to the 0619-E, 1601-EQ and
-// 1601-C (C9): the separators " -()+." are not characters of the number, and the number
-// has at most 12 digits. Pure.
+// U22: eBIRForms accepts the contact number only as plain 11 digits (09171234567). The
+// number is normalised first (spaces, dashes, dots and brackets dropped; +63 or 63 and ten
+// digits written as 0 and those ten), then it must be exactly 11 digits. Pure.
 import type { FilingData } from "./types";
+
+export const CONTACT_MUST_BE_11 =
+  "The client's contact number must be 11 digits, like 09171234567. eBIRForms accepts no other form.";
 
 export const CONTACT_NUMBER_REQUIRED =
   "Add the client's contact number before this return leaves the Portal. eBIRForms will not submit a return without one.";
@@ -30,12 +33,10 @@ export const CONTACT_FORMS: ReadonlySet<string> = new Set([
 
 /** The separators the print engine drops from a contact number (the maps' `drop`). */
 const SEPARATORS = " -()+.";
-export const CONTACT_MAX = 12;
 
 /**
  * Where each form prints the client's contact number: the map version, the field key and
- * the item, as the print engine words them in its own refusals ("<form> <version> <key>
- * (item <item>)"). The 1701Q's blank has no box for it, so it has no entry.
+ * the item number. The 1701Q's blank has no box for it, so it has no entry.
  */
 export const CONTACT_ITEM: Record<
   string,
@@ -57,7 +58,6 @@ const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 /** The number as the paper carries it: the separators dropped. */
 export const contactDigits = (raw: string) =>
   [...raw].filter((c) => !SEPARATORS.includes(c)).join("");
-const kept = contactDigits;
 
 /**
  * The contact number a return prints: the client's, or for a withholding return the one
@@ -75,19 +75,29 @@ export function contactNumberOf(
   return str(clientPhone);
 }
 
+/** Spaces, dashes, dots and brackets are not part of the number. */
+const SPACING = /[\s\-.()]/g;
+
+/**
+ * The contact number as eBIRForms takes it: spaces, dashes, dots and brackets dropped; a
+ * number that then reads +63 or 63 and ten digits is written as 0 and those ten digits.
+ * Anything else is kept as typed (and is refused by contactRefusal unless it is 11 digits).
+ */
+export function normalisedContact(raw: string): string {
+  const s = raw.replace(SPACING, "");
+  const m = /^\+?63(\d{10})$/.exec(s);
+  return m ? `0${m[1]}` : s;
+}
+
+/** True when the number, normalised, is exactly 11 digits. */
+export const validContact = (raw: string) => /^\d{11}$/.test(normalisedContact(raw));
+
 /** The sentence that refuses this contact number, or null when it will do. */
 export function contactRefusal(form: string, raw: string): string | null {
   if (!CONTACT_FORMS.has(form)) return null;
-  const digits = kept(raw);
-  if (!/\d/.test(digits)) return CONTACT_NUMBER_REQUIRED;
-  if (digits.length > CONTACT_MAX) {
-    const at = CONTACT_ITEM[form];
-    const where = at
-      ? `${form} ${at.version} ${at.key} (item ${at.item})`
-      : `${form} contact number`;
-    return `${where}: "${raw}" is ${digits.length} characters but the paper has ${CONTACT_MAX} boxes`;
-  }
-  return null;
+  const n = normalisedContact(raw);
+  if (n === "") return CONTACT_NUMBER_REQUIRED;
+  return /^\d{11}$/.test(n) ? null : CONTACT_MUST_BE_11;
 }
 
 /**

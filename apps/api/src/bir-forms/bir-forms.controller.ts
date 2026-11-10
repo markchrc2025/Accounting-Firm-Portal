@@ -242,6 +242,24 @@ export class BirFormsController {
   }
 
   /**
+   * U22 (D63): take back a filing made WITHOUT the BIR confirmation e-mail. JSON body
+   * { reason } (at least 10 characters). A Super Admin only. 200 with the return (status
+   * "draft", data as filed, `filingUndos` with the history). 409: it was not marked filed
+   * through the override, or a BIR e-mail was ever attached, or it has an amendment.
+   * 403: not a Super Admin. 400: a reason shorter than 10 characters. BIRForms:File.
+   */
+  @Post(":id/undo-filing")
+  @HttpCode(200)
+  @RequirePermissions(BIR_FORMS_PERMISSION.file)
+  undoFiling(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() body: { reason?: unknown } | undefined,
+  ) {
+    return this.birForms.undoFiling(user, id, { reason: body?.reason });
+  }
+
+  /**
    * U18 (D58): attach the confirmation (or an override) to a return ALREADY filed; the
    * filed date and snapshot are untouched. Once only: a second attach is 409; "replace"
    * ("true") is a Super Admin's and keeps the old row, superseded. 200 with the return.

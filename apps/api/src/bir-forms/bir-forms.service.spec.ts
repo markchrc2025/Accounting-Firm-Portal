@@ -30,7 +30,7 @@ const CLIENT = {
   birthdate: null,
   incorpDate: null,
   email: "juan@acme.test",
-  phone: "0917",
+  phone: "09171234567",
   citizenship: "FILIPINO",
   civilStatus: "single",
   taxpayerType: "single",
