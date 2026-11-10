@@ -1025,10 +1025,10 @@ describe("PA3 · personal tokens, REST with tokens, work sessions, briefing, rep
         ".claude/hooks/portal-projects-session-start.mjs",
         ".claude/settings.json",
         ".mcp.json",
-        ".sentire-projects.json",
+        ".portal-projects.json",
         "CLAUDE.md",
       ]);
-      expect(JSON.parse(files[".sentire-projects.json"])).toEqual({
+      expect(JSON.parse(files[".portal-projects.json"])).toEqual({
         project: "KIT1",
         server: "https://portal.example.test",
       });
@@ -1040,6 +1040,8 @@ describe("PA3 · personal tokens, REST with tokens, work sessions, briefing, rep
       expect(files[".claude/hooks/portal-projects-session-start.mjs"]).toContain(
         "/api/v1/projects/sessions/start",
       );
+      // the kit has names of its own: a repository may also hold Sentire Projects' files
+      expect(JSON.stringify(res.body)).not.toMatch(/sentire/i);
       // no token, no hash, no secret of any kind
       const all = JSON.stringify(res.body);
       expect(all).not.toMatch(/ppt_[A-Za-z0-9_-]{20}/);

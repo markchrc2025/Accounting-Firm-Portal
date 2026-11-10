@@ -1,7 +1,7 @@
 <!-- BEGIN portal-projects: written by the Portal repo kit. Edit outside these markers; the kit replaces what is between them. -->
 ## Project tracking (Portal Projects)
 
-This repository is tracked in the Portal's Projects module. The project key is PAY; it is also in .sentire-projects.json.
+This repository is tracked in the Portal's Projects module. The project key is PAY; it is also in .portal-projects.json.
 
 - At the start of a session, if the SessionStart hook did not already print a briefing with a session_id, call start_session with the project key PAY. Then read the briefing: open issues, milestones and the last session's next steps.
 - Keep issues current while you work. Move the status with update_issue (In progress when you start, In review when a pull request is open, Done when it is merged). Use add_comment for decisions and blockers, and create_issue for bugs or follow-ups you find. Search before you create, to avoid duplicates. Do not invent issue keys; look them up.
