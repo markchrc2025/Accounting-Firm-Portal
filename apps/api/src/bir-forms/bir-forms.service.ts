@@ -3,6 +3,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -90,6 +92,9 @@ import {
   withholdingPrintBaseName,
   type WithholdingPrintForm,
 } from "./engine/withholding-print";
+import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
+import { PreviewBirFormSchema } from "./dto/bir-form.schemas";
+import { previewLimiter, TOO_MANY_PREVIEWS } from "./preview-limit";
 import {
   CONTACT_FORMS,
   contactNumberOf,
@@ -786,6 +791,81 @@ export class BirFormsService {
   }
 
   /**
+   * U23 (D64): the Preview PDF of what the editor holds NOW, unsaved. The body { data } is in
+   * the shape PATCH sends and replaces the draft's saved data for this one render, exactly as
+   * PATCH would (PATCH does not merge). Nothing is saved, stored or audited. The same builders,
+   * stamp and footer as previewPdf. Every refusal previewPdf gives is a 409 whose body also
+   * carries `refusals` (all that apply: the contact number, then the first the form's own rules
+   * give); a body that is not valid is a 400 with PATCH's own messages. A filed return ignores
+   * the body and answers what previewPdf answers. 429 above 40 previews a minute per user.
+   */
+  async previewUnsaved(
+    user: AuthUser,
+    id: string,
+    body: unknown,
+  ): Promise<{ pdf: Uint8Array; filename: string }> {
+    if (!previewLimiter.take(user.id)) {
+      throw new HttpException(
+        { statusCode: 429, error: "Too Many Requests", message: TOO_MANY_PREVIEWS },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    const saved = await this.loadAuthorized(user, id, BIR_FORMS_PERMISSION.read);
+    const refused = (refusals: string[]) =>
+      new ConflictException({
+        statusCode: 409,
+        error: "Conflict",
+        message: refusals[0],
+        refusals,
+      });
+    let f = saved;
+    if (saved.status === "draft") {
+      const { data } = new ZodValidationPipe(PreviewBirFormSchema).transform(body);
+      assertValidDraftSource(data);
+      f = { ...saved, dataJson: data as Prisma.JsonObject };
+    }
+    const tooMany = sixRowsRefusal(f.form, f.dataJson);
+    if (tooMany) throw refused([tooMany]);
+    if (!clearCopyMapped(f.form)) throw refused([previewNotAvailable(f.form)]);
+    if (f.status !== "draft") throw refused([PREVIEW_FILED]);
+
+    const refusals: string[] = [];
+    if (CONTACT_FORMS.has(f.form)) {
+      const client = await this.clients.assertInFirm(user.firmId, f.clientId);
+      const sentence = contactRefusal(
+        f.form,
+        contactNumberOf(f.form, f.dataJson as Record<string, unknown>, client.phone),
+      );
+      if (sentence) refusals.push(sentence);
+    }
+    const skipContact = refusals.length > 0;
+    let source: Awaited<ReturnType<BirFormsService["printSource"]>>;
+    try {
+      source = await this.printSource(user, f, { store: false, skipContact });
+    } catch (err) {
+      if (err instanceof ConflictException) {
+        throw refused([...refusals, String((err.getResponse() as { message?: unknown }).message ?? err.message)]);
+      }
+      throw err;
+    }
+    let pdf: Uint8Array;
+    try {
+      pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, source.rows, {
+        watermark: "DRAFT",
+        printedAt: new Date(),
+      });
+    } catch (err) {
+      if (!isEngineFault(err)) throw refused([...refusals, (err as Error).message]);
+      birLog.error(`live preview of form ${f.id} failed: ${(err as Error).message}`);
+      throw new InternalServerErrorException(
+        `The preview of this ${f.form} could not be printed. The error is logged.`,
+      );
+    }
+    if (refusals.length > 0) throw refused(refusals);
+    return { pdf, filename: `${source.baseName}-DRAFT.pdf` };
+  }
+
+  /**
    * What a clear copy or a preview prints: the rows the print engine reads, and the file
    * name (without its extension) they are saved under. The seven returns print their
    * eBIRForms export (buildExport); the 2307 certificate has none, so its rows are built
@@ -795,9 +875,10 @@ export class BirFormsService {
   private async printSource(
     user: AuthUser,
     f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
-    opts: { store: boolean },
+    opts: { store: boolean; skipContact?: boolean },
   ) {
-    if (WITHHOLDING_FORMS.has(f.form)) return this.withholdingPrintSource(user, f);
+    if (WITHHOLDING_FORMS.has(f.form))
+      return this.withholdingPrintSource(user, f, opts.skipContact);
     if (f.form !== "2307") {
       const { xml, filename, snapshotAudit } = await this.buildExport(user, f, opts);
       return {
@@ -844,6 +925,7 @@ export class BirFormsService {
   private async withholdingPrintSource(
     user: AuthUser,
     f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
+    skipContact = false,
   ) {
     this.assertSupported(f.form);
     const client = await this.clients.assertInFirm(user.firmId, f.clientId);
@@ -857,8 +939,12 @@ export class BirFormsService {
     // U21/U22: refused unless 11 digits; the print carries the normalised 11 digits.
     let data = (f.dataJson ?? {}) as FilingData;
     if (!snapshot) {
-      this.assertContact(f.form, f.dataJson, tp.phone);
-      const plain = normalisedContact(contactNumberOf(f.form, data, tp.phone));
+      // U23: the live preview reports the contact number beside the other refusals, and
+      // prints the rest of the return without it.
+      if (!skipContact) this.assertContact(f.form, f.dataJson, tp.phone);
+      const plain = skipContact
+        ? ""
+        : normalisedContact(contactNumberOf(f.form, data, tp.phone));
       tp.phone = plain;
       data = { ...data, contact: plain };
     }
@@ -887,7 +973,7 @@ export class BirFormsService {
   private async buildExport(
     user: AuthUser,
     f: Awaited<ReturnType<BirFormsService["loadOwned"]>>,
-    opts: { store: boolean } = { store: true },
+    opts: { store: boolean; skipContact?: boolean } = { store: true },
   ) {
     this.assertSupported(f.form);
     // U17 R3: the withholding returns are printed; no eBIRForms key list is verified for them.
@@ -915,8 +1001,10 @@ export class BirFormsService {
     // and the XML and the print carry those 11 digits. A filed return's sealed snapshot is
     // never refused and is answered as it was filed.
     if (!snapshot) {
-      this.assertContact(f.form, f.dataJson, taxpayer.phone);
-      taxpayer.phone = normalisedContact(taxpayer.phone);
+      // U23: the live preview reports the contact number beside the other refusals, and
+      // prints the rest of the return without it.
+      if (!opts.skipContact) this.assertContact(f.form, f.dataJson, taxpayer.phone);
+      taxpayer.phone = opts.skipContact ? "" : normalisedContact(taxpayer.phone);
     }
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
