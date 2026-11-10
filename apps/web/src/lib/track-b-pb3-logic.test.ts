@@ -72,7 +72,7 @@ describe("PB3 zip", () => {
 
   it("writes every file back as it was, with its path and a correct checksum", () => {
     const files = [
-      { path: ".sentire-projects.json", content: '{"project":"PAY"}\n' },
+      { path: ".portal-projects.json", content: '{"project":"PAY"}\n' },
       {
         path: ".claude/hooks/start.mjs",
         content: "// héllo, naïve text\nconsole.log('ok');\n",

@@ -882,6 +882,9 @@ test.describe("PB4 the GitHub webhook help (hermetic)", () => {
     await expect(help.locator("[data-webhook-rules]")).toHaveText(
       "Put an issue key such as PAY-12 in branch names, commits and PR titles. A merged PR whose description says fixes PAY-12 closes it. The project's repository URL must match the repository.",
     );
+    // PB6: the settings page offers no import of another system's data, and names none.
+    await expect(page.locator("[data-sentire-import]")).toHaveCount(0);
+    await expect(page.getByText(/sentire|import from/i)).toHaveCount(0);
     clean(unmocked, dialogs);
   });
 
