@@ -133,6 +133,7 @@ export default function App() {
           element={<Later><ProjectPage tab="issue" /></Later>}
         />
         <Route path="/projects/:key/board" element={<Later><ProjectPage tab="board" /></Later>} />
+        <Route path="/projects/:key/sessions" element={<Later><ProjectPage tab="sessions" /></Later>} />
         <Route path="/projects/:key/security" element={<Later><ProjectPage tab="security" /></Later>} />
         <Route path="/projects/:key/milestones" element={<Later><ProjectPage tab="milestones" /></Later>} />
         <Route path="/projects/:key/activity" element={<Later><ProjectPage tab="activity" /></Later>} />

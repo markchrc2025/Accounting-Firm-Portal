@@ -16,6 +16,7 @@ import {
   SuccessBanner,
 } from "../../components/projects/parts";
 import { SecurityChip } from "../../components/projects/SecurityChip";
+import { RecentSessionsCard } from "./SessionsTab";
 import { RepoKitPanel } from "./RepoKitPanel";
 import { useInvalidateProject } from "../../components/projects/useInvalidate";
 import {
@@ -118,7 +119,7 @@ export function OverviewTab({ ov, can }: { ov: ProjectOverview; can: ProjectsCan
             {ov.recentActivity.length === 0 ? (
               <p className="text-[13px] text-content-secondary">No activity yet.</p>
             ) : (
-              <ActivityEntries items={ov.recentActivity} />
+              <ActivityEntries items={ov.recentActivity} projectKey={key} />
             )}
           </CardContent>
         </Card>
@@ -141,6 +142,7 @@ export function OverviewTab({ ov, can }: { ov: ProjectOverview; can: ProjectsCan
             </span>
           </CardContent>
         </Card>
+        <RecentSessionsCard projectKey={key} sessions={ov.recentSessions} />
         <RepoKitPanel projectKey={key} />
       </div>
 
