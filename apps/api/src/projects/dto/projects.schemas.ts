@@ -154,6 +154,12 @@ export const ActivityQuerySchema = z.object({
   pageSize: intQuery(1, 100, 25),
 });
 
+/** GET /projects/:key/sessions (PA5) */
+export const SessionsQuerySchema = z.object({
+  page: intQuery(1, 100000, 1),
+  pageSize: intQuery(1, 100, 25),
+});
+
 const colour = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, "The colour must look like #1a7f37.");
@@ -185,3 +191,48 @@ export const UpdateLabelSchema = LabelSchema.partial().refine(
   (v) => Object.keys(v).length > 0,
   { message: "At least one field is required" },
 );
+
+export const BoardQuerySchema = z.object({
+  milestoneId: z.union([uuid, z.literal("none")]).optional(),
+  assigneeId: z.union([uuid, z.literal("none"), z.literal("me")]).optional(),
+  doneRange: z.enum(["14d", "all"]).default("14d"),
+});
+export type BoardQuery = z.infer<typeof BoardQuerySchema>;
+
+export const SearchQuerySchema = z.object({
+  q: z.string().trim().min(1, "Type something to search for.").max(200),
+});
+
+// ---- PA4 (D68): checklist import and security audits -------------------------------------------
+
+export const ChecklistImportSchema = z.object({
+  markdown: z.string().min(1).max(1_000_000),
+  headingsAsMilestones: z.boolean().default(false),
+  dryRun: z.boolean().default(false),
+});
+export type ChecklistImportBody = z.infer<typeof ChecklistImportSchema>;
+
+/** run-metadata.json: the fields the helpers read (the file has more, which are ignored). */
+const AuditRunSchema = z
+  .object({
+    run_id: z.string().max(200).optional(),
+    source_ref: z.string().max(200).optional(),
+    profile: z.string().max(40).optional(),
+    scope_paths: z.array(z.string().max(500)).max(1000).optional(),
+    run_status: z.string().max(40).optional(),
+    incomplete_reason: z.string().max(1000).optional(),
+  })
+  .passthrough();
+
+export const AuditImportSchema = z.object({
+  /** findings.json: the array, or the text of the file. */
+  findings: z.union([z.array(z.unknown()), z.string()]),
+  run: AuditRunSchema.optional(),
+  /** coverage-ledger.json: the array of units. */
+  ledger: z.array(z.unknown()).optional(),
+  /** Ledger counts already made, by status; used when there is no ledger. */
+  coverage: z.record(z.unknown()).optional(),
+});
+export type AuditImportBody = z.infer<typeof AuditImportSchema>;
+
+export const AuditListQuerySchema = z.object({ limit: intQuery(1, 100, 50) });

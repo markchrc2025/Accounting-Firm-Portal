@@ -8,20 +8,32 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
+  Headers,
   HttpCode,
   Param,
   Patch,
   Post,
   Query,
+  Req,
+  Res,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import type { Request, Response } from "express";
 import type { z } from "zod";
 import type { AuthUser } from "../common/auth/auth-user";
+import { AcceptsApiToken } from "../common/decorators/accepts-api-token.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../common/decorators/require-permissions.decorator";
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import {
+  AuditImportSchema,
+  AuditListQuerySchema,
+  ChecklistImportSchema,
   ActivityQuerySchema,
+  SessionsQuerySchema,
+  BoardQuerySchema,
+  SearchQuerySchema,
   CommentSchema,
   CreateIssueSchema,
   CreateMilestoneSchema,
@@ -41,29 +53,106 @@ import {
   UpdateMilestoneSchema,
   UpdateProjectSchema,
 } from "./dto/projects.schemas";
-import { webActor } from "./projects.access";
+import {
+  EndSessionSchema,
+  StartSessionByKeySchema,
+  StartSessionSchema,
+} from "./dto/sessions.schemas";
+import { webActor, type ProjectsActor } from "./projects.access";
 import { PROJECTS_PERMISSION as P } from "./projects.constants";
+import { BoardService } from "./board.service";
 import { IssuesService } from "./issues.service";
+import { MyWorkService } from "./my-work.service";
+import { SearchService } from "./search.service";
 import { MilestonesService } from "./milestones.service";
 import { ProjectsAdminService } from "./projects-admin.service";
+import { ChecklistImportService } from "./checklist-import.service";
+import { ProjectsContextService } from "./projects-context.service";
+import { ProjectsRepoKitService } from "./projects-repo-kit.service";
 import { ProjectsService } from "./projects.service";
+import { SecurityAuditsService } from "./security-audits.service";
+import { WorkSessionsService } from "./work-sessions.service";
 
 type Body<S extends z.ZodTypeAny> = z.infer<S>;
 
+/** The caller as a session's client: what the caller says it is, else the way it came in. */
+function sessionActor(user: AuthUser, client: string | undefined): ProjectsActor {
+  const actor = webActor(user);
+  const named = client?.trim();
+  return {
+    ...actor,
+    client: named ? named.slice(0, 40) : actor.channel === "api" ? "rest" : "web",
+  };
+}
+
 /** Routes with fixed paths come first, so a project key can never be mistaken for one. */
 @ApiTags("projects")
+@AcceptsApiToken()
 @Controller("projects")
 export class ProjectsConfigController {
   constructor(
     private readonly admin: ProjectsAdminService,
     private readonly issues: IssuesService,
+    private readonly myWork: MyWorkService,
+    private readonly searcher: SearchService,
+    private readonly sessions: WorkSessionsService,
+    private readonly context: ProjectsContextService,
   ) {}
+
+  /**
+   * Start a work session for the repo kit's hook: { project_key, title? }. ?briefing=1 also
+   * answers the briefing. (The same as POST :key/sessions, with the key in the body.)
+   */
+  @Post("sessions/start")
+  @RequirePermissions(P.update)
+  async startByKey(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(StartSessionByKeySchema))
+    b: z.infer<typeof StartSessionByKeySchema>,
+    @Query("briefing") briefing: string | undefined,
+    @Headers("x-portal-client") client: string | undefined,
+  ) {
+    const actor = sessionActor(user, client);
+    const session = await this.sessions.start(actor, b.project_key, { title: b.title });
+    return briefing === "1"
+      ? { session, briefing: await this.context.briefing(actor, b.project_key) }
+      : { session };
+  }
+
+  /** End a work session: { summary, nextSteps? }. Your own sessions only. */
+  @Post("sessions/:id/end")
+  @RequirePermissions(P.update)
+  @HttpCode(200)
+  async endSession(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(EndSessionSchema)) b: Body<typeof EndSessionSchema>,
+  ) {
+    return { session: await this.sessions.end(webActor(user), { sessionId: id, ...b }) };
+  }
 
   /** The lists a screen needs for its filters and forms: types, statuses, labels, assignable users. */
   @Get("meta")
   @RequirePermissions(P.read)
   meta(@CurrentUser() user: AuthUser) {
     return this.admin.meta(webActor(user));
+  }
+
+  /** My Work: my open issues, overdue issues, upcoming milestones and recent activity, across the projects I can see. */
+  @Get("my-work")
+  @RequirePermissions(P.read)
+  work(@CurrentUser() user: AuthUser) {
+    return this.myWork.myWork(webActor(user));
+  }
+
+  /** One search box: issues and projects; an exact issue key answers { jump }. */
+  @Get("search")
+  @RequirePermissions(P.read)
+  search(
+    @CurrentUser() user: AuthUser,
+    @Query(new ZodValidationPipe(SearchQuerySchema)) q: { q: string },
+  ) {
+    return this.searcher.search(webActor(user), q.q);
   }
 
   /** An issue key like PAY-12 turned into what a link needs (title, status, project). */
@@ -163,12 +252,19 @@ export class ProjectsConfigController {
 }
 
 @ApiTags("projects")
+@AcceptsApiToken()
 @Controller("projects")
 export class ProjectsController {
   constructor(
     private readonly projects: ProjectsService,
     private readonly issues: IssuesService,
     private readonly milestones: MilestonesService,
+    private readonly boards: BoardService,
+    private readonly sessions: WorkSessionsService,
+    private readonly context: ProjectsContextService,
+    private readonly repoKit: ProjectsRepoKitService,
+    private readonly importer: ChecklistImportService,
+    private readonly audits: SecurityAuditsService,
   ) {}
 
   // ---- Projects ---------------------------------------------------------------------------
@@ -221,6 +317,100 @@ export class ProjectsController {
   @RequirePermissions(P.update)
   unarchive(@CurrentUser() user: AuthUser, @Param("key") key: string) {
     return this.projects.setArchived(webActor(user), key, false);
+  }
+
+  // ---- Briefing, work sessions, repo kit (PA3, D67) -----------------------------------------
+
+  /** The briefing as markdown, for the SessionStart hook and for Claude. */
+  @Get(":key/context")
+  @RequirePermissions(P.read)
+  @Header("Content-Type", "text/markdown; charset=utf-8")
+  briefing(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.context.briefing(webActor(user), key);
+  }
+
+  /** Start a work session on this project: { title? }. Answers the session and the briefing. */
+  @Post(":key/sessions")
+  @RequirePermissions(P.update)
+  async startSession(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Body(new ZodValidationPipe(StartSessionSchema)) b: Body<typeof StartSessionSchema>,
+    @Headers("x-portal-client") client: string | undefined,
+  ) {
+    const actor = sessionActor(user, client);
+    const session = await this.sessions.start(actor, key, { title: b.title });
+    return { session, briefing: await this.context.briefing(actor, key) };
+  }
+
+  /** The project's Claude work sessions, newest first, paged. */
+  @Get(":key/sessions")
+  @RequirePermissions(P.read)
+  listSessions(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(SessionsQuerySchema))
+    q: Body<typeof SessionsQuerySchema>,
+  ) {
+    return this.sessions.list(webActor(user), key, q);
+  }
+
+  /** The files a code repository needs to work with this project (never a token). */
+  @Get(":key/repo-kit")
+  @RequirePermissions(P.read)
+  kit(@CurrentUser() user: AuthUser, @Param("key") key: string, @Req() req: Request) {
+    return this.repoKit.kit(webActor(user), key, {
+      protocol: req.protocol,
+      host: req.get("host"),
+      forwardedProto: req.headers["x-forwarded-proto"],
+      forwardedHost: req.headers["x-forwarded-host"],
+    });
+  }
+
+  // ---- Checklist import, security audits (PA4, D68) --------------------------------------------
+
+  /** Import a markdown checklist as milestones and issues. dryRun answers the plan and writes nothing. */
+  @Post(":key/import")
+  @RequirePermissions(P.create)
+  async importChecklist(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Body(new ZodValidationPipe(ChecklistImportSchema))
+    b: Body<typeof ChecklistImportSchema>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (b.dryRun) res.status(200);
+    return this.importer.run(webActor(user), key, b);
+  }
+
+  /** Import a run of the security-audit skill: findings.json, the run metadata and the ledger. */
+  @Post(":key/audits")
+  @RequirePermissions(P.create, P.update)
+  importAudit(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Body(new ZodValidationPipe(AuditImportSchema)) b: Body<typeof AuditImportSchema>,
+  ) {
+    return this.audits.import(webActor(user), key, b);
+  }
+
+  /** The audit history of the project, newest first. */
+  @Get(":key/audits")
+  @RequirePermissions(P.read)
+  auditHistory(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(AuditListQuerySchema))
+    q: Body<typeof AuditListQuerySchema>,
+  ) {
+    return this.audits.list(webActor(user), key, q.limit);
+  }
+
+  /** The security state: the release gate, the open findings by severity, the last audit. */
+  @Get(":key/security")
+  @RequirePermissions(P.read)
+  securityStatus(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.audits.status(webActor(user), key);
   }
 
   // ---- Status updates ---------------------------------------------------------------------
@@ -283,6 +473,25 @@ export class ProjectsController {
     b: Body<typeof UpdateMilestoneSchema>,
   ) {
     return this.milestones.update(webActor(user), key, id, b);
+  }
+
+  @Get(":key/roadmap")
+  @RequirePermissions(P.read)
+  roadmap(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.milestones.roadmap(webActor(user), key);
+  }
+
+  // ---- Board ------------------------------------------------------------------------------
+
+  /** The board: a column per status, cards by position; Done columns hold the last 14 days unless doneRange=all. */
+  @Get(":key/board")
+  @RequirePermissions(P.read)
+  board(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(BoardQuerySchema)) q: Body<typeof BoardQuerySchema>,
+  ) {
+    return this.boards.board(webActor(user), key, q);
   }
 
   // ---- Issues -----------------------------------------------------------------------------

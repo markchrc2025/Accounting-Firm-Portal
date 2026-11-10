@@ -1,10 +1,17 @@
 // milestones.service.ts — PA1 (D65): the milestones of a project, with their progress.
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProjectsAccess, type ProjectsActor } from "./projects.access";
 import { ProjectsActivity } from "./projects-activity.service";
 import { ProjectsService } from "./projects.service";
+import { gateMessage } from "./security";
+import { SecurityQueries } from "./security-queries";
 import {
   dayOf,
   dayToDate,
@@ -28,6 +35,7 @@ export class MilestonesService {
     private readonly access: ProjectsAccess,
     private readonly activity: ProjectsActivity,
     private readonly projects: ProjectsService,
+    private readonly security: SecurityQueries,
   ) {}
 
   private checkDates(
@@ -62,6 +70,23 @@ export class MilestonesService {
       ...items.filter((m) => m.state !== "CLOSED"),
       ...items.filter((m) => m.state === "CLOSED"),
     ];
+  }
+
+  /**
+   * The roadmap: every milestone with what a bar needs (startDate, dueDate, percent done) and
+   * today in Manila; the milestones with neither date are listed apart, in `undated`.
+   */
+  async roadmap(actor: ProjectsActor, projectKey: string) {
+    const all = await this.list(actor, projectKey);
+    const when = (m: { startDate: string | null; dueDate: string | null }) =>
+      m.dueDate ?? m.startDate ?? "";
+    return {
+      today: manilaToday(),
+      dated: all
+        .filter((m) => m.startDate || m.dueDate)
+        .sort((a, b) => when(a).localeCompare(when(b)) || a.name.localeCompare(b.name)),
+      undated: all.filter((m) => !m.startDate && !m.dueDate),
+    };
   }
 
   async create(
@@ -138,6 +163,12 @@ export class MilestonesService {
       }
     }
     if (patch.state !== undefined && patch.state !== cur.state) {
+      // PA4: the release gate. A milestone does not close while the project has open critical or
+      // high security issues (unrated ones, leads and lesser findings do not block).
+      if (patch.state === "CLOSED") {
+        const blockers = await this.security.blockers(actor.user.firmId, project.id);
+        if (blockers.length) throw new ConflictException(gateMessage(blockers));
+      }
       data.state = patch.state;
       changes.push({ field: "state", old: cur.state, new: patch.state });
     }

@@ -10,6 +10,7 @@
 //   - a form without a print map (previewAvailable and clearCopyAvailable false)
 //     shows neither button, draft or filed.
 
+import { answerBell } from "./helpers/bell";
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
 
 const FIRM_ID = "22222222-2222-4222-8222-2222222222c2";
@@ -210,6 +211,7 @@ async function mockApi(page: Page, c: Case, extra: Entry[]) {
       const [m, re, h] = table[i]!;
       if (m === e.method && re.test(e.path)) return h(route, e);
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${e.method} ${e.path}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

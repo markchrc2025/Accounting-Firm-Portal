@@ -27,13 +27,31 @@ export class ProjectsActivity {
         projectId: input.projectId,
         issueId: input.issueId ?? null,
         actorType: actor.actorType,
-        actorUserId: actor.user.id,
+        // GitHub and the system are not users: no row of the users table stands for them
+        actorUserId:
+          actor.actorType === "GITHUB" || actor.actorType === "SYSTEM"
+            ? null
+            : actor.user.id,
         channel: actor.channel,
         sessionId: actor.sessionId ?? null,
         action: input.action,
         changes: (input.changes ?? []) as unknown as Prisma.InputJsonValue,
       },
     });
+    // PA3: a change made in a work session adds its issue to the session, in the same statement
+    // of the same transaction, in the order the issues were first touched.
+    if (actor.sessionId && input.issueId) {
+      await tx.$executeRaw`
+        UPDATE "project_work_sessions" s
+        SET "issueKeys" = ARRAY(
+          SELECT k FROM (
+            SELECT k, min(o) AS o
+            FROM unnest(s."issueKeys" || ARRAY[i."key"]) WITH ORDINALITY AS t(k, o)
+            GROUP BY k
+          ) x ORDER BY o)
+        FROM "issues" i
+        WHERE s."id" = ${actor.sessionId}::uuid AND i."id" = ${input.issueId}::uuid`;
+    }
   }
 
   /** A project's activity, newest first, paged; optionally one kind of actor. */
@@ -57,6 +75,7 @@ export class ProjectsActivity {
         include: {
           actorUser: { select: { id: true, fullName: true } },
           issue: { select: { key: true, title: true } },
+          session: { select: { id: true, title: true } },
         },
       }),
     ]);
@@ -73,6 +92,7 @@ type ActivityRow = Prisma.ProjectActivityGetPayload<{
   include: {
     actorUser: { select: { id: true; fullName: true } };
     issue: { select: { key: true; title: true } };
+    session: { select: { id: true; title: true } };
   };
 }>;
 
@@ -86,6 +106,8 @@ export function activityDto(a: ActivityRow) {
     actorType: a.actorType,
     actor: a.actorUser ? { id: a.actorUser.id, fullName: a.actorUser.fullName } : null,
     channel: a.channel,
+    // PA5: the work session the change was made in, or null
+    session: a.session ? { id: a.session.id, title: a.session.title } : null,
     changes: a.changes as unknown as Change[],
     createdAt: a.createdAt.toISOString(),
   };

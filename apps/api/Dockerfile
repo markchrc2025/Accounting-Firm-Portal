@@ -38,6 +38,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/bir-pdf/package.json packages/bir-pdf/
+COPY packages/projects-core/package.json packages/projects-core/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile

@@ -15,7 +15,10 @@ import type {
   UpdateIssueInput,
 } from "./dto/projects.schemas";
 import { ProjectsAccess, type ProjectsActor, type Tx } from "./projects.access";
+import { IssueWrites } from "./issue-writes";
 import { ProjectsActivity } from "./projects-activity.service";
+import { ProjectsNotifier, type IssueEvent } from "./projects.notifier";
+import type { PendingNotification } from "../notifications/notifications.service";
 import {
   dayOf,
   dayToDate,
@@ -29,7 +32,7 @@ import {
 } from "./projects.constants";
 import { ISSUE_INCLUDE, issueItem, type IssueRow } from "./projects.mappers";
 
-type ProjectRef = { id: string; key: string };
+type ProjectRef = { id: string; key: string; clientId?: string | null };
 
 @Injectable()
 export class IssuesService {
@@ -37,6 +40,8 @@ export class IssuesService {
     private readonly prisma: PrismaService,
     private readonly access: ProjectsAccess,
     private readonly activity: ProjectsActivity,
+    private readonly notifier: ProjectsNotifier,
+    private readonly writes: IssueWrites,
   ) {}
 
   // ---------------------------------------------------------------------------------------
@@ -159,6 +164,7 @@ export class IssuesService {
       include: {
         ...ISSUE_INCLUDE,
         author: { select: { id: true, fullName: true } },
+        githubLinks: { orderBy: [{ updatedAt: "desc" }, { id: "asc" }] },
         children: {
           where: { deleted: false },
           include: ISSUE_INCLUDE,
@@ -174,6 +180,18 @@ export class IssuesService {
       parent: i.parent ? { key: i.parent.key, title: i.parent.title } : null,
       children: i.children.map((c) => issueItem(c, today)),
       commentCount: i._count.comments,
+      // PA4: the pull requests and commits that name this issue, the latest first
+      githubLinks: i.githubLinks.map((l) => ({
+        kind: l.kind,
+        repo: l.repo,
+        number: l.number,
+        sha: l.sha,
+        title: l.title,
+        state: l.state,
+        merged: l.merged,
+        url: l.url,
+        updatedAt: l.updatedAt.toISOString(),
+      })),
     };
   }
 
@@ -319,65 +337,37 @@ export class IssuesService {
     ]);
     const priority = input.priority ?? "NORMAL";
 
-    const id = await this.prisma.$transaction(async (tx) => {
-      // The next number: an atomic increment (the UPDATE locks the project row), so parallel
-      // creates get distinct consecutive numbers and a number is never given twice.
-      const { issueCounter: number } = await tx.project.update({
-        where: { id: project.id },
-        data: { issueCounter: { increment: 1 } },
-        select: { issueCounter: true },
+    const created = await this.prisma.$transaction(async (tx) => {
+      const issue = await this.writes.insert(tx, actor, project, {
+        title,
+        description: input.description,
+        type,
+        status,
+        priority,
+        assignee,
+        milestone,
+        parent,
+        startDate: input.startDate,
+        dueDate: input.dueDate,
+        labels,
       });
-      const last = await tx.issue.aggregate({
-        where: { projectId: project.id },
-        _max: { position: true },
-      });
-      const issue = await tx.issue.create({
-        data: {
-          firmId,
-          projectId: project.id,
-          number,
-          key: `${project.key}-${number}`,
+      const pending = await this.notifier.plan(
+        tx,
+        actor,
+        {
+          id: issue.id,
+          key: issue.key,
           title,
-          description: input.description ?? "",
-          typeId: type.id,
-          statusId: status.id,
-          priority,
           assigneeId: assignee?.id ?? null,
           authorId: actor.user.id,
-          milestoneId: milestone?.id ?? null,
-          parentIssueId: parent?.id ?? null,
-          startDate: dayToDate(input.startDate),
-          dueDate: dayToDate(input.dueDate),
-          position: (last._max.position ?? 0) + 1,
-          closedAt: status.category === "DONE" ? new Date() : null,
-          ...(labels?.length
-            ? { labels: { create: labels.map((l) => ({ labelId: l.id, firmId })) } }
-            : {}),
+          project: { key: project.key, clientId: project.clientId ?? null },
         },
-      });
-      const changes: Change[] = [
-        { field: "title", old: null, new: title },
-        { field: "type", old: null, new: type.name },
-        { field: "status", old: null, new: status.name },
-        { field: "priority", old: null, new: priority },
-        ...(assignee ? [{ field: "assignee", old: null, new: assignee.fullName }] : []),
-        ...(milestone ? [{ field: "milestone", old: null, new: milestone.name }] : []),
-        ...(parent ? [{ field: "parent", old: null, new: parent.key }] : []),
-        ...(input.startDate
-          ? [{ field: "startDate", old: null, new: input.startDate }]
-          : []),
-        ...(input.dueDate ? [{ field: "dueDate", old: null, new: input.dueDate }] : []),
-        ...(labels?.length ? [{ field: "labels", old: null, new: names(labels) }] : []),
-      ];
-      await this.activity.log(tx, actor, {
-        projectId: project.id,
-        issueId: issue.id,
-        action: "issue.created",
-        changes,
-      });
-      return issue.id;
+        assignee ? [{ type: "assigned", assigneeId: assignee.id }] : [],
+      );
+      return { id: issue.id, pending };
     });
-    return this.detail(actor, id);
+    await this.notifier.deliver(created.pending);
+    return this.detail(actor, created.id);
   }
 
   // ---------------------------------------------------------------------------------------
@@ -413,13 +403,10 @@ export class IssuesService {
       data.typeId = t.id;
       changes.push({ field: "type", old: cur.type.name, new: t.name });
     }
+    let statusEvent: { name: string; closed: boolean } | null = null;
     if (patch.statusId !== undefined && patch.statusId !== cur.statusId) {
       const s = await this.statusOrDefault(firmId, patch.statusId);
-      data.statusId = s.id;
-      changes.push({ field: "status", old: cur.status.name, new: s.name });
-      const wasDone = cur.status.category === "DONE";
-      if (s.category === "DONE" && !wasDone) data.closedAt = new Date();
-      if (s.category !== "DONE" && wasDone) data.closedAt = null;
+      statusEvent = applyStatus(data, changes, cur.status, s);
     }
     if (patch.priority !== undefined && patch.priority !== cur.priority) {
       data.priority = patch.priority;
@@ -490,7 +477,9 @@ export class IssuesService {
 
     if (changes.length === 0 && data.position === undefined)
       return this.detail(actor, cur.id);
-    await this.prisma.$transaction(async (tx) => {
+    const assignedTo =
+      patch.assigneeId !== undefined && data.assigneeId ? String(data.assigneeId) : null;
+    const pending = await this.prisma.$transaction(async (tx) => {
       if (newLabels) {
         await tx.issueLabel.deleteMany({ where: { issueId: cur.id } });
         if (newLabels.length) {
@@ -508,21 +497,122 @@ export class IssuesService {
           changes,
         });
       }
+      const events: IssueEvent[] = [];
+      if (assignedTo) events.push({ type: "assigned", assigneeId: assignedTo });
+      if (statusEvent) {
+        events.push({
+          type: "status",
+          statusName: statusEvent.name,
+          closed: statusEvent.closed,
+        });
+      }
+      return this.notifier.plan(
+        tx,
+        actor,
+        {
+          id: cur.id,
+          key: cur.key,
+          title: (data.title as string | undefined) ?? cur.title,
+          assigneeId:
+            patch.assigneeId !== undefined
+              ? ((data.assigneeId as string | null | undefined) ?? null)
+              : cur.assigneeId,
+          authorId: cur.authorId,
+          project: { key: project.key, clientId: project.clientId ?? null },
+        },
+        events,
+      );
     });
+    await this.notifier.deliver(pending);
     return this.detail(actor, cur.id);
   }
 
-  /** Move an issue to a place on the board: a position, and optionally another status. */
+  /**
+   * Move an issue to a place on the board: a position, and optionally another status. A move
+   * into another status follows the same status rules as PATCH (closedAt, activity,
+   * notifications). Moves of one project are taken one at a time (the project row is locked),
+   * the issue is read again under the lock, and if the position is already taken in the column
+   * the column is renumbered 1, 2, 3 ... with the moved card ahead of the card it landed on, so
+   * positions in a column stay distinct whatever order concurrent moves arrive in.
+   */
   async reorder(
     actor: ProjectsActor,
     projectKey: string,
     issueKey: string,
     input: ReorderIssueInput,
   ) {
-    return this.update(actor, projectKey, issueKey, {
-      position: input.position,
-      ...(input.statusId ? { statusId: input.statusId } : {}),
+    await this.access.need(actor, P.update);
+    const firmId = actor.user.firmId;
+    const { project, issue } = await this.load(actor, projectKey, issueKey);
+    const target = input.statusId
+      ? await this.statusOrDefault(firmId, input.statusId)
+      : null;
+    const pending = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "projects" WHERE "id" = ${project.id}::uuid FOR UPDATE`;
+      const cur = await tx.issue.findFirst({
+        where: { id: issue.id, deleted: false },
+        include: ISSUE_INCLUDE,
+      });
+      if (!cur) throw new NotFoundException(MESSAGES.issueNotFound);
+      const data: Prisma.IssueUncheckedUpdateInput = { position: input.position };
+      const changes: Change[] = [];
+      let statusEvent: { name: string; closed: boolean } | null = null;
+      if (target && target.id !== cur.statusId) {
+        statusEvent = applyStatus(data, changes, cur.status, target);
+      }
+      const columnId = target?.id ?? cur.statusId;
+      await tx.issue.update({ where: { id: cur.id }, data });
+      const clash = await tx.issue.count({
+        where: {
+          projectId: project.id,
+          statusId: columnId,
+          deleted: false,
+          id: { not: cur.id },
+          position: input.position,
+        },
+      });
+      if (clash > 0) {
+        const column = await tx.issue.findMany({
+          where: { projectId: project.id, statusId: columnId, deleted: false },
+          select: { id: true, position: true, number: true },
+        });
+        column.sort(
+          (a, b) =>
+            a.position - b.position ||
+            (a.id === cur.id ? -1 : b.id === cur.id ? 1 : 0) ||
+            a.number - b.number,
+        );
+        // one statement, and updatedAt is left alone: renumbering other cards is not a change to them
+        await tx.$executeRaw`
+          UPDATE "issues" AS i SET "position" = u.pos
+          FROM unnest(${column.map((c) => c.id)}::uuid[], ${column.map((_, n) => n + 1)}::float8[]) AS u(id, pos)
+          WHERE i."id" = u.id`;
+      }
+      if (changes.length === 0) return [] as PendingNotification[];
+      await this.activity.log(tx, actor, {
+        projectId: project.id,
+        issueId: cur.id,
+        action: "issue.updated",
+        changes,
+      });
+      return this.notifier.plan(
+        tx,
+        actor,
+        {
+          id: cur.id,
+          key: cur.key,
+          title: cur.title,
+          assigneeId: cur.assigneeId,
+          authorId: cur.authorId,
+          project: { key: project.key, clientId: project.clientId ?? null },
+        },
+        statusEvent
+          ? [{ type: "status", statusName: statusEvent.name, closed: statusEvent.closed }]
+          : [],
+      );
     });
+    await this.notifier.deliver(pending);
+    return this.detail(actor, issue.id);
   }
 
   // ---------------------------------------------------------------------------------------
@@ -582,35 +672,46 @@ export class IssuesService {
     const text = body.trim();
     if (!text) throw new BadRequestException(MESSAGES.commentEmpty);
     const { project, issue } = await this.load(actor, projectKey, issueKey);
-    const row = await this.prisma.$transaction(async (tx) => {
-      const c = await tx.issueComment.create({
-        data: {
-          firmId: actor.user.firmId,
-          issueId: issue.id,
-          authorId: actor.user.id,
-          body: text,
+    const done = await this.prisma.$transaction(async (tx) => {
+      const c = await this.writes.comment(tx, actor, project.id, issue.id, text);
+      const pending = await this.notifier.plan(
+        tx,
+        actor,
+        {
+          id: issue.id,
+          key: issue.key,
+          title: issue.title,
+          assigneeId: issue.assigneeId,
+          authorId: issue.authorId,
+          project: { key: project.key, clientId: project.clientId ?? null },
         },
-        include: { author: { select: { id: true, fullName: true } } },
-      });
-      await tx.issue.update({ where: { id: issue.id }, data: { updatedAt: new Date() } });
-      await this.activity.log(tx, actor, {
-        projectId: project.id,
-        issueId: issue.id,
-        action: "comment.added",
-        changes: [{ field: "comment", old: null, new: text.slice(0, 300) }],
-      });
-      return c;
+        [{ type: "commented", snippet: text.slice(0, 160) }],
+      );
+      return { c, pending };
     });
-    return commentDto(row);
+    await this.notifier.deliver(done.pending);
+    return commentDto(done.c);
   }
 }
 
-const names = (rows: { name: string }[]) =>
-  rows
-    .map((r) => r.name)
-    .sort()
-    .join(", ");
-
+/**
+ * The status rules, shared by every way an issue's status changes (PATCH and the board's
+ * reorder): entering a DONE status sets closedAt, leaving it clears it, moving between two DONE
+ * statuses keeps it. Adds the change to the activity and says whether the issue was just closed.
+ */
+function applyStatus(
+  data: Prisma.IssueUncheckedUpdateInput,
+  changes: Change[],
+  from: { name: string; category: string },
+  to: { id: string; name: string; category: string },
+): { name: string; closed: boolean } {
+  data.statusId = to.id;
+  changes.push({ field: "status", old: from.name, new: to.name });
+  const wasDone = from.category === "DONE";
+  if (to.category === "DONE" && !wasDone) data.closedAt = new Date();
+  if (to.category !== "DONE" && wasDone) data.closedAt = null;
+  return { name: to.name, closed: to.category === "DONE" && !wasDone };
+}
 function commentDto(c: {
   id: string;
   body: string;

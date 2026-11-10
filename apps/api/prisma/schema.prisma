@@ -101,6 +101,13 @@ model Firm {
   milestones           Milestone[]
   issueComments        IssueComment[]
   projectActivities    ProjectActivity[]
+  notifications        Notification[]
+  notificationPrefs    NotificationPreference[]
+  apiTokens            ApiToken[]
+  workSessions         ProjectWorkSession[]
+  githubLinks          GithubLink[]
+  securityAudits       SecurityAudit[]
+  securityFindings     SecurityFinding[]
 
   @@map("firms")
 }
@@ -241,6 +248,11 @@ model User {
   issueComments        IssueComment[]
   projectStatusUpdates ProjectStatusUpdate[]
   projectActivities    ProjectActivity[]
+  notifications        Notification[]
+  notificationPref     NotificationPreference?
+  apiTokens            ApiToken[]
+  workSessions         ProjectWorkSession[]
+  securityAudits       SecurityAudit[]
 
   @@map("users")
 }
@@ -1219,6 +1231,10 @@ model Project {
   issues        Issue[]
   milestones    Milestone[]
   activities    ProjectActivity[]
+  workSessions  ProjectWorkSession[]
+  githubLinks   GithubLink[]
+  securityAudits SecurityAudit[]
+  securityFindings SecurityFinding[]
 
   @@unique([firmId, key])
   @@index([firmId])
@@ -1324,6 +1340,8 @@ model Issue {
   labels      IssueLabel[]
   comments    IssueComment[]
   activities  ProjectActivity[]
+  githubLinks GithubLink[]
+  securityFinding SecurityFinding[]
 
   @@unique([firmId, key])
   @@unique([projectId, number])
@@ -1427,9 +1445,205 @@ model ProjectActivity {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   issue     Issue?  @relation(fields: [issueId], references: [id], onDelete: SetNull)
   actorUser User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  session   ProjectWorkSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   @@index([firmId])
   @@index([projectId, createdAt])
   @@index([issueId, createdAt])
   @@map("project_activities")
+}
+
+// ---------------------------------------------------------------------------
+// PA2 (D66) · Notifications: generic, for any part of the Portal. A row says something happened
+// that a user should know; written in the same transaction as the change it reports.
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id         String    @id @default(uuid()) @db.Uuid
+  firmId     String    @db.Uuid
+  userId     String    @db.Uuid
+  /// What happened, e.g. project.issue.assigned
+  kind       String
+  title      String
+  body       String    @default("")
+  /// A path in the web app, e.g. /projects/PAY/issues/PAY-12
+  link       String    @default("")
+  entityType String    @default("")
+  entityId   String?   @db.Uuid
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([firmId])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// A user's choices about notifications. No row means the defaults: email off.
+model NotificationPreference {
+  userId       String   @id @db.Uuid
+  firmId       String   @db.Uuid
+  emailEnabled Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@index([firmId])
+  @@map("notification_preferences")
+}
+
+/// PA3 (D67): a personal API token. A person makes one to let Claude Code, a script or the Projects
+/// MCP connector act as them. Only the SHA-256 of the token is stored; the token is shown once.
+model ApiToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  firmId     String    @db.Uuid
+  userId     String    @db.Uuid
+  name       String
+  /// read | read_write
+  scope      String
+  /// SHA-256 (hex) of the token.
+  tokenHash  String    @unique
+  /// The first characters of the token, so a person can tell their tokens apart.
+  prefix     String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  firm     Firm                 @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions ProjectWorkSession[]
+
+  @@index([firmId])
+  @@index([userId, createdAt])
+  @@map("api_tokens")
+}
+
+/// PA3 (D67): a Claude work session on a project. start opens it, changes made with its id are
+/// tagged with it, end saves what was done and what comes next (the next briefing shows it).
+model ProjectWorkSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  firmId    String    @db.Uuid
+  projectId String    @db.Uuid
+  /// null for a session imported from Sentire Projects whose person has no account in the Portal
+  userId    String?   @db.Uuid
+  tokenId   String?   @db.Uuid
+  /// claude-code | claude.ai | rest | ...
+  client    String    @default("claude-code")
+  title     String    @default("")
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  summary   String    @default("")
+  nextSteps String    @default("")
+  /// Issue keys changed or commented in this session, in the order first touched.
+  issueKeys String[]  @default([])
+
+  firm       Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      ApiToken?         @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  activities ProjectActivity[]
+
+  @@index([firmId])
+  @@index([projectId, startedAt])
+  @@index([userId])
+  @@map("project_work_sessions")
+}
+
+/// PA4 (D68): a pull request or commit that names an issue. One row per issue and PR or commit,
+/// updated by later events, never duplicated (unique on the issue and the url).
+model GithubLink {
+  id        String   @id @default(uuid()) @db.Uuid
+  firmId    String   @db.Uuid
+  projectId String   @db.Uuid
+  issueId   String   @db.Uuid
+  /// pr | commit
+  kind      String
+  /// owner/repo
+  repo      String
+  number    Int?
+  sha       String?
+  url       String
+  title     String   @default("")
+  /// open | closed | merged | pushed
+  state     String   @default("")
+  merged    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  firm    Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue   Issue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, url])
+  @@index([firmId])
+  @@index([projectId])
+  @@map("project_github_links")
+}
+
+/// PA4 (D68): one imported run of the security-audit skill. Rejected findings are kept here and
+/// never become issues.
+model SecurityAudit {
+  id               String   @id @default(uuid()) @db.Uuid
+  firmId           String   @db.Uuid
+  projectId        String   @db.Uuid
+  runId            String   @default("")
+  /// The commit that was audited.
+  commit           String   @default("")
+  /// quick | standard | deep
+  profile          String   @default("standard")
+  /// Paths the run was limited to; empty for the whole repository.
+  scope            String[] @default([])
+  complete         Boolean
+  incompleteReason String   @default("")
+  /// Ledger units by status.
+  coverage         Json     @default("{}")
+  /// { critical, high, medium, low, informational, needsValidation, rejected, total }
+  counts           Json     @default("{}")
+  /// { created, updated, reopened, notReported, rejectedNoted }: issue keys.
+  outcome          Json     @default("{}")
+  /// [{ fingerprint, title, reason }]
+  rejected         Json     @default("[]")
+  importedById     String?  @db.Uuid
+  actorType        String
+  channel          String
+  createdAt        DateTime @default(now())
+
+  firm       Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  importedBy User?             @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  findings   SecurityFinding[]
+
+  @@index([firmId])
+  @@index([projectId, createdAt])
+  @@map("project_security_audits")
+}
+
+/// PA4 (D68): the identity of a finding in a project (the skill's fingerprint) and the issue it
+/// became. A later audit that reports the same fingerprint updates that issue.
+model SecurityFinding {
+  id              String   @id @default(uuid()) @db.Uuid
+  firmId          String   @db.Uuid
+  projectId       String   @db.Uuid
+  fingerprint     String
+  issueId         String?  @db.Uuid
+  lastSeenAuditId String?  @db.Uuid
+  /// confirmed | needs_validation: the verdict of the last audit that reported it
+  state           String
+  /// critical | high | medium | low | informational, null for a lead that needs validation
+  severity        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+
+  firm      Firm           @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue     Issue?         @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  lastSeen  SecurityAudit? @relation(fields: [lastSeenAuditId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, fingerprint])
+  @@index([firmId])
+  @@index([issueId])
+  @@map("project_security_findings")
 }

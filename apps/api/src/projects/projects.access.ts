@@ -25,13 +25,36 @@ export interface ProjectsActor {
   actorType: ActorType;
   channel: Channel;
   sessionId?: string | null;
+  /** PA3: the personal API token the call came with, if any (a work session remembers it). */
+  tokenId?: string | null;
+  /** PA3: what is calling, for a work session: claude-code, claude.ai, rest, web ... */
+  client?: string;
 }
 
-/** An actor for a signed-in person using the web. */
+/**
+ * An actor for a signed-in person. On the web it is the "web" channel; with a personal API token
+ * (PA3, D67) the sign-in guard marks the user and the change is logged through "api", with the work
+ * session the caller named, if any. Either way the person is a USER: Claude acts through the MCP.
+ */
 export const webActor = (user: AuthUser): ProjectsActor => ({
   user,
   actorType: "USER",
-  channel: "web",
+  channel: user.via?.channel ?? "web",
+  sessionId: user.via?.sessionId ?? null,
+  tokenId: user.via?.tokenId ?? null,
+});
+
+/**
+ * An actor for GitHub (PA4, D68): a change made by a webhook delivery. There is no user behind it:
+ * the user here is a stand-in that matches no row of the users table, so the activity is written
+ * with no user, nobody is left out of a notification, and nothing is checked against a permission
+ * (the services that take it do not ask for one).
+ */
+export const GITHUB_ACTOR_USER_ID = "00000000-0000-0000-0000-000000000000";
+export const githubActor = (firmId: string): ProjectsActor => ({
+  user: { id: GITHUB_ACTOR_USER_ID, firmId, userType: "FIRM", email: "" },
+  actorType: "GITHUB",
+  channel: "github",
 });
 
 export type Tx = Prisma.TransactionClient;

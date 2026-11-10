@@ -50,6 +50,9 @@ importers:
       '@portal/bir-pdf':
         specifier: workspace:*
         version: link:../../packages/bir-pdf
+      '@portal/projects-core':
+        specifier: workspace:*
+        version: link:../../packages/projects-core
       '@portal/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -153,12 +156,18 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.59.0
         version: 5.101.2(react@18.3.1)
+      dompurify:
+        specifier: 3.4.17
+        version: 3.4.17
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
+      marked:
+        specifier: 18.1.1
+        version: 18.1.1
       pdfjs-dist:
         specifier: ^6.1.200
         version: 6.1.200
@@ -2588,8 +2597,8 @@ packages:
   dom-accessibility-api@0.6.3:
     resolution: {integrity: sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==}
 
-  dompurify@3.4.12:
-    resolution: {integrity: sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==}
+  dompurify@3.4.17:
+    resolution: {integrity: sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==}
 
   dotenv-expand@10.0.0:
     resolution: {integrity: sha512-GopVGCpVS1UKH75VKHGuQFqS1Gusej0z4FyQkPdwjil2gNIv+LNsqBlboOzpJFZKVT95GkCyWJbBSdFEFUWI2A==}
@@ -3544,6 +3553,11 @@ packages:
 
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
+
+  marked@18.1.1:
+    resolution: {integrity: sha512-zEGgrtUG8crk+TrMacJSVABU4DYDDkS8uqgU3ohrn/2fW9C2AEfUrO3m6IhpIpQpl7YcVpiXXC9cSMWDANT3dg==}
+    engines: {node: '>= 20'}
+    hasBin: true
 
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
@@ -7188,10 +7202,9 @@ snapshots:
 
   dom-accessibility-api@0.6.3: {}
 
-  dompurify@3.4.12:
+  dompurify@3.4.17:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
-    optional: true
 
   dotenv-expand@10.0.0: {}
 
@@ -8350,7 +8363,7 @@ snapshots:
     optionalDependencies:
       canvg: 3.0.11
       core-js: 3.49.0
-      dompurify: 3.4.12
+      dompurify: 3.4.17
       html2canvas: 1.4.1
 
   jszip@3.10.1:
@@ -8484,6 +8497,8 @@ snapshots:
   makeerror@1.0.12:
     dependencies:
       tmpl: 1.0.5
+
+  marked@18.1.1: {}
 
   math-intrinsics@1.1.0: {}
 

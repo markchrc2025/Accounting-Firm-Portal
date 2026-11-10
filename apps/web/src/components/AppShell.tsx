@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { fetchClients } from "../lib/api";
 import { ClientSwitcher } from "./ClientSwitcher";
 import { McrcMark } from "./McrcMark";
+import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { cn } from "./ui";
 
@@ -137,7 +138,16 @@ export function AppShell() {
             </>
           ) : (
             <>
-              <NavGroup label="Overview" items={OVERVIEW_NAV} />
+              <NavGroup
+                label="Overview"
+                items={[
+                  ...OVERVIEW_NAV,
+                  // PB1: Projects, for firm users who may read them.
+                  ...(hasPermission("Projects:Read")
+                    ? [{ to: "/projects", label: "Projects" }]
+                    : []),
+                ]}
+              />
 
               {workspaceClientId ? (
                 <NavGroup
@@ -233,6 +243,8 @@ export function AppShell() {
               className="w-full max-w-[360px] rounded-input bg-paper px-3.5 py-2 text-[13px] text-content placeholder:text-content-placeholder focus-visible:bg-card focus-visible:outline-none"
             />
           </div>
+          {/* PB2: the bell, for every signed-in person (firm and client portal) */}
+          <NotificationBell />
           <UserMenu />
         </header>
 

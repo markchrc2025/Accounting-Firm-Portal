@@ -1,11 +1,13 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
+import { ApiTokensModule } from "./api-tokens/api-tokens.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { BackupModule } from "./backup/backup.module";
 import { BirModule } from "./bir/bir.module";
 import { BirFormsModule } from "./bir-forms/bir-forms.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { ClientsModule } from "./clients/clients.module";
@@ -55,6 +57,8 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     RolesModule,
     BirFormsModule,
+    ApiTokensModule,
+    NotificationsModule,
     ProjectsModule,
     ProfileModule,
     ServicesModule,

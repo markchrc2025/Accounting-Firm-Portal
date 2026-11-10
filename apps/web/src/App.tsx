@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { AppShell } from "./components/AppShell";
@@ -35,6 +36,25 @@ import TaxPage from "./pages/TaxPage";
 import TaxRulesPage from "./pages/TaxRulesPage";
 import UsersPage from "./pages/UsersPage";
 
+// Projects (PB1) loads on its own: the markdown libraries stay out of the main bundle.
+const MyWorkPage = lazy(() => import("./pages/projects/MyWorkPage"));
+const SearchPage = lazy(() => import("./pages/projects/SearchPage"));
+const ApiTokensPage = lazy(() => import("./pages/ApiTokensPage"));
+const ProjectsPage = lazy(() => import("./pages/projects/ProjectsPage"));
+const ProjectFormPage = lazy(() => import("./pages/projects/ProjectFormPage"));
+const ProjectsSettingsPage = lazy(() => import("./pages/projects/ProjectsSettingsPage"));
+const ProjectPage = lazy(() => import("./pages/projects/ProjectPage"));
+
+function Later({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={<div className="p-6 text-[13.5px] text-content-secondary">Loading…</div>}
+    >
+      {children}
+    </Suspense>
+  );
+}
+
 /** Home route: firm users get the dashboard; client users go to their portal. */
 function HomeRoute() {
   const { user } = useAuth();
@@ -66,6 +86,8 @@ export default function App() {
         {/* Firm */}
         <Route path="/" element={<HomeRoute />} />
         <Route path="/profile" element={<ProfilePage />} />
+        {/* PB3: personal API tokens, reached from the profile page. */}
+        <Route path="/profile/tokens" element={<Later><ApiTokensPage /></Later>} />
         {/* Settings hub: Users & Roles, Documents, Integrations, Audit Log and
             Email & Senders live as tabs under /settings; old paths redirect. */}
         <Route path="/settings" element={<SettingsIndexRedirect />} />
@@ -96,6 +118,24 @@ export default function App() {
         <Route path="/receipt-scans/:id" element={<ReceiptScanPage />} />
         {/* Billing is centralized (firm admin) — old per-client URLs redirect. */}
         <Route path="/billing" element={<BillingPage />} />
+        {/* Projects (PB1): firm users with Projects:Read; each page sends anyone else home. */}
+        {/* PB2: My Work is where Projects opens; the portfolio is "All projects". */}
+        <Route path="/projects" element={<Later><MyWorkPage /></Later>} />
+        <Route path="/projects/all" element={<Later><ProjectsPage /></Later>} />
+        <Route path="/projects/search" element={<Later><SearchPage /></Later>} />
+        <Route path="/projects/new" element={<Later><ProjectFormPage /></Later>} />
+        <Route path="/projects/settings" element={<Later><ProjectsSettingsPage /></Later>} />
+        <Route path="/projects/:key" element={<Later><ProjectPage tab="overview" /></Later>} />
+        <Route path="/projects/:key/edit" element={<Later><ProjectFormPage /></Later>} />
+        <Route path="/projects/:key/issues" element={<Later><ProjectPage tab="issues" /></Later>} />
+        <Route
+          path="/projects/:key/issues/:issueKey"
+          element={<Later><ProjectPage tab="issue" /></Later>}
+        />
+        <Route path="/projects/:key/board" element={<Later><ProjectPage tab="board" /></Later>} />
+        <Route path="/projects/:key/security" element={<Later><ProjectPage tab="security" /></Later>} />
+        <Route path="/projects/:key/milestones" element={<Later><ProjectPage tab="milestones" /></Later>} />
+        <Route path="/projects/:key/activity" element={<Later><ProjectPage tab="activity" /></Later>} />
         <Route path="/bir-forms" element={<BirFormsPage />} />
         <Route path="/bir-forms/new" element={<BirFormEditorPage />} />
         <Route path="/bir-forms/:id" element={<BirFormEditorPage />} />
