@@ -1,0 +1,598 @@
+{
+  "format": "portal-projects-import-plan",
+  "version": 1,
+  "source": "sentire-projects",
+  "applyOrder": [
+    "projects",
+    "issueTypes",
+    "statuses",
+    "labels",
+    "milestones",
+    "issues",
+    "comments",
+    "statusUpdates",
+    "sessions",
+    "activities",
+    "githubLinks",
+    "securityAudits"
+  ],
+  "counts": {
+    "people": 2,
+    "projects": 3,
+    "issueTypes": 4,
+    "statuses": 3,
+    "labels": 2,
+    "milestones": 2,
+    "issues": 6,
+    "comments": 3,
+    "statusUpdates": 3,
+    "sessions": 2,
+    "activities": 3,
+    "githubLinks": 2,
+    "securityAudits": 1
+  },
+  "people": [
+    {
+      "email": "ana@example.test",
+      "name": "Ana Reyes"
+    },
+    {
+      "email": "ben@example.test",
+      "name": "Ben Cruz"
+    }
+  ],
+  "projects": [
+    {
+      "key": "BKS",
+      "name": "Bookkeeping",
+      "description": "Ledger tools.",
+      "status": "AT_RISK",
+      "statusNote": "Waiting on a vendor",
+      "repoUrl": "",
+      "liveUrl": "",
+      "deployAppName": "",
+      "parentKey": null,
+      "archived": false,
+      "issueCounter": 0,
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-10-15T00:00:00.000Z"
+    },
+    {
+      "key": "PAY",
+      "name": "Payments",
+      "description": "Card and wallet payments.",
+      "status": "ON_TRACK",
+      "statusNote": "Beta in two weeks",
+      "repoUrl": "https://git.example.test/invented/pay",
+      "liveUrl": "https://pay.example.test",
+      "deployAppName": "pay-app",
+      "parentKey": null,
+      "archived": false,
+      "issueCounter": 5,
+      "createdAt": "2026-02-01T00:00:00.000Z",
+      "updatedAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "key": "PAYAPI",
+      "name": "Payments API",
+      "description": "",
+      "status": "NOT_STARTED",
+      "statusNote": "",
+      "repoUrl": "",
+      "liveUrl": "",
+      "deployAppName": "",
+      "parentKey": "PAY",
+      "archived": true,
+      "issueCounter": 1,
+      "createdAt": "2026-02-02T00:00:00.000Z",
+      "updatedAt": "2026-09-09T00:00:00.000Z"
+    }
+  ],
+  "issueTypes": [
+    {
+      "name": "Task",
+      "colour": "#57606a",
+      "order": 0
+    },
+    {
+      "name": "Bug",
+      "colour": "#cf222e",
+      "order": 1
+    },
+    {
+      "name": "Feature",
+      "colour": "#1a7f37",
+      "order": 2
+    },
+    {
+      "name": "Epic",
+      "colour": "#8250df",
+      "order": 3
+    }
+  ],
+  "statuses": [
+    {
+      "name": "New",
+      "colour": "#57606a",
+      "order": 0,
+      "category": "TODO",
+      "isDefault": true
+    },
+    {
+      "name": "In progress",
+      "colour": "#bf8700",
+      "order": 1,
+      "category": "IN_PROGRESS",
+      "isDefault": false
+    },
+    {
+      "name": "Done",
+      "colour": "#1a7f37",
+      "order": 2,
+      "category": "DONE",
+      "isDefault": false
+    }
+  ],
+  "labels": [
+    {
+      "name": "frontend",
+      "colour": "#0969da"
+    },
+    {
+      "name": "security",
+      "colour": "#cf222e"
+    }
+  ],
+  "milestones": [
+    {
+      "projectKey": "PAY",
+      "name": "Beta",
+      "description": "First users.",
+      "startDate": "2026-11-01",
+      "dueDate": "2026-12-01",
+      "state": "OPEN",
+      "createdAt": "2026-02-10T00:00:00.000Z",
+      "closedAt": null
+    },
+    {
+      "projectKey": "PAY",
+      "name": "Launch",
+      "description": "",
+      "startDate": null,
+      "dueDate": "2026-06-30",
+      "state": "CLOSED",
+      "createdAt": "2026-02-11T00:00:00.000Z",
+      "closedAt": "2026-07-01T00:00:00.000Z"
+    }
+  ],
+  "issues": [
+    {
+      "key": "PAY-3",
+      "projectKey": "PAY",
+      "number": 3,
+      "type": "Epic",
+      "status": "In progress",
+      "priority": "LOW",
+      "title": "Checkout",
+      "description": "",
+      "assigneeEmail": null,
+      "authorEmail": "ana@example.test",
+      "milestone": "Beta",
+      "parentKey": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 3,
+      "labels": [],
+      "fingerprint": null,
+      "createdAt": "2026-03-03T00:00:00.000Z",
+      "updatedAt": "2026-03-03T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null
+    },
+    {
+      "key": "PAY-1",
+      "projectKey": "PAY",
+      "number": 1,
+      "type": "Feature",
+      "status": "In progress",
+      "priority": "HIGH",
+      "title": "Card checkout",
+      "description": "Pay by card.\n\n- 3-D Secure",
+      "assigneeEmail": "ben@example.test",
+      "authorEmail": "ana@example.test",
+      "milestone": "Beta",
+      "parentKey": "PAY-3",
+      "startDate": "2026-11-02",
+      "dueDate": "2026-11-20",
+      "position": 1.5,
+      "labels": [
+        "frontend"
+      ],
+      "fingerprint": null,
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-11-02T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null
+    },
+    {
+      "key": "PAY-2",
+      "projectKey": "PAY",
+      "number": 2,
+      "type": "Bug",
+      "status": "New",
+      "priority": "NORMAL",
+      "title": "Receipt total is off by one centavo",
+      "description": "",
+      "assigneeEmail": null,
+      "authorEmail": "ben@example.test",
+      "milestone": null,
+      "parentKey": "PAY-1",
+      "startDate": null,
+      "dueDate": null,
+      "position": 2,
+      "labels": [],
+      "fingerprint": null,
+      "createdAt": "2026-03-02T00:00:00.000Z",
+      "updatedAt": "2026-03-02T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null
+    },
+    {
+      "key": "PAY-4",
+      "projectKey": "PAY",
+      "number": 4,
+      "type": "Task",
+      "status": "New",
+      "priority": "LOW",
+      "title": "Old idea, dropped",
+      "description": "",
+      "assigneeEmail": null,
+      "authorEmail": null,
+      "milestone": null,
+      "parentKey": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 4,
+      "labels": [],
+      "fingerprint": null,
+      "createdAt": "2026-03-04T00:00:00.000Z",
+      "updatedAt": "2026-04-04T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": "2026-04-04T00:00:00.000Z"
+    },
+    {
+      "key": "PAY-5",
+      "projectKey": "PAY",
+      "number": 5,
+      "type": "Bug",
+      "status": "Done",
+      "priority": "URGENT",
+      "title": "Reset token never expires",
+      "description": "From a security audit.",
+      "assigneeEmail": "ben@example.test",
+      "authorEmail": null,
+      "milestone": "Launch",
+      "parentKey": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 5,
+      "labels": [
+        "frontend",
+        "security"
+      ],
+      "fingerprint": "api-critical-account-takeover",
+      "createdAt": "2026-05-01T00:00:00.000Z",
+      "updatedAt": "2026-06-01T00:00:00.000Z",
+      "closedAt": "2026-06-01T00:00:00.000Z",
+      "deletedAt": null
+    },
+    {
+      "key": "PAYAPI-1",
+      "projectKey": "PAYAPI",
+      "number": 1,
+      "type": "Task",
+      "status": "New",
+      "priority": "NORMAL",
+      "title": "Version the API",
+      "description": "",
+      "assigneeEmail": null,
+      "authorEmail": "ana@example.test",
+      "milestone": null,
+      "parentKey": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 1,
+      "labels": [],
+      "fingerprint": null,
+      "createdAt": "2026-02-03T00:00:00.000Z",
+      "updatedAt": "2026-02-03T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null
+    }
+  ],
+  "comments": [
+    {
+      "issueKey": "PAY-1",
+      "authorEmail": "ben@example.test",
+      "actorType": "USER",
+      "sessionRef": null,
+      "body": "Started on the form.",
+      "createdAt": "2026-11-02T10:00:00.000Z",
+      "editedAt": null
+    },
+    {
+      "issueKey": "PAY-1",
+      "authorEmail": "ana@example.test",
+      "actorType": "CLAUDE",
+      "sessionRef": "PAY#1",
+      "body": "Moved to In progress.",
+      "createdAt": "2026-11-03T10:00:00.000Z",
+      "editedAt": "2026-11-03T11:00:00.000Z"
+    },
+    {
+      "issueKey": "PAY-5",
+      "authorEmail": null,
+      "actorType": "SYSTEM",
+      "sessionRef": null,
+      "body": "Reopened by an audit.",
+      "createdAt": "2026-06-02T10:00:00.000Z",
+      "editedAt": null
+    }
+  ],
+  "statusUpdates": [
+    {
+      "projectKey": "BKS",
+      "status": "AT_RISK",
+      "note": "Waiting on a vendor",
+      "actorType": "SYSTEM",
+      "actorEmail": null,
+      "createdAt": "2026-10-15T00:00:00.000Z"
+    },
+    {
+      "projectKey": "PAY",
+      "status": "NOT_STARTED",
+      "note": "Kick-off",
+      "actorType": "USER",
+      "actorEmail": "ana@example.test",
+      "createdAt": "2026-02-01T00:00:00.000Z"
+    },
+    {
+      "projectKey": "PAY",
+      "status": "ON_TRACK",
+      "note": "Beta in two weeks",
+      "actorType": "CLAUDE",
+      "actorEmail": null,
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    }
+  ],
+  "sessions": [
+    {
+      "ref": "PAY#1",
+      "projectKey": "PAY",
+      "userEmail": "ana@example.test",
+      "client": "claude-code",
+      "title": "Checkout form",
+      "summary": "Built the form shell.",
+      "nextSteps": "Add 3-D Secure.",
+      "issuesTouched": [
+        "PAY-1"
+      ],
+      "startedAt": "2026-11-03T09:59:00.000Z",
+      "endedAt": "2026-11-03T12:00:00.000Z"
+    },
+    {
+      "ref": "PAY#2",
+      "projectKey": "PAY",
+      "userEmail": "ben@example.test",
+      "client": "claude.ai",
+      "title": "",
+      "summary": "",
+      "nextSteps": "",
+      "issuesTouched": [],
+      "startedAt": "2026-11-04T09:00:00.000Z",
+      "endedAt": null
+    }
+  ],
+  "activities": [
+    {
+      "projectKey": "PAY",
+      "issueKey": "PAY-5",
+      "action": "linked",
+      "actorType": "GITHUB",
+      "actorEmail": null,
+      "client": "github",
+      "channel": "github",
+      "sessionRef": null,
+      "summary": "Linked pull request",
+      "changes": [],
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "projectKey": "PAY",
+      "issueKey": null,
+      "action": "session",
+      "actorType": "CLAUDE",
+      "actorEmail": "ana@example.test",
+      "client": "claude-code",
+      "channel": "mcp",
+      "sessionRef": "PAY#1",
+      "summary": "Started a claude-code session",
+      "changes": [],
+      "createdAt": "2026-11-03T09:59:00.000Z"
+    },
+    {
+      "projectKey": "PAY",
+      "issueKey": "PAY-1",
+      "action": "updated",
+      "actorType": "CLAUDE",
+      "actorEmail": "ana@example.test",
+      "client": "claude-code",
+      "channel": "mcp",
+      "sessionRef": "PAY#1",
+      "summary": "Moved PAY-1 to In progress",
+      "changes": [
+        {
+          "field": "status",
+          "old": "New",
+          "new": "In progress"
+        },
+        {
+          "field": "priority",
+          "old": "normal",
+          "new": "high"
+        }
+      ],
+      "createdAt": "2026-11-03T10:00:01.000Z"
+    }
+  ],
+  "githubLinks": [
+    {
+      "issueKey": "PAY-1",
+      "kind": "commit",
+      "repo": "invented/pay",
+      "number": null,
+      "sha": "0123456789abcdef0123456789abcdef01234567",
+      "url": "https://git.example.test/invented/pay/commit/0123456",
+      "title": "PAY-1 add form",
+      "state": "",
+      "merged": false,
+      "updatedAt": "2026-11-04T00:00:00.000Z"
+    },
+    {
+      "issueKey": "PAY-1",
+      "kind": "pr",
+      "repo": "invented/pay",
+      "number": 7,
+      "sha": null,
+      "url": "https://git.example.test/invented/pay/pull/7",
+      "title": "PAY-1: card form",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-11-05T00:00:00.000Z"
+    }
+  ],
+  "securityAudits": [
+    {
+      "projectKey": "PAY",
+      "runId": "sample-run-2026-05-30",
+      "sourceRef": "0123456789abcdef0123456789abcdef01234567",
+      "profile": "quick",
+      "scope": [
+        "packages/api",
+        "packages/web"
+      ],
+      "runStatus": "complete",
+      "incompleteReason": "",
+      "coverage": {
+        "covered": 3,
+        "candidate": 1
+      },
+      "counts": {
+        "critical": 1,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "informational": 0,
+        "needs_validation": 0,
+        "rejected": 1
+      },
+      "issueKeys": [
+        "PAY-5"
+      ],
+      "rejected": [
+        {
+          "fingerprint": "web-rejected-sample-xss",
+          "title": "Sample comment field may allow script injection",
+          "reason": "The framework escapes the value."
+        }
+      ],
+      "report": "# Report\n\nOne critical finding.",
+      "importedByEmail": "ana@example.test",
+      "actorType": "CLAUDE",
+      "createdAt": "2026-05-30T12:00:00.000Z"
+    }
+  ],
+  "warnings": [
+    "1 project's current status was not at the end of its status updates, so one update was added, dated at the project's last change (BKS).",
+    "1 activity row belongs to no project, or one that is not in the export, and was left out.",
+    "These tables were in the export and ignored on purpose (notifications, apiTokens, sessions)."
+  ],
+  "unmapped": [
+    {
+      "field": "organizations",
+      "reason": "The import goes into the firm that runs it; the Sentire Projects organisation and its name are not used."
+    },
+    {
+      "field": "users.passwordHash",
+      "reason": "A secret. It is never read, and a plan holding one is refused by the validator. People sign in to the Portal with their own accounts."
+    },
+    {
+      "field": "users.role",
+      "reason": "Sentire Projects owner, member and viewer do not map to Portal roles; the owner grants Projects:Read, Create, Update and Configure in the role editor."
+    },
+    {
+      "field": "users.createdAt, users.lastLoginAt, users.disabledAt",
+      "reason": "Portal users are separate accounts. People are matched by e-mail only."
+    },
+    {
+      "field": "users.id",
+      "reason": "An internal id. Every reference in the plan is by e-mail."
+    },
+    {
+      "field": "sessions",
+      "reason": "Login sessions of the Sentire Projects web app; temporary and tied to its cookies."
+    },
+    {
+      "field": "apiTokens",
+      "reason": "Token hashes are secrets and Sentire Projects tokens do not work on the Portal. Issue new personal tokens in the Portal."
+    },
+    {
+      "field": "notifications",
+      "reason": "A per-user inbox of short-lived messages. The Portal has no notifications table yet."
+    },
+    {
+      "field": "projects.archivedAt",
+      "reason": "The Portal keeps an archived flag only; the time of archiving is lost."
+    },
+    {
+      "field": "issues.deletedAt",
+      "reason": "The Portal keeps a deleted flag only; the time of deleting is lost. Deleted issues are still imported, flagged, so their numbers stay used."
+    },
+    {
+      "field": "issues.fingerprint",
+      "reason": "The Portal has no fingerprint column yet. The plan carries it, so the security-audit phase can match re-imports to these issues."
+    },
+    {
+      "field": "milestones.closedAt",
+      "reason": "The Portal's milestone has a state but no closing time."
+    },
+    {
+      "field": "comments.actorKind, comments.sessionId",
+      "reason": "The Portal's comment table has no actor type or session yet. The plan carries both."
+    },
+    {
+      "field": "activities.client",
+      "reason": "The Portal records a channel (web, api, mcp, github, system), worked out from the actor type here. The plan carries the original client text."
+    },
+    {
+      "field": "activities (no project)",
+      "reason": "The Portal's activity log needs a project; rows with none are left out."
+    },
+    {
+      "field": "workSessions",
+      "reason": "The Portal has no work-session table yet. The plan carries every session for the later phase that adds it."
+    },
+    {
+      "field": "githubLinks",
+      "reason": "The Portal has no GitHub link table yet. The plan carries every link."
+    },
+    {
+      "field": "securityAudits",
+      "reason": "The Portal has no audit table yet. The plan carries every audit record."
+    },
+    {
+      "field": "projects.status, projects.statusNote",
+      "reason": "The Portal takes a project's current status from its latest status update. A status update is added to the plan when the history does not already end with the current status."
+    }
+  ]
+}

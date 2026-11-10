@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "portal-projects": {
+      "type": "http",
+      "url": "https://portal.example.test/api/v1/projects/mcp",
+      "headers": {
+        "Authorization": "Bearer ${PORTAL_PROJECTS_TOKEN}"
+      }
+    }
+  }
+}
