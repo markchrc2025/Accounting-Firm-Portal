@@ -520,6 +520,20 @@ describe("PB5 the Sentire Projects import", () => {
     await waitFor(() => expect(btn("Import").disabled).toBe(false));
   });
 
+  it("a file of the same length but other content is not the checked file", async () => {
+    api.importSentire.mockResolvedValue(REPORT);
+    open();
+    const a = JSON.stringify({ projects: [{ key: "PAY" }] });
+    const b = JSON.stringify({ projects: [{ key: "ZZZ" }] });
+    expect(b.length).toBe(a.length);
+    await chooseAndWait(file("export.json", a));
+    fireEvent.click(btn("Check"));
+    await screen.findByText(/Checked:/);
+    choose(file("export.json", b));
+    await screen.findByText("This is not the file that was checked. Check it first.");
+    expect(btn("Import").disabled).toBe(true);
+  });
+
   it("Import asks first with the warning; Cancel sends nothing", async () => {
     api.importSentire.mockResolvedValue(REPORT);
     open();
