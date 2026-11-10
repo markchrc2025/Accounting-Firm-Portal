@@ -6,6 +6,7 @@ import { AuthModule } from "./auth/auth.module";
 import { BackupModule } from "./backup/backup.module";
 import { BirModule } from "./bir/bir.module";
 import { BirFormsModule } from "./bir-forms/bir-forms.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { ClientsModule } from "./clients/clients.module";
@@ -55,6 +56,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     RolesModule,
     BirFormsModule,
+    NotificationsModule,
     ProjectsModule,
     ProfileModule,
     ServicesModule,

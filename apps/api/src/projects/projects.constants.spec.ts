@@ -5,7 +5,12 @@ import {
   DEFAULT_ROLES,
 } from "../rbac/permissions.constants";
 import {
+  addDays,
   DEFAULT_ISSUE_STATUSES,
+  DONE_WINDOW_DAYS,
+  doneSince,
+  manilaDayStart,
+  NOTIFICATION_KINDS,
   DEFAULT_ISSUE_TYPES,
   diffFields,
   dayOf,
@@ -156,5 +161,39 @@ describe("PA1 · the permissions", () => {
     for (const r of DEFAULT_ROLES.filter((x) => x.name !== "Super Admin")) {
       expect(r.permissions.filter((p) => p.startsWith("Projects:"))).toEqual([]);
     }
+  });
+});
+
+describe("PA2 · the board's Done window and the notification kinds", () => {
+  it("addDays moves a calendar day across months, years and leap days", () => {
+    expect(addDays("2026-11-10", 1)).toBe("2026-11-11");
+    expect(addDays("2026-11-10", -14)).toBe("2026-10-27");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(addDays("2026-11-10", 0)).toBe("2026-11-10");
+  });
+
+  it("a Manila day begins at 16:00 UTC the day before", () => {
+    expect(manilaDayStart("2026-11-10").toISOString()).toBe("2026-11-09T16:00:00.000Z");
+  });
+
+  it("the Done window is today and the 14 days before it, by Manila days", () => {
+    expect(DONE_WINDOW_DAYS).toBe(14);
+    expect(doneSince("2026-11-10").toISOString()).toBe("2026-10-26T16:00:00.000Z");
+    // the first instant of the 14th day back is in; one millisecond before it is out
+    const since = doneSince("2026-11-10").getTime();
+    expect(new Date(since).toISOString()).toBe(
+      manilaDayStart("2026-10-27").toISOString(),
+    );
+  });
+
+  it("the four notification kinds are fixed strings", () => {
+    expect(NOTIFICATION_KINDS).toEqual({
+      assigned: "project.issue.assigned",
+      commented: "project.issue.commented",
+      status: "project.issue.status",
+      closed: "project.issue.closed",
+    });
   });
 });
