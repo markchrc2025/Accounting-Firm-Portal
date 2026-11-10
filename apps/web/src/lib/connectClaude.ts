@@ -24,3 +24,8 @@ export const CAPABILITY_WARNING =
   "This address contains your token. Anyone who has it can act as you. Do not share it.";
 export const TOKEN_ONCE_WARNING =
   "This token is shown only once. Copy it now and keep it somewhere safe.";
+
+/** The GitHub webhook route, after the API origin (Track A PA4, D68). */
+export const GITHUB_WEBHOOK_PATH = "/api/v1/projects/github/webhook";
+export const githubWebhookUrl = (origin: string): string =>
+  `${origin}${GITHUB_WEBHOOK_PATH}`;

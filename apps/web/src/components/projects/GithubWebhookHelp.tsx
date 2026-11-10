@@ -4,12 +4,9 @@
 // value when the webhook is made. The Payload URL is built from the API origin the web already uses.
 
 import { apiOrigin } from "../../lib/api";
+import { githubWebhookUrl } from "../../lib/connectClaude";
 import { Card } from "../ui";
 import { CopyButton } from "./CopyButton";
-
-/** The webhook route, after the API origin (Track A PA4). */
-export const GITHUB_WEBHOOK_PATH = "/api/v1/projects/github/webhook";
-export const githubWebhookUrl = (origin: string): string => `${origin}${GITHUB_WEBHOOK_PATH}`;
 
 export function GithubWebhookHelp({ origin = apiOrigin() }: { origin?: string }) {
   const url = githubWebhookUrl(origin);
@@ -23,8 +20,8 @@ export function GithubWebhookHelp({ origin = apiOrigin() }: { origin?: string })
       </h2>
       <Card className="space-y-3 px-5 py-4 text-[13px] text-content">
         <p className="text-content-secondary">
-          In the repository on GitHub, open Settings, Webhooks, Add webhook, and fill it in like
-          this.
+          In the repository on GitHub, open Settings, Webhooks, Add webhook, and fill it
+          in like this.
         </p>
         <dl className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-3 gap-y-2">
           <dt className="text-content-secondary">Payload URL</dt>
@@ -44,16 +41,16 @@ export function GithubWebhookHelp({ origin = apiOrigin() }: { origin?: string })
           <dt className="text-content-secondary">Secret</dt>
           <dd data-webhook-secret>
             The value set in the server&apos;s{" "}
-            <code className="font-mono text-[12px]">GITHUB_WEBHOOK_SECRET</code>. The Portal never
-            shows it.
+            <code className="font-mono text-[12px]">GITHUB_WEBHOOK_SECRET</code>. The
+            Portal never shows it.
           </dd>
           <dt className="text-content-secondary">Events</dt>
           <dd>Pull requests and Pushes.</dd>
         </dl>
         <p className="border-t border-line pt-3" data-webhook-rules>
-          Put an issue key such as PAY-12 in branch names, commits and PR titles. A merged PR whose
-          description says fixes PAY-12 closes it. The project&apos;s repository URL must match the
-          repository.
+          Put an issue key such as PAY-12 in branch names, commits and PR titles. A merged
+          PR whose description says fixes PAY-12 closes it. The project&apos;s repository
+          URL must match the repository.
         </p>
       </Card>
     </section>

@@ -122,6 +122,11 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
         actions={
           <>
             <ProjectsSearchBox />
+            {can.create ? (
+              <Button variant="outline" onClick={() => setImporting(true)}>
+                Import checklist
+              </Button>
+            ) : null}
             {can.update ? (
               <Button
                 variant="outline"

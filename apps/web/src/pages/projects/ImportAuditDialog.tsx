@@ -160,7 +160,7 @@ export function ImportAuditDialog({
   if (result) {
     return (
       <Modal title="Audit imported" onClose={onClose} wide>
-        <div className="space-y-4" data-audit-result>
+        <div className="space-y-4" data-audit-imported>
           <p className="text-[13px] font-semibold text-navy">
             Run {result.runId || "(no run id)"}: {result.findings.total} findings,{" "}
             {result.findings.confirmed} confirmed, {result.findings.needsValidation} to validate,{" "}
