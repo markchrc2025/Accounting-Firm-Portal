@@ -29,6 +29,13 @@ export const UpdateBirFormSchema = z
   });
 export type UpdateBirFormInput = z.infer<typeof UpdateBirFormSchema>;
 
+/**
+ * `POST /bir-forms/:id/preview` (U23) — the editor's unsaved data, in the shape PATCH sends it.
+ * Checked by the service (a filed return ignores the body), with the pipe's own messages.
+ */
+export const PreviewBirFormSchema = z.object({ data: FilingDataSchema });
+export type PreviewBirFormInput = z.infer<typeof PreviewBirFormSchema>;
+
 /** `POST /bir-forms/compute` — authoritative live preview without saving. */
 export const ComputeBirFormSchema = z.object({
   form: z.string().min(1),
