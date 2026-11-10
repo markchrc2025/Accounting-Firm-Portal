@@ -1,7 +1,7 @@
 // Portal Projects SessionStart hook for Claude Code (written by the Portal repo kit).
 // Starts a work session for this repository's project and prints the briefing, which Claude Code
 // adds to the context.
-// Needs: .sentire-projects.json in the repository root and PORTAL_PROJECTS_TOKEN in the environment.
+// Needs: .portal-projects.json in the repository root and PORTAL_PROJECTS_TOKEN in the environment.
 // Fails quietly: a tracking problem must never block a coding session.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,7 +13,7 @@ const SESSION_START_PATH = "/api/v1/projects/sessions/start";
 const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 let cfg;
 try {
-  cfg = JSON.parse(readFileSync(join(root, ".sentire-projects.json"), "utf8"));
+  cfg = JSON.parse(readFileSync(join(root, ".portal-projects.json"), "utf8"));
 } catch {
   process.exit(0);
 }

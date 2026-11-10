@@ -14,6 +14,8 @@ import {
   RepoKitError,
   SESSION_START_PATH,
   applyClaudeMdBlock,
+  mergeMcpJson,
+  mergeSettingsJson,
   claudeMdBlock,
   repoKit,
   type KitFile,
@@ -40,7 +42,7 @@ describe("repoKit: the files (golden)", () => {
 
   it("makes exactly these five files, in this order", () => {
     expect(files.map((f) => f.path)).toEqual([
-      ".sentire-projects.json",
+      ".portal-projects.json",
       ".mcp.json",
       ".claude/settings.json",
       ".claude/hooks/portal-projects-session-start.mjs",
@@ -49,7 +51,7 @@ describe("repoKit: the files (golden)", () => {
   });
 
   it.each([
-    ".sentire-projects.json",
+    ".portal-projects.json",
     ".mcp.json",
     ".claude/settings.json",
     ".claude/hooks/portal-projects-session-start.mjs",
@@ -58,8 +60,8 @@ describe("repoKit: the files (golden)", () => {
     expect(file(files, path)).toBe(golden(path));
   });
 
-  it(".sentire-projects.json keeps the shape Sentire Projects reads: project and server", () => {
-    expect(JSON.parse(file(files, ".sentire-projects.json"))).toEqual({
+  it(".portal-projects.json has its own name and the shape project and server", () => {
+    expect(JSON.parse(file(files, ".portal-projects.json"))).toEqual({
       project: "PAY",
       server: "https://portal.example.test",
     });
@@ -97,8 +99,8 @@ describe("repoKit: the files (golden)", () => {
       serverUrl: "https://other.example.test/",
       tokenEnvVar: "OTHER_TOKEN",
     });
-    expect(file(other, ".sentire-projects.json")).toContain('"BKS2"');
-    expect(file(other, ".sentire-projects.json")).toContain(
+    expect(file(other, ".portal-projects.json")).toContain('"BKS2"');
+    expect(file(other, ".portal-projects.json")).toContain(
       '"https://other.example.test"',
     );
     expect(file(other, ".mcp.json")).toContain(
@@ -166,16 +168,16 @@ describe("repoKit: inputs", () => {
 
   it("takes an https address, or http for localhost, and drops a trailing slash", () => {
     expect(
-      file(kit({ serverUrl: "https://portal.example.test/" }), ".sentire-projects.json"),
+      file(kit({ serverUrl: "https://portal.example.test/" }), ".portal-projects.json"),
     ).toContain('"https://portal.example.test"');
     expect(
       file(
         kit({ serverUrl: "  https://portal.example.test  " }),
-        ".sentire-projects.json",
+        ".portal-projects.json",
       ),
     ).toContain('"https://portal.example.test"');
     expect(
-      file(kit({ serverUrl: "http://localhost:3000" }), ".sentire-projects.json"),
+      file(kit({ serverUrl: "http://localhost:3000" }), ".portal-projects.json"),
     ).toContain('"http://localhost:3000"');
     expect(file(kit({ serverUrl: "http://127.0.0.1:8080/" }), ".mcp.json")).toContain(
       "http://127.0.0.1:8080/api/v1/projects/mcp",
@@ -183,7 +185,7 @@ describe("repoKit: inputs", () => {
     expect(
       file(
         kit({ serverUrl: "https://Portal.Example.test:8443" }),
-        ".sentire-projects.json",
+        ".portal-projects.json",
       ),
     ).toContain('"https://portal.example.test:8443"');
   });
@@ -201,6 +203,215 @@ describe("repoKit: inputs", () => {
     ];
     for (const [url, message] of cases)
       expect(() => kit({ serverUrl: url }), url).toThrow(message);
+  });
+});
+
+describe("repoKit: no collision with Sentire Projects in the same repository", () => {
+  const files = kit();
+
+  it("no path, entry name, marker or text of the kit uses a Sentire Projects name", () => {
+    for (const f of files) {
+      expect(f.path.toLowerCase(), f.path).not.toContain("sentire");
+      expect(f.content.toLowerCase(), f.path).not.toContain("sentire");
+    }
+    expect(files.map((f) => f.path)).not.toContain(".sentire-projects.json");
+  });
+
+  it("uses portal-projects for the config, the hook, the MCP server and the CLAUDE.md markers", () => {
+    expect(files.map((f) => f.path)).toEqual([
+      ".portal-projects.json",
+      ".mcp.json",
+      ".claude/settings.json",
+      ".claude/hooks/portal-projects-session-start.mjs",
+      "CLAUDE.md",
+    ]);
+    expect(Object.keys(JSON.parse(file(files, ".mcp.json")).mcpServers)).toEqual([
+      "portal-projects",
+    ]);
+    expect(CLAUDE_MD_BEGIN).toContain("BEGIN portal-projects");
+    expect(CLAUDE_MD_END).toBe("<!-- END portal-projects -->");
+  });
+
+  it("its token variable is not Sentire's", () => {
+    expect(file(files, ".mcp.json")).not.toContain("SENTIRE_PROJECTS_TOKEN");
+    expect(file(files, ".claude/hooks/portal-projects-session-start.mjs")).not.toContain(
+      "SENTIRE_PROJECTS_TOKEN",
+    );
+  });
+});
+
+// What Sentire Projects' own repo kit leaves in a repository (its .mcp.json and .claude/settings.json).
+const SENTIRE_MCP = `${JSON.stringify(
+  {
+    mcpServers: {
+      "sentire-projects": {
+        type: "http",
+        url: "https://projects.example.test/mcp",
+        headers: { Authorization: "Bearer ${SENTIRE_PROJECTS_TOKEN}" },
+      },
+    },
+  },
+  null,
+  2,
+)}\n`;
+const SENTIRE_SETTINGS = `${JSON.stringify(
+  {
+    permissions: { allow: ["Bash(npm test)"] },
+    hooks: {
+      SessionStart: [
+        {
+          hooks: [
+            {
+              type: "command",
+              command:
+                'node "$CLAUDE_PROJECT_DIR/.claude/hooks/sentire-session-start.mjs"',
+              timeout: 15,
+            },
+          ],
+        },
+      ],
+      PreToolUse: [
+        { matcher: "Bash", hooks: [{ type: "command", command: "echo checking" }] },
+      ],
+    },
+  },
+  null,
+  2,
+)}\n`;
+
+describe("merging into files the repository already has", () => {
+  const files = kit();
+  const kitMcp = file(files, ".mcp.json");
+  const kitSettings = file(files, ".claude/settings.json");
+
+  it(".mcp.json: with no existing file the result is the kit's file", () => {
+    expect(mergeMcpJson(undefined, kitMcp)).toBe(kitMcp);
+    expect(mergeMcpJson("", kitMcp)).toBe(kitMcp);
+    expect(mergeMcpJson("  \n", kitMcp)).toBe(kitMcp);
+  });
+
+  it(".mcp.json: a repository with Sentire's entry keeps both servers", () => {
+    const merged = JSON.parse(mergeMcpJson(SENTIRE_MCP, kitMcp));
+    expect(Object.keys(merged.mcpServers)).toEqual([
+      "sentire-projects",
+      "portal-projects",
+    ]);
+    expect(merged.mcpServers["sentire-projects"]).toEqual(
+      JSON.parse(SENTIRE_MCP).mcpServers["sentire-projects"],
+    );
+    expect(merged.mcpServers["portal-projects"]).toEqual(
+      JSON.parse(kitMcp).mcpServers["portal-projects"],
+    );
+  });
+
+  it(".mcp.json: other keys and servers stay; applying twice, or with a new address, never duplicates", () => {
+    const existing = JSON.stringify({
+      other: 1,
+      mcpServers: { mine: { type: "stdio", command: "x" } },
+    });
+    const once = mergeMcpJson(existing, kitMcp);
+    expect(JSON.parse(once).other).toBe(1);
+    expect(Object.keys(JSON.parse(once).mcpServers)).toEqual(["mine", "portal-projects"]);
+    expect(mergeMcpJson(once, kitMcp)).toBe(once);
+    const moved = mergeMcpJson(
+      once,
+      file(kit({ serverUrl: "https://other.example.test" }), ".mcp.json"),
+    );
+    expect(Object.keys(JSON.parse(moved).mcpServers)).toEqual([
+      "mine",
+      "portal-projects",
+    ]);
+    expect(JSON.parse(moved).mcpServers["portal-projects"].url).toBe(
+      "https://other.example.test/api/v1/projects/mcp",
+    );
+  });
+
+  it(".mcp.json: refuses a file it cannot read, with a sentence", () => {
+    expect(() => mergeMcpJson("{nope", kitMcp)).toThrow(
+      ".mcp.json is not valid JSON. Fix it, then try again.",
+    );
+    expect(() => mergeMcpJson("[]", kitMcp)).toThrow(
+      ".mcp.json must hold a JSON object. Fix it, then try again.",
+    );
+    expect(() => mergeMcpJson('{"mcpServers":[]}', kitMcp)).toThrow(
+      "has an mcpServers that is not an object",
+    );
+  });
+
+  it("settings: with no existing file the result is the kit's file", () => {
+    expect(mergeSettingsJson(undefined, kitSettings)).toBe(kitSettings);
+  });
+
+  it("settings: a repository with Sentire's SessionStart hook keeps it and gets ours, so both run", () => {
+    const merged = JSON.parse(mergeSettingsJson(SENTIRE_SETTINGS, kitSettings));
+    const commands = merged.hooks.SessionStart.flatMap(
+      (g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command),
+    );
+    expect(commands).toEqual([
+      'node "$CLAUDE_PROJECT_DIR/.claude/hooks/sentire-session-start.mjs"',
+      'node "$CLAUDE_PROJECT_DIR/.claude/hooks/portal-projects-session-start.mjs"',
+    ]);
+    expect(merged.permissions).toEqual({ allow: ["Bash(npm test)"] });
+    expect(merged.hooks.PreToolUse).toHaveLength(1);
+  });
+
+  it("settings: applying twice never duplicates our hook, and a group of other hooks is kept whole", () => {
+    const once = mergeSettingsJson(SENTIRE_SETTINGS, kitSettings);
+    expect(mergeSettingsJson(once, kitSettings)).toBe(once);
+    const shared = JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            hooks: [
+              { type: "command", command: "echo mine" },
+              {
+                type: "command",
+                command:
+                  'node "$CLAUDE_PROJECT_DIR/.claude/hooks/portal-projects-session-start.mjs"',
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const merged = JSON.parse(mergeSettingsJson(shared, kitSettings));
+    const commands = merged.hooks.SessionStart.flatMap(
+      (g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command),
+    );
+    expect(commands).toEqual([
+      "echo mine",
+      'node "$CLAUDE_PROJECT_DIR/.claude/hooks/portal-projects-session-start.mjs"',
+    ]);
+  });
+
+  it("settings: refuses a file it cannot read, with a sentence", () => {
+    expect(() => mergeSettingsJson("{nope", kitSettings)).toThrow(
+      ".claude/settings.json is not valid JSON",
+    );
+    expect(() => mergeSettingsJson('{"hooks":[]}', kitSettings)).toThrow(
+      "has hooks that is not an object",
+    );
+    expect(() => mergeSettingsJson('{"hooks":{"SessionStart":{}}}', kitSettings)).toThrow(
+      "hooks.SessionStart that is not a list",
+    );
+  });
+
+  it("CLAUDE.md: Sentire's snippet (no markers) stays and our block is added after it", () => {
+    const sentire =
+      "## Project tracking (Sentire Projects)\nThis repo is tracked in Sentire Projects.\n";
+    const out = applyClaudeMdBlock(sentire, file(files, "CLAUDE.md"));
+    expect(out.startsWith(sentire.trimEnd())).toBe(true);
+    expect(out).toContain(CLAUDE_MD_BEGIN);
+    expect(applyClaudeMdBlock(out, file(files, "CLAUDE.md"))).toBe(out);
+  });
+
+  it("the merged files have no em dash or en dash", () => {
+    for (const text of [
+      mergeMcpJson(SENTIRE_MCP, kitMcp),
+      mergeSettingsJson(SENTIRE_SETTINGS, kitSettings),
+    ]) {
+      expect(text).not.toMatch(DASHES);
+    }
   });
 });
 
@@ -398,9 +609,9 @@ describe("the hook script, run for real against a local server", () => {
     expect(r.stdout).toBe("Portal Projects: could not start a session (401).\n");
   });
 
-  it("exits quietly when the repository has no .sentire-projects.json", async () => {
+  it("exits quietly when the repository has no .portal-projects.json", async () => {
     const { seen, dir } = await setup(ok);
-    rmSync(join(dir, ".sentire-projects.json"));
+    rmSync(join(dir, ".portal-projects.json"));
     const r = await runHook(dir, { PORTAL_PROJECTS_TOKEN: "t" });
     expect(r.stdout).toBe("");
     expect(seen).toHaveLength(0);
@@ -409,18 +620,33 @@ describe("the hook script, run for real against a local server", () => {
   it("exits quietly with a message when the server cannot be reached", async () => {
     const { dir } = await setup(ok);
     writeFileSync(
-      join(dir, ".sentire-projects.json"),
+      join(dir, ".portal-projects.json"),
       JSON.stringify({ project: "PAY", server: "http://127.0.0.1:9" }),
     );
     const r = await runHook(dir, { PORTAL_PROJECTS_TOKEN: "t" });
     expect(r.stdout).toMatch(/^Portal Projects: tracking unavailable \(/);
   });
 
-  it("uses the server of .sentire-projects.json, so a repository can be moved by editing it", async () => {
+  it("reads only .portal-projects.json: a repository with just Sentire's config is left alone", async () => {
+    const { seen, dir } = await setup(ok);
+    rmSync(join(dir, ".portal-projects.json"));
+    writeFileSync(
+      join(dir, ".sentire-projects.json"),
+      JSON.stringify({ project: "PAY", server: `http://127.0.0.1:1` }),
+    );
+    const r = await runHook(dir, {
+      PORTAL_PROJECTS_TOKEN: "t",
+      SENTIRE_PROJECTS_TOKEN: "t",
+    });
+    expect(r.stdout).toBe("");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("uses the server of .portal-projects.json, so a repository can be moved by editing it", async () => {
     const a = await setup(ok);
     const b = await setup(ok);
     writeFileSync(
-      join(a.dir, ".sentire-projects.json"),
+      join(a.dir, ".portal-projects.json"),
       JSON.stringify({ project: "BKS", server: `${b.url}/` }),
     );
     await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "t" });
