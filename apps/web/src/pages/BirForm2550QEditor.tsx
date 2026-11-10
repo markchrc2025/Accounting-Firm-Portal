@@ -27,6 +27,7 @@ import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { usePublishPreviewFeed } from "../components/birform/previewFeed";
 import { MarkAsFiledButton } from "../components/birform/BirConfirmation";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
@@ -161,6 +162,8 @@ export default function BirForm2550QEditor() {
     enabled: debounced !== null,
   });
 
+  // W23: what Save would send, for the Preview pane in the shared page.
+  usePublishPreviewFeed(saveData, period);
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) return createBirForm({ clientId, form: "2550Q", period, data: saveData });

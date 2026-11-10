@@ -1,7 +1,7 @@
 // birPreview.ts — C3 (D52): the "Preview PDF" button's helpers.
 
 /** JSON with every object's keys in sorted order, so equal data compares equal. */
-function stable(v: unknown): string {
+export function stable(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(stable).join(",")}]`;
   if (v && typeof v === "object") {
     const o = v as Record<string, unknown>;

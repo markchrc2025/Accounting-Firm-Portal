@@ -25,6 +25,7 @@ import {
 import { tin14 } from "../components/birform/format";
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
+import { usePublishPreviewFeed } from "../components/birform/previewFeed";
 import { ClearCopyButton } from "../components/birform/ClearCopyButton";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { payorPrintName, printParty } from "../lib/birFiling";
@@ -298,6 +299,8 @@ export default function BirForm2307Editor() {
     enabled: debounced !== null,
   });
 
+  // W23: what Save would send, for the Preview pane in the shared page.
+  usePublishPreviewFeed(data, period);
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) return createBirForm({ clientId, form: "2307", period, data });
