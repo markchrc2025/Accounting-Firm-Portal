@@ -47,7 +47,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-  # Gated job: spins up Postgres to validate that migrations apply cleanly.
+  # Gated job: spins up Postgres (and Redis) to validate that migrations apply cleanly and to run
+  # the database-backed tests.
   database:
     name: Prisma migrations
     runs-on: ubuntu-latest
@@ -65,8 +66,20 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # The Projects MCP rate limit is counted in Redis, shared by every API instance, and its
+      # test (two instances, one count) must always run, so the job has a real Redis (D68).
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://portal:portal@localhost:5432/portal?schema=public
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
 

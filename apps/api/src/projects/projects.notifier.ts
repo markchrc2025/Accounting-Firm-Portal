@@ -70,7 +70,8 @@ export class ProjectsNotifier {
       where: { id: actor.user.id },
       select: { fullName: true },
     });
-    const who = actorRow?.fullName ?? "Someone";
+    const who =
+      actor.actorType === "GITHUB" ? "GitHub" : (actorRow?.fullName ?? "Someone");
     const link = `/projects/${issue.project.key}/issues/${issue.key}`;
 
     const commenters = await tx.issueComment.findMany({

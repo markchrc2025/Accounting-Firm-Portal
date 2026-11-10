@@ -248,9 +248,14 @@ describe("PA2 · board, roadmap, My Work, search, notifications (real app over H
         Object.keys((await pj("get", `/BRD/issues/${a.key}`)).body)
           .filter(
             (k) =>
-              !["description", "author", "parent", "children", "commentCount"].includes(
-                k,
-              ),
+              ![
+                "description",
+                "author",
+                "parent",
+                "children",
+                "commentCount",
+                "githubLinks",
+              ].includes(k),
           )
           .sort(),
       );

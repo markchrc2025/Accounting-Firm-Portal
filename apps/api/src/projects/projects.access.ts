@@ -44,6 +44,19 @@ export const webActor = (user: AuthUser): ProjectsActor => ({
   tokenId: user.via?.tokenId ?? null,
 });
 
+/**
+ * An actor for GitHub (PA4, D68): a change made by a webhook delivery. There is no user behind it:
+ * the user here is a stand-in that matches no row of the users table, so the activity is written
+ * with no user, nobody is left out of a notification, and nothing is checked against a permission
+ * (the services that take it do not ask for one).
+ */
+export const GITHUB_ACTOR_USER_ID = "00000000-0000-0000-0000-000000000000";
+export const githubActor = (firmId: string): ProjectsActor => ({
+  user: { id: GITHUB_ACTOR_USER_ID, firmId, userType: "FIRM", email: "" },
+  actorType: "GITHUB",
+  channel: "github",
+});
+
 export type Tx = Prisma.TransactionClient;
 
 @Injectable()
