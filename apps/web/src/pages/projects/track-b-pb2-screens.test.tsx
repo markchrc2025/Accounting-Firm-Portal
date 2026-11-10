@@ -301,6 +301,23 @@ describe("PB2 board: a move by mouse", () => {
     expect(live()).toContain("Could not move PAY-1.");
   });
 
+  it("the card goes back by itself, before the board has been asked for again", async () => {
+    // after the refusal the board is asked for again; that answer is held back here, so the return
+    // of the card is the move's own and not the new answer's
+    api.fetchBoard
+      .mockImplementationOnce(() => Promise.resolve(BOARD()))
+      .mockImplementation(() => new Promise(() => {}));
+    api.reorderIssue.mockRejectedValue(new ApiError(409, "Nope.", {}));
+    board();
+    await screen.findByText("Card PAY-1");
+    dragTo("PAY-1", "s2", 0);
+    await waitFor(() =>
+      expect(document.querySelector("[data-projects-error]")!.textContent).toBe("Nope."),
+    );
+    expect(keysIn("s1")).toEqual(["PAY-1", "PAY-2", "PAY-3"]);
+    expect(keysIn("s2")).toEqual(["PAY-4"]);
+  });
+
   it("a Viewer cannot drag a card or pick it up", async () => {
     board(VIEWER);
     await screen.findByText("Card PAY-1");
