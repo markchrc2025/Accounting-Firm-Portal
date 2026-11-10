@@ -433,6 +433,34 @@ describe("PB4 the security badge", () => {
       lastActivityAt: null,
     }) as unknown as ProjectOverview;
 
+  it("the project's header shows the chip only when something is open or blocked", async () => {
+    api.fetchProjectsMeta.mockResolvedValue({
+      issueTypes: [],
+      issueStatuses: [],
+      labels: [],
+      users: [],
+    });
+    const open = (security: SecurityBadge) => {
+      api.fetchProject.mockResolvedValue({ ...overview(security), project: PROJECT });
+      mount(<ProjectPage tab="overview" />, "/projects/PAY", "/projects/:key");
+    };
+    open({ state: "blocked", open: 2, critical: 1, high: 1 });
+    await screen.findByRole("heading", { level: 1, name: "Payments" });
+    expect(
+      document.querySelector(
+        "header [data-security-state], h1 ~ div [data-security-state]",
+      ),
+    ).not.toBeNull();
+    cleanup();
+    open(CLEAR);
+    await screen.findByRole("heading", { level: 1, name: "Payments" });
+    // only the overview's own card carries a chip, not the header
+    expect(document.querySelectorAll("[data-security-state]")).toHaveLength(1);
+    expect(
+      document.querySelector("[data-overview-security] [data-security-state]"),
+    ).not.toBeNull();
+  });
+
   it("the overview shows it with a link to the Security tab", () => {
     mount(
       <OverviewTab
@@ -660,14 +688,12 @@ describe("PB4 the checklist import", () => {
   });
 
   it("after an import the lists a label could be in are asked for again (the project's issues and the label list)", async () => {
-    api.importChecklist
-      .mockResolvedValueOnce(PREVIEW)
-      .mockResolvedValueOnce({
-        ...PREVIEW,
-        dryRun: false,
-        keys: ["PAY-21"],
-        plan: undefined,
-      });
+    api.importChecklist.mockResolvedValueOnce(PREVIEW).mockResolvedValueOnce({
+      ...PREVIEW,
+      dryRun: false,
+      keys: ["PAY-21"],
+      plan: undefined,
+    });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const spy = vi.spyOn(qc, "invalidateQueries");
     render(
