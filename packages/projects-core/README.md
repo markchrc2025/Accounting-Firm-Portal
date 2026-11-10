@@ -161,6 +161,107 @@ so drops it. Both forms are read here.
   exported. `partial` is true for a quick run, a scoped run or an incomplete run: such a run not reporting a
   finding is not evidence that it was fixed.
 
+## Repo kit: `repoKit({ projectKey, serverUrl, tokenEnvVar })`
+
+```ts
+repoKit(input: { projectKey: string; serverUrl: string; tokenEnvVar: string }): { path: string; content: string }[]
+applyClaudeMdBlock(existing: string | undefined, block: string): string
+claudeMdBlock(projectKey: string): string
+```
+
+Returns the five files a code repository needs so Claude Code works with the Portal's Projects
+module. Write each at its path. For `CLAUDE.md` use `applyClaudeMdBlock`, because most repositories have
+one: it adds the block at the end, or replaces the one between the markers, and never touches the text
+outside them.
+
+| Path                                                | What it is                                                                                                                                                                                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.sentire-projects.json`                            | `{ "project": "PAY", "server": "https://portal.example.test" }`. Same name and shape Sentire Projects uses (its hook, its MCP instructions and its CLAUDE.md snippet all read it), so a repository that has one only changes `server`.        |
+| `.mcp.json`                                         | One HTTP server, `portal-projects`, at `<server>/api/v1/projects/mcp`, with `Authorization: Bearer ${TOKEN_VAR}`. Claude Code reads the variable at run time; the token is never written.                                                    |
+| `.claude/settings.json`                             | A `SessionStart` hook that runs the script below (15 second timeout).                                                                                                                                                                        |
+| `.claude/hooks/portal-projects-session-start.mjs`   | Node, no dependency. Starts a work session (`POST <server>/api/v1/projects/sessions/start?briefing=1` with `{ "project_key" }`, header `Authorization: Bearer <token>`), prints the session id and the briefing. Fails quietly. See below. |
+| `CLAUDE.md`                                         | The managed block, between `<!-- BEGIN portal-projects ... -->` and `<!-- END portal-projects -->`: start a session, keep issues current, keys in branches, commits and PR titles, `fixes KEY` in PR bodies, end the session with a summary and next steps. |
+
+The hook follows Sentire Projects' kit (`kit/.claude/hooks/sentire-session-start.mjs`): it reads
+`.sentire-projects.json`, does nothing if there is none, says the session is not tracked if the token variable
+is not set, skips the `compact` restart (resume and clear start a session again), and prints a sentence instead
+of failing if the server answers an error or cannot be reached. Tests run the generated script against a
+local server.
+
+Inputs are checked and refused with a sentence: the project key (2 to 10 capital letters or digits, starting
+with a letter); `tokenEnvVar` must be a variable NAME in capitals, digits and underscores (a token such as
+`spk_abc` is refused); `serverUrl` must be an `https://` origin with no path, query, fragment or user name
+(`http://` only for localhost). A trailing slash is dropped.
+
+## Sentire Projects import: `mapSentireExport(exportJson)` and `validateImportPlan(plan)`
+
+```ts
+mapSentireExport(exportJson: unknown): ImportPlan            // throws SentireExportError for a non-export
+validateImportPlan(plan: unknown, o?: { maxMessages?: number }): string[]   // plain sentences; [] means ready
+```
+
+Sentire Projects has no export of its own, so the input format is defined here: the tables of its
+`src/db/schema.ts` as arrays of rows (`projects`, `statusUpdates`, `milestones`, `issueTypes`, `statuses`,
+`issues`, `labels`, `issueLabels`, `comments`, `activities`, `workSessions`, `githubLinks`, `securityAudits`,
+`users`, `organizations`), at the top level or under `tables`; table and column names camelCase or SQL
+snake_case; dates as ISO text or `Date`. For `users` only `id`, `name` and `email` are read, so leave the rest out.
+`notifications`, `apiTokens` and `sessions` (logins) are never read. An export script on the Sentire side is
+not part of this package.
+
+The plan (`format: "portal-projects-import-plan"`, `version: 1`) has these lists, to be applied in the order of
+`applyOrder`: `projects`, `issueTypes`, `statuses`, `labels`, `milestones`, `issues`, `comments`,
+`statusUpdates`, `sessions`, `activities`, `githubLinks`, `securityAudits` (and `people`, the e-mail list that
+people are matched by). Also `counts`, `warnings` and `unmapped`.
+
+- Every reference is by key or name: project key, issue key, type and status and milestone and label name, a
+  person's e-mail (lower case). No Sentire id appears. The one made-up label is a work session's `ref`
+  (`PAY#1`, in start order), because a session has no natural key.
+- Issues keep their key and number, and are sorted so a parent comes before its children (also across
+  projects). A project's `issueCounter` is at least its highest issue number.
+- Values are in the Portal's words: priorities `LOW` to `URGENT`, project statuses `NOT_STARTED` to `FINISHED`,
+  status categories `TODO`, `IN_PROGRESS`, `DONE`, milestone states `OPEN`, `LOCKED`, `CLOSED`, actors `USER`,
+  `CLAUDE`, `GITHUB`, `SYSTEM`; activity changes as `[{ field, old, new }]`; a project's `archived` flag.
+- A project's current status comes from its latest status update in the Portal. When the history does not end
+  with the current status (or there is none), one status update by `SYSTEM` is added, dated at the project's last
+  change, and a warning says so.
+- Rows whose parent is missing are left out, or have the link emptied, and a sentence in `warnings` says how
+  many (and names up to five). Duplicate keys and numbers are NOT repaired: they stay in the plan so
+  `validateImportPlan` reports them.
+- Passwords and token hashes are never read. A plan that holds one is refused by the validator.
+
+`validateImportPlan` returns one sentence per problem, at most `maxMessages` (default 100, then "And N more
+problems."). It checks: format and version; project keys valid, unique, parents present, no loops; issue types,
+statuses and labels unique by name (case folded), `#rrggbb` colours, valid status categories, exactly one
+default status; milestones unique per project, valid state, start not after due; issue keys valid and unique,
+numbers whole, unique per project and equal to the key, project, type, status, priority, milestone and labels
+present, assignee and author in the people list, parents present and no loops; the same for what comments,
+status updates, sessions, activity, GitHub links and audits point to; every date a real calendar date or time
+(`2026-02-30` is refused); counters not below the highest number.
+
+### Sentire Projects fields that cannot be mapped
+
+The same list is in every plan as `unmapped` (exported as `UNMAPPED_SENTIRE_FIELDS`). "Carried" means the plan
+holds the value for a later phase, but the Portal's PA1 tables have no place for it today.
+
+| Sentire Projects field                                                  | Why                                                                                                                         |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `organizations`                                                         | The import goes into the firm that runs it.                                                                                 |
+| `users.passwordHash`                                                    | A secret; never read.                                                                                                       |
+| `users.role` (owner, member, viewer)                                    | Portal permissions are `Projects:*` grants on Portal roles; no automatic mapping.                                           |
+| `users.createdAt`, `lastLoginAt`, `disabledAt`, `users.id`              | Portal users are separate accounts, matched by e-mail.                                                                      |
+| `sessions` (logins)                                                     | Temporary, tied to its cookies.                                                                                             |
+| `apiTokens`                                                             | Hashes are secrets and the tokens do not work on the Portal; issue new ones.                                                |
+| `notifications`                                                         | The Portal has no notifications table yet.                                                                                  |
+| `projects.archivedAt`                                                   | The Portal has an archived flag only; the time is lost.                                                                     |
+| `issues.deletedAt`                                                      | The Portal has a deleted flag only; the time is lost. Deleted issues are imported so their numbers stay used.               |
+| `issues.fingerprint`                                                    | No column yet. Carried, so the security-audit phase can match re-imports.                                                   |
+| `milestones.closedAt`                                                   | The Portal's milestone has no closing time.                                                                                 |
+| `comments.actorKind`, `comments.sessionId`                              | The Portal's comment has neither yet. Carried.                                                                              |
+| `activities.client`                                                     | The Portal records a channel instead; worked out from the actor type (github, system, mcp for Claude, web for users). Carried. |
+| `activities` with no project                                            | The Portal's activity log needs a project; left out and counted in `warnings`.                                              |
+| `workSessions`, `githubLinks`, `securityAudits`                         | No tables in the Portal yet. Carried whole.                                                                                 |
+| `projects.status`, `projects.statusNote`                                | The Portal derives status from the latest update; see the added update above.                                               |
+
 ## Decisions that were not given
 
 1. **Key case.** Capitals only by default (the task says "capital letters"). Sentire Projects upper-cases the text
@@ -178,6 +279,22 @@ so drops it. Both forms are read here.
 8. **Priority names** are upper case (`URGENT`, `HIGH`, `NORMAL`, `LOW`) as the task gave them; a lead is `NORMAL`.
 9. **Extras not asked for**: `parseFindings`, `mapFindings`, `coverageCounts`, `scanIssueKeys`, label colours
    (`SECURITY_LABEL_COLORS`, from Sentire Projects).
+
+PC2 (repo kit and import mapping):
+
+10. **Config file** keeps the Sentire name and shape, `.sentire-projects.json` with `project` and `server`, so
+    existing repositories keep working; the hook and MCP entry are new Portal-named files (`portal-projects-session-start.mjs`,
+    server `portal-projects`), so both can sit side by side. A repository that still has Sentire's hook must replace it.
+11. **Paths the Portal does not have yet** (Track A builds them): the MCP endpoint `/api/v1/projects/mcp` as given, and
+    for the hook `POST /api/v1/projects/sessions/start?briefing=1` answering `{ session: { id }, briefing }`, with
+    `{ "project_key" }` in the body. This copies Sentire Projects' `/api/v1/sessions/start` under the Projects prefix.
+    Both paths are exported constants (`PROJECTS_MCP_PATH`, `SESSION_START_PATH`). The hook sends `x-portal-client: claude-code`.
+12. **The CLAUDE.md block** follows Sentire's snippet without its last bullet (run the security-audit skill before
+    closing a release milestone), which was not in the brief.
+13. **Import input format** is defined here, since Sentire Projects has no export.
+14. **Plan choices**: work sessions are named by a made-up `ref`; the channel of an activity is worked out from the
+    actor type; a status update is added when the history does not end with the current status; people are matched by
+    e-mail; a duplicate is kept for the validator; rows with a missing parent are dropped or emptied with a warning.
 
 ## Tests
 

@@ -1,0 +1,583 @@
+{
+  "organizations": [
+    {
+      "id": "00000000-0000-4000-8000-000000000100",
+      "name": "Invented Studio",
+      "createdAt": "2026-01-02T03:04:05.000Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Ana Reyes",
+      "email": "Ana@Example.test",
+      "passwordHash": "INVENTED-HASH-DO-NOT-COPY",
+      "role": "owner",
+      "createdAt": "2026-01-02T03:04:05.000Z",
+      "lastLoginAt": "2026-11-01T00:00:00.000Z",
+      "disabledAt": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Ben Cruz",
+      "email": "ben@example.test",
+      "passwordHash": "INVENTED-HASH-DO-NOT-COPY-2",
+      "role": "member",
+      "createdAt": "2026-01-03T03:04:05.000Z",
+      "lastLoginAt": null,
+      "disabledAt": null
+    }
+  ],
+  "projects": [
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "parentId": null,
+      "key": "PAY",
+      "name": "Payments",
+      "description": "Card and wallet payments.",
+      "status": "on_track",
+      "statusNote": "Beta in two weeks",
+      "repoUrl": "https://git.example.test/invented/pay",
+      "liveUrl": "https://pay.example.test",
+      "dokployApp": "pay-app",
+      "issueCounter": 5,
+      "archivedAt": null,
+      "createdAt": "2026-02-01T00:00:00.000Z",
+      "updatedAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "parentId": "00000000-0000-4000-8000-000000000010",
+      "key": "PAYAPI",
+      "name": "Payments API",
+      "description": "",
+      "status": "not_started",
+      "statusNote": "",
+      "repoUrl": "",
+      "liveUrl": "",
+      "dokployApp": "",
+      "issueCounter": 1,
+      "archivedAt": "2026-09-09T00:00:00.000Z",
+      "createdAt": "2026-02-02T00:00:00.000Z",
+      "updatedAt": "2026-09-09T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000012",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "parentId": null,
+      "key": "BKS",
+      "name": "Bookkeeping",
+      "description": "Ledger tools.",
+      "status": "at_risk",
+      "statusNote": "Waiting on a vendor",
+      "repoUrl": "",
+      "liveUrl": "",
+      "dokployApp": "",
+      "issueCounter": 0,
+      "archivedAt": null,
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-10-15T00:00:00.000Z"
+    }
+  ],
+  "statusUpdates": [
+    {
+      "id": "00000000-0000-4000-8000-000000000070",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "status": "not_started",
+      "note": "Kick-off",
+      "authorId": "00000000-0000-4000-8000-000000000001",
+      "actorKind": "user",
+      "createdAt": "2026-02-01T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000071",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "status": "on_track",
+      "note": "Beta in two weeks",
+      "authorId": null,
+      "actorKind": "claude",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "00000000-0000-4000-8000-000000000050",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "name": "Beta",
+      "description": "First users.",
+      "startDate": "2026-11-01",
+      "dueDate": "2026-12-01",
+      "state": "open",
+      "createdAt": "2026-02-10T00:00:00.000Z",
+      "closedAt": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000051",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "name": "Launch",
+      "description": "",
+      "startDate": null,
+      "dueDate": "2026-06-30",
+      "state": "closed",
+      "createdAt": "2026-02-11T00:00:00.000Z",
+      "closedAt": "2026-07-01T00:00:00.000Z"
+    }
+  ],
+  "issueTypes": [
+    {
+      "id": "00000000-0000-4000-8000-000000000020",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Task",
+      "color": "#57606a",
+      "position": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Bug",
+      "color": "#cf222e",
+      "position": 1
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000022",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Feature",
+      "color": "#1a7f37",
+      "position": 2
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000023",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Epic",
+      "color": "#8250df",
+      "position": 3
+    }
+  ],
+  "statuses": [
+    {
+      "id": "00000000-0000-4000-8000-000000000030",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "New",
+      "category": "todo",
+      "color": "#57606a",
+      "position": 0,
+      "isDefault": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000031",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "In progress",
+      "category": "in_progress",
+      "color": "#bf8700",
+      "position": 1,
+      "isDefault": false
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000032",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "Done",
+      "category": "done",
+      "color": "#1a7f37",
+      "position": 2,
+      "isDefault": false
+    }
+  ],
+  "issues": [
+    {
+      "id": "00000000-0000-4000-8000-000000000060",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "number": 1,
+      "key": "PAY-1",
+      "typeId": "00000000-0000-4000-8000-000000000022",
+      "statusId": "00000000-0000-4000-8000-000000000031",
+      "priority": "high",
+      "title": "Card checkout",
+      "description": "Pay by card.\n\n- 3-D Secure",
+      "assigneeId": "00000000-0000-4000-8000-000000000002",
+      "authorId": "00000000-0000-4000-8000-000000000001",
+      "milestoneId": "00000000-0000-4000-8000-000000000050",
+      "parentId": "00000000-0000-4000-8000-000000000062",
+      "startDate": "2026-11-02",
+      "dueDate": "2026-11-20",
+      "position": 1.5,
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-11-02T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null,
+      "fingerprint": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000061",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "number": 2,
+      "key": "PAY-2",
+      "typeId": "00000000-0000-4000-8000-000000000021",
+      "statusId": "00000000-0000-4000-8000-000000000030",
+      "priority": "normal",
+      "title": "Receipt total is off by one centavo",
+      "description": "",
+      "assigneeId": null,
+      "authorId": "00000000-0000-4000-8000-000000000002",
+      "milestoneId": null,
+      "parentId": "00000000-0000-4000-8000-000000000060",
+      "startDate": null,
+      "dueDate": null,
+      "position": 2,
+      "createdAt": "2026-03-02T00:00:00.000Z",
+      "updatedAt": "2026-03-02T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null,
+      "fingerprint": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000062",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "number": 3,
+      "key": "PAY-3",
+      "typeId": "00000000-0000-4000-8000-000000000023",
+      "statusId": "00000000-0000-4000-8000-000000000031",
+      "priority": "low",
+      "title": "Checkout",
+      "description": "",
+      "assigneeId": null,
+      "authorId": "00000000-0000-4000-8000-000000000001",
+      "milestoneId": "00000000-0000-4000-8000-000000000050",
+      "parentId": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 3,
+      "createdAt": "2026-03-03T00:00:00.000Z",
+      "updatedAt": "2026-03-03T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null,
+      "fingerprint": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000063",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "number": 4,
+      "key": "PAY-4",
+      "typeId": "00000000-0000-4000-8000-000000000020",
+      "statusId": "00000000-0000-4000-8000-000000000030",
+      "priority": "low",
+      "title": "Old idea, dropped",
+      "description": "",
+      "assigneeId": null,
+      "authorId": null,
+      "milestoneId": null,
+      "parentId": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 4,
+      "createdAt": "2026-03-04T00:00:00.000Z",
+      "updatedAt": "2026-04-04T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": "2026-04-04T00:00:00.000Z",
+      "fingerprint": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000064",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "number": 5,
+      "key": "PAY-5",
+      "typeId": "00000000-0000-4000-8000-000000000021",
+      "statusId": "00000000-0000-4000-8000-000000000032",
+      "priority": "urgent",
+      "title": "Reset token never expires",
+      "description": "From a security audit.",
+      "assigneeId": "00000000-0000-4000-8000-000000000002",
+      "authorId": null,
+      "milestoneId": "00000000-0000-4000-8000-000000000051",
+      "parentId": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 5,
+      "createdAt": "2026-05-01T00:00:00.000Z",
+      "updatedAt": "2026-06-01T00:00:00.000Z",
+      "closedAt": "2026-06-01T00:00:00.000Z",
+      "deletedAt": null,
+      "fingerprint": "api-critical-account-takeover"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000065",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000011",
+      "number": 1,
+      "key": "PAYAPI-1",
+      "typeId": "00000000-0000-4000-8000-000000000020",
+      "statusId": "00000000-0000-4000-8000-000000000030",
+      "priority": "normal",
+      "title": "Version the API",
+      "description": "",
+      "assigneeId": null,
+      "authorId": "00000000-0000-4000-8000-000000000001",
+      "milestoneId": null,
+      "parentId": null,
+      "startDate": null,
+      "dueDate": null,
+      "position": 1,
+      "createdAt": "2026-02-03T00:00:00.000Z",
+      "updatedAt": "2026-02-03T00:00:00.000Z",
+      "closedAt": null,
+      "deletedAt": null,
+      "fingerprint": null
+    }
+  ],
+  "labels": [
+    {
+      "id": "00000000-0000-4000-8000-000000000040",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "security",
+      "color": "#cf222e"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000041",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "name": "frontend",
+      "color": "#0969da"
+    }
+  ],
+  "issueLabels": [
+    {
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "labelId": "00000000-0000-4000-8000-000000000041"
+    },
+    {
+      "issueId": "00000000-0000-4000-8000-000000000064",
+      "labelId": "00000000-0000-4000-8000-000000000040"
+    },
+    {
+      "issueId": "00000000-0000-4000-8000-000000000064",
+      "labelId": "00000000-0000-4000-8000-000000000041"
+    }
+  ],
+  "comments": [
+    {
+      "id": "00000000-0000-4000-8000-000000000090",
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "authorId": "00000000-0000-4000-8000-000000000002",
+      "actorKind": "user",
+      "sessionId": null,
+      "body": "Started on the form.",
+      "createdAt": "2026-11-02T10:00:00.000Z",
+      "editedAt": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000091",
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "authorId": "00000000-0000-4000-8000-000000000001",
+      "actorKind": "claude",
+      "sessionId": "00000000-0000-4000-8000-000000000080",
+      "body": "Moved to In progress.",
+      "createdAt": "2026-11-03T10:00:00.000Z",
+      "editedAt": "2026-11-03T11:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000092",
+      "issueId": "00000000-0000-4000-8000-000000000064",
+      "authorId": null,
+      "actorKind": "system",
+      "sessionId": null,
+      "body": "Reopened by an audit.",
+      "createdAt": "2026-06-02T10:00:00.000Z",
+      "editedAt": null
+    }
+  ],
+  "activities": [
+    {
+      "id": "00000000-0000-4000-8000-000000000110",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "action": "updated",
+      "actorId": "00000000-0000-4000-8000-000000000001",
+      "actorKind": "claude",
+      "client": "claude-code",
+      "sessionId": "00000000-0000-4000-8000-000000000080",
+      "summary": "Moved PAY-1 to In progress",
+      "changes": {
+        "status": ["New", "In progress"],
+        "priority": ["normal", "high"]
+      },
+      "createdAt": "2026-11-03T10:00:01.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000111",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "issueId": null,
+      "action": "session",
+      "actorId": "00000000-0000-4000-8000-000000000001",
+      "actorKind": "claude",
+      "client": "claude-code",
+      "sessionId": "00000000-0000-4000-8000-000000000080",
+      "summary": "Started a claude-code session",
+      "changes": null,
+      "createdAt": "2026-11-03T09:59:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000112",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "issueId": "00000000-0000-4000-8000-000000000064",
+      "action": "linked",
+      "actorId": null,
+      "actorKind": "github",
+      "client": "github",
+      "sessionId": null,
+      "summary": "Linked pull request",
+      "changes": null,
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000113",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": null,
+      "issueId": null,
+      "action": "created",
+      "actorId": "00000000-0000-4000-8000-000000000001",
+      "actorKind": "user",
+      "client": null,
+      "sessionId": null,
+      "summary": "Created a label",
+      "changes": null,
+      "createdAt": "2026-01-05T00:00:00.000Z"
+    }
+  ],
+  "workSessions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000080",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "userId": "00000000-0000-4000-8000-000000000001",
+      "client": "claude-code",
+      "title": "Checkout form",
+      "summary": "Built the form shell.",
+      "nextSteps": "Add 3-D Secure.",
+      "issuesTouched": ["PAY-1"],
+      "startedAt": "2026-11-03T09:59:00.000Z",
+      "endedAt": "2026-11-03T12:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000081",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "userId": "00000000-0000-4000-8000-000000000002",
+      "client": "claude.ai",
+      "title": "",
+      "summary": "",
+      "nextSteps": "",
+      "issuesTouched": [],
+      "startedAt": "2026-11-04T09:00:00.000Z",
+      "endedAt": null
+    }
+  ],
+  "githubLinks": [
+    {
+      "id": "00000000-0000-4000-8000-000000000120",
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "kind": "pr",
+      "repo": "invented/pay",
+      "number": 7,
+      "sha": null,
+      "url": "https://git.example.test/invented/pay/pull/7",
+      "title": "PAY-1: card form",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-11-05T00:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000121",
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "kind": "commit",
+      "repo": "invented/pay",
+      "number": null,
+      "sha": "0123456789abcdef0123456789abcdef01234567",
+      "url": "https://git.example.test/invented/pay/commit/0123456",
+      "title": "PAY-1 add form",
+      "state": "",
+      "merged": false,
+      "updatedAt": "2026-11-04T00:00:00.000Z"
+    }
+  ],
+  "securityAudits": [
+    {
+      "id": "00000000-0000-4000-8000-000000000130",
+      "orgId": "00000000-0000-4000-8000-000000000100",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "runId": "sample-run-2026-05-30",
+      "sourceRef": "0123456789abcdef0123456789abcdef01234567",
+      "profile": "quick",
+      "scope": "packages/api, packages/web",
+      "runStatus": "complete",
+      "incompleteReason": "",
+      "coverage": {
+        "covered": 3,
+        "candidate": 1
+      },
+      "counts": {
+        "critical": 1,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "informational": 0,
+        "needs_validation": 0,
+        "rejected": 1
+      },
+      "issueKeys": ["PAY-5"],
+      "rejected": [
+        {
+          "fingerprint": "web-rejected-sample-xss",
+          "title": "Sample comment field may allow script injection",
+          "reason": "The framework escapes the value."
+        }
+      ],
+      "report": "# Report\n\nOne critical finding.",
+      "importedBy": "00000000-0000-4000-8000-000000000001",
+      "actorKind": "claude",
+      "createdAt": "2026-05-30T12:00:00.000Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000140",
+      "userId": "00000000-0000-4000-8000-000000000002",
+      "issueId": "00000000-0000-4000-8000-000000000060",
+      "projectId": "00000000-0000-4000-8000-000000000010",
+      "reason": "assigned",
+      "message": "Assigned",
+      "readAt": null,
+      "createdAt": "2026-11-02T00:00:00.000Z"
+    }
+  ],
+  "apiTokens": [
+    {
+      "id": "00000000-0000-4000-8000-000000000141",
+      "userId": "00000000-0000-4000-8000-000000000001",
+      "name": "laptop",
+      "scope": "write",
+      "tokenHash": "INVENTED-TOKEN-HASH",
+      "prefix": "spk_abcd",
+      "lastUsedAt": null,
+      "createdAt": "2026-01-06T00:00:00.000Z",
+      "revokedAt": null
+    }
+  ],
+  "sessions": [
+    {
+      "id": "INVENTED-LOGIN-SESSION",
+      "userId": "00000000-0000-4000-8000-000000000001",
+      "expiresAt": "2027-01-01T00:00:00.000Z",
+      "createdAt": "2026-11-01T00:00:00.000Z"
+    }
+  ]
+}
