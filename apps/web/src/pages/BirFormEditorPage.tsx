@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchBirForm } from "../lib/api";
 import { ErrorState, Skeleton } from "../components/ui";
+import { FilingHistory } from "../components/birform/UndoFiling";
 import BirForm2551QEditor from "./BirForm2551QEditor";
 import BirForm2550QEditor from "./BirForm2550QEditor";
 import BirForm1701QEditor from "./BirForm1701QEditor";
@@ -60,7 +61,13 @@ export default function BirFormEditorPage() {
   const editorKey = isNew
     ? `new:${form}:${params.get("correctFrom") ?? ""}`
     : `${id}:${existing.data?.status ?? ""}`;
-  return <Fragment key={editorKey}>{editorFor(form)}</Fragment>;
+  return (
+    <>
+      <Fragment key={editorKey}>{editorFor(form)}</Fragment>
+      {/* W22: the filings taken back stay on the return (every form, draft or filed). */}
+      {existing.data ? <FilingHistory detail={existing.data} /> : null}
+    </>
+  );
 }
 
 function editorFor(form: string | undefined) {

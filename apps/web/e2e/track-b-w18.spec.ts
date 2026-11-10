@@ -324,6 +324,9 @@ async function mockApi(
         ]),
     ],
     ["GET", /^\/api\/v1\/bir-forms\/catalog$/, (r) => json(r, [])],
+    // W22: the card of a return filed without the email asks the client's list of returns
+    // whether an amendment names it (for Undo filing). These tests are not about that.
+    ["GET", /^\/api\/v1\/bir-forms$/, (r) => json(r, [])],
     ["POST", /^\/api\/v1\/bir-forms\/compute$/, (r) => json(r, {})],
     [
       "GET",

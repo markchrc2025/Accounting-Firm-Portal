@@ -868,7 +868,8 @@ test.describe("T4 W5's loose ends, and no missing asset (hermetic)", () => {
       const notAnAsset =
         (kind === "image" || kind === "font") &&
         !/^(image|font)\/|octet-stream/.test(type);
-      if (res.status() === 404 || notAnAsset)
+      // A 304 is the browser re-checking a file it already has: not a missing file.
+      if (res.status() === 404 || (notAnAsset && res.status() !== 304))
         missing.push(`${res.url()} → ${res.status()} ${type}`);
     });
     // A request the page itself cancelled (net::ERR_ABORTED — an image whose

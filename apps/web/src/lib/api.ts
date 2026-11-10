@@ -1090,6 +1090,8 @@ export interface BirFormDetail extends BirFormSummary {
   confirmation?: BirFormConfirmation | null;
   /** U18 (W18): whether this form needs a BIR confirmation to be marked filed. */
   confirmationRequired?: boolean;
+  /** U22 (W22): the filings taken back, oldest first; [] if none. Every read carries it. */
+  filingUndos?: FilingUndo[];
   data: Record<string, unknown>;
   /** Present once a form is filed under U3; null on rows filed before it. */
   filedSnapshot?: BirFiledSnapshot | null;
@@ -1123,6 +1125,17 @@ export interface BirFormConfirmation {
   filedWithoutConfirmation: boolean;
   uploadedByUserId: string | null;
   uploadedAt: string;
+}
+/** U22 (W22): one filing that was taken back (kept as history, never deleted). */
+export interface FilingUndo {
+  id: string;
+  /** Why it was undone (at least 10 characters). */
+  reason: string;
+  filedAt: string;
+  undoneAt: string;
+  undoneByUserId: string | null;
+  /** The override reason the undone filing had been made with. */
+  overrideReason: string | null;
 }
 export type ConfirmationCheckStatus = "ok" | "error" | "warning" | "skipped";
 /** One of the nine checks, in the API's order (1 to 9). */
@@ -1197,6 +1210,14 @@ export function markBirFormFiled(
     confirmationForm(opts),
     "Could not mark the form as filed",
   );
+}
+/** U22: take back a filing made WITHOUT the BIR email (a Super Admin's). Answers the
+ *  return as a draft with its `filingUndos`. 403/400/409/404 carry the server's sentence. */
+export function undoBirFormFiling(id: string, reason: string): Promise<BirFormDetail> {
+  return apiFetch<BirFormDetail>(`/bir-forms/${encodeURIComponent(id)}/undo-filing`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
 }
 /** U18: attach the confirmation to a return that is already filed; `replace` is a
  *  Super Admin's. */
