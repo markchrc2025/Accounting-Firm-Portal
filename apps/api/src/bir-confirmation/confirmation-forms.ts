@@ -59,6 +59,12 @@ export const MESSAGES = {
     "Only a Super Admin can file a return without the BIR confirmation.",
   bothGiven: "Send the confirmation PDF or an override reason, not both.",
   shortReason: `Give the reason in at least ${MIN_REASON_LENGTH} characters.`,
+  undoSuperAdmin: "Only a Super Admin can undo a filing.",
+  undoNotAllowed:
+    "The filing can only be undone when it was marked filed without the BIR confirmation email. A return with an attached BIR email can never be undone; it is corrected by amending.",
+  undoAmended: "This return has an amendment, so its filing cannot be undone.",
+  undoneNotDeletable:
+    "This return was filed and the filing was undone. Its history is kept, so it cannot be deleted.",
   noFileKept: "This return has no BIR confirmation file.",
   uploadFailed: "The confirmation could not be saved. Try again.",
   noStorage: "File storage isn't set up, so the confirmation can't be kept.",

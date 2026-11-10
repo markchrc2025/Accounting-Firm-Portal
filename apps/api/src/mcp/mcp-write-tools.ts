@@ -27,6 +27,11 @@ import {
 import type { IncomeTransactionsService } from "../income-transactions/income-transactions.service";
 import type { InvoicesService } from "../invoices/invoices.service";
 import { CreateInvoiceSchema, UpdateInvoiceSchema } from "../invoices/dto/invoice.schemas";
+import {
+  CONTACT_MUST_BE_11,
+  normalisedContact,
+  validContact,
+} from "../bir-forms/engine/contact-number";
 import type { PurchaseTransactionsService } from "../purchase-transactions/purchase-transactions.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import {
@@ -120,7 +125,7 @@ const clientProfileFields = {
     .describe("First day of the client's fiscal year, e.g. 2025-07-01 for a June year-end. Omit for a calendar-year client."),
   email: z.string().email().optional().describe("Contact email"),
   phone: z.string().max(40).optional().describe(
-    "Contact number (landline or mobile; 12 digits at most). A BIR return is not exported, previewed or marked filed without one.",
+    "Contact number as 11 digits, like 09171234567 (spaces, dashes and +63 are accepted and kept as 11 digits). A BIR return is not exported, previewed or marked filed without one.",
   ),
   citizenship: z.string().max(80).optional().describe('Citizenship, e.g. "Filipino"'),
   civilStatus: z.string().max(40).optional().describe('Civil status, e.g. "Single"'),
@@ -486,6 +491,14 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
           if ("error" in tinCheck) return fail(tinCheck.error);
           tin = tinCheck.tin;
         }
+        // U22: eBIRForms takes a contact number only as 11 digits; a wrong value is refused
+        // here (a number already on a client is never refused on save), a good one is kept
+        // as the 11 digits. An empty value clears it.
+        let phone: string | undefined;
+        if (patch.phone !== undefined && patch.phone.trim() !== "") {
+          if (!validContact(patch.phone)) return fail(CONTACT_MUST_BE_11);
+          phone = normalisedContact(patch.phone);
+        }
         const coupling = checkBillingCoupling(patch, existing);
         if (coupling) return fail(coupling);
         if (patch.billingParentId) {
@@ -496,6 +509,7 @@ export function registerWriteTools(server: McpServer, deps: McpWriteDeps): void 
         const input = parseDto(UpdateClientSchema, {
           ...rest,
           ...(tin !== undefined ? { tin } : {}),
+          ...(phone !== undefined ? { phone } : {}),
           ...(taxType !== undefined ? { taxType: taxType ?? "" } : {}),
         });
         const row = await clients.update(actor, clientId, input);

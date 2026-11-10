@@ -16,11 +16,14 @@
  * T5  The connector lists the need for each form and it clears after portal_update_client.
  */
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { FakeStorage, fileWithConfirmation } from "../helpers/file-return";
 import { loadAtcReference } from "./helpers/atc-reference";
+import { BIR_PDF, loadMap, overlay, printed, readPdfText } from "./helpers/pdf-text";
 import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
 import { TokenService } from "../../src/auth/token.service";
@@ -36,6 +39,8 @@ const ACCEPT = "application/json, text/event-stream";
 const SECRET = `${TAG}-connector-secret-0123456789abcdef`;
 const SENTENCE =
   "Add the client's contact number before this return leaves the Portal. eBIRForms will not submit a return without one.";
+const MUST_BE_11 =
+  "The client's contact number must be 11 digits, like 09171234567. eBIRForms accepts no other form.";
 const PRINTED_NOT_XML = "This form is printed; eBIRForms XML is not available for it.";
 
 /** form, period, which client, and whether the Portal exports it as XML. */
@@ -74,7 +79,11 @@ const D0619E = {
   previouslyRemitted: "0",
 };
 
-type ToolResult = { structuredContent?: Record<string, unknown> };
+type ToolResult = {
+  isError?: boolean;
+  content?: { type: string; text: string }[];
+  structuredContent?: Record<string, unknown>;
+};
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the tests read tool JSON
 type Json = Record<string, any>;
 
@@ -179,6 +188,18 @@ describe("U21 · the contact number is required before a return leaves the Porta
     return decodeURIComponent(m[1]!);
   };
 
+  /** The contact number a stored 2551Q clear copy prints in Item 10. */
+  async function printedContact(exportId: string) {
+    const row = await db.birFormExport.findUniqueOrThrow({ where: { id: exportId } });
+    const map = loadMap("2551Q-2018-01.json");
+    const blank = readFileSync(join(BIR_PDF, "templates", map.template));
+    const [copy, template] = readPdfText(
+      storage.objects.get(row.storageKey)!.body,
+      blank,
+    );
+    const field = map.fields.find((f) => f.key === "frm2551Qv2018:telNo")!;
+    return printed(overlay(copy!, template!), field);
+  }
   async function call(name: string, args: Record<string, unknown>) {
     const res = await http()
       .post(`${API}/mcp/${SECRET}`)
@@ -267,12 +288,23 @@ describe("U21 · the contact number is required before a return leaves the Porta
       },
     );
 
-    it("a number made only of separators or letters is as blank as none", async () => {
-      for (const phone of ["-", "( ) + .", "n/a", ""]) {
+    it("a number of only separators is as blank as none; letters or a wrong length get the 11-digit sentence", async () => {
+      for (const [phone, sentence] of [
+        ["-", SENTENCE],
+        ["", SENTENCE],
+        ["( ) . ", SENTENCE],
+        ["( ) + .", MUST_BE_11],
+        ["n/a", MUST_BE_11],
+        ["0917 123 456", MUST_BE_11],
+        ["0917 123 45678", MUST_BE_11],
+      ] as const) {
         const c = await newClient("ind", phone, "000555999");
         const id = await draft(c.id, "2551Q", "2026-Q3", D2551Q);
-        const ex = await exportXml(id);
-        expect([phone, ex.status, ex.body.message]).toEqual([phone, 409, SENTENCE]);
+        for (const res of [await exportXml(id), await preview(id)]) {
+          expect([phone, res.status, res.body.message]).toEqual([phone, 409, sentence]);
+        }
+        const mf = await markFiled(id, "2551Q");
+        expect([phone, mf.status, mf.body.message]).toEqual([phone, 409, sentence]);
       }
     });
   });
@@ -333,31 +365,73 @@ describe("U21 · the contact number is required before a return leaves the Porta
 
       const ex = await exportXml(id);
       expect(ex.status).toBe(201);
+      // the XML and the snapshot carry the 11 digits, not what was typed
       expect(exported(storedXml(id, ex.body.filename), "frm2551Qv2018:telNo")).toBe(
-        "0917 123 4567",
+        "09171234567",
       );
       expect((await preview(id)).status).toBe(200);
       const mf = await markFiled(id, "2551Q");
       expect(mf.status).toBe(200);
       const row = await db.birForm.findUniqueOrThrow({ where: { id } });
-      expect((row.filedSnapshotJson as Json).phone).toBe("0917 123 4567");
-      expect((await clearCopy(id)).status).toBe(201);
+      expect((row.filedSnapshotJson as Json).phone).toBe("09171234567");
+      // the client's own record is left as it was typed
+      expect((await db.client.findUniqueOrThrow({ where: { id: c.id } })).phone).toBe(
+        "0917 123 4567",
+      );
+      const cc = await clearCopy(id);
+      expect(cc.status).toBe(201);
+      expect(await printedContact(cc.body.id)).toBe("09171234567");
     });
 
-    it("more than 12 digits is refused in the print engine's own words, naming the item; 12 is not", async () => {
-      const c = await newClient("ind", "0917 123 4567 8901", "000555444");
+    it.each([
+      ["0917 123 4567", "09171234567"],
+      ["0917-123-4567", "09171234567"],
+      ["(0917) 123-4567", "09171234567"],
+      ["+639171234567", "09171234567"],
+      ["639171234567", "09171234567"],
+      ["09171234567", "09171234567"],
+    ])("%s is written as %s in the XML and on the print", async (typed, plain) => {
+      const c = await newClient("ind", typed, "000555445");
       const id = await draft(c.id, "2551Q", "2026-Q3", D2551Q);
-      const sentence =
-        '2551Q 2018-01 frm2551Qv2018:telNo (item 10): "0917 123 4567 8901" is 15 characters but the paper has 12 boxes';
-      for (const res of [await exportXml(id), await preview(id)]) {
-        expect([res.status, res.body.message]).toEqual([409, sentence]);
+      const ex = await exportXml(id);
+      expect(ex.status).toBe(201);
+      expect(exported(storedXml(id, ex.body.filename), "frm2551Qv2018:telNo")).toBe(
+        plain,
+      );
+      expect((await preview(id)).status).toBe(200);
+    });
+
+    it("10 digits, 12 digits and letters are refused with the 11-digit sentence on the four actions; a fixed number clears them", async () => {
+      const c = await newClient("ind", "0917 123 456", "000555444");
+      const id = await draft(c.id, "2551Q", "2026-Q3", D2551Q);
+      for (const bad of ["0917 123 456", "0917 123 45678", "0917 abc 4567"]) {
+        await db.client.update({ where: { id: c.id }, data: { phone: bad } });
+        for (const res of [await exportXml(id), await preview(id)]) {
+          expect([bad, res.status, res.body.message]).toEqual([bad, 409, MUST_BE_11]);
+        }
+        expect((await markFiled(id, "2551Q")).body.message).toBe(MUST_BE_11);
       }
-      expect((await markFiled(id, "2551Q")).body.message).toBe(sentence);
+      // a filed return with no snapshot reads the live client, so its clear copy is refused too
+      const old = await filedRow(c.id, "2551Q", "2025-Q3", D2551Q, null);
+      const cc = await clearCopy(old.id);
+      expect([cc.status, cc.body.message]).toEqual([409, MUST_BE_11]);
       await db.client.update({
         where: { id: c.id },
         data: { phone: "+63 917 123 4567" },
       });
       expect((await exportXml(id)).status).toBe(201);
+      expect((await clearCopy(old.id)).status).toBe(201);
+    });
+
+    it("saving a client is never refused for its number: only a return leaving the Portal is", async () => {
+      const c = await newClient("ind", null, "000555446");
+      for (const phone of ["abc", "12345", "0917 123 4567 8901", "+63"]) {
+        const res = await as(http().patch(`${API}/clients/${c.id}`)).send({ phone });
+        expect([phone, res.status]).toEqual([phone, 200]);
+        expect((await db.client.findUniqueOrThrow({ where: { id: c.id } })).phone).toBe(
+          phone,
+        );
+      }
     });
   });
 
@@ -380,6 +454,20 @@ describe("U21 · the contact number is required before a return leaves the Porta
         data: { phone: "0918 000 0000" },
       });
       expect((await preview(untyped)).status).toBe(200);
+
+      // the print carries the 11 digits, not the +63 form that was typed
+      const plus = await draft(none.id, "0619E", "2026-07", {
+        ...D0619E,
+        month: "07",
+        contact: "+63 917 000 0000",
+      });
+      const pv = await preview(plus);
+      expect(pv.status).toBe(200);
+      const map = loadMap("0619E-2018-01.json");
+      const blank = readFileSync(join(BIR_PDF, "templates", map.template));
+      const [copy, template] = readPdfText(new Uint8Array(pv.body), blank);
+      const field = map.fields.find((f) => f.key === "f0619E:contact")!;
+      expect(printed(overlay(copy!, template!), field)).toBe("09170000000");
     });
   });
 
@@ -417,13 +505,55 @@ describe("U21 · the contact number is required before a return leaves the Porta
           clientId: c.id,
           phone: "0917 123 4567",
         });
-        expect((upd as { isError?: boolean }).isError).toBeFalsy();
+        expect(upd.isError).toBeFalsy();
+        // the connector keeps the 11 digits
         expect((await db.client.findUniqueOrThrow({ where: { id: c.id } })).phone).toBe(
-          "0917 123 4567",
+          "09171234567",
         );
         expect((await ask()).map((n) => n.key)).not.toContain("client.contactNumber");
       },
     );
+
+    it("a number that is set but not valid is a need, asked as 11 digits; portal_update_client refuses a wrong value with the same sentence", async () => {
+      const c = await newClient("ind", "0917 123 456", "000555778");
+      const ask = async () =>
+        (
+          j(
+            await call("portal_bir_form_requirements", {
+              clientId: c.id,
+              formCode: "2551Q",
+              year: 2026,
+              quarter: 3,
+            }),
+          ).needs as Array<{ key: string; question: string; setWith: string }>
+        ).find((n) => n.key === "client.contactNumber");
+      expect(await ask()).toMatchObject({
+        question:
+          "What is the client's contact number as 11 digits (for example 09171234567)?",
+        setWith: "portal_update_client field phone",
+      });
+      for (const bad of ["0917 123 456", "abc", "0917 123 45678", "+63 917 123 456"]) {
+        const res = await call("portal_update_client", { clientId: c.id, phone: bad });
+        expect([bad, res.isError, res.content?.[0]?.text]).toEqual([
+          bad,
+          true,
+          `Error: ${MUST_BE_11}`, // every connector tool error starts "Error: "
+        ]);
+      }
+      expect((await db.client.findUniqueOrThrow({ where: { id: c.id } })).phone).toBe(
+        "0917 123 456",
+      );
+      // +63 and spaces are accepted and kept as 11 digits
+      const ok = await call("portal_update_client", {
+        clientId: c.id,
+        phone: "+63 917 123 4567",
+      });
+      expect(ok.isError).toBeFalsy();
+      expect((await db.client.findUniqueOrThrow({ where: { id: c.id } })).phone).toBe(
+        "09171234567",
+      );
+      expect(await ask()).toBeUndefined();
+    });
 
     it("a withholding draft with a typed number does not ask; one without still does", async () => {
       const c = await newClient("corp", null, "000555777");

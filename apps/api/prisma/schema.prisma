@@ -90,6 +90,7 @@ model Firm {
   birForms           BirForm[]
   receiptScans       ReceiptScan[]
   birFormConfirmations BirFormConfirmation[]
+  birFormFilingUndos   BirFormFilingUndo[]
 
   @@map("firms")
 }
@@ -222,6 +223,7 @@ model User {
   @@index([firmId])
   receiptScans ReceiptScan[]
   birFormConfirmations BirFormConfirmation[]
+  birFormFilingUndos   BirFormFilingUndo[]
 
   @@map("users")
 }
@@ -705,6 +707,7 @@ model BirForm {
   amendedBy BirForm?        @relation("BirFormAmendment")
   exports   BirFormExport[]
   confirmations BirFormConfirmation[]
+  filingUndos   BirFormFilingUndo[]
 
   @@index([firmId])
   @@index([clientId])
@@ -763,6 +766,7 @@ model BirFormConfirmation {
   firm       Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
   birForm    BirForm @relation(fields: [birFormId], references: [id], onDelete: Cascade)
   uploadedBy User?   @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  undos      BirFormFilingUndo[]
 
   /// Nulls (an override has none) never collide, so these bind the e-mails only.
   @@unique([firmId, sha256])
@@ -1133,4 +1137,33 @@ model ReceiptScanRow {
   @@index([scanId])
   @@index([fileId])
   @@map("receipt_scan_rows")
+}
+
+/// U22 (D63) · a filing taken back. A return marked filed with the Super Admin's override
+/// (no BIR confirmation e-mail) can go back to a draft, through the database function
+/// bir_form_undo_filing and nothing else. This row keeps what the filing was: its date,
+/// its taxpayer snapshot (with the 1601-EQ's stored alphalist) and the override row. Rows
+/// are never updated or deleted; the form cannot be deleted while one exists.
+model BirFormFilingUndo {
+  id                String   @id @default(uuid()) @db.Uuid
+  firmId            String   @db.Uuid
+  birFormId         String   @db.Uuid
+  /// The override confirmation the filing rested on (kept, marked superseded).
+  confirmationId    String?  @db.Uuid
+  /// The filed date and snapshot as they stood.
+  filedAt           DateTime
+  filedSnapshotJson Json?
+  /// The override's own reason, copied for the history.
+  overrideReason    String?
+  undoneByUserId    String?  @db.Uuid
+  undoneAt          DateTime @default(now())
+  reason            String
+
+  firm         Firm                 @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  birForm      BirForm              @relation(fields: [birFormId], references: [id], onDelete: NoAction)
+  confirmation BirFormConfirmation? @relation(fields: [confirmationId], references: [id], onDelete: NoAction)
+  undoneBy     User?                @relation(fields: [undoneByUserId], references: [id], onDelete: SetNull)
+
+  @@index([birFormId])
+  @@map("bir_form_filing_undos")
 }

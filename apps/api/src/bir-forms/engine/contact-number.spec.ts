@@ -8,6 +8,7 @@ import {
   CONTACT_NUMBER_REQUIRED,
   contactNumberOf,
   contactRefusal,
+  normalisedContact,
   printRowsWithContact,
 } from "./contact-number";
 import type { FilingData, Taxpayer } from "./types";
@@ -16,6 +17,8 @@ import { clientNeeds, type ClientFacts } from "../../mcp/bir/needs";
 
 const SENTENCE =
   "Add the client's contact number before this return leaves the Portal. eBIRForms will not submit a return without one.";
+const MUST_BE_11 =
+  "The client's contact number must be 11 digits, like 09171234567. eBIRForms accepts no other form.";
 const TEN = [
   "2551Q",
   "2550Q",
@@ -41,33 +44,59 @@ describe("U21 · the contact number rule", () => {
   });
 
   it.each(TEN)("%s: a blank contact number is refused with the one sentence", (form) => {
-    for (const blank of ["", "   ", "-", "( ) - + .", "n/a"]) {
+    for (const blank of ["", "   ", "-", "( ) - .", " . . "]) {
       expect(contactRefusal(form, blank)).toBe(SENTENCE);
     }
   });
 
-  it.each(TEN)("%s: a number with separators or up to 12 digits will do", (form) => {
-    for (const ok of [
-      "09171234567",
-      "0917 123 4567",
-      "(02) 8123-4567",
-      "+63 917 123 4567",
-      "123456789012",
-    ]) {
-      expect(contactRefusal(form, ok)).toBeNull();
-    }
-  });
+  it.each(TEN)(
+    "%s: eleven digits, written plainly or with spaces, dashes, dots or brackets, will do",
+    (form) => {
+      for (const ok of [
+        "09171234567",
+        "0917 123 4567",
+        "0917-123-4567",
+        "(0917) 123-4567",
+        "0917.123.4567",
+        "+639171234567",
+        "639171234567",
+        "+63 917 123 4567",
+        "12345678901",
+      ]) {
+        expect([ok, contactRefusal(form, ok)]).toEqual([ok, null]);
+      }
+    },
+  );
 
-  it("more than 12 digits is refused in the print engine's own words, naming the item", () => {
-    expect(contactRefusal("0619E", "0917-123-4567-890")).toBe(
-      '0619E 2018-01 f0619E:contact (item contact): "0917-123-4567-890" is 14 characters but the paper has 12 boxes',
-    );
-    expect(contactRefusal("2551Q", "1234567890123")).toBe(
-      '2551Q 2018-01 frm2551Qv2018:telNo (item 10): "1234567890123" is 13 characters but the paper has 12 boxes',
-    );
-    expect(contactRefusal("1701Q", "1234567890123")).toBe(
-      '1701Q contact number: "1234567890123" is 13 characters but the paper has 12 boxes',
-    );
+  it.each(TEN)(
+    "%s: anything but eleven digits is refused with the 11-digit sentence",
+    (form) => {
+      for (const bad of [
+        "0917123456", // 10 digits
+        "091712345678", // 12 digits
+        "0917abc4567",
+        "n/a",
+        "0917 123 4567 8901",
+        "+0917 123 4567", // a plus is only the +63 form
+        "+63 917 123 456", // 9 digits after 63
+        "6391712345678", // 11 digits after 63
+        "(02) 8123-4567", // a landline is 10 digits
+      ]) {
+        expect([bad, contactRefusal(form, bad)]).toEqual([bad, MUST_BE_11]);
+      }
+    },
+  );
+
+  it("normalising: separators dropped; +63 or 63 and ten digits become 0 and those ten; anything else as typed", () => {
+    expect(normalisedContact("0917 123 4567")).toBe("09171234567");
+    expect(normalisedContact("(0917) 123-4567")).toBe("09171234567");
+    expect(normalisedContact("+63 917-123-4567")).toBe("09171234567");
+    expect(normalisedContact("639171234567")).toBe("09171234567");
+    expect(normalisedContact("09171234567")).toBe("09171234567");
+    expect(normalisedContact("63917123456")).toBe("63917123456"); // 11 digits: as typed
+    expect(normalisedContact("n/a")).toBe("n/a");
+    expect(normalisedContact("+0917")).toBe("+0917");
+    expect(normalisedContact("   ")).toBe("");
   });
 
   it("the table of items is the print maps' own (keys and item numbers)", () => {
@@ -168,11 +197,19 @@ describe("U21 · the connector's need", () => {
     ).toBeDefined();
   });
 
-  it("a number the paper cannot carry is a need that says so", () => {
-    const n = need("2551Q", { ...FULL, phone: "1234567890123" })!;
-    expect(n.question).toContain("is 13 characters but the paper has 12 boxes");
-    expect(n.question).toContain("What is the client's contact number");
-    expect(n.setWith).toBe("portal_update_client field phone");
+  it("a number that is set but not 11 digits is a need too, asked as 11 digits", () => {
+    for (const phone of ["1234567890123", "0917 123 456", "n/a", "(02) 8123-4567"]) {
+      expect(need("2551Q", { ...FULL, phone })).toEqual({
+        key: "client.contactNumber",
+        question:
+          "What is the client's contact number as 11 digits (for example 09171234567)?",
+        why: expect.stringContaining("eBIRForms"),
+        setWith: "portal_update_client field phone",
+        kind: "text",
+      });
+    }
+    // a number written with spaces or +63 is fine as it is
+    expect(need("2551Q", { ...FULL, phone: "+63 917 123 4567" })).toBeUndefined();
   });
 
   it("the certificates have none", () => {
