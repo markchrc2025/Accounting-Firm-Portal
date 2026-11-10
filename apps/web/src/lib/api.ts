@@ -1319,6 +1319,36 @@ export async function previewBirFormPdf(id: string): Promise<{ blob: Blob; filen
     filename: dispositionFilename(res.headers.get("Content-Disposition"), "preview-DRAFT.pdf"),
   };
 }
+/**
+ * U23 (W23): the Preview PDF of the editor's UNSAVED data, for the live pane. The body is the
+ * editor's WHOLE data object (the route replaces, it does not merge). Saves nothing. A 409
+ * carries `refusals` in its body, a 400 carries `errors`, a 429 its sentence; all are thrown
+ * with the body kept. `signal` cancels it when a newer request starts.
+ */
+export async function previewBirFormLive(
+  id: string,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}/bir-forms/${encodeURIComponent(id)}/preview`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ data }),
+    signal,
+  });
+  if (!res.ok) throw await errorFrom(res, "Could not load the preview");
+  return res.blob();
+}
+/** W23: the bytes of a signed link (a filed return's clear copy), to show inline. */
+export async function fetchSignedPdf(url: string, signal?: AbortSignal): Promise<Blob> {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new ApiError(res.status, `Could not load the preview (${res.status})`);
+  return res.blob();
+}
 /** U15 (W16): what the Portal's books say for one quarter of one return. Whole
  *  pesos. `figures` is keyed by the draft's own data keys; `lines` say where
  *  each figure came from, with the filter that lists exactly those records. */

@@ -1,0 +1,300 @@
+[
+  {
+    "coverage_id": "src%2Fsample%2Froute1.ts%23POST%20%2Fsample%2F1::src%2Fsample%2Fauthz.ts%23check1::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route1.ts#POST /sample/1",
+      "boundary": "src/sample/authz.ts#check1",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 1",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route1.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-1",
+    "reviewed_paths": ["src/sample/route1.ts"],
+    "local_checks": [
+      {
+        "method": "source",
+        "agent_id": "hunter-1",
+        "reviewed_paths": ["src/sample/route1.ts"],
+        "artifact": null,
+        "command": null,
+        "invariant": "The handler checks ownership.",
+        "result": "Read the handler."
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute2.ts%23POST%20%2Fsample%2F2::src%2Fsample%2Fauthz.ts%23check2::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route2.ts#POST /sample/2",
+      "boundary": "src/sample/authz.ts#check2",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 2",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route2.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-1",
+    "reviewed_paths": ["src/sample/route2.ts"],
+    "local_checks": [
+      {
+        "method": "source",
+        "agent_id": "hunter-1",
+        "reviewed_paths": ["src/sample/route2.ts"],
+        "artifact": null,
+        "command": null,
+        "invariant": "The handler checks ownership.",
+        "result": "Read the handler."
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute3.ts%23POST%20%2Fsample%2F3::src%2Fsample%2Fauthz.ts%23check3::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route3.ts#POST /sample/3",
+      "boundary": "src/sample/authz.ts#check3",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 3",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route3.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-1",
+    "reviewed_paths": ["src/sample/route3.ts"],
+    "local_checks": [
+      {
+        "method": "source",
+        "agent_id": "hunter-1",
+        "reviewed_paths": ["src/sample/route3.ts"],
+        "artifact": null,
+        "command": null,
+        "invariant": "The handler checks ownership.",
+        "result": "Read the handler."
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute4.ts%23POST%20%2Fsample%2F4::src%2Fsample%2Fauthz.ts%23check4::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route4.ts#POST /sample/4",
+      "boundary": "src/sample/authz.ts#check4",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 4",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route4.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "candidate",
+    "agent_id": "hunter-1",
+    "reviewed_paths": ["src/sample/route4.ts"],
+    "local_checks": [
+      {
+        "method": "source",
+        "agent_id": "hunter-1",
+        "reviewed_paths": ["src/sample/route4.ts"],
+        "artifact": null,
+        "command": null,
+        "invariant": "The handler checks ownership.",
+        "result": "Read the handler."
+      }
+    ],
+    "result_fingerprints": ["api-high-missing-ownership-check"],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute5.ts%23POST%20%2Fsample%2F5::src%2Fsample%2Fauthz.ts%23check5::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route5.ts#POST /sample/5",
+      "boundary": "src/sample/authz.ts#check5",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 5",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route5.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "blocked",
+    "agent_id": "hunter-1",
+    "reviewed_paths": ["src/sample/route5.ts"],
+    "local_checks": [
+      {
+        "method": "source",
+        "agent_id": "hunter-1",
+        "reviewed_paths": ["src/sample/route5.ts"],
+        "artifact": null,
+        "command": null,
+        "invariant": "The handler checks ownership.",
+        "result": "Read the handler."
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": ["The proxy setting is not in the repository."]
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute6.ts%23POST%20%2Fsample%2F6::src%2Fsample%2Fauthz.ts%23check6::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route6.ts#POST /sample/6",
+      "boundary": "src/sample/authz.ts#check6",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 6",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route6.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "deferred",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": ["Left for a later wave."]
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute7.ts%23POST%20%2Fsample%2F7::src%2Fsample%2Fauthz.ts%23check7::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route7.ts#POST /sample/7",
+      "boundary": "src/sample/authz.ts#check7",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 7",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route7.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "out_of_scope",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": ["Outside the scoped paths."]
+  },
+  {
+    "coverage_id": "src%2Fsample%2Froute8.ts%23POST%20%2Fsample%2F8::src%2Fsample%2Fauthz.ts%23check8::packages%2Fapi::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/sample/route8.ts#POST /sample/8",
+      "boundary": "src/sample/authz.ts#check8",
+      "subsystem": "packages/api",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Sample route 8",
+    "boundary": "Ownership",
+    "subsystem": "API",
+    "attack_class": "Access control",
+    "starting_paths": ["src/sample/route8.ts"],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [],
+    "excluded_blocks": [
+      {
+        "block": "WEB-PROTOCOL-AND-AUTH.md#Cache behavior",
+        "reason": "The route is not cached."
+      }
+    ],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "planned",
+    "agent_id": null,
+    "reviewed_paths": [],
+    "local_checks": [],
+    "result_fingerprints": [],
+    "unresolved": []
+  }
+]
