@@ -28,6 +28,7 @@ interface Entry {
   crc: number;
   method: number;
   flags: number;
+  localFlags: number;
 }
 function readZip(bytes: Uint8Array): Entry[] {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -47,6 +48,7 @@ function readZip(bytes: Uint8Array): Entry[] {
     const local = v.getUint32(at + 42, true);
     const name = dec.decode(bytes.subarray(at + 46, at + 46 + nameLen));
     expect(v.getUint32(local, true)).toBe(0x04034b50);
+    const localFlags = v.getUint16(local + 6, true);
     const lNameLen = v.getUint16(local + 26, true);
     const start = local + 30 + lNameLen;
     out.push({
@@ -55,6 +57,7 @@ function readZip(bytes: Uint8Array): Entry[] {
       crc,
       method,
       flags,
+      localFlags,
     });
     at += 46 + nameLen;
   }
@@ -82,7 +85,8 @@ describe("PB3 zip", () => {
     for (const [i, e] of read.entries()) {
       expect(e.crc).toBe(crc32(new TextEncoder().encode(files[i]!.content)));
       expect(e.method).toBe(0);
-      expect(e.flags & 0x0800).toBe(0x0800); // names are UTF-8
+      expect(e.flags & 0x0800).toBe(0x0800); // names are UTF-8, in the directory
+      expect(e.localFlags & 0x0800).toBe(0x0800); // and in the file's own header
     }
   });
 
