@@ -14,5 +14,6 @@ export function useInvalidateProject(projectKey: string) {
     void qc.invalidateQueries({ queryKey: ["projects", "board", projectKey] });
     void qc.invalidateQueries({ queryKey: ["projects", "roadmap", projectKey] });
     void qc.invalidateQueries({ queryKey: ["projects", "my-work"] });
+    void qc.invalidateQueries({ queryKey: ["projects", "sessions", projectKey] });
   };
 }

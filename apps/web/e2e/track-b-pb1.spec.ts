@@ -308,6 +308,7 @@ const overview = (w: World, p: World["projects"][number]) => {
   }));
   return {
     security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
+    recentSessions: [], // PB5
     project: projectDto(p),
     status: {
       value: updates[0]?.status ?? "NOT_STARTED",

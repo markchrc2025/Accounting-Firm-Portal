@@ -139,6 +139,7 @@ const projectDto = {
 };
 const overview = {
   security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
+  recentSessions: [], // PB5
   project: projectDto,
   status: { value: "ON_TRACK", note: "", updatedAt: null },
   statusUpdates: [],

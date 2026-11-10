@@ -35,10 +35,11 @@ import { IssuesTab } from "./IssuesTab";
 import { MilestonesTab } from "./MilestonesTab";
 import { OverviewTab } from "./OverviewTab";
 import { SecurityTab } from "./SecurityTab";
+import { SessionsTab } from "./SessionsTab";
 import { ImportChecklistDialog } from "./ImportChecklistDialog";
 
 export type ProjectTab =
-  "overview" | "issues" | "issue" | "board" | "milestones" | "security" | "activity";
+  "overview" | "issues" | "issue" | "board" | "milestones" | "sessions" | "security" | "activity";
 
 export default function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { key = "", issueKey = "" } = useParams<{ key: string; issueKey: string }>();
@@ -94,6 +95,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
     { id: "issues", label: "Issues", to: projectPath(key, "issues") },
     { id: "board", label: "Board", to: projectPath(key, "board") },
     { id: "milestones", label: "Milestones", to: projectPath(key, "milestones") },
+    { id: "sessions", label: "Sessions", to: projectPath(key, "sessions") },
     { id: "security", label: "Security", to: projectPath(key, "security") },
     { id: "activity", label: "Activity", to: projectPath(key, "activity") },
   ];
@@ -171,6 +173,7 @@ export default function ProjectPage({ tab }: { tab: ProjectTab }) {
       {tab === "milestones" ? (
         <MilestonesTab projectKey={key} canWrite={can.update} />
       ) : null}
+      {tab === "sessions" ? <SessionsTab projectKey={key} /> : null}
       {tab === "security" ? <SecurityTab projectKey={key} can={can} /> : null}
       {tab === "activity" ? <ActivityTab projectKey={key} /> : null}
       {tab === "issue" ? (

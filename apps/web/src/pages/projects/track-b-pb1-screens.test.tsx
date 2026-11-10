@@ -745,6 +745,7 @@ const ACT = (
   actor: { id: "u-ana", fullName: "Ana Reyes" },
   channel: "web",
   changes: [{ field: "status", old: "New", new: "In progress" }],
+  session: null, // PB5
   createdAt: iso,
   ...over,
 });
@@ -885,6 +886,7 @@ describe("PB1 the milestones", () => {
 
 const OVERVIEW: ProjectOverview = {
   security: { state: "clear", open: 0, critical: 0, high: 0 }, // PB4
+  recentSessions: [], // PB5
   project: {
     id: "p1",
     key: "PAY",

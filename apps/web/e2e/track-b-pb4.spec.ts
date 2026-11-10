@@ -261,6 +261,7 @@ async function mockApi(
   const body = (s: Seen) => s.request.postDataJSON() as Record<string, unknown>;
   const overview = () => ({
     security: w.security,
+    recentSessions: [], // PB5
     project: projectDto,
     status: { value: "ON_TRACK", note: "", updatedAt: null },
     statusUpdates: [],
