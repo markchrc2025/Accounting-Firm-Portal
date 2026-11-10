@@ -179,3 +179,29 @@ export function diffFields(
 export function percent(done: number, total: number): number {
   return total === 0 ? 0 : Math.round((done / total) * 100);
 }
+
+/** A YYYY-MM-DD date moved by whole days. */
+export function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** The instant a Manila calendar day begins (00:00 in Asia/Manila, UTC+8). */
+export function manilaDayStart(day: string): Date {
+  return new Date(`${day}T00:00:00.000+08:00`);
+}
+
+/** How far back the Done columns of a board look: today and the 14 days before it, by Manila days. */
+export const DONE_WINDOW_DAYS = 14;
+export function doneSince(today: string): Date {
+  return manilaDayStart(addDays(today, -DONE_WINDOW_DAYS));
+}
+
+/** The kinds of notification the Projects module writes. */
+export const NOTIFICATION_KINDS = {
+  assigned: "project.issue.assigned",
+  commented: "project.issue.commented",
+  status: "project.issue.status",
+  closed: "project.issue.closed",
+} as const;

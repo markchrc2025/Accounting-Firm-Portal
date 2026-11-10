@@ -22,6 +22,8 @@ import { RequirePermissions } from "../common/decorators/require-permissions.dec
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import {
   ActivityQuerySchema,
+  BoardQuerySchema,
+  SearchQuerySchema,
   CommentSchema,
   CreateIssueSchema,
   CreateMilestoneSchema,
@@ -43,7 +45,10 @@ import {
 } from "./dto/projects.schemas";
 import { webActor } from "./projects.access";
 import { PROJECTS_PERMISSION as P } from "./projects.constants";
+import { BoardService } from "./board.service";
 import { IssuesService } from "./issues.service";
+import { MyWorkService } from "./my-work.service";
+import { SearchService } from "./search.service";
 import { MilestonesService } from "./milestones.service";
 import { ProjectsAdminService } from "./projects-admin.service";
 import { ProjectsService } from "./projects.service";
@@ -57,6 +62,8 @@ export class ProjectsConfigController {
   constructor(
     private readonly admin: ProjectsAdminService,
     private readonly issues: IssuesService,
+    private readonly myWork: MyWorkService,
+    private readonly searcher: SearchService,
   ) {}
 
   /** The lists a screen needs for its filters and forms: types, statuses, labels, assignable users. */
@@ -64,6 +71,23 @@ export class ProjectsConfigController {
   @RequirePermissions(P.read)
   meta(@CurrentUser() user: AuthUser) {
     return this.admin.meta(webActor(user));
+  }
+
+  /** My Work: my open issues, overdue issues, upcoming milestones and recent activity, across the projects I can see. */
+  @Get("my-work")
+  @RequirePermissions(P.read)
+  work(@CurrentUser() user: AuthUser) {
+    return this.myWork.myWork(webActor(user));
+  }
+
+  /** One search box: issues and projects; an exact issue key answers { jump }. */
+  @Get("search")
+  @RequirePermissions(P.read)
+  search(
+    @CurrentUser() user: AuthUser,
+    @Query(new ZodValidationPipe(SearchQuerySchema)) q: { q: string },
+  ) {
+    return this.searcher.search(webActor(user), q.q);
   }
 
   /** An issue key like PAY-12 turned into what a link needs (title, status, project). */
@@ -169,6 +193,7 @@ export class ProjectsController {
     private readonly projects: ProjectsService,
     private readonly issues: IssuesService,
     private readonly milestones: MilestonesService,
+    private readonly boards: BoardService,
   ) {}
 
   // ---- Projects ---------------------------------------------------------------------------
@@ -283,6 +308,25 @@ export class ProjectsController {
     b: Body<typeof UpdateMilestoneSchema>,
   ) {
     return this.milestones.update(webActor(user), key, id, b);
+  }
+
+  @Get(":key/roadmap")
+  @RequirePermissions(P.read)
+  roadmap(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.milestones.roadmap(webActor(user), key);
+  }
+
+  // ---- Board ------------------------------------------------------------------------------
+
+  /** The board: a column per status, cards by position; Done columns hold the last 14 days unless doneRange=all. */
+  @Get(":key/board")
+  @RequirePermissions(P.read)
+  board(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(BoardQuerySchema)) q: Body<typeof BoardQuerySchema>,
+  ) {
+    return this.boards.board(webActor(user), key, q);
   }
 
   // ---- Issues -----------------------------------------------------------------------------

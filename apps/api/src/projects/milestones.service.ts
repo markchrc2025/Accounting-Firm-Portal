@@ -64,6 +64,23 @@ export class MilestonesService {
     ];
   }
 
+  /**
+   * The roadmap: every milestone with what a bar needs (startDate, dueDate, percent done) and
+   * today in Manila; the milestones with neither date are listed apart, in `undated`.
+   */
+  async roadmap(actor: ProjectsActor, projectKey: string) {
+    const all = await this.list(actor, projectKey);
+    const when = (m: { startDate: string | null; dueDate: string | null }) =>
+      m.dueDate ?? m.startDate ?? "";
+    return {
+      today: manilaToday(),
+      dated: all
+        .filter((m) => m.startDate || m.dueDate)
+        .sort((a, b) => when(a).localeCompare(when(b)) || a.name.localeCompare(b.name)),
+      undated: all.filter((m) => !m.startDate && !m.dueDate),
+    };
+  }
+
   async create(
     actor: ProjectsActor,
     projectKey: string,
