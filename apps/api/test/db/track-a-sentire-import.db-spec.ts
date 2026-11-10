@@ -824,14 +824,12 @@ describe("PA5 · the Sentire Projects importer (real app over HTTP, db)", () => 
           status: "ACTIVE",
         },
       });
-      const token = app
-        .get(TokenService)
-        .signAccess({
-          id: clientUser.id,
-          firmId: firm.id,
-          userType: "CLIENT",
-          email: clientUser.email,
-        });
+      const token = app.get(TokenService).signAccess({
+        id: clientUser.id,
+        firmId: firm.id,
+        userType: "CLIENT",
+        email: clientUser.email,
+      });
       const res = await post(token, exportFor(firm.label));
       expect(res.status).toBe(403);
       expect((await snapshot(firm.id)).projects).toBe(0);

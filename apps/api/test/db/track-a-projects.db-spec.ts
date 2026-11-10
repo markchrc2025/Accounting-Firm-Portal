@@ -1010,6 +1010,7 @@ describe("PA1 · the Projects module core (real app over HTTP, db)", () => {
           "progress",
           "project",
           "recentActivity",
+          "recentSessions",
           "security",
           "status",
           "statusUpdates",
