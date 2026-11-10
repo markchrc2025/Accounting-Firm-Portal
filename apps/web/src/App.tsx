@@ -39,6 +39,7 @@ import UsersPage from "./pages/UsersPage";
 // Projects (PB1) loads on its own: the markdown libraries stay out of the main bundle.
 const MyWorkPage = lazy(() => import("./pages/projects/MyWorkPage"));
 const SearchPage = lazy(() => import("./pages/projects/SearchPage"));
+const ApiTokensPage = lazy(() => import("./pages/ApiTokensPage"));
 const ProjectsPage = lazy(() => import("./pages/projects/ProjectsPage"));
 const ProjectFormPage = lazy(() => import("./pages/projects/ProjectFormPage"));
 const ProjectsSettingsPage = lazy(() => import("./pages/projects/ProjectsSettingsPage"));
@@ -85,6 +86,8 @@ export default function App() {
         {/* Firm */}
         <Route path="/" element={<HomeRoute />} />
         <Route path="/profile" element={<ProfilePage />} />
+        {/* PB3: personal API tokens, reached from the profile page. */}
+        <Route path="/profile/tokens" element={<Later><ApiTokensPage /></Later>} />
         {/* Settings hub: Users & Roles, Documents, Integrations, Audit Log and
             Email & Senders live as tabs under /settings; old paths redirect. */}
         <Route path="/settings" element={<SettingsIndexRedirect />} />

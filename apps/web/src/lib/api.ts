@@ -8,6 +8,15 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:3000/api/v1";
 
+/**
+ * The origin (scheme, host and port, no path) of the API this web app talks to, for addresses a
+ * person copies into another tool (PB3). A relative base is read against the page's own origin.
+ */
+export function apiOrigin(): string {
+  const base = typeof window !== "undefined" ? window.location.href : "http://localhost/";
+  return new URL(API_BASE_URL, base).origin;
+}
+
 const TOKEN_KEY = "portal_token";
 
 export function getToken(): string | null {
