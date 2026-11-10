@@ -18,6 +18,7 @@ import {
 } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { GithubWebhookHelp } from "../../components/projects/GithubWebhookHelp";
+import { SentireImportPanel } from "./SentireImportPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   ColourChip,
@@ -94,6 +95,8 @@ export default function ProjectsSettingsPage() {
         <Section kind="labels" title="Labels" noun="label" canWrite={can.configure} />
         {/* PB4: only a Super Admin sees how to connect GitHub (the role that holds IntegrationClient:Update). */}
         {superAdmin ? <GithubWebhookHelp /> : null}
+        {/* PB5: the Sentire Projects import is for a Super Admin only. */}
+        {superAdmin ? <SentireImportPanel /> : null}
       </div>
     </div>
   );

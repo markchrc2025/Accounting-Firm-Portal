@@ -675,6 +675,7 @@ const WORK = (over: Partial<MyWork> = {}): MyWork => ({
       actor: { id: "u-ana", fullName: "Ana Reyes" },
       channel: "WEB",
       changes: [],
+      session: null, // PB5
       createdAt: "2026-11-10T16:30:00.000Z",
       project: { key: "PAY", name: "Payments" },
     },

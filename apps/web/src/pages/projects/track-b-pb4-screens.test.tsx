@@ -430,6 +430,7 @@ describe("PB4 the security badge", () => {
       openMilestones: [],
       inProgress: [],
       recentActivity: [],
+      recentSessions: [], // PB5
       lastActivityAt: null,
     }) as unknown as ProjectOverview;
 
@@ -735,6 +736,7 @@ describe("PB4 the checklist import", () => {
       openMilestones: [],
       inProgress: [],
       recentActivity: [],
+      recentSessions: [], // PB5
       lastActivityAt: null,
     });
     api.fetchProjectsMeta.mockResolvedValue({

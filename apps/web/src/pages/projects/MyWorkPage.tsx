@@ -7,6 +7,7 @@ import { Link, Navigate } from "react-router-dom";
 import { Card, EmptyState, ErrorState, PageHeader, Skeleton } from "../../components/ui";
 import { ErrorBanner, ProgressBar } from "../../components/projects/parts";
 import { IssueRows } from "../../components/projects/IssueRows";
+import { SessionLink } from "../../components/projects/SessionLink";
 import { ProjectsNav } from "../../components/projects/ProjectsNav";
 import { useProjectsCan } from "../../components/projects/useProjectsCan";
 import {
@@ -157,6 +158,7 @@ function Body({ w }: { w: MyWork }) {
                 {a.issueTitle ? (
                   <span className="text-content-secondary">{a.issueTitle}</span>
                 ) : null}
+                <SessionLink projectKey={a.project.key} session={a.session} />
                 <span className="font-mono text-[11px] text-content-secondary">
                   {a.project.name}
                 </span>
