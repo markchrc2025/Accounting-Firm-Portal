@@ -280,6 +280,7 @@ async function mockApi(
           regimeMix: { vat: 0, percentage: 0 },
         }),
     ],
+    ["GET", /^\/api\/v1\/projects$/, (r) => json(r, [])],
     ["GET", /^\/api\/v1\/projects\/meta$/, (r) => json(r, META)],
     ["GET", /^\/api\/v1\/projects\/PAY$/, (r) => json(r, overview)],
     // the board: columns in status order, cards by position, Done limited to the window
@@ -711,11 +712,13 @@ test.describe("PB2 where Projects lists go (hermetic)", () => {
     page,
   }) => {
     const w = world();
-    const { unmocked, dialogs } = await mockApi(page, w, { perms: ALL }, [
-      ["GET", /^\/api\/v1\/projects$/, (r) => json(r, [])],
-    ]);
+    const { unmocked, dialogs } = await mockApi(page, w);
     await page.goto("/projects/PAY/board");
-    await page.getByRole("link", { name: "Projects", exact: true }).first().click();
+    await page
+      .locator("main")
+      .getByRole("link", { name: "Projects", exact: true })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/projects\/all$/);
     await page.goto("/projects/new");
     await page.getByRole("button", { name: "Back" }).click();
