@@ -10,6 +10,7 @@
 // anything unmocked. All fixture data is invented.
 
 import { expect, test, type Download, type Page, type Route } from "@playwright/test";
+import { answerBell } from "./helpers/bell";
 import { readFileSync } from "node:fs";
 
 // ---------------------------------------------------------------------------
@@ -104,7 +105,7 @@ async function mockApi(page: Page, extra: Entry[] = []): Promise<string[]> {
     ["GET", /^\/api\/v1\/services$/, []],
     ...extra,
   ];
-  await page.route("**/api/v1/**", (route: Route) => {
+  await page.route("**/api/v1/**", async (route: Route) => {
     const req = route.request();
     const url = new URL(req.url());
     for (let i = table.length - 1; i >= 0; i--) {
@@ -117,6 +118,7 @@ async function mockApi(page: Page, extra: Entry[] = []): Promise<string[]> {
         });
       }
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${req.method()} ${url.pathname}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

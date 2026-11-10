@@ -12,6 +12,7 @@
 // All fixture data is invented. No real name, TIN, address, phone or email.
 
 import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { answerBell } from "./helpers/bell";
 import { certificateFileName } from "../src/lib/sheetPdf";
 import { ATC_TABLE } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
@@ -303,6 +304,7 @@ async function mockApi(
       const [m, re, h] = table[i]!;
       if (m === s.method && re.test(s.path)) return h(route, s);
     }
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(`${s.method} ${s.path}${url.search}`);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

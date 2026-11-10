@@ -5,6 +5,7 @@
 // HERMETIC BY CONSTRUCTION: every /api/v1 call is mocked and a catch-all FAILS the test on
 // any call that is not. All data is invented. No real name, TIN, address, phone or email.
 
+import { answerBell } from "./helpers/bell";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { mockAtcCodes } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
@@ -106,7 +107,8 @@ async function mockApi(page: Page, f?: ReturnType<typeof form>): Promise<string[
       contentType: "application/json",
       body: JSON.stringify(body),
     });
-  await page.route("**/api/v1/**", (r) => {
+  await page.route("**/api/v1/**", async (r) => {
+    if (await answerBell(r)) return; // PB2: the header bell
     unmocked.push(`${r.request().method()} ${new URL(r.request().url()).pathname}`);
     return r.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

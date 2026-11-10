@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { answerBell } from "./helpers/bell";
 import { certificateFileName } from "../src/lib/sheetPdf";
 import { mockAtcCodes } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
@@ -135,7 +136,8 @@ async function mockApi(page: Page): Promise<string[]> {
   // registration order — the last matching handler wins — so the specific
   // mocks below shadow it, and anything they do not cover lands here: it is an
   // unmocked API call, recorded and asserted against at the end of the test.
-  await page.route("**/api/v1/**", (r) => {
+  await page.route("**/api/v1/**", async (r) => {
+    if (await answerBell(r)) return; // PB2: the header bell
     unmocked.push(`${r.request().method()} ${new URL(r.request().url()).pathname}`);
     return r.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

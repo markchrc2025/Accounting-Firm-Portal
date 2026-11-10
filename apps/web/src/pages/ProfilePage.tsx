@@ -14,6 +14,10 @@ import {
 } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import {
+  fetchNotificationPreferences,
+  saveNotificationPreferences,
+} from "../lib/notifications";
+import {
   Button,
   Card,
   CardContent,
@@ -80,6 +84,7 @@ export default function ProfilePage() {
           {profile.data.userType === "FIRM" && (
             <LoginEmailCard profile={profile.data} />
           )}
+          <NotificationsCard />
           <SecurityCard profile={profile.data} />
         </div>
       )}
@@ -360,6 +365,77 @@ function DetailsCard({ profile }: { profile: Profile }) {
             <span className="text-[12.5px] font-semibold text-success">Saved</span>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------- Notifications card (PB2) */
+
+/** "Email me my notifications": the bell always lists them; this adds an email for each. */
+function NotificationsCard() {
+  const qc = useQueryClient();
+  const prefs = useQuery({
+    queryKey: ["notifications", "preferences"],
+    queryFn: fetchNotificationPreferences,
+  });
+  const [saved, setSaved] = useState(false);
+  const save = useMutation({
+    mutationFn: (emailEnabled: boolean) => saveNotificationPreferences(emailEnabled),
+    onSuccess: (p) => {
+      qc.setQueryData(["notifications", "preferences"], p);
+      setSaved(true);
+    },
+  });
+
+  useEffect(() => {
+    if (!saved) return;
+    const t = window.setTimeout(() => setSaved(false), 2500);
+    return () => window.clearTimeout(t);
+  }, [saved]);
+
+  return (
+    <Card>
+      <CardContent className="space-y-4">
+        <div className="eyebrow">Notifications</div>
+        <p className="text-[12.5px] leading-relaxed text-content-secondary">
+          The bell at the top of every page lists what needs you. Switch this on to get an
+          email as well, with a link to the item.
+        </p>
+        {prefs.isPending ? <Skeleton className="h-6 w-56 rounded-input" /> : null}
+        {prefs.isError ? (
+          <ErrorState
+            message="Could not load your notification setting."
+            onRetry={() => void prefs.refetch()}
+          />
+        ) : null}
+        {prefs.data ? (
+          <label className="flex items-center gap-2.5 text-[13.5px] text-content">
+            <input
+              type="checkbox"
+              checked={prefs.data.emailEnabled}
+              disabled={save.isPending}
+              onChange={(e) => {
+                setSaved(false);
+                save.mutate(e.target.checked);
+              }}
+            />
+            Email me my notifications
+          </label>
+        ) : null}
+        {save.isError && (
+          <div
+            role="alert"
+            className="rounded-input border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-[13px] text-danger-ink"
+          >
+            {errMessage(save.error, "Could not save your notification setting.")}
+          </div>
+        )}
+        {saved && !save.isPending && (
+          <span role="status" className="text-[12.5px] font-semibold text-success">
+            Saved
+          </span>
+        )}
       </CardContent>
     </Card>
   );

@@ -19,6 +19,7 @@ import {
   ProjectStatusChip,
   SuccessBanner,
 } from "../../components/projects/parts";
+import { ProjectsNav } from "../../components/projects/ProjectsNav";
 import { useProjectsCan } from "../../components/projects/useProjectsCan";
 import {
   dayText,
@@ -69,6 +70,7 @@ export default function ProjectsPage() {
           </>
         }
       />
+      <ProjectsNav />
       {notice ? <SuccessBanner className="mb-4">{notice}</SuccessBanner> : null}
 
       {q.isPending ? (

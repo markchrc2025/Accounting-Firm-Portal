@@ -10,6 +10,7 @@
  *   (iii) A no longer qualifies: "Issued by A on <date>." — no one acts, the
  *         refusal sentence and the advice.
  */
+import { answerBell } from "./helpers/bell";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const FIRM_ID = "22222222-2222-4222-8222-2222222222c1";
@@ -69,6 +70,7 @@ async function mockApi(page: Page, connector: Record<string, unknown>) {
     if (key === "GET /api/v1/integrations") return json(route, []);
     if (key === "GET /api/v1/clients") return json(route, []);
     if (key === "GET /api/v1/mcp-connector") return json(route, connector);
+    if (await answerBell(route)) return; // PB2: the header bell
     unmocked.push(key);
     return route.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });

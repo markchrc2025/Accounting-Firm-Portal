@@ -19,6 +19,7 @@ import {
   SuccessBanner,
 } from "../../components/projects/parts";
 import { useInvalidateProject } from "../../components/projects/useInvalidate";
+import { Roadmap } from "./Roadmap";
 import {
   createMilestone,
   dayText,
@@ -54,6 +55,7 @@ export function MilestonesTab({
         ) : null}
       </div>
       {notice ? <SuccessBanner className="mb-4">{notice}</SuccessBanner> : null}
+      <Roadmap projectKey={projectKey} />
       {q.isPending ? (
         <div className="space-y-3">
           <Skeleton />

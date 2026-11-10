@@ -7,6 +7,7 @@
 // reload really round-trip the data. All data is invented: no real name, TIN, address, phone
 // or email.
 
+import { answerBell } from "./helpers/bell";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { mockAtcCodes } from "./helpers/atc-codes";
 import { mockCertificatePrint } from "./helpers/certificate-print";
@@ -120,7 +121,8 @@ async function mockServer(page: Page, start: ReturnType<typeof certificate>) {
       contentType: "application/json",
       body: JSON.stringify(body),
     });
-  await page.route("**/api/v1/**", (r) => {
+  await page.route("**/api/v1/**", async (r) => {
+    if (await answerBell(r)) return; // PB2: the header bell
     unmocked.push(`${r.request().method()} ${new URL(r.request().url()).pathname}`);
     return r.fulfill({ status: 599, contentType: "application/json", body: "{}" });
   });
