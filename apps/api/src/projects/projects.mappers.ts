@@ -1,6 +1,7 @@
 // projects.mappers.ts — PA1 (D65): the shapes the API answers with. Dates are YYYY-MM-DD
 // (calendar dates) or ISO instants (moments); colours, categories and priorities are as stored.
 import type { Prisma } from "@prisma/client";
+import { feeText } from "./project-details";
 import { dayOf, isOverdue, manilaToday, percent } from "./projects.constants";
 
 export const ISSUE_INCLUDE = {
@@ -51,8 +52,9 @@ export function issueItem(i: IssueRow, today: string) {
 }
 
 export const PROJECT_INCLUDE = {
-  client: { select: { id: true, businessName: true } },
+  client: { select: { id: true, businessName: true, professionalFee: true } },
   parent: { select: { key: true, name: true } },
+  category: { select: { id: true, name: true, colour: true } },
 } satisfies Prisma.ProjectInclude;
 export type ProjectRow = Prisma.ProjectGetPayload<{ include: typeof PROJECT_INCLUDE }>;
 
@@ -68,6 +70,15 @@ export function projectDto(p: ProjectRow) {
     archived: p.archived,
     parent: p.parent ? { key: p.parent.key, name: p.parent.name } : null,
     client: p.client ? { id: p.client.id, businessName: p.client.businessName } : null,
+    // PA8 (D70): the client as the firm names it, the fee, and the category
+    clientName: p.clientName,
+    professionalFee: feeText(p.professionalFee),
+    // the listed client's own fee, offered when the project has none; never saved by itself
+    suggestedProfessionalFee:
+      p.professionalFee == null ? feeText(p.client?.professionalFee) : null,
+    category: p.category
+      ? { id: p.category.id, name: p.category.name, colour: p.category.colour }
+      : null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };

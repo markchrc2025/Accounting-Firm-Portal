@@ -92,6 +92,8 @@ model Firm {
   birFormConfirmations BirFormConfirmation[]
   birFormFilingUndos   BirFormFilingUndo[]
   projects             Project[]
+  projectCategories    ProjectCategory[]
+  projectOccurrences   ProjectOccurrence[]
   projectStatusUpdates ProjectStatusUpdate[]
   issueTypes           IssueType[]
   issueStatuses        IssueStatus[]
@@ -1217,6 +1219,19 @@ model Project {
   deployAppName   String   @default("")
   parentProjectId String?  @db.Uuid
   clientId        String?  @db.Uuid
+  /// PA8 (D70): the client as the firm names it. Free text up to 200 characters; when a listed client
+  /// is picked its businessName is copied here and clientId is set.
+  clientName      String?  @db.VarChar(200)
+  /// PA8: the fee the firm charges for the engagement, in pesos.
+  professionalFee Decimal? @db.Decimal(18, 2)
+  categoryId      String?  @db.Uuid
+  /// PA8: a recurring project makes one task per occurrence (see ProjectOccurrence).
+  isRecurring         Boolean   @default(false)
+  recurrenceStart     DateTime? @db.Date
+  /// Blank means endless.
+  recurrenceEnd       DateTime? @db.Date
+  /// DAILY | WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY | ANNUALLY
+  recurrenceFrequency String?
   archived        Boolean  @default(false)
   /// The last issue number given; only ever incremented, so numbers are never reused.
   issueCounter    Int      @default(0)
@@ -1235,6 +1250,8 @@ model Project {
   githubLinks   GithubLink[]
   securityAudits SecurityAudit[]
   securityFindings SecurityFinding[]
+  category      ProjectCategory?      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  occurrences   ProjectOccurrence[]
 
   @@unique([firmId, key])
   @@index([firmId])
@@ -1342,6 +1359,7 @@ model Issue {
   activities  ProjectActivity[]
   githubLinks GithubLink[]
   securityFinding SecurityFinding[]
+  occurrences     ProjectOccurrence[]
 
   @@unique([firmId, key])
   @@unique([projectId, number])
@@ -1646,4 +1664,41 @@ model SecurityFinding {
   @@index([firmId])
   @@index([issueId])
   @@map("project_security_findings")
+}
+
+/// PA8 (D70): the firm's list of project categories (Business Registration, Tax Filing ...), editable
+/// with Projects:Configure. A category used by a project cannot be deleted.
+model ProjectCategory {
+  id     String @id @default(uuid()) @db.Uuid
+  firmId String @db.Uuid
+  name   String
+  colour String @default("#57606a")
+  order  Int    @default(0)
+
+  firm     Firm      @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@unique([firmId, name])
+  @@index([firmId])
+  @@map("project_categories")
+}
+
+/// PA8 (D70): one row for every occurrence of a recurring project that has been generated, so an
+/// occurrence is made once: a task the owner deleted is never made again, and two processes never
+/// make the same one. The unique key is the project and the occurrence date.
+model ProjectOccurrence {
+  id             String   @id @default(uuid()) @db.Uuid
+  firmId         String   @db.Uuid
+  projectId      String   @db.Uuid
+  occurrenceDate DateTime @db.Date
+  issueId        String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  firm    Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue   Issue?  @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, occurrenceDate])
+  @@index([firmId])
+  @@map("project_occurrences")
 }

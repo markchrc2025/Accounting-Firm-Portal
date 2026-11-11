@@ -16,6 +16,8 @@ import type {
 import { SecurityQueries } from "./security-queries";
 import { ProjectsAccess, type ProjectsActor } from "./projects.access";
 import { ProjectsActivity } from "./projects-activity.service";
+import { cleanClientName, FeeError, feeText, parseFee } from "./project-details";
+import { normalizeName } from "../mcp/bir/client-ref";
 import { projectSessions } from "./work-sessions.service";
 import {
   diffFields,
@@ -135,12 +137,23 @@ export class ProjectsService {
   // The portfolio
   // ---------------------------------------------------------------------------------------
 
-  async list(actor: ProjectsActor, opts: { includeArchived: boolean }) {
+  async list(
+    actor: ProjectsActor,
+    opts: { includeArchived: boolean; categoryId?: string | undefined },
+  ) {
     await this.access.need(actor, P.read);
     const user = actor.user;
     const visible = await this.access.visibleWhere(user);
     const rows = await this.prisma.project.findMany({
-      where: { ...visible, ...(opts.includeArchived ? {} : { archived: false }) },
+      where: {
+        ...visible,
+        ...(opts.includeArchived ? {} : { archived: false }),
+        ...(opts.categoryId === "none"
+          ? { categoryId: null }
+          : opts.categoryId
+            ? { categoryId: opts.categoryId }
+            : {}),
+      },
       include: PROJECT_INCLUDE,
       orderBy: { key: "asc" },
     });
@@ -336,6 +349,28 @@ export class ProjectsService {
     return client;
   }
 
+  /** The category of this firm, or 404. */
+  private async categoryOf(actor: ProjectsActor, id: string) {
+    const row = /^[0-9a-f-]{36}$/i.test(id)
+      ? await this.prisma.projectCategory.findFirst({
+          where: { id, firmId: actor.user.firmId },
+          select: { id: true, name: true },
+        })
+      : null;
+    if (!row) throw new NotFoundException(MESSAGES.categoryNotFound);
+    return row;
+  }
+
+  /** The professional fee from the request, or the one sentence refusing it. */
+  private fee(value: unknown): string | null | undefined {
+    try {
+      return parseFee(value);
+    } catch (e) {
+      if (e instanceof FeeError) throw new BadRequestException(e.message);
+      throw e;
+    }
+  }
+
   /** The parent project: a visible project of the firm that is not (below) this one. */
   private async parentProject(actor: ProjectsActor, key: string, self?: { id: string }) {
     const k = key.trim().toUpperCase();
@@ -367,6 +402,47 @@ export class ProjectsService {
     return parent;
   }
 
+  /**
+   * The listed clients whose name equals the project's clientName after folding case, punctuation
+   * and spaces (the registered, trade and business names are all compared), among the clients the
+   * caller may see. It links nothing: linking is a PATCH of clientId.
+   */
+  async clientMatches(actor: ProjectsActor, key: string) {
+    await this.access.need(actor, P.read);
+    const project = await this.access.project(actor.user, key);
+    const folded = normalizeName(project.clientName);
+    if (!folded) {
+      return {
+        clientName: project.clientName,
+        linked: project.clientId !== null,
+        matches: [],
+      };
+    }
+    const scope = await this.access.visibleClients(actor.user);
+    const rows = await this.prisma.client.findMany({
+      where: {
+        firmId: actor.user.firmId,
+        ...(scope === "all" ? {} : { id: { in: [...scope] } }),
+      },
+      select: {
+        id: true,
+        businessName: true,
+        regName: true,
+        tradeName: true,
+        status: true,
+      },
+      orderBy: { businessName: "asc" },
+    });
+    const matches = rows
+      .filter((c) =>
+        [c.businessName, c.regName, c.tradeName].some(
+          (n) => n && normalizeName(n) === folded,
+        ),
+      )
+      .map((c) => ({ id: c.id, businessName: c.businessName, status: c.status }));
+    return { clientName: project.clientName, linked: project.clientId !== null, matches };
+  }
+
   async create(actor: ProjectsActor, input: CreateProjectInput) {
     await this.access.need(actor, P.create);
     const user = actor.user;
@@ -380,6 +456,12 @@ export class ProjectsService {
     const client = input.clientId
       ? await this.linkableClient(actor, input.clientId)
       : null;
+    const fee = this.fee(input.professionalFee);
+    const category = input.categoryId
+      ? await this.categoryOf(actor, input.categoryId)
+      : null;
+    // a listed client's name is copied; otherwise the typed text stands
+    const clientName = client ? client.businessName : cleanClientName(input.clientName);
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const row = await tx.project.create({
@@ -393,6 +475,9 @@ export class ProjectsService {
             deployAppName: input.deployAppName ?? "",
             parentProjectId: parent?.id ?? null,
             clientId: client?.id ?? null,
+            clientName,
+            professionalFee: fee ?? null,
+            categoryId: category?.id ?? null,
           },
         });
         await this.activity.log(tx, actor, {
@@ -402,6 +487,11 @@ export class ProjectsService {
             { field: "key", old: null, new: key },
             { field: "name", old: null, new: name },
             ...(client ? [{ field: "client", old: null, new: client.businessName }] : []),
+            ...(!client && clientName
+              ? [{ field: "clientName", old: null, new: clientName }]
+              : []),
+            ...(fee ? [{ field: "professionalFee", old: null, new: fee }] : []),
+            ...(category ? [{ field: "category", old: null, new: category.name }] : []),
           ],
         });
         return row.id;
@@ -465,22 +555,72 @@ export class ProjectsService {
         });
       }
     }
-    if (patch.clientId !== undefined) {
-      const client = patch.clientId
-        ? await this.linkableClient(actor, patch.clientId)
-        : null;
-      if ((client?.id ?? null) !== cur.clientId) {
+    // The client: a listed one (clientId) or any text (clientName). Picking a listed client copies its
+    // name; typing a different name unlinks; clientId null unlinks and keeps the text.
+    if (patch.clientId !== undefined || patch.clientName !== undefined) {
+      let nextId: string | null = cur.clientId;
+      let nextName: string | null = cur.clientName;
+      let linkedName: string | null = null;
+      if (patch.clientId) {
+        const client = await this.linkableClient(actor, patch.clientId);
+        nextId = client.id;
+        nextName = client.businessName;
+        linkedName = client.businessName;
+      } else if (patch.clientId === null) {
+        nextId = null;
+        if (patch.clientName !== undefined) nextName = cleanClientName(patch.clientName);
+      } else {
+        const typed = cleanClientName(patch.clientName);
+        if (typed !== cur.clientName) {
+          nextId = null;
+          nextName = typed;
+        }
+      }
+      if (nextId !== cur.clientId) {
         const before = cur.clientId
           ? await this.prisma.client.findUnique({
               where: { id: cur.clientId },
               select: { businessName: true },
             })
           : null;
-        data.clientId = client?.id ?? null;
+        data.clientId = nextId;
         changes.push({
           field: "client",
           old: before?.businessName ?? null,
-          new: client?.businessName ?? null,
+          new: linkedName,
+        });
+      }
+      if (nextName !== cur.clientName) {
+        data.clientName = nextName;
+        // a picked client's name is implied by the "client" change
+        if (!linkedName)
+          changes.push({ field: "clientName", old: cur.clientName, new: nextName });
+      }
+    }
+    if (patch.professionalFee !== undefined) {
+      const fee = this.fee(patch.professionalFee) ?? null;
+      const before = feeText(cur.professionalFee);
+      if (fee !== before) {
+        data.professionalFee = fee;
+        changes.push({ field: "professionalFee", old: before, new: fee });
+      }
+    }
+    if (patch.categoryId !== undefined) {
+      const category = patch.categoryId
+        ? await this.categoryOf(actor, patch.categoryId)
+        : null;
+      if ((category?.id ?? null) !== cur.categoryId) {
+        const before = cur.categoryId
+          ? await this.prisma.projectCategory.findUnique({
+              where: { id: cur.categoryId },
+              select: { name: true },
+            })
+          : null;
+        data.categoryId = category?.id ?? null;
+        changes.push({
+          field: "category",
+          old: before?.name ?? null,
+          new: category?.name ?? null,
         });
       }
     }

@@ -950,7 +950,9 @@ describe("PA1 · the Projects module core (real app over HTTP, db)", () => {
       expect(Object.keys(row).sort()).toEqual(
         [
           "archived",
+          "category",
           "client",
+          "clientName",
           "counts",
           "createdAt",
           "deployAppName",
@@ -962,12 +964,14 @@ describe("PA1 · the Projects module core (real app over HTTP, db)", () => {
           "name",
           "nextMilestone",
           "parent",
+          "professionalFee",
           "progress",
           "repoUrl",
           "security",
           "status",
           "statusNote",
           "statusUpdatedAt",
+          "suggestedProfessionalFee",
           "updatedAt",
         ].sort(),
       );
