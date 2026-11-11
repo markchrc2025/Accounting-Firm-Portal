@@ -186,8 +186,8 @@ replaced.
 
 | Path                                              | What it is                                                                                                                                                                                                                                                 | Shared with Sentire's kit?                                                       |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `.portal-projects.json`                           | `{ "project": "PAY", "server": "https://portal.example.test" }`. The hook reads only this file.                                                                                                                                                            | No. Sentire uses `.sentire-projects.json`.                                       |
-| `.claude/hooks/portal-projects-session-start.mjs` | Node, no dependency. Starts a work session (`POST <server>/api/v1/projects/sessions/start?briefing=1` with `{ "project_key" }`, header `Authorization: Bearer <token>`), prints the session id and the briefing. Fails quietly. See below.                  | No. Sentire's is `sentire-session-start.mjs`.                                    |
+| `.portal-projects.json`                           | `{ "project": "PAY", "server": "https://portal.example.test" }`. The hook reads only this file; its `server` is informational (see below).                                                                                                                                                            | No. Sentire uses `.sentire-projects.json`.                                       |
+| `.claude/hooks/portal-projects-session-start.mjs` | Node, no dependency. Starts a work session (`POST <kit server>/api/v1/projects/sessions/start?briefing=1` with `{ "project_key" }`, header `Authorization: Bearer <token>`), prints the session id and the briefing. Fails quietly. See below.                  | No. Sentire's is `sentire-session-start.mjs`.                                    |
 | `.mcp.json`                                       | One HTTP server named `portal-projects`, at `<server>/api/v1/projects/mcp`, with `Authorization: Bearer ${TOKEN_VAR}`. Claude Code reads the variable at run time; the token is never written.                                                            | The file, yes; the entry no (Sentire's is `sentire-projects`).                   |
 | `.claude/settings.json`                           | A `SessionStart` hook that runs the script above (15 second timeout).                                                                                                                                                                                      | The file, yes; the hook no.                                                      |
 | `CLAUDE.md`                                       | The managed block between `<!-- BEGIN portal-projects ... -->` and `<!-- END portal-projects -->`: start a session, keep issues current, keys in branches, commits and PR titles, `fixes KEY` in PR bodies, end the session with a summary and next steps. | The file, yes; Sentire's snippet has no markers, so the two blocks never meet. |
@@ -216,8 +216,19 @@ changed.
 
 The hook follows the idea of Sentire Projects' kit hook: it reads `.portal-projects.json` (and only that file),
 does nothing if there is none, says the session is not tracked if the token variable is not set, skips the `compact`
-restart (resume and clear start a session again), and prints a sentence instead of failing if the server answers an
-error or cannot be reached. Tests run the generated script against a local server.
+restart (resume and clear start a session again), and prints one plain line instead of failing if the server answers
+an error, cannot be reached or sends an answer it cannot read. Tests run the generated script against local servers.
+
+**Why the address is pinned.** The hook sends the person's own token, which acts as them in Projects. The server
+it sends it to is the Portal address baked into the hook when the kit was made (`KIT_SERVER`), never the `server` in
+`.portal-projects.json`: that file sits in the repository, and anyone who can change a file there (a pull request, a
+cloned repository, a dependency) could otherwise point it at their own host and collect the token. So the config's
+`server` is for people to read. If it names another origin (scheme, host and port, compared after normalising), the
+hook sends nothing anywhere and prints: "Portal Projects: the server in .portal-projects.json does not match this
+kit's server, so the session was not started. Regenerate the kit from the Portal if the address changed." The hook
+also refuses, at run time, a kit server that is not `https` (plain `http` only for localhost, 127.0.0.1 and [::1]),
+does not follow redirects, puts the token only in the `Authorization` header, and never prints the token or a
+response body. When the Portal's address changes, regenerate the kit.
 
 Inputs are checked and refused with a sentence: the project key (2 to 10 capital letters or digits, starting
 with a letter); `tokenEnvVar` must be a variable NAME in capitals, digits and underscores (a token such as
