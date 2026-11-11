@@ -10,6 +10,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CLAUDE_MD_BEGIN,
   CLAUDE_MD_END,
+  HOOK_SERVER_MISMATCH,
+  HOOK_SERVER_NOT_HTTPS,
   PROJECTS_MCP_PATH,
   RepoKitError,
   SESSION_START_PATH,
@@ -498,7 +500,16 @@ describe("the hook script, run for real against a local server", () => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
   });
 
-  async function setup(reply: { status: number; json?: unknown }) {
+  interface Reply {
+    status: number;
+    json?: unknown;
+    /** A raw body instead of JSON. */
+    raw?: string;
+    headers?: Record<string, string>;
+  }
+
+  /** A local server that records what it receives, and a repository with the kit for it. */
+  async function setup(reply: Reply, host = "127.0.0.1") {
     const seen: Seen[] = [];
     const server = createServer((req, res) => {
       const chunks: Buffer[] = [];
@@ -510,22 +521,32 @@ describe("the hook script, run for real against a local server", () => {
           headers: req.headers,
           body: Buffer.concat(chunks).toString(),
         });
-        res.writeHead(reply.status, { "content-type": "application/json" });
-        res.end(JSON.stringify(reply.json ?? {}));
+        res.writeHead(reply.status, {
+          "content-type": reply.raw !== undefined ? "text/html" : "application/json",
+          ...reply.headers,
+        });
+        res.end(reply.raw !== undefined ? reply.raw : JSON.stringify(reply.json ?? {}));
       });
     });
-    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    await new Promise<void>((r) => server.listen(0, host, r));
     closers.push(() => server.close());
-    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const url = `http://${host}:${(server.address() as AddressInfo).port}`;
     const dir = mkdtempSync(join(tmpdir(), "kit-hook-"));
     dirs.push(dir);
-    for (const f of kit({ serverUrl: url })) {
+    // The kit is always made for a local address the generator accepts; a test may then change it.
+    const kitUrl = host === "127.0.0.1" ? url : "http://127.0.0.1:1";
+    for (const f of kit({ serverUrl: kitUrl })) {
       if (f.path === "CLAUDE.md") continue;
       mkdirSync(dirname(join(dir, f.path)), { recursive: true });
       writeFileSync(join(dir, f.path), f.content);
     }
     return { seen, dir, url };
   }
+
+  const config = (dir: string, value: unknown) =>
+    writeFileSync(join(dir, ".portal-projects.json"), JSON.stringify(value));
+  const hookFile = (dir: string) =>
+    join(dir, ".claude/hooks/portal-projects-session-start.mjs");
 
   async function runHook(
     dir: string,
@@ -546,7 +567,14 @@ describe("the hook script, run for real against a local server", () => {
       },
     );
     child.child.stdin?.end(stdin);
-    return child;
+    const r = await child;
+    for (const v of Object.values(env)) {
+      if (v.length > 3) {
+        expect(r.stdout, "the token is never printed").not.toContain(v);
+        expect(r.stderr, "the token is never printed").not.toContain(v);
+      }
+    }
+    return r;
   }
 
   const ok = {
@@ -617,16 +645,6 @@ describe("the hook script, run for real against a local server", () => {
     expect(seen).toHaveLength(0);
   });
 
-  it("exits quietly with a message when the server cannot be reached", async () => {
-    const { dir } = await setup(ok);
-    writeFileSync(
-      join(dir, ".portal-projects.json"),
-      JSON.stringify({ project: "PAY", server: "http://127.0.0.1:9" }),
-    );
-    const r = await runHook(dir, { PORTAL_PROJECTS_TOKEN: "t" });
-    expect(r.stdout).toMatch(/^Portal Projects: tracking unavailable \(/);
-  });
-
   it("reads only .portal-projects.json: a repository with just Sentire's config is left alone", async () => {
     const { seen, dir } = await setup(ok);
     rmSync(join(dir, ".portal-projects.json"));
@@ -642,16 +660,148 @@ describe("the hook script, run for real against a local server", () => {
     expect(seen).toHaveLength(0);
   });
 
-  it("uses the server of .portal-projects.json, so a repository can be moved by editing it", async () => {
+  it("a config naming another server sends nothing anywhere and prints one line", async () => {
     const a = await setup(ok);
     const b = await setup(ok);
-    writeFileSync(
-      join(a.dir, ".portal-projects.json"),
-      JSON.stringify({ project: "BKS", server: `${b.url}/` }),
-    );
-    await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "t" });
+    config(a.dir, { project: "PAY", server: b.url });
+    const r = await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "invented-token-value" });
+    expect(r.stdout).toBe(`${HOOK_SERVER_MISMATCH}\n`);
     expect(a.seen).toHaveLength(0);
-    expect(b.seen).toHaveLength(1);
-    expect(JSON.parse(b.seen[0]!.body)).toEqual({ project_key: "BKS" });
+    expect(b.seen).toHaveLength(0);
+  });
+
+  it("the same for another port, another scheme, or something that is not an address", async () => {
+    const a = await setup(ok);
+    const port = new URL(a.url).port;
+    for (const server of [
+      "http://127.0.0.1:1",
+      `https://127.0.0.1:${port}`,
+      `http://localhost:${port}`,
+      "not an address",
+      "file:///etc/passwd",
+      42,
+    ]) {
+      config(a.dir, { project: "PAY", server });
+      const r = await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "invented-token-value" });
+      expect(r.stdout, String(server)).toBe(`${HOOK_SERVER_MISMATCH}\n`);
+    }
+    expect(a.seen).toHaveLength(0);
+  });
+
+  it("the config's server is compared as an origin: case, a trailing slash or a path do not matter", async () => {
+    const a = await setup(ok);
+    for (const server of [`${a.url}/`, a.url.toUpperCase(), `${a.url}/some/path`]) {
+      config(a.dir, { project: "PAY", server });
+      const r = await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "t" });
+      expect(r.stdout, server).toContain("Portal Projects session_id: session-1");
+    }
+    expect(a.seen).toHaveLength(3);
+    expect(a.seen.every((s) => s.url === `${SESSION_START_PATH}?briefing=1`)).toBe(true);
+  });
+
+  it("a config with no server uses the kit's server: the field is only for people to read", async () => {
+    const a = await setup(ok);
+    for (const value of [
+      { project: "PAY" },
+      { project: "PAY", server: "" },
+      { project: "PAY", server: null },
+    ]) {
+      config(a.dir, value);
+      const r = await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "t" });
+      expect(r.stdout).toContain("Portal Projects session_id: session-1");
+    }
+    expect(a.seen).toHaveLength(3);
+  });
+
+  it("refuses a kit server that is plain http and not this computer, even when the config agrees", async () => {
+    // A server on 127.0.0.2 is a loopback address but not one of the names the kit allows plain http for.
+    const target = await setup(ok, "127.0.0.2");
+    const hook = readFileSync(hookFile(target.dir), "utf8").replace(
+      'const KIT_SERVER = "http://127.0.0.1:1";',
+      `const KIT_SERVER = ${JSON.stringify(target.url)};`,
+    );
+    expect(hook).toContain(`const KIT_SERVER = ${JSON.stringify(target.url)};`);
+    writeFileSync(hookFile(target.dir), hook);
+    config(target.dir, { project: "PAY", server: target.url });
+    const r = await runHook(target.dir, {
+      PORTAL_PROJECTS_TOKEN: "invented-token-value",
+    });
+    expect(r.stdout).toBe(`${HOOK_SERVER_NOT_HTTPS}\n`);
+    expect(target.seen).toHaveLength(0);
+    for (const kitServer of [
+      "http://portal.example.test",
+      "ftp://127.0.0.1:1",
+      "nonsense",
+    ]) {
+      writeFileSync(
+        hookFile(target.dir),
+        hook.replace(
+          `const KIT_SERVER = ${JSON.stringify(target.url)};`,
+          `const KIT_SERVER = ${JSON.stringify(kitServer)};`,
+        ),
+      );
+      config(target.dir, { project: "PAY" });
+      const again = await runHook(target.dir, {
+        PORTAL_PROJECTS_TOKEN: "invented-token-value",
+      });
+      expect(again.stdout, kitServer).toBe(`${HOOK_SERVER_NOT_HTTPS}\n`);
+    }
+  });
+
+  it("does not follow a redirect, so the token cannot be passed on", async () => {
+    const b = await setup(ok);
+    const a = await setup({
+      status: 307,
+      headers: { location: `${b.url}${SESSION_START_PATH}?briefing=1` },
+    });
+    const r = await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "invented-token-value" });
+    expect(r.stdout).toBe(
+      "Portal Projects: the server could not be reached, so the session was not started.\n",
+    );
+    expect(a.seen).toHaveLength(1);
+    expect(b.seen).toHaveLength(0);
+  });
+
+  it("an unreachable server: one line, no error text", async () => {
+    const a = await setup(ok);
+    for (const close of closers.splice(0)) close();
+    await new Promise((r) => setTimeout(r, 50));
+    const r = await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "invented-token-value" });
+    expect(r.stdout).toBe(
+      "Portal Projects: the server could not be reached, so the session was not started.\n",
+    );
+  });
+
+  it("never prints a response body in an error", async () => {
+    const refused = await setup({
+      status: 500,
+      json: { error: "INVENTED-SERVER-SECRET" },
+    });
+    const r1 = await runHook(refused.dir, { PORTAL_PROJECTS_TOKEN: "t" });
+    expect(r1.stdout).toBe("Portal Projects: could not start a session (500).\n");
+    const html = await setup({ status: 201, raw: "<html>INVENTED-SERVER-SECRET</html>" });
+    const r2 = await runHook(html.dir, { PORTAL_PROJECTS_TOKEN: "t" });
+    expect(r2.stdout).toBe(
+      "Portal Projects: the server's answer could not be read, so the session was not started.\n",
+    );
+    const odd = await setup({
+      status: 201,
+      json: { session: { id: 7 }, note: "INVENTED-SERVER-SECRET" },
+    });
+    const r3 = await runHook(odd.dir, { PORTAL_PROJECTS_TOKEN: "t" });
+    expect(r3.stdout).toBe(
+      "Portal Projects: the server's answer could not be read, so the session was not started.\n",
+    );
+    for (const r of [r1, r2, r3])
+      expect(r.stdout + r.stderr).not.toContain("INVENTED-SERVER-SECRET");
+  });
+
+  it("puts the token only in the Authorization header, never in the address or the body", async () => {
+    const a = await setup(ok);
+    await runHook(a.dir, { PORTAL_PROJECTS_TOKEN: "invented-token-value" });
+    expect(a.seen).toHaveLength(1);
+    expect(a.seen[0]!.url).not.toContain("invented-token-value");
+    expect(a.seen[0]!.body).not.toContain("invented-token-value");
+    expect(a.seen[0]!.headers.authorization).toBe("Bearer invented-token-value");
   });
 });
