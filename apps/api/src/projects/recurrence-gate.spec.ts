@@ -2,7 +2,9 @@
 // is a Redis lock plus a "last run" day; here the store is a stand-in so every branch is tried.
 import { RecurrenceGate, type GateStore } from "./recurrence-gate";
 
-function fakeStore(over: Partial<GateStore> = {}): GateStore & { kv: Map<string, string> } {
+function fakeStore(
+  over: Partial<GateStore> = {},
+): GateStore & { kv: Map<string, string> } {
   const kv = new Map<string, string>();
   return {
     kv,
@@ -36,8 +38,14 @@ describe("RecurrenceGate", () => {
     let n = 0;
     const work = async () => ({ ok: true, result: ++n });
     await gate.run("2026-11-11", work);
-    expect(await gate.run("2026-11-11", work)).toEqual({ ran: false, reason: "already-run" });
-    expect(await gate.run("2026-11-11", work, { force: true })).toEqual({ ran: true, result: 2 });
+    expect(await gate.run("2026-11-11", work)).toEqual({
+      ran: false,
+      reason: "already-run",
+    });
+    expect(await gate.run("2026-11-11", work, { force: true })).toEqual({
+      ran: true,
+      result: 2,
+    });
     expect(await gate.run("2026-11-12", work)).toEqual({ ran: true, result: 3 });
   });
 
@@ -60,7 +68,10 @@ describe("RecurrenceGate", () => {
     expect(await first).toEqual({ ran: true, result: "a" });
     expect(runs).toBe(1);
     // and once it has finished, the day is done
-    expect(await b.run("2026-11-11", slow)).toEqual({ ran: false, reason: "already-run" });
+    expect(await b.run("2026-11-11", slow)).toEqual({
+      ran: false,
+      reason: "already-run",
+    });
   });
 
   it("a run that fails releases the lock and leaves the day open for the next try", async () => {
@@ -82,7 +93,9 @@ describe("RecurrenceGate", () => {
   it("work that reports it was not whole does not mark the day done", async () => {
     const store = fakeStore();
     const gate = new RecurrenceGate(store);
-    expect(await gate.run("2026-11-11", async () => ({ ok: false, result: "partial" }))).toEqual({
+    expect(
+      await gate.run("2026-11-11", async () => ({ ok: false, result: "partial" })),
+    ).toEqual({
       ran: true,
       result: "partial",
     });

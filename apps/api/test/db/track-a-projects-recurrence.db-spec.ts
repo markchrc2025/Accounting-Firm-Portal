@@ -66,7 +66,12 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
   let spy: jest.SpyInstance;
 
   const http = () => request(appA.getHttpServer());
-  const as = (method: "get" | "post" | "patch" | "delete", path: string, who = "sa", body?: object) => {
+  const as = (
+    method: "get" | "post" | "patch" | "delete",
+    path: string,
+    who = "sa",
+    body?: object,
+  ) => {
     const r = http()[method](`${API}${path}`).set("Authorization", `Bearer ${jwt[who]}`);
     return body === undefined ? r : r.send(body);
   };
@@ -76,7 +81,11 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
   async function project(extra: Json = {}, who = "sa") {
     seq += 1;
     const key = extra.key ?? `R${String(seq).padStart(3, "0")}`;
-    const res = await as("post", "/projects", who, { name: `Encoding ${key}`, ...extra, key });
+    const res = await as("post", "/projects", who, {
+      name: `Encoding ${key}`,
+      ...extra,
+      key,
+    });
     return { key: key as string, res };
   }
   const recurring = (frequency: string, start = TODAY, extra: Json = {}) => ({
@@ -104,11 +113,18 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
         update: {},
         create: { resource, action },
       });
-      await db.rolePermission.create({ data: { roleId: role.id, permissionId: permission.id } });
+      await db.rolePermission.create({
+        data: { roleId: role.id, permissionId: permission.id },
+      });
     }
     return role.id;
   }
-  async function makeUser(label: string, roleId?: string, firm?: string, assign?: string[]) {
+  async function makeUser(
+    label: string,
+    roleId?: string,
+    firm?: string,
+    assign?: string[],
+  ) {
     const fid = firm ?? firmId;
     const u = await db.user.create({
       data: {
@@ -120,16 +136,24 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
         firmProfile: {
           create: {
             title: "Test",
-            ...(assign?.length ? { clientAssignments: { create: assign.map((c) => ({ clientId: c })) } } : {}),
+            ...(assign?.length
+              ? { clientAssignments: { create: assign.map((c) => ({ clientId: c })) } }
+              : {}),
           },
         },
         ...(roleId ? { userRoles: { create: { roleId } } } : {}),
       },
     });
-    jwt[label] = appA.get(TokenService).signAccess({ id: u.id, firmId: fid, userType: "FIRM", email: u.email });
+    jwt[label] = appA
+      .get(TokenService)
+      .signAccess({ id: u.id, firmId: fid, userType: "FIRM", email: u.email });
   }
   async function pingable(url: string) {
-    const probe = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 0, retryStrategy: () => null });
+    const probe = new Redis(url, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 0,
+      retryStrategy: () => null,
+    });
     probe.on("error", () => undefined);
     try {
       await probe.connect();
@@ -145,7 +169,20 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     if (given && (await pingable(given))) return given;
     if (hasRedisBinary) {
       const port = await freePort();
-      redisProc = spawn("redis-server", ["--port", String(port), "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"], { stdio: "ignore" });
+      redisProc = spawn(
+        "redis-server",
+        [
+          "--port",
+          String(port),
+          "--bind",
+          "127.0.0.1",
+          "--save",
+          "",
+          "--appendonly",
+          "no",
+        ],
+        { stdio: "ignore" },
+      );
       const url = `redis://127.0.0.1:${port}`;
       for (let n = 0; n < 50; n++) {
         if (await pingable(url)) return url;
@@ -153,7 +190,9 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       }
       throw new Error("redis-server did not start");
     }
-    throw new Error("Redis is required for the recurrence daily-run test: set REDIS_URL or install redis-server.");
+    throw new Error(
+      "Redis is required for the recurrence daily-run test: set REDIS_URL or install redis-server.",
+    );
   }
   async function makeApp(): Promise<INestApplication> {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -174,11 +213,24 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     appB = await makeApp();
     db = appA.get(PrismaService);
     firmId = (await db.firm.create({ data: { name: `${TAG} Halimbawa Accounting` } })).id;
-    otherFirmId = (await db.firm.create({ data: { name: `${TAG} Ibang Accounting` } })).id;
-    const sa = (await db.role.findUniqueOrThrow({ where: { name_scope: { name: "Super Admin", scope: "FIRM" } } })).id;
-    const member = await makeRole(`${TAG} REC Member`, ["Projects:Read", "Projects:Create", "Projects:Update"]);
+    otherFirmId = (await db.firm.create({ data: { name: `${TAG} Ibang Accounting` } }))
+      .id;
+    const sa = (
+      await db.role.findUniqueOrThrow({
+        where: { name_scope: { name: "Super Admin", scope: "FIRM" } },
+      })
+    ).id;
+    const member = await makeRole(`${TAG} REC Member`, [
+      "Projects:Read",
+      "Projects:Create",
+      "Projects:Update",
+    ]);
     const viewer = await makeRole(`${TAG} REC Viewer`, ["Projects:Read"]);
-    clientId = (await db.client.create({ data: { firmId, businessName: `${TAG} Halimbawa Client`, tin: "000888001" } })).id;
+    clientId = (
+      await db.client.create({
+        data: { firmId, businessName: `${TAG} Halimbawa Client`, tin: "000888001" },
+      })
+    ).id;
     await makeUser("sa", sa);
     await makeUser("sa2", sa, otherFirmId);
     await makeUser("member", member);
@@ -206,7 +258,9 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     it("a recurring project needs a start and a frequency; the end is optional", async () => {
       const none = await project({ isRecurring: true });
       expect(none.res.status).toBe(400);
-      expect(none.res.body.message).toBe("Choose a start date for the recurring project.");
+      expect(none.res.body.message).toBe(
+        "Choose a start date for the recurring project.",
+      );
       expect(none.res.body.problems).toEqual([
         "Choose a start date for the recurring project.",
         "Choose how often the project repeats: Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.",
@@ -227,12 +281,23 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
         '"FORTNIGHTLY" is not a frequency. Choose Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.',
       );
       const d = await project(recurring("DAILY", "2026-02-30"));
-      expect(d.res.body.message).toBe("The start date must be a real date written YYYY-MM-DD.");
-      const e = await project(recurring("DAILY", "2026-12-01", { recurrenceEnd: "2026-11-30" }));
+      expect(d.res.body.message).toBe(
+        "The start date must be a real date written YYYY-MM-DD.",
+      );
+      const e = await project(
+        recurring("DAILY", "2026-12-01", { recurrenceEnd: "2026-11-30" }),
+      );
       expect(e.res.body.message).toBe("The end date cannot be before the start date.");
     });
     it("the frequencies are projects-core's: DAILY, WEEKLY, BI_WEEKLY, MONTHLY, QUARTERLY, ANNUALLY", async () => {
-      expect([...FREQUENCIES]).toEqual(["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"]);
+      expect([...FREQUENCIES]).toEqual([
+        "DAILY",
+        "WEEKLY",
+        "BI_WEEKLY",
+        "MONTHLY",
+        "QUARTERLY",
+        "ANNUALLY",
+      ]);
       for (const f of FREQUENCIES) {
         const p = await project(recurring(f, "2030-01-01"));
         expect(p.res.status).toBe(201);
@@ -246,39 +311,72 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
         '"BIWEEKLY" is not a frequency. Choose Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.',
       );
       const { key } = await project(recurring("WEEKLY", "2030-01-01"));
-      expect((await as("patch", `/projects/${key}`, "sa", { recurrenceFrequency: "BIWEEKLY" })).status).toBe(400);
-      expect((await as("get", `/projects/${key}/recurrence-preview?frequency=BIWEEKLY`, "sa")).status).toBe(400);
-      expect((await db.project.findFirstOrThrow({ where: { firmId, key } })).recurrenceFrequency).toBe("WEEKLY");
+      expect(
+        (await as("patch", `/projects/${key}`, "sa", { recurrenceFrequency: "BIWEEKLY" }))
+          .status,
+      ).toBe(400);
+      expect(
+        (await as("get", `/projects/${key}/recurrence-preview?frequency=BIWEEKLY`, "sa"))
+          .status,
+      ).toBe(400);
+      expect(
+        (await db.project.findFirstOrThrow({ where: { firmId, key } }))
+          .recurrenceFrequency,
+      ).toBe("WEEKLY");
     });
     it("the database itself refuses a frequency that is not one of them", async () => {
       const { key } = await project({});
       const row = await db.project.findFirstOrThrow({ where: { firmId, key } });
       await expect(
-        db.project.update({ where: { id: row.id }, data: { recurrenceFrequency: "BIWEEKLY" } }),
+        db.project.update({
+          where: { id: row.id },
+          data: { recurrenceFrequency: "BIWEEKLY" },
+        }),
       ).rejects.toThrow();
     });
     it("a project that is not recurring needs nothing, and a bad value is still refused", async () => {
       const p = await project({ isRecurring: false });
       expect(p.res.status).toBe(201);
-      expect(p.res.body).toMatchObject({ isRecurring: false, recurrenceStart: null, recurrenceFrequency: null });
+      expect(p.res.body).toMatchObject({
+        isRecurring: false,
+        recurrenceStart: null,
+        recurrenceFrequency: null,
+      });
       const bad = await project({ isRecurring: false, recurrenceFrequency: "x" });
       expect(bad.res.status).toBe(400);
     });
     it("a patch is checked against what is stored; a blank end means endless", async () => {
-      const { key } = await project(recurring("MONTHLY", "2030-05-01", { recurrenceEnd: "2030-12-31" }));
-      const early = await as("patch", `/projects/${key}`, "sa", { recurrenceEnd: "2030-04-01" });
+      const { key } = await project(
+        recurring("MONTHLY", "2030-05-01", { recurrenceEnd: "2030-12-31" }),
+      );
+      const early = await as("patch", `/projects/${key}`, "sa", {
+        recurrenceEnd: "2030-04-01",
+      });
       expect(early.status).toBe(400);
       expect(early.body.message).toBe("The end date cannot be before the start date.");
-      const freq = await as("patch", `/projects/${key}`, "sa", { recurrenceFrequency: "WEEKLY" });
-      expect(freq.body).toMatchObject({ recurrenceFrequency: "WEEKLY", recurrenceStart: "2030-05-01", recurrenceEnd: "2030-12-31" });
+      const freq = await as("patch", `/projects/${key}`, "sa", {
+        recurrenceFrequency: "WEEKLY",
+      });
+      expect(freq.body).toMatchObject({
+        recurrenceFrequency: "WEEKLY",
+        recurrenceStart: "2030-05-01",
+        recurrenceEnd: "2030-12-31",
+      });
       const endless = await as("patch", `/projects/${key}`, "sa", { recurrenceEnd: "" });
       expect(endless.body.recurrenceEnd).toBeNull();
-      expect((await as("patch", `/projects/${key}`, "sa", { recurrenceEnd: null })).body.recurrenceEnd).toBeNull();
+      expect(
+        (await as("patch", `/projects/${key}`, "sa", { recurrenceEnd: null })).body
+          .recurrenceEnd,
+      ).toBeNull();
     });
     it("turning it off keeps the schedule; turning it on again needs it whole", async () => {
       const { key } = await project(recurring("QUARTERLY", "2030-05-01"));
       const off = await as("patch", `/projects/${key}`, "sa", { isRecurring: false });
-      expect(off.body).toMatchObject({ isRecurring: false, recurrenceStart: "2030-05-01", recurrenceFrequency: "QUARTERLY" });
+      expect(off.body).toMatchObject({
+        isRecurring: false,
+        recurrenceStart: "2030-05-01",
+        recurrenceFrequency: "QUARTERLY",
+      });
       const { key: k2 } = await project({});
       const on = await as("patch", `/projects/${k2}`, "sa", { isRecurring: true });
       expect(on.status).toBe(400);
@@ -286,12 +384,26 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     });
     it("the portfolio and the overview carry the fields; the change is on the activity log", async () => {
       const { key } = await project(recurring("WEEKLY", "2030-05-01"));
-      const row = ((await as("get", "/projects", "sa")).body as Json[]).find((p) => p.key === key)!;
-      expect(row).toMatchObject({ isRecurring: true, recurrenceFrequency: "WEEKLY", recurrenceStart: "2030-05-01", recurrenceEnd: null });
-      expect((await as("get", `/projects/${key}`, "viewer")).body.project.isRecurring).toBe(true);
+      const row = ((await as("get", "/projects", "sa")).body as Json[]).find(
+        (p) => p.key === key,
+      )!;
+      expect(row).toMatchObject({
+        isRecurring: true,
+        recurrenceFrequency: "WEEKLY",
+        recurrenceStart: "2030-05-01",
+        recurrenceEnd: null,
+      });
+      expect(
+        (await as("get", `/projects/${key}`, "viewer")).body.project.isRecurring,
+      ).toBe(true);
       await as("patch", `/projects/${key}`, "sa", { recurrenceFrequency: "DAILY" });
-      const feed = (await as("get", `/projects/${key}/activity`, "sa")).body.items as Json[];
-      expect(feed.flatMap((a) => a.changes)).toContainEqual({ field: "recurrenceFrequency", old: "WEEKLY", new: "DAILY" });
+      const feed = (await as("get", `/projects/${key}/activity`, "sa")).body
+        .items as Json[];
+      expect(feed.flatMap((a) => a.changes)).toContainEqual({
+        field: "recurrenceFrequency",
+        old: "WEEKLY",
+        new: "DAILY",
+      });
     });
   });
 
@@ -317,18 +429,31 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       expect(await dueOf(a.key)).toEqual(["2026-12-12"]); // 30 days away
     });
     it("the task is a Task in the default status, Normal, unassigned, due on the occurrence, made by the system", async () => {
-      const { key } = await project(recurring("MONTHLY", "2026-11-20", { name: "Encoding" }));
+      const { key } = await project(
+        recurring("MONTHLY", "2026-11-20", { name: "Encoding" }),
+      );
       const [t] = await tasks(key);
-      expect(t).toMatchObject({ title: "Encoding: November 2026", priority: "NORMAL", assigneeId: null, authorId: null, deleted: false });
+      expect(t).toMatchObject({
+        title: "Encoding: November 2026",
+        priority: "NORMAL",
+        assigneeId: null,
+        authorId: null,
+        deleted: false,
+      });
       expect(t!.type.name).toBe("Task");
       expect(t!.status.isDefault).toBe(true);
       expect(t!.dueDate!.toISOString().slice(0, 10)).toBe("2026-11-20");
       expect(t!.startDate).toBeNull();
-      const feed = (await as("get", `/projects/${key}/activity`, "sa")).body.items as Json[];
-      const made = feed.find((a) => a.action === "issue.created" && a.issueKey === t!.key)!;
+      const feed = (await as("get", `/projects/${key}/activity`, "sa")).body
+        .items as Json[];
+      const made = feed.find(
+        (a) => a.action === "issue.created" && a.issueKey === t!.key,
+      )!;
       expect(made).toMatchObject({ actorType: "SYSTEM", channel: "system", actor: null });
       // the project's counter moved with it
-      expect((await db.project.findFirstOrThrow({ where: { firmId, key } })).issueCounter).toBe(1);
+      expect(
+        (await db.project.findFirstOrThrow({ where: { firmId, key } })).issueCounter,
+      ).toBe(1);
     });
     it.each([
       ["DAILY", "5 November 2026", "2026-11-05"],
@@ -344,8 +469,14 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     });
     it("the occurrences are recorded, one row for each date", async () => {
       const { key } = await project(recurring("DAILY"));
-      const rows = await db.projectOccurrence.findMany({ where: { project: { key, firmId } }, orderBy: { occurrenceDate: "asc" } });
-      expect(rows.map((r) => r.occurrenceDate.toISOString().slice(0, 10))).toEqual([TODAY, "2026-11-12"]);
+      const rows = await db.projectOccurrence.findMany({
+        where: { project: { key, firmId } },
+        orderBy: { occurrenceDate: "asc" },
+      });
+      expect(rows.map((r) => r.occurrenceDate.toISOString().slice(0, 10))).toEqual([
+        TODAY,
+        "2026-11-12",
+      ]);
       expect(rows.every((r) => r.issueId !== null && r.firmId === firmId)).toBe(true);
     });
     it("nothing is made before the day generation began, whatever the start date", async () => {
@@ -366,24 +497,33 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       await as("patch", `/projects/${key}`, "sa", { name: "Renamed" });
       await as("patch", `/projects/${key}`, "sa", { description: "More words" });
       expect(await dueOf(key)).toEqual([TODAY, "2026-11-12"]);
-      expect(await db.projectOccurrence.count({ where: { project: { key, firmId } } })).toBe(2);
+      expect(
+        await db.projectOccurrence.count({ where: { project: { key, firmId } } }),
+      ).toBe(2);
     });
     it("a task the owner deleted is never made again", async () => {
       const { key } = await project(recurring("DAILY"));
       const [first] = await tasks(key);
-      expect((await as("delete", `/projects/${key}/issues/${first!.key}`, "sa")).status).toBe(200);
+      expect(
+        (await as("delete", `/projects/${key}/issues/${first!.key}`, "sa")).status,
+      ).toBe(200);
       await as("patch", `/projects/${key}`, "sa", { name: "After the delete" });
       await svc(appA).runDaily({ force: true });
       const rows = await tasks(key);
       expect(rows).toHaveLength(2); // the deleted one is flagged, not replaced
       expect(rows.filter((t) => !t.deleted)).toHaveLength(1);
-      expect(await db.projectOccurrence.count({ where: { project: { key, firmId } } })).toBe(2);
+      expect(
+        await db.projectOccurrence.count({ where: { project: { key, firmId } } }),
+      ).toBe(2);
     });
     it("two requests at once, on two processes, make each occurrence once", async () => {
       const { key } = await project({ ...recurring("DAILY", "2030-01-01") });
       setToday("2030-01-01");
       const row = await db.project.findFirstOrThrow({ where: { firmId, key } });
-      await db.project.update({ where: { id: row.id }, data: { recurrenceActiveFrom: new Date("2030-01-01T00:00:00Z") } });
+      await db.project.update({
+        where: { id: row.id },
+        data: { recurrenceActiveFrom: new Date("2030-01-01T00:00:00Z") },
+      });
       const results = await Promise.all([
         svc(appA).generateForProject(row.id),
         svc(appB).generateForProject(row.id),
@@ -391,7 +531,9 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       ]);
       expect(await dueOf(key)).toEqual(["2030-01-01", "2030-01-02"]);
       expect(results.reduce((n, r) => n + r.created, 0)).toBe(2);
-      expect(await db.projectOccurrence.count({ where: { project: { key, firmId } } })).toBe(2);
+      expect(
+        await db.projectOccurrence.count({ where: { project: { key, firmId } } }),
+      ).toBe(2);
     });
   });
 
@@ -403,9 +545,15 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       setToday("2026-11-16"); // five days with no run
       const r = await svc(appA).runDaily();
       expect(r).toMatchObject({ ran: true });
-      expect(await dueOf(key)).toEqual(
-        ["2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17"],
-      );
+      expect(await dueOf(key)).toEqual([
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-13",
+        "2026-11-14",
+        "2026-11-15",
+        "2026-11-16",
+        "2026-11-17",
+      ]);
     });
     it("runs once a day: a second run the same day does nothing, a forced one finds nothing to make", async () => {
       const { key } = await project(recurring("WEEKLY"));
@@ -414,8 +562,16 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       const again = await svc(appA).runDaily();
       expect(again).toEqual({ ran: false, reason: "already-run" });
       const forced = await svc(appA).runDaily({ force: true });
-      expect(forced).toMatchObject({ ran: true, result: expect.objectContaining({ created: 0 }) });
-      expect(await dueOf(key)).toEqual(["2026-11-11", "2026-11-18", "2026-11-25", "2026-12-02"]);
+      expect(forced).toMatchObject({
+        ran: true,
+        result: expect.objectContaining({ created: 0 }),
+      });
+      expect(await dueOf(key)).toEqual([
+        "2026-11-11",
+        "2026-11-18",
+        "2026-11-25",
+        "2026-12-02",
+      ]);
     });
     it("two API processes at once: one runs, the other does not, and every task is made once", async () => {
       const { key } = await project(recurring("DAILY"));
@@ -424,11 +580,19 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       const ran = [a, b].filter((r) => r.ran);
       expect(ran).toHaveLength(1);
       expect([a, b].find((r) => !r.ran)).toMatchObject({ ran: false });
-      expect(["locked", "already-run"]).toContain((([a, b].find((r) => !r.ran)) as Json).reason);
-      expect(await dueOf(key)).toEqual(
-        ["2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"],
+      expect(["locked", "already-run"]).toContain(
+        ([a, b].find((r) => !r.ran) as Json).reason,
       );
-      expect(await db.projectOccurrence.count({ where: { project: { key, firmId } } })).toBe(5);
+      expect(await dueOf(key)).toEqual([
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-13",
+        "2026-11-14",
+        "2026-11-15",
+      ]);
+      expect(
+        await db.projectOccurrence.count({ where: { project: { key, firmId } } }),
+      ).toBe(5);
     });
     it("the lock is a Redis key that is gone when the run is done", async () => {
       await project(recurring("DAILY"));
@@ -452,14 +616,20 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     it("reads every firm's recurring projects, and only those", async () => {
       const own = await project(recurring("DAILY"));
       const plain = await project({});
-      const other = await as("post", "/projects", "sa2", { key: "OTH1", name: "Other firm", ...recurring("DAILY") });
+      const other = await as("post", "/projects", "sa2", {
+        key: "OTH1",
+        name: "Other firm",
+        ...recurring("DAILY"),
+      });
       expect(other.status).toBe(201);
       setToday("2026-11-20");
       const r = await svc(appA).runDaily();
       expect(r.ran).toBe(true);
       expect((await tasks(own.key)).length).toBeGreaterThan(2);
       expect(await tasks(plain.key)).toHaveLength(0);
-      const theirs = await db.issue.findMany({ where: { firmId: otherFirmId, project: { key: "OTH1" } } });
+      const theirs = await db.issue.findMany({
+        where: { firmId: otherFirmId, project: { key: "OTH1" } },
+      });
       expect(theirs.length).toBeGreaterThan(2);
       expect(theirs.every((t) => t.firmId === otherFirmId)).toBe(true);
     });
@@ -470,12 +640,23 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     it("a new schedule changes only the occurrences not yet made", async () => {
       const { key } = await project(recurring("MONTHLY"));
       const before = await tasks(key);
-      expect(before.map((t) => t.dueDate!.toISOString().slice(0, 10))).toEqual([TODAY, "2026-12-11"]);
+      expect(before.map((t) => t.dueDate!.toISOString().slice(0, 10))).toEqual([
+        TODAY,
+        "2026-12-11",
+      ]);
       await as("patch", `/projects/${key}`, "sa", { recurrenceFrequency: "WEEKLY" });
       const after = await tasks(key);
       // the two made tasks are the same rows, untouched; one new weekly task is added (the 18th)
-      expect(after.map((t) => t.dueDate!.toISOString().slice(0, 10))).toEqual([TODAY, "2026-11-18", "2026-12-11"]);
-      for (const t of before) expect(after.find((a) => a.id === t.id)).toMatchObject({ title: t.title, deleted: false });
+      expect(after.map((t) => t.dueDate!.toISOString().slice(0, 10))).toEqual([
+        TODAY,
+        "2026-11-18",
+        "2026-12-11",
+      ]);
+      for (const t of before)
+        expect(after.find((a) => a.id === t.id)).toMatchObject({
+          title: t.title,
+          deleted: false,
+        });
     });
     it("a later start makes nothing earlier and removes nothing", async () => {
       const { key } = await project(recurring("DAILY"));
@@ -500,10 +681,17 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       await as("patch", `/projects/${key}`, "sa", { isRecurring: false });
       setToday("2026-11-20");
       await as("patch", `/projects/${key}`, "sa", { isRecurring: true });
-      expect(await dueOf(key)).toEqual(["2026-11-11", "2026-11-12", "2026-11-20", "2026-11-21"]);
+      expect(await dueOf(key)).toEqual([
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-20",
+        "2026-11-21",
+      ]);
     });
     it("nothing is made after the end date", async () => {
-      const { key } = await project(recurring("DAILY", TODAY, { recurrenceEnd: "2026-11-12" }));
+      const { key } = await project(
+        recurring("DAILY", TODAY, { recurrenceEnd: "2026-11-12" }),
+      );
       setToday("2026-12-31");
       await svc(appA).runDaily({ force: true });
       expect(await dueOf(key)).toEqual([TODAY, "2026-11-12"]);
@@ -520,15 +708,22 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       expect(await dueOf(key)).toEqual([TODAY, "2026-11-12"]);
       await as("post", `/projects/${key}/unarchive`, "sa");
       await svc(appA).runDaily({ force: true });
-      expect(await dueOf(key)).toEqual(
-        ["2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15", "2026-11-16"],
-      );
+      expect(await dueOf(key)).toEqual([
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-13",
+        "2026-11-14",
+        "2026-11-15",
+        "2026-11-16",
+      ]);
     });
     it("saving an archived project makes nothing either", async () => {
       const { key } = await project(recurring("DAILY"));
       await as("post", `/projects/${key}/archive`, "sa");
       setToday("2026-11-15");
-      expect((await as("patch", `/projects/${key}`, "sa", { name: "Still archived" })).status).toBe(200);
+      expect(
+        (await as("patch", `/projects/${key}`, "sa", { name: "Still archived" })).status,
+      ).toBe(200);
       expect(await dueOf(key)).toEqual([TODAY, "2026-11-12"]);
     });
     it("a start in the future waits for its lead time", async () => {
@@ -549,7 +744,14 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       const { key } = await project(recurring("WEEKLY"));
       const res = await as("get", `/projects/${key}/recurrence-preview`, "viewer");
       expect(res.status).toBe(200);
-      expect(Object.keys(res.body).sort()).toEqual(["dates", "end", "frequency", "leadDays", "recurring", "start"]);
+      expect(Object.keys(res.body).sort()).toEqual([
+        "dates",
+        "end",
+        "frequency",
+        "leadDays",
+        "recurring",
+        "start",
+      ]);
       expect(res.body).toEqual({
         recurring: true,
         frequency: "WEEKLY",
@@ -561,44 +763,95 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
     });
     it("count sets how many, from 1 to 24", async () => {
       const { key } = await project(recurring("DAILY"));
-      expect((await as("get", `/projects/${key}/recurrence-preview?count=2`, "sa")).body.dates).toHaveLength(2);
-      expect((await as("get", `/projects/${key}/recurrence-preview?count=100`, "sa")).body.dates).toHaveLength(24);
-      expect((await as("get", `/projects/${key}/recurrence-preview?count=0`, "sa")).body.dates).toHaveLength(1);
+      expect(
+        (await as("get", `/projects/${key}/recurrence-preview?count=2`, "sa")).body.dates,
+      ).toHaveLength(2);
+      expect(
+        (await as("get", `/projects/${key}/recurrence-preview?count=100`, "sa")).body
+          .dates,
+      ).toHaveLength(24);
+      expect(
+        (await as("get", `/projects/${key}/recurrence-preview?count=0`, "sa")).body.dates,
+      ).toHaveLength(1);
     });
     it("stops at the end date", async () => {
-      const { key } = await project(recurring("DAILY", TODAY, { recurrenceEnd: "2026-11-13" }));
-      expect((await as("get", `/projects/${key}/recurrence-preview`, "sa")).body.dates).toEqual(["2026-11-11", "2026-11-12", "2026-11-13"]);
+      const { key } = await project(
+        recurring("DAILY", TODAY, { recurrenceEnd: "2026-11-13" }),
+      );
+      expect(
+        (await as("get", `/projects/${key}/recurrence-preview`, "sa")).body.dates,
+      ).toEqual(["2026-11-11", "2026-11-12", "2026-11-13"]);
     });
     it("a project that is not recurring has no dates", async () => {
       const { key } = await project({});
-      expect((await as("get", `/projects/${key}/recurrence-preview`, "sa")).body).toEqual({
-        recurring: false,
-        frequency: null,
-        start: null,
-        end: null,
-        leadDays: null,
-        dates: [],
-      });
+      expect((await as("get", `/projects/${key}/recurrence-preview`, "sa")).body).toEqual(
+        {
+          recurring: false,
+          frequency: null,
+          start: null,
+          end: null,
+          leadDays: null,
+          dates: [],
+        },
+      );
     });
     it("start, end and frequency in the query preview a schedule that is not saved", async () => {
       const { key } = await project({});
-      const res = await as("get", `/projects/${key}/recurrence-preview?start=2026-12-31&frequency=MONTHLY&count=4`, "sa");
-      expect(res.body).toMatchObject({ recurring: true, frequency: "MONTHLY", start: "2026-12-31", leadDays: 30 });
-      expect(res.body.dates).toEqual(["2026-12-31", "2027-01-31", "2027-02-28", "2027-03-31"]);
-      const bad = await as("get", `/projects/${key}/recurrence-preview?start=2026-12-31&frequency=x`, "sa");
+      const res = await as(
+        "get",
+        `/projects/${key}/recurrence-preview?start=2026-12-31&frequency=MONTHLY&count=4`,
+        "sa",
+      );
+      expect(res.body).toMatchObject({
+        recurring: true,
+        frequency: "MONTHLY",
+        start: "2026-12-31",
+        leadDays: 30,
+      });
+      expect(res.body.dates).toEqual([
+        "2026-12-31",
+        "2027-01-31",
+        "2027-02-28",
+        "2027-03-31",
+      ]);
+      const bad = await as(
+        "get",
+        `/projects/${key}/recurrence-preview?start=2026-12-31&frequency=x`,
+        "sa",
+      );
       expect(bad.status).toBe(400);
-      expect(bad.body.message).toBe('"x" is not a frequency. Choose Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.');
-      expect((await as("get", `/projects/${key}/recurrence-preview?start=2026-12-31`, "sa")).status).toBe(400);
+      expect(bad.body.message).toBe(
+        '"x" is not a frequency. Choose Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.',
+      );
+      expect(
+        (await as("get", `/projects/${key}/recurrence-preview?start=2026-12-31`, "sa"))
+          .status,
+      ).toBe(400);
     });
     it("who may ask: Projects:Read, and the client rule applies to a linked project", async () => {
       const free = await project(recurring("DAILY"));
-      expect((await as("get", `/projects/${free.key}/recurrence-preview`, "norole")).body.message).toBe(missing("Projects:Read"));
-      const linked = await project(recurring("DAILY", TODAY, { clientId }), "memberAssigned");
+      expect(
+        (await as("get", `/projects/${free.key}/recurrence-preview`, "norole")).body
+          .message,
+      ).toBe(missing("Projects:Read"));
+      const linked = await project(
+        recurring("DAILY", TODAY, { clientId }),
+        "memberAssigned",
+      );
       expect(linked.res.status).toBe(201);
-      expect((await as("get", `/projects/${linked.key}/recurrence-preview`, "member")).status).toBe(404);
-      expect((await as("get", `/projects/${linked.key}/recurrence-preview`, "memberAssigned")).status).toBe(200);
-      expect((await as("get", `/projects/${free.key}/recurrence-preview`, "sa2")).status).toBe(404);
-      expect((await as("get", "/projects/NOPE/recurrence-preview", "sa")).status).toBe(404);
+      expect(
+        (await as("get", `/projects/${linked.key}/recurrence-preview`, "member")).status,
+      ).toBe(404);
+      expect(
+        (await as("get", `/projects/${linked.key}/recurrence-preview`, "memberAssigned"))
+          .status,
+      ).toBe(200);
+      expect(
+        (await as("get", `/projects/${free.key}/recurrence-preview`, "sa2")).status,
+      ).toBe(404);
+      expect((await as("get", "/projects/NOPE/recurrence-preview", "sa")).status).toBe(
+        404,
+      );
     });
   });
 });

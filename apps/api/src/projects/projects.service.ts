@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { addDays, isFrequency, nextOccurrences, type Frequency } from "@portal/projects-core";
+import { addDays, nextOccurrences, type Frequency } from "@portal/projects-core";
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   CreateProjectInput,
@@ -400,7 +400,8 @@ export class ProjectsService {
       recurrenceFrequency?: string | null | undefined;
     },
   ) {
-    const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? null : v.trim());
+    const blank = (v: string | null | undefined) =>
+      v == null || v.trim() === "" ? null : v.trim();
     const touched =
       input.isRecurring !== undefined ||
       input.recurrenceStart !== undefined ||
@@ -409,9 +410,13 @@ export class ProjectsService {
     if (!touched) return null;
     const recurring = input.isRecurring ?? cur?.isRecurring ?? false;
     const start =
-      input.recurrenceStart !== undefined ? blank(input.recurrenceStart) : dayOf(cur?.recurrenceStart);
+      input.recurrenceStart !== undefined
+        ? blank(input.recurrenceStart)
+        : dayOf(cur?.recurrenceStart);
     const end =
-      input.recurrenceEnd !== undefined ? blank(input.recurrenceEnd) : dayOf(cur?.recurrenceEnd);
+      input.recurrenceEnd !== undefined
+        ? blank(input.recurrenceEnd)
+        : dayOf(cur?.recurrenceEnd);
     const frequency =
       input.recurrenceFrequency !== undefined
         ? blank(input.recurrenceFrequency)
@@ -444,7 +449,9 @@ export class ProjectsService {
     try {
       await this.recurrence.generateForProject(projectId);
     } catch (e) {
-      this.logger.warn(`Recurrence for project ${projectId} failed: ${(e as Error).message}`);
+      this.logger.warn(
+        `Recurrence for project ${projectId} failed: ${(e as Error).message}`,
+      );
     }
   }
 
@@ -455,18 +462,33 @@ export class ProjectsService {
   async recurrencePreview(
     actor: ProjectsActor,
     key: string,
-    q: { count?: string | undefined; start?: string | undefined; end?: string | undefined; frequency?: string | undefined },
+    q: {
+      count?: string | undefined;
+      start?: string | undefined;
+      end?: string | undefined;
+      frequency?: string | undefined;
+    },
   ) {
     await this.access.need(actor, P.read);
     const p = await this.access.project(actor.user, key);
-    const override = q.start !== undefined || q.end !== undefined || q.frequency !== undefined;
+    const override =
+      q.start !== undefined || q.end !== undefined || q.frequency !== undefined;
     if (!override && !p.isRecurring) {
-      return { recurring: false, frequency: null, start: null, end: null, leadDays: null, dates: [] };
+      return {
+        recurring: false,
+        frequency: null,
+        start: null,
+        end: null,
+        leadDays: null,
+        dates: [],
+      };
     }
-    const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? null : v.trim());
+    const blank = (v: string | null | undefined) =>
+      v == null || v.trim() === "" ? null : v.trim();
     const start = q.start !== undefined ? blank(q.start) : dayOf(p.recurrenceStart);
     const end = q.end !== undefined ? blank(q.end) : dayOf(p.recurrenceEnd);
-    const frequency = q.frequency !== undefined ? blank(q.frequency) : p.recurrenceFrequency;
+    const frequency =
+      q.frequency !== undefined ? blank(q.frequency) : p.recurrenceFrequency;
     const problems = recurrenceProblems({ recurring: true, start, end, frequency });
     if (problems.length > 0) {
       throw new BadRequestException({ statusCode: 400, message: problems[0], problems });
@@ -620,7 +642,9 @@ export class ProjectsService {
                   { field: "isRecurring", old: null, new: true },
                   { field: "recurrenceFrequency", old: null, new: rec.frequency },
                   { field: "recurrenceStart", old: null, new: rec.start },
-                  ...(rec.end ? [{ field: "recurrenceEnd", old: null, new: rec.end }] : []),
+                  ...(rec.end
+                    ? [{ field: "recurrenceEnd", old: null, new: rec.end }]
+                    : []),
                 ]
               : []),
           ],
@@ -760,15 +784,27 @@ export class ProjectsService {
     if (rec) {
       if (rec.isRecurring !== cur.isRecurring) {
         data.isRecurring = rec.isRecurring;
-        changes.push({ field: "isRecurring", old: cur.isRecurring, new: rec.isRecurring });
+        changes.push({
+          field: "isRecurring",
+          old: cur.isRecurring,
+          new: rec.isRecurring,
+        });
       }
       if (rec.start !== dayOf(cur.recurrenceStart)) {
         data.recurrenceStart = rec.recurrenceStart;
-        changes.push({ field: "recurrenceStart", old: dayOf(cur.recurrenceStart), new: rec.start });
+        changes.push({
+          field: "recurrenceStart",
+          old: dayOf(cur.recurrenceStart),
+          new: rec.start,
+        });
       }
       if (rec.end !== dayOf(cur.recurrenceEnd)) {
         data.recurrenceEnd = rec.recurrenceEnd;
-        changes.push({ field: "recurrenceEnd", old: dayOf(cur.recurrenceEnd), new: rec.end });
+        changes.push({
+          field: "recurrenceEnd",
+          old: dayOf(cur.recurrenceEnd),
+          new: rec.end,
+        });
       }
       if (rec.frequency !== cur.recurrenceFrequency) {
         data.recurrenceFrequency = rec.frequency;

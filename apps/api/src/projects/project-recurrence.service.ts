@@ -80,10 +80,14 @@ export class ProjectRecurrenceService implements OnApplicationBootstrap, OnModul
       this.runDaily()
         .then((r) => {
           if (!r.ran && r.reason === "no-redis") {
-            this.log.warn("Redis cannot be reached: the daily recurrence run was skipped.");
+            this.log.warn(
+              "Redis cannot be reached: the daily recurrence run was skipped.",
+            );
           }
         })
-        .catch((e: Error) => this.log.warn(`The daily recurrence run failed: ${e.message}`));
+        .catch((e: Error) =>
+          this.log.warn(`The daily recurrence run failed: ${e.message}`),
+        );
     this.first = setTimeout(tick, FIRST_TICK_MS);
     this.every = setInterval(tick, TICK_MS);
     this.first.unref();
@@ -115,7 +119,9 @@ export class ProjectRecurrenceService implements OnApplicationBootstrap, OnModul
             created += (await this.generateForProject(r.id)).created;
           } catch (e) {
             errors += 1;
-            this.log.warn(`Recurrence for project ${r.id} failed: ${(e as Error).message}`);
+            this.log.warn(
+              `Recurrence for project ${r.id} failed: ${(e as Error).message}`,
+            );
           }
         }
         return { ok: errors === 0, result: { projects: rows.length, created, errors } };
@@ -156,7 +162,10 @@ export class ProjectRecurrenceService implements OnApplicationBootstrap, OnModul
     const have = new Set(
       (
         await this.prisma.projectOccurrence.findMany({
-          where: { projectId: p.id, occurrenceDate: { in: due.map((d) => dayToDate(d)!) } },
+          where: {
+            projectId: p.id,
+            occurrenceDate: { in: due.map((d) => dayToDate(d)!) },
+          },
           select: { occurrenceDate: true },
         })
       ).map((o) => dayOf(o.occurrenceDate)),
@@ -174,7 +183,9 @@ export class ProjectRecurrenceService implements OnApplicationBootstrap, OnModul
       where: { firmId: p.firmId, isDefault: true },
     });
     if (!type || !status) {
-      this.log.warn(`Project ${p.key}: no issue type or default status; nothing was made.`);
+      this.log.warn(
+        `Project ${p.key}: no issue type or default status; nothing was made.`,
+      );
       return { created: 0 };
     }
     const actor = systemActor(p.firmId);
@@ -196,7 +207,12 @@ export class ProjectRecurrenceService implements OnApplicationBootstrap, OnModul
           dueDate: date,
         });
         await tx.projectOccurrence.update({
-          where: { projectId_occurrenceDate: { projectId: p.id, occurrenceDate: dayToDate(date)! } },
+          where: {
+            projectId_occurrenceDate: {
+              projectId: p.id,
+              occurrenceDate: dayToDate(date)!,
+            },
+          },
           data: { issueId: issue.id },
         });
         created += 1;

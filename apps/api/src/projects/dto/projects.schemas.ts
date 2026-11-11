@@ -61,10 +61,10 @@ export const UpdateProjectSchema = z
     professionalFee: z.unknown().optional(),
     categoryId: uuid.nullable().optional(),
     /**
-   * PA8 (D70): recurrence. The frequency is one of projects-core's FREQUENCIES (DAILY, WEEKLY,
-   * BI_WEEKLY, MONTHLY, QUARTERLY, ANNUALLY), checked with its isFrequency and its sentences, so the
-   * schemas only take text.
-   */
+     * PA8 (D70): recurrence. The frequency is one of projects-core's FREQUENCIES (DAILY, WEEKLY,
+     * BI_WEEKLY, MONTHLY, QUARTERLY, ANNUALLY), checked with its isFrequency and its sentences, so the
+     * schemas only take text.
+     */
     isRecurring: z.boolean().optional(),
     recurrenceStart: z.string().nullable().optional(),
     /** Blank, null or missing: the schedule never ends. */

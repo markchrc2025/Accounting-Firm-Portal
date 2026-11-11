@@ -19,8 +19,18 @@ export const LEAD_DAYS: Readonly<Record<Frequency, number>> = {
 };
 
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 const dayText = (date: string) =>
   `${Number(date.slice(8, 10))} ${MONTHS[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
@@ -50,11 +60,16 @@ export function occurrenceLabel(frequency: Frequency, date: string): string {
 const MAX_TITLE = 300;
 
 /** "Encoding: November 2026". A very long project name is cut; the label is kept whole. */
-export function occurrenceTitle(projectName: string, frequency: Frequency, date: string): string {
+export function occurrenceTitle(
+  projectName: string,
+  frequency: Frequency,
+  date: string,
+): string {
   const tail = `: ${occurrenceLabel(frequency, date)}`;
-  const name = projectName.length + tail.length > MAX_TITLE
-    ? projectName.slice(0, MAX_TITLE - tail.length)
-    : projectName;
+  const name =
+    projectName.length + tail.length > MAX_TITLE
+      ? projectName.slice(0, MAX_TITLE - tail.length)
+      : projectName;
   return `${name}${tail}`;
 }
 

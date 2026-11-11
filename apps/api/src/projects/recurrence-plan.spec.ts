@@ -13,7 +13,14 @@ import {
 
 describe("one source for the frequencies: projects-core", () => {
   it("is DAILY, WEEKLY, BI_WEEKLY, MONTHLY, QUARTERLY and ANNUALLY; BIWEEKLY is not one", () => {
-    expect([...FREQUENCIES]).toEqual(["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"]);
+    expect([...FREQUENCIES]).toEqual([
+      "DAILY",
+      "WEEKLY",
+      "BI_WEEKLY",
+      "MONTHLY",
+      "QUARTERLY",
+      "ANNUALLY",
+    ]);
     expect(isFrequency("BIWEEKLY")).toBe(false);
   });
   it("the lead times cover exactly those frequencies", () => {
@@ -21,7 +28,10 @@ describe("one source for the frequencies: projects-core", () => {
   });
   it("the database's check (migration 46) allows exactly those frequencies", () => {
     const sql = readFileSync(
-      join(__dirname, "../../prisma/migrations/20261116090000_project_firm_details/migration.sql"),
+      join(
+        __dirname,
+        "../../prisma/migrations/20261116090000_project_firm_details/migration.sql",
+      ),
       "utf8",
     );
     const m = /"recurrenceFrequency" IN \(([^)]*)\)/.exec(sql);
@@ -62,7 +72,9 @@ describe("occurrenceLabel and occurrenceTitle", () => {
     expect(occurrenceLabel(frequency, date)).toBe(label);
   });
   it("the title is the project name, a colon and the label; no dashes of the long kind", () => {
-    expect(occurrenceTitle("Encoding", "MONTHLY", "2026-11-12")).toBe("Encoding: November 2026");
+    expect(occurrenceTitle("Encoding", "MONTHLY", "2026-11-12")).toBe(
+      "Encoding: November 2026",
+    );
     for (const f of FREQUENCIES) {
       expect(occurrenceTitle("X", f, "2026-11-12")).not.toMatch(/[–—]/);
     }
@@ -90,36 +102,38 @@ describe("occurrenceLabel and occurrenceTitle", () => {
 describe("datesToGenerate", () => {
   const base = { end: null, activeFrom: "2026-11-11", today: "2026-11-11" } as const;
   it("makes an occurrence once it is within its lead time of today, today included", () => {
-    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "DAILY" })).toEqual([
-      "2026-11-11",
-      "2026-11-12",
-    ]);
-    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "WEEKLY" })).toEqual([
-      "2026-11-11",
-      "2026-11-18",
-    ]);
-    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "BI_WEEKLY" })).toEqual([
-      "2026-11-11",
-      "2026-11-25",
-    ]);
-    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "MONTHLY" })).toEqual([
-      "2026-11-11",
-      "2026-12-11",
-    ]);
-    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "QUARTERLY" })).toEqual([
-      "2026-11-11",
-    ]);
-    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "ANNUALLY" })).toEqual([
-      "2026-11-11",
-    ]);
+    expect(datesToGenerate({ ...base, start: "2026-11-11", frequency: "DAILY" })).toEqual(
+      ["2026-11-11", "2026-11-12"],
+    );
+    expect(
+      datesToGenerate({ ...base, start: "2026-11-11", frequency: "WEEKLY" }),
+    ).toEqual(["2026-11-11", "2026-11-18"]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-11-11", frequency: "BI_WEEKLY" }),
+    ).toEqual(["2026-11-11", "2026-11-25"]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-11-11", frequency: "MONTHLY" }),
+    ).toEqual(["2026-11-11", "2026-12-11"]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-11-11", frequency: "QUARTERLY" }),
+    ).toEqual(["2026-11-11"]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-11-11", frequency: "ANNUALLY" }),
+    ).toEqual(["2026-11-11"]);
   });
   it("one day further than the lead time is not made yet", () => {
-    expect(datesToGenerate({ ...base, start: "2026-12-12", frequency: "MONTHLY" })).toEqual([]);
-    expect(datesToGenerate({ ...base, start: "2026-12-11", frequency: "MONTHLY" })).toEqual([
-      "2026-12-11",
-    ]);
-    expect(datesToGenerate({ ...base, start: "2026-11-19", frequency: "WEEKLY" })).toEqual([]);
-    expect(datesToGenerate({ ...base, start: "2026-11-13", frequency: "DAILY" })).toEqual([]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-12-12", frequency: "MONTHLY" }),
+    ).toEqual([]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-12-11", frequency: "MONTHLY" }),
+    ).toEqual(["2026-12-11"]);
+    expect(
+      datesToGenerate({ ...base, start: "2026-11-19", frequency: "WEEKLY" }),
+    ).toEqual([]);
+    expect(datesToGenerate({ ...base, start: "2026-11-13", frequency: "DAILY" })).toEqual(
+      [],
+    );
   });
   it("nothing before the day generation began, even when the start is long past", () => {
     const dates = datesToGenerate({
@@ -133,31 +147,61 @@ describe("datesToGenerate", () => {
   });
   it("an end date is respected, and a schedule that has ended makes nothing", () => {
     expect(
-      datesToGenerate({ ...base, start: "2026-11-11", end: "2026-11-11", frequency: "DAILY" }),
+      datesToGenerate({
+        ...base,
+        start: "2026-11-11",
+        end: "2026-11-11",
+        frequency: "DAILY",
+      }),
     ).toEqual(["2026-11-11"]);
     expect(
-      datesToGenerate({ ...base, start: "2026-01-01", end: "2026-06-30", frequency: "DAILY" }),
+      datesToGenerate({
+        ...base,
+        start: "2026-01-01",
+        end: "2026-06-30",
+        frequency: "DAILY",
+      }),
     ).toEqual([]);
   });
   it("no activeFrom means today", () => {
     expect(
-      datesToGenerate({ start: "2020-01-01", end: null, frequency: "DAILY", activeFrom: null, today: "2026-11-11" }),
+      datesToGenerate({
+        start: "2020-01-01",
+        end: null,
+        frequency: "DAILY",
+        activeFrom: null,
+        today: "2026-11-11",
+      }),
     ).toEqual(["2026-11-11", "2026-11-12"]);
   });
 });
 
 describe("recurrenceProblems", () => {
   it("says what is wrong, in PC5's sentences, and nothing when the schedule is off", () => {
-    expect(recurrenceProblems({ recurring: true, start: null, end: null, frequency: null })).toEqual([
+    expect(
+      recurrenceProblems({ recurring: true, start: null, end: null, frequency: null }),
+    ).toEqual([
       "Choose a start date for the recurring project.",
       "Choose how often the project repeats: Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.",
     ]);
-    expect(recurrenceProblems({ recurring: false, start: null, end: null, frequency: "x" })).toEqual([]);
     expect(
-      recurrenceProblems({ recurring: true, start: "2026-02-01", end: "2026-01-01", frequency: "MONTHLY" }),
+      recurrenceProblems({ recurring: false, start: null, end: null, frequency: "x" }),
+    ).toEqual([]);
+    expect(
+      recurrenceProblems({
+        recurring: true,
+        start: "2026-02-01",
+        end: "2026-01-01",
+        frequency: "MONTHLY",
+      }),
     ).toEqual(["The end date cannot be before the start date."]);
     expect(
-      recurrenceProblems({ recurring: true, start: "2026-02-01", end: null, frequency: "MONTHLY" }),
+      recurrenceProblems({
+        recurring: true,
+        start: "2026-02-01",
+        end: null,
+        frequency: "MONTHLY",
+      }),
     ).toEqual([]);
   });
 });
