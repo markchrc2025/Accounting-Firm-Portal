@@ -13,12 +13,19 @@ const sharedSrc = fileURLToPath(
 const sharedDist = fileURLToPath(
   new URL("../../packages/shared/dist/index.js", import.meta.url),
 );
+// PB7: the recurring-project dates from @portal/projects-core. Only its recurrence module: the
+// package's index also exports server-only helpers (node:crypto, node:fs) a browser cannot load.
+// The module is pure TypeScript with no imports, so both dev and the production build use it.
+const projectsCoreRecurrence = fileURLToPath(
+  new URL("../../packages/projects-core/src/recurrence.ts", import.meta.url),
+);
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   resolve: {
     alias: {
       "@portal/shared": command === "build" ? sharedDist : sharedSrc,
+      "@portal/projects-core/recurrence": projectsCoreRecurrence,
     },
   },
   server: {

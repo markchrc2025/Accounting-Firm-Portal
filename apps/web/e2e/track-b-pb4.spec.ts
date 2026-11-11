@@ -467,7 +467,7 @@ async function mockApi(
     // the settings page
     [
       "GET",
-      /^\/api\/v1\/projects\/admin\/(issue-types|issue-statuses|labels)$/,
+      /^\/api\/v1\/projects\/admin\/(issue-types|issue-statuses|labels|project-categories)$/, // PB7: + project-categories
       (r) => json(r, []),
     ],
   ];

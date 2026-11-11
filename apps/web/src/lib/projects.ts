@@ -4,6 +4,7 @@
 // decides everything else; its sentences are shown exactly as sent.
 
 import { ApiError, apiFetch } from "./api";
+import type { Frequency } from "./recurrence";
 
 // --- words and colours ---------------------------------------------------------------------
 
@@ -90,6 +91,19 @@ export interface ProjectDto {
   archived: boolean;
   parent: ProjectRef | null;
   client: { id: string; businessName: string } | null;
+  // PB7 (PA8, D70): the firm's engagement details. Optional here only so that answers from before
+  // PA8 still read; the API always sends them now.
+  /** The client as the firm names it: a listed client's name, or any typed name. */
+  clientName?: string | null;
+  /** Pesos as the API writes them ("3500.00"), or null. */
+  professionalFee?: string | null;
+  /** The listed client's own fee, offered while the project has none; never saved by itself. */
+  suggestedProfessionalFee?: string | null;
+  category?: { id: string; name: string; colour: string } | null;
+  isRecurring?: boolean;
+  recurrenceStart?: string | null;
+  recurrenceEnd?: string | null;
+  recurrenceFrequency?: Frequency | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -296,6 +310,8 @@ export interface ProjectsMeta {
   issueStatuses: IssueStatusRow[];
   labels: LabelRef[];
   users: { id: string; fullName: string; email: string }[];
+  /** PB7 (PA8): the firm's project categories, for the form and the portfolio filter. */
+  projectCategories?: IssueTypeRow[];
 }
 
 // --- PB2: board, roadmap, My Work, search -----------------------------------------------------
@@ -453,6 +469,8 @@ export interface AuditImportBody {
 export type AdminType = IssueTypeRow & { issueCount: number };
 export type AdminStatus = IssueStatusRow & { issueCount: number };
 export type AdminLabel = LabelRef & { issueCount: number };
+/** PB7 (PA8): a project category as the settings list shows it. */
+export type AdminCategory = IssueTypeRow & { projectCount: number };
 
 // --- the calls -----------------------------------------------------------------------------
 
@@ -469,20 +487,53 @@ const query = (params: Record<string, string | undefined>): string => {
 export const fetchProjectsMeta = () => apiFetch<ProjectsMeta>("/projects/meta");
 export const lookupIssueKey = (key: string) =>
   apiFetch<IssueItem>(`/projects/issue-keys/${enc(key)}`);
-export const fetchProjects = (includeArchived: boolean) =>
+export const fetchProjects = (includeArchived: boolean, categoryId?: string) =>
   apiFetch<ProjectSummary[]>(
-    `/projects${query({ includeArchived: includeArchived ? "true" : undefined })}`,
+    `/projects${query({
+      includeArchived: includeArchived ? "true" : undefined,
+      categoryId: categoryId || undefined,
+    })}`,
   );
+/**
+ * What the project form sends. PB7: the repository, live address and deployment name are no longer
+ * on the form, and nothing is sent for them (their saved values stay).
+ */
 export interface ProjectInput {
   key?: string;
   name?: string;
   description?: string;
-  repoUrl?: string;
-  liveUrl?: string;
-  deployAppName?: string;
   parentKey?: string | null;
   clientId?: string | null;
+  clientName?: string | null;
+  /** Digits with at most 2 decimals, or null for no fee. */
+  professionalFee?: string | null;
+  categoryId?: string | null;
+  isRecurring?: boolean;
+  recurrenceStart?: string | null;
+  recurrenceEnd?: string | null;
+  recurrenceFrequency?: Frequency | null;
 }
+/** PB7 (PA8): the listed clients whose name equals the project's client name. */
+export interface ClientMatches {
+  clientName: string | null;
+  linked: boolean;
+  matches: { id: string; businessName: string; status: string }[];
+}
+export const fetchClientMatches = (key: string) =>
+  apiFetch<ClientMatches>(`/projects/${enc(key)}/client-matches`);
+/** PB7 (PA8): the next dates of a saved recurring schedule. */
+export interface RecurrencePreview {
+  recurring: boolean;
+  frequency: Frequency | null;
+  start: string | null;
+  end: string | null;
+  leadDays: number | null;
+  dates: string[];
+}
+export const fetchRecurrencePreview = (key: string, count = 5) =>
+  apiFetch<RecurrencePreview>(
+    `/projects/${enc(key)}/recurrence-preview${query({ count: String(count) })}`,
+  );
 export const createProject = (b: ProjectInput) =>
   apiFetch<ProjectDto>("/projects", { method: "POST", ...json(b) });
 export const updateProject = (key: string, b: ProjectInput) =>
@@ -617,7 +668,7 @@ export const addComment = (key: string, issueKey: string, body: string) =>
     ...json({ body }),
   });
 
-export type AdminKind = "issue-types" | "issue-statuses" | "labels";
+export type AdminKind = "issue-types" | "issue-statuses" | "labels" | "project-categories";
 export const listAdmin = <T>(kind: AdminKind) => apiFetch<T[]>(`/projects/admin/${kind}`);
 export const createAdmin = <T>(kind: AdminKind, b: Record<string, unknown>) =>
   apiFetch<T>(`/projects/admin/${kind}`, { method: "POST", ...json(b) });
@@ -1066,3 +1117,66 @@ export const sessionPath = (projectKey: string, sessionId?: string): string =>
   `/projects/${encodeURIComponent(projectKey)}/sessions${
     sessionId ? `?session=${encodeURIComponent(sessionId)}` : ""
   }`;
+
+// --- PB7: the firm's project details ------------------------------------------------------------
+
+/** What the fee box accepts while typing: digits, then at most one point and 2 decimals. */
+const FEE_TYPING = /^\d{0,16}(\.\d{0,2})?$/;
+/** Whether text can stand in the fee box (an empty box is no fee). Nothing negative, no letters. */
+export const feeTypingOk = (text: string): boolean => FEE_TYPING.test(text);
+/** The fee as it is sent: null for an empty box, "12." is sent as "12". */
+export function feeToSend(text: string): string | null {
+  const t = text.trim();
+  if (t === "") return null;
+  return t.endsWith(".") ? t.slice(0, -1) : t;
+}
+/** "3,500.00" from "3500.00" (or a number); "" when there is none. */
+export function feeText(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/** A fee as plain digits for the box: "3500.00" stays "3500.00", 3500 becomes "3500.00". */
+export function feeForBox(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : "";
+}
+
+/** Said under the client box when the typed name is not one of the firm's clients. */
+export const NOT_LISTED_NOTE = "Not in your client list";
+/** Said under the recurring schedule. */
+export const RECURRING_LINE = "Each date creates a task in this project, due that day.";
+export const RECURRENCE_END_HINT = "Leave blank for no end date";
+
+/** The listed clients whose name starts with or contains what was typed, best first, up to 8. */
+export function clientSuggestions<T extends { businessName: string }>(
+  clients: T[],
+  typed: string,
+  limit = 8,
+): T[] {
+  const q = typed.trim().toLowerCase();
+  if (q === "") return clients.slice(0, limit);
+  const starts = clients.filter((c) => c.businessName.toLowerCase().startsWith(q));
+  const contains = clients.filter(
+    (c) =>
+      !c.businessName.toLowerCase().startsWith(q) &&
+      c.businessName.toLowerCase().includes(q),
+  );
+  return [...starts, ...contains].slice(0, limit);
+}
+/** Whether the typed name is (ignoring case and outer spaces) the name of a listed client. */
+export function isListedName(clients: { businessName: string }[], typed: string): boolean {
+  const q = typed.trim().toLowerCase();
+  return q !== "" && clients.some((c) => c.businessName.trim().toLowerCase() === q);
+}
+
+/** Today in Manila (YYYY-MM-DD). */
+export const manilaToday = (): string => manilaDay(new Date().toISOString());
+/** The day before a calendar date (YYYY-MM-DD). */
+export function dayBefore(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}

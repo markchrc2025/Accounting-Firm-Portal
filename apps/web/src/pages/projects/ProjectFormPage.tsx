@@ -1,8 +1,9 @@
-// ProjectFormPage - create and edit a project (PB1). The key is typed once, on create, and is
-// never editable after; the format shown is a hint, the API decides. A project can be linked to a
-// Portal client the caller can see, and the link can be cleared.
+// ProjectFormPage - create and edit a project (PB1, PB7). A project is one of the firm's
+// engagements: key, name, description, the client (a listed client, or any typed name), the
+// professional fee, the parent project, the category and whether it recurs. The key is typed once,
+// on create, and is never editable after; the API makes the final check of everything.
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
@@ -14,20 +15,33 @@ import {
   Skeleton,
 } from "../../components/ui";
 import { ErrorBanner, Field } from "../../components/projects/parts";
+import { ClientField } from "../../components/projects/ClientField";
+import { FeeField } from "../../components/projects/FeeField";
+import { LinkToClient } from "../../components/projects/LinkToClient";
+import {
+  RecurrenceFields,
+  type Schedule,
+} from "../../components/projects/RecurrenceFields";
 import { useProjectsCan } from "../../components/projects/useProjectsCan";
 import { fetchClients, type ClientSummary } from "../../lib/api";
 import {
   archiveProject,
   createProject,
   errorLines,
+  feeForBox,
+  feeToSend,
   fetchProject,
   fetchProjects,
+  fetchProjectsMeta,
   PROJECT_KEY_HINT,
   PROJECT_KEY_RE,
   projectPath,
   updateProject,
   type ProjectInput,
 } from "../../lib/projects";
+import { validateRecurrence } from "../../lib/recurrence";
+
+const NO_SCHEDULE: Schedule = { on: false, start: "", end: "", frequency: "MONTHLY" };
 
 export default function ProjectFormPage() {
   const { key: editKey } = useParams<{ key: string }>();
@@ -51,41 +65,81 @@ export default function ProjectFormPage() {
     queryFn: () => fetchProjects(true),
     enabled: can.read,
   });
+  const meta = useQuery({
+    queryKey: ["projects", "meta"],
+    queryFn: fetchProjectsMeta,
+    enabled: can.read,
+  });
 
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [repoUrl, setRepoUrl] = useState("");
-  const [liveUrl, setLiveUrl] = useState("");
-  const [deployAppName, setDeployAppName] = useState("");
   const [parentKey, setParentKey] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [fee, setFee] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [schedule, setSchedule] = useState<Schedule>(NO_SCHEDULE);
   const [errors, setErrors] = useState<string[]>([]);
 
   // Fill the boxes once from the saved project.
   const loaded = current.data?.project;
+  const saved: Schedule = useMemo(
+    () =>
+      loaded?.isRecurring
+        ? {
+            on: true,
+            start: loaded.recurrenceStart ?? "",
+            end: loaded.recurrenceEnd ?? "",
+            frequency: loaded.recurrenceFrequency ?? "MONTHLY",
+          }
+        : NO_SCHEDULE,
+    [loaded],
+  );
   useEffect(() => {
     if (!loaded) return;
     setKey(loaded.key);
     setName(loaded.name);
     setDescription(loaded.description);
-    setRepoUrl(loaded.repoUrl);
-    setLiveUrl(loaded.liveUrl);
-    setDeployAppName(loaded.deployAppName);
     setParentKey(loaded.parent?.key ?? "");
-    setClientId(loaded.client?.id ?? "");
-  }, [loaded]);
+    setClientId(loaded.client?.id ?? null);
+    setClientName(loaded.clientName ?? loaded.client?.businessName ?? "");
+    setFee(feeForBox(loaded.professionalFee));
+    setCategoryId(loaded.category?.id ?? "");
+    setSchedule(saved);
+  }, [loaded, saved]);
+
+  // The client's own fee, offered (never filled by itself) while the fee box is empty: from the
+  // client list for a client picked here, or the API's suggestion for the saved one.
+  const clientList: ClientSummary[] = clients.data ?? [];
+  const picked = clientId ? clientList.find((c) => c.id === clientId) : undefined;
+  const suggestedFee =
+    fee.trim() !== "" || !clientId
+      ? null
+      : feeForBox(picked?.professionalFee) ||
+        (loaded && loaded.client?.id === clientId
+          ? feeForBox(loaded.suggestedProfessionalFee)
+          : "") ||
+        null;
 
   const save = useMutation({
     mutationFn: () => {
       const body: ProjectInput = {
         name,
         description,
-        repoUrl,
-        liveUrl,
-        deployAppName,
         parentKey: parentKey || null,
-        clientId: clientId || null,
+        clientId,
+        clientName: clientName.trim() === "" ? null : clientName.trim(),
+        professionalFee: feeToSend(fee),
+        categoryId: categoryId || null,
+        isRecurring: schedule.on,
+        ...(schedule.on
+          ? {
+              recurrenceStart: schedule.start || null,
+              recurrenceEnd: schedule.end || null,
+              recurrenceFrequency: schedule.frequency,
+            }
+          : {}),
       };
       return editing ? updateProject(editKey!, body) : createProject({ ...body, key });
     },
@@ -136,9 +190,21 @@ export default function ProjectFormPage() {
 
   const canWrite = editing ? can.update : can.create;
   const keyLooksWrong = !editing && key !== "" && !PROJECT_KEY_RE.test(key);
+  const categories = meta.data?.projectCategories ?? [];
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    // The schedule is checked with the same rules as the API (projects-core) before it is sent.
+    const problems = validateRecurrence({
+      recurring: schedule.on,
+      start: schedule.start,
+      end: schedule.end,
+      frequency: schedule.frequency,
+    });
+    if (problems.length > 0) {
+      setErrors(problems);
+      return;
+    }
     setErrors([]);
     save.mutate();
   }
@@ -209,27 +275,31 @@ export default function ProjectFormPage() {
           </Card>
           <Card>
             <CardContent className="grid gap-4 sm:grid-cols-3">
-              <Field label="Repository URL">
-                <input
-                  className="input"
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
+              <div className="sm:col-span-2">
+                <ClientField
+                  clients={clientList}
+                  name={clientName}
+                  clientId={clientId}
+                  onType={(text) => {
+                    setClientName(text);
+                    setClientId(null); // a typed name is not a listed client until one is picked
+                  }}
+                  onPick={(c) => {
+                    setClientName(c.businessName);
+                    setClientId(c.id);
+                  }}
                 />
-              </Field>
-              <Field label="Live URL">
-                <input
-                  className="input"
-                  value={liveUrl}
-                  onChange={(e) => setLiveUrl(e.target.value)}
-                />
-              </Field>
-              <Field label="Deployment app name">
-                <input
-                  className="input"
-                  value={deployAppName}
-                  onChange={(e) => setDeployAppName(e.target.value)}
-                />
-              </Field>
+                {editing && loaded && !loaded.client && loaded.clientName ? (
+                  <LinkToClient
+                    projectKey={loaded.key}
+                    onLinked={(c) => {
+                      setClientId(c.id);
+                      setClientName(c.businessName);
+                    }}
+                  />
+                ) : null}
+              </div>
+              <FeeField value={fee} onChange={setFee} suggested={suggestedFee} />
               <Field label="Parent project">
                 <select
                   className="input"
@@ -246,25 +316,28 @@ export default function ProjectFormPage() {
                     ))}
                 </select>
               </Field>
-              <Field
-                label="Client"
-                hint="Optional. Only people who can see the client can see the project."
-              >
+              <Field label="Category">
                 <select
                   className="input"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
                 >
-                  <option value="">No client</option>
-                  {(clients.data ?? []).map((c: ClientSummary) => (
+                  <option value="">No category</option>
+                  {categories.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.businessName}
+                      {c.name}
                     </option>
                   ))}
                 </select>
               </Field>
             </CardContent>
           </Card>
+          <RecurrenceFields
+            value={schedule}
+            onChange={setSchedule}
+            savedKey={editing && loaded?.isRecurring ? loaded.key : null}
+            saved={saved}
+          />
         </fieldset>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           {canWrite ? (
