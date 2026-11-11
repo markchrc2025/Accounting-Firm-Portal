@@ -78,7 +78,7 @@ export function RecurrenceFields({
               <Field label="Start date">
                 <input
                   type="date"
-                  required
+                  aria-required="true"
                   className="input font-mono"
                   value={value.start}
                   onChange={(e) => set({ start: e.target.value })}
