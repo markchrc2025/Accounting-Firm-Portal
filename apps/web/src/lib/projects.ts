@@ -668,7 +668,8 @@ export const addComment = (key: string, issueKey: string, body: string) =>
     ...json({ body }),
   });
 
-export type AdminKind = "issue-types" | "issue-statuses" | "labels" | "project-categories";
+export type AdminKind =
+  "issue-types" | "issue-statuses" | "labels" | "project-categories";
 export const listAdmin = <T>(kind: AdminKind) => apiFetch<T[]>(`/projects/admin/${kind}`);
 export const createAdmin = <T>(kind: AdminKind, b: Record<string, unknown>) =>
   apiFetch<T>(`/projects/admin/${kind}`, { method: "POST", ...json(b) });
@@ -1135,7 +1136,10 @@ export function feeText(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "";
   const n = typeof v === "number" ? v : Number(v);
   if (!Number.isFinite(n)) return "";
-  return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 /** A fee as plain digits for the box: "3500.00" stays "3500.00", 3500 becomes "3500.00". */
 export function feeForBox(v: string | number | null | undefined): string {
@@ -1167,7 +1171,10 @@ export function clientSuggestions<T extends { businessName: string }>(
   return [...starts, ...contains].slice(0, limit);
 }
 /** Whether the typed name is (ignoring case and outer spaces) the name of a listed client. */
-export function isListedName(clients: { businessName: string }[], typed: string): boolean {
+export function isListedName(
+  clients: { businessName: string }[],
+  typed: string,
+): boolean {
   const q = typed.trim().toLowerCase();
   return q !== "" && clients.some((c) => c.businessName.trim().toLowerCase() === q);
 }

@@ -161,7 +161,9 @@ describe("PB7 the routes", () => {
       }),
     );
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it("asks for the portfolio by category, client matches, the preview and the deadlines", async () => {
     await fetchProjects(false, "cat-1");
     await fetchProjects(true, "none");
