@@ -489,10 +489,10 @@ test.describe("W19 payee details on an expense (hermetic)", () => {
     });
     const { seen, unmocked, dialogs, quiet } = await mockApi(page, w);
     await openAdd(page);
-    await page.getByPlaceholder("000-000-000-00000").fill("111-222-33");
+    await page.getByLabel("Supplier TIN").fill("111-222-33");
     await quiet();
     expect(seen.filter((s) => s.path.endsWith("/payee-details"))).toHaveLength(0);
-    await page.getByPlaceholder("000-000-000-00000").fill("111-222-333");
+    await page.getByLabel("Supplier TIN").fill("111-222-333");
     await expect(page.getByLabel("Last name")).toHaveValue("Santos");
     await expect(page.getByLabel("First name")).toHaveValue("Maria");
     await expect(page.getByLabel("Middle name")).toHaveValue("Reyes");
@@ -502,7 +502,7 @@ test.describe("W19 payee details on an expense (hermetic)", () => {
     );
     // Editing the TIN afterwards asks nothing more for the same digits, and overwrites nothing.
     await page.getByLabel("Last name").fill("Santos-Cruz");
-    await page.getByPlaceholder("000-000-000-00000").fill("111222333");
+    await page.getByLabel("Supplier TIN").fill("111222333");
     await quiet();
     const asks = seen.filter((s) => s.path.endsWith("/payee-details"));
     expect(asks).toHaveLength(1);
@@ -515,16 +515,109 @@ test.describe("W19 payee details on an expense (hermetic)", () => {
     const w = world();
     const { seen, unmocked, dialogs, quiet } = await mockApi(page, w);
     await openAdd(page);
-    await page.getByPlaceholder("000-000-000-00000").fill("999-888-777");
+    await page.getByLabel("Supplier TIN").fill("999-888-777");
     await quiet();
     // The same nine digits typed another way ask nothing more (the boxes are still blank).
-    await page.getByPlaceholder("000-000-000-00000").fill("999888777");
+    await page.getByLabel("Supplier TIN").fill("999888777");
     await quiet();
-    await page.getByPlaceholder("000-000-000-00000").fill("999-888-777");
+    await page.getByLabel("Supplier TIN").fill("999-888-777");
     await quiet();
     expect(seen.filter((s) => s.path.endsWith("/payee-details"))).toHaveLength(1);
     await expect(page.locator("[data-payee-prefilled]")).toHaveCount(0);
     await expect(page.getByLabel("Branch")).toHaveValue("");
+    clean(unmocked, dialogs);
+  });
+});
+
+// W24: a full TIN (with its branch) pasted into the supplier TIN box is split.
+test.describe("W24 a full TIN on the expense form (hermetic)", () => {
+  async function openAdd(page: Page) {
+    await page.goto(`/clients/${CLIENT.id}/expenses`);
+    await page.getByRole("button", { name: "+ Add record" }).first().click();
+    await expect(page.locator("[data-payee-details]")).toBeVisible();
+  }
+  async function pasteTin(page: Page, text: string) {
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    const box = page.getByLabel("Supplier TIN");
+    await box.focus();
+    await page.evaluate((t) => navigator.clipboard.writeText(t), text);
+    await page.keyboard.press("ControlOrMeta+V");
+  }
+
+  test("paste a 14-digit TIN and save: the POST carries vendorTin of 9 digits and vendorBranch; the prefill asks with the 9 digits", async ({
+    page,
+  }) => {
+    const w = world({
+      payees: {
+        "111222333": {
+          found: true,
+          tin: "111222333",
+          branch: "00000",
+          payeeKind: "non_individual",
+          registeredName: "INVENTED SUPPLY CORP",
+          lastName: null,
+          firstName: null,
+          middleName: null,
+          vendor: "INVENTED SUPPLY CORP",
+        },
+      },
+    });
+    const { seen, unmocked, dialogs } = await mockApi(page, w);
+    await openAdd(page);
+    await expect(page.getByLabel("Supplier TIN")).toHaveAttribute(
+      "placeholder",
+      "123-456-789",
+    );
+    await pasteTin(page, "111-222-333-00012");
+    await expect(page.getByLabel("Supplier TIN")).toHaveValue("111-222-333");
+    await expect(page.getByLabel("Branch")).toHaveValue("00012");
+    await expect(page.locator("[data-tin-split-note]")).toHaveText(
+      "Branch moved to the Branch field.",
+    );
+    // the prefill runs after the split, with the 9 digits, and keeps the TIN's branch
+    await expect(page.locator("[data-payee-prefilled]")).toBeVisible();
+    const asks = seen.filter((s) => s.path.endsWith("/payee-details"));
+    expect(asks.map((a) => a.search.get("tin"))).toEqual(["111222333"]);
+    await expect(page.getByLabel("Branch")).toHaveValue("00012");
+
+    const acct = page.getByPlaceholder("Select account…");
+    await acct.focus();
+    await page.getByText("Office Supplies").click();
+    await page.getByPlaceholder("Enter name or description").fill("Paper");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect
+      .poll(
+        () =>
+          seen.filter(
+            (s) => s.method === "POST" && s.path.endsWith("/purchase-transactions"),
+          ).length,
+      )
+      .toBe(1);
+    const post = seen.find(
+      (s) => s.method === "POST" && s.path.endsWith("/purchase-transactions"),
+    )!;
+    const body = post.request.postDataJSON() as Record<string, unknown>;
+    expect(body.vendorTin).toBe("111-222-333");
+    expect(String(body.vendorTin).replace(/\D/g, "")).toMatch(/^\d{9}$/);
+    expect(body.vendorBranch).toBe("00012");
+    clean(unmocked, dialogs);
+  });
+
+  test("a different Branch: nothing is split, the warning names the TIN's branch", async ({
+    page,
+  }) => {
+    const w = world();
+    const { seen, unmocked, dialogs } = await mockApi(page, w);
+    await openAdd(page);
+    await page.getByLabel("Branch").fill("00001");
+    await pasteTin(page, "111-222-333-00012");
+    await expect(page.getByLabel("Supplier TIN")).toHaveValue("111-222-333-00012");
+    await expect(page.getByLabel("Branch")).toHaveValue("00001");
+    await expect(page.locator("[data-tin-branch-conflict]")).toHaveText(
+      "The TIN includes a branch (00012) that differs from the Branch field. Check which is right.",
+    );
+    await expect(page.locator("[data-tin-split-note]")).toHaveCount(0);
+    expect(seen.filter((s) => s.path.endsWith("/payee-details"))).toHaveLength(0);
     clean(unmocked, dialogs);
   });
 });

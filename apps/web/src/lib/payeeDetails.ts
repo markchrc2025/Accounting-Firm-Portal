@@ -109,3 +109,43 @@ export function payeeLine(t: PurchaseTxn): string {
   if (t.vendorBranch) parts.push(`branch ${t.vendorBranch}`);
   return parts.join(" · ");
 }
+
+// --- W24: a full TIN typed into the TIN box --------------------------------------------------
+
+/** Said when a full TIN was split: the branch now sits in the Branch box. */
+export const SPLIT_NOTE = "Branch moved to the Branch field.";
+
+/** Said when the TIN carries a branch that is not the one in the Branch box. */
+export const branchConflictMessage = (branch: string): string =>
+  `The TIN includes a branch (${branch}) that differs from the Branch field. Check which is right.`;
+
+/** The TIN box's hint and example: the TIN is 9 digits, the branch has its own box. */
+export const TIN_PLACEHOLDER = "123-456-789";
+export const TIN_HINT = "9 digits, for example 123-456-789.";
+export const BRANCH_HINT = "Up to 5 digits.";
+
+/** 9 digits as the form shows them: 123-456-789. */
+export const formatTin9 = (digits: string): string =>
+  `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}`;
+
+/**
+ * What a TIN of 12 or 14 digits (dashes and spaces dropped) becomes: the first 9 digits are
+ * the TIN and the rest is the branch.
+ * - `none`: not 12 or 14 digits; nothing to do.
+ * - `split`: the Branch box is empty or holds the same digits: the TIN becomes the 9 digits
+ *   (123-456-789) and the branch goes to the Branch box.
+ * - `conflict`: the Branch box holds other digits: both stay as typed, and the person is told.
+ */
+export type TinSplit =
+  | { kind: "none" }
+  | { kind: "split"; tin: string; branch: string }
+  | { kind: "conflict"; branch: string };
+
+export function splitTin(typedTin: string, branchBox: string): TinSplit {
+  const d = tinDigits(typedTin);
+  if (d.length !== 12 && d.length !== 14) return { kind: "none" };
+  const branch = d.slice(9);
+  const box = branchBox.trim();
+  if (box === "" || box === branch) return { kind: "split", tin: formatTin9(d), branch };
+  return { kind: "conflict", branch };
+}

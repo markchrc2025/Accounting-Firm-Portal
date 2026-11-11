@@ -62,7 +62,7 @@ function open(kind: "expense" | "income" = "expense") {
   );
 }
 
-const tinBox = () => screen.getByPlaceholderText("000-000-000-00000");
+const tinBox = () => screen.getByLabelText("Supplier TIN"); // W24: was found by its old placeholder
 const typeTin = (v: string) => fireEvent.change(tinBox(), { target: { value: v } });
 const box = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
 
