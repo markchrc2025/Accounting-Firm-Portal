@@ -28,6 +28,21 @@ export const CreateProjectSchema = z.object({
   deployAppName: text(200).optional(),
   parentKey: z.string().nullable().optional(),
   clientId: uuid.nullable().optional(),
+  /** PA8: any text up to 200 characters; a listed client's name is copied here when it is picked. */
+  clientName: z.string().trim().max(200).nullable().optional(),
+  /** PA8: checked by parseFee, so the refusal is one sentence whatever was sent. */
+  professionalFee: z.unknown().optional(),
+  categoryId: uuid.nullable().optional(),
+  /**
+   * PA8 (D70): recurrence. The frequency is one of projects-core's FREQUENCIES (DAILY, WEEKLY,
+   * BI_WEEKLY, MONTHLY, QUARTERLY, ANNUALLY), checked with its isFrequency and its sentences, so the
+   * schemas only take text.
+   */
+  isRecurring: z.boolean().optional(),
+  recurrenceStart: z.string().nullable().optional(),
+  /** Blank, null or missing: the schedule never ends. */
+  recurrenceEnd: z.string().nullable().optional(),
+  recurrenceFrequency: z.string().nullable().optional(),
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 
@@ -42,6 +57,19 @@ export const UpdateProjectSchema = z
     deployAppName: text(200).optional(),
     parentKey: z.string().nullable().optional(),
     clientId: uuid.nullable().optional(),
+    clientName: z.string().trim().max(200).nullable().optional(),
+    professionalFee: z.unknown().optional(),
+    categoryId: uuid.nullable().optional(),
+    /**
+     * PA8 (D70): recurrence. The frequency is one of projects-core's FREQUENCIES (DAILY, WEEKLY,
+     * BI_WEEKLY, MONTHLY, QUARTERLY, ANNUALLY), checked with its isFrequency and its sentences, so the
+     * schemas only take text.
+     */
+    isRecurring: z.boolean().optional(),
+    recurrenceStart: z.string().nullable().optional(),
+    /** Blank, null or missing: the schedule never ends. */
+    recurrenceEnd: z.string().nullable().optional(),
+    recurrenceFrequency: z.string().nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: "At least one field is required",
@@ -53,6 +81,8 @@ export const ProjectListQuerySchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((v) => v === "true"),
+  /** PA8: a category id, or "none" for projects without one. */
+  categoryId: z.union([uuid, z.literal("none")]).optional(),
 });
 
 export const PostStatusSchema = z.object({
@@ -154,6 +184,14 @@ export const ActivityQuerySchema = z.object({
   pageSize: intQuery(1, 100, 25),
 });
 
+/** GET /projects/:key/recurrence-preview (PA8): how many dates, and an unsaved schedule to preview. */
+export const RecurrencePreviewQuerySchema = z.object({
+  count: z.string().optional(),
+  start: z.string().optional(),
+  end: z.string().optional(),
+  frequency: z.string().optional(),
+});
+
 /** GET /projects/:key/sessions (PA5) */
 export const SessionsQuerySchema = z.object({
   page: intQuery(1, 100000, 1),
@@ -172,6 +210,9 @@ export const UpdateIssueTypeSchema = IssueTypeSchema.partial().refine(
   (v) => Object.keys(v).length > 0,
   { message: "At least one field is required" },
 );
+/** PA8 (D70): a project category, edited like an issue type. */
+export const ProjectCategorySchema = IssueTypeSchema;
+export const UpdateProjectCategorySchema = UpdateIssueTypeSchema;
 export const IssueStatusSchema = z.object({
   name: z.string().min(1).max(60),
   colour: colour.optional(),

@@ -51,6 +51,13 @@ export const DEFAULT_ISSUE_TYPES = [
   { name: "Feature", colour: "#1a7f37", order: 2 },
   { name: "Epic", colour: "#8250df", order: 3 },
 ] as const;
+/** PA8 (D70): the starting project categories every firm gets. */
+export const DEFAULT_PROJECT_CATEGORIES = [
+  { name: "Business Registration", colour: "#0969da", order: 0 },
+  { name: "Business Closure", colour: "#cf222e", order: 1 },
+  { name: "Tax Filing", colour: "#1a7f37", order: 2 },
+  { name: "Encoding", colour: "#8250df", order: 3 },
+] as const;
 export const DEFAULT_ISSUE_STATUSES = [
   { name: "New", colour: "#57606a", order: 0, category: "TODO", isDefault: true },
   {
@@ -121,6 +128,9 @@ export const MESSAGES = {
     `This issue type is used by ${n} issue${n === 1 ? "" : "s"}. Change the type of ${n === 1 ? "it" : "them"} first.`,
   badIssueKey: (k: string) => `"${k}" is not an issue key like PAY-12.`,
   statusUpdateNote: "The note is too long.",
+  categoryNotFound: "Category not found.",
+  categoryInUse: (n: number) =>
+    `This category is used by ${n} project${n === 1 ? "" : "s"}. Change the category of ${n === 1 ? "it" : "them"} first.`,
 } as const;
 
 /** Today's date in Asia/Manila as YYYY-MM-DD (the clock is Date.now, so tests can set it). */

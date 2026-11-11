@@ -23,6 +23,7 @@ import { ProjectsConfigController, ProjectsController } from "./projects.control
 import { ProjectsContextService } from "./projects-context.service";
 import { ProjectsNotifier } from "./projects.notifier";
 import { ProjectsRepoKitService } from "./projects-repo-kit.service";
+import { ProjectRecurrenceService } from "./project-recurrence.service";
 import { ProjectsService } from "./projects.service";
 import { WorkSessionsService } from "./work-sessions.service";
 
@@ -62,6 +63,7 @@ import { WorkSessionsService } from "./work-sessions.service";
     SecurityAuditsService,
     ChecklistImportService,
     GithubService,
+    ProjectRecurrenceService,
   ],
   exports: [
     ProjectsAccess,

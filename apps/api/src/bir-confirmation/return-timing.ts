@@ -5,17 +5,13 @@
 // (withholding-dates.ts, U17). The 1701, 1701A, 1701Q, 1702Q and 1702RT have none in the
 // Portal, so they get no late warning (said in the report; the owner can supply the rules).
 // A due date that falls on a Saturday or Sunday moves to the Monday, as in U17.
+// PA8 (D70): the rules moved to bir-forms/deadlines/due-rules.ts; this file keeps which forms warn.
 import {
-  dueDate0619E,
-  dueDate1601EQ,
-  moveOffWeekend,
-} from "../bir-forms/engine/withholding-dates";
-
-const p2 = (n: number) => String(n).padStart(2, "0");
-
-function lastDay(year: number, month: number): string {
-  return `${year}-${p2(month)}-${p2(new Date(Date.UTC(year, month, 0)).getUTCDate())}`;
-}
+  dueDateForReturn,
+  fiscalStartMonth,
+  lastDayOf,
+  quarterEndDate,
+} from "../bir-forms/deadlines/due-rules";
 
 /** The quarter's last day. 2550Q follows the client's fiscal year; every other form is calendar. */
 function quarterEnd(
@@ -24,22 +20,11 @@ function quarterEnd(
   quarter: number,
   fiscalYearStart: string | null,
 ) {
-  const start =
-    form === "2550Q" && fiscalYearStart ? Number(fiscalYearStart.slice(5, 7)) : 1;
-  const startMonth = Number.isInteger(start) && start >= 1 && start <= 12 ? start : 1;
-  let m0 = startMonth + 3 * (quarter - 1);
-  let y0 = startMonth === 1 ? year : year - 1; // a fiscal year that ends in `year` began the year before
-  if (m0 > 12) {
-    m0 -= 12;
-    y0 += 1;
-  }
-  let m1 = m0 + 2;
-  let y1 = y0;
-  if (m1 > 12) {
-    m1 -= 12;
-    y1 += 1;
-  }
-  return lastDay(y1, m1);
+  return quarterEndDate(
+    year,
+    quarter,
+    form === "2550Q" ? fiscalStartMonth(fiscalYearStart) : 1,
+  );
 }
 
 function parts(
@@ -65,27 +50,26 @@ export function periodEndFor(
   const p = parts(period);
   if (!p) return null;
   if (p.quarter !== null) return quarterEnd(form, p.year, p.quarter, fiscalYearStart);
-  if (p.month !== null) return lastDay(p.year, p.month);
+  if (p.month !== null) return lastDayOf(p.year, p.month);
   return `${p.year}-12-31`;
 }
 
-/** The due date ("2026-04-27"), weekend moved, or null where the Portal has none. */
+/**
+ * The due date ("2026-04-27"), weekend moved, or null where the confirmation check gives no late
+ * warning: only the 2550Q, 2551Q, 0619-E and 1601-EQ have one. The rules themselves live in
+ * bir-forms/deadlines/due-rules.ts, once.
+ */
+const LATE_WARNING_FORMS: ReadonlySet<string> = new Set([
+  "2550Q",
+  "2551Q",
+  "0619E",
+  "1601EQ",
+]);
 export function dueDateFor(
   form: string,
   period: string,
   fiscalYearStart: string | null,
 ): string | null {
-  const p = parts(period);
-  if (!p) return null;
-  if ((form === "2550Q" || form === "2551Q") && p.quarter !== null) {
-    const end = quarterEnd(form, p.year, p.quarter, fiscalYearStart);
-    const y = Number(end.slice(0, 4));
-    const m = Number(end.slice(5, 7));
-    const ny = m === 12 ? y + 1 : y;
-    const nm = m === 12 ? 1 : m + 1;
-    return moveOffWeekend(`${ny}-${p2(nm)}-25`);
-  }
-  if (form === "0619E" && p.month !== null) return dueDate0619E(p.year, p.month);
-  if (form === "1601EQ" && p.quarter !== null) return dueDate1601EQ(p.year, p.quarter);
-  return null;
+  if (!LATE_WARNING_FORMS.has(form)) return null;
+  return dueDateForReturn(form, period, fiscalYearStart);
 }

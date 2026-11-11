@@ -13,6 +13,7 @@ import { missingPermissionsMessage, RbacService } from "../rbac/rbac.service";
 import {
   DEFAULT_ISSUE_STATUSES,
   DEFAULT_ISSUE_TYPES,
+  DEFAULT_PROJECT_CATEGORIES,
   MESSAGES,
   PROJECT_KEY_RE,
   type ActorType,
@@ -57,6 +58,16 @@ export const githubActor = (firmId: string): ProjectsActor => ({
   channel: "github",
 });
 
+/**
+ * An actor for the Portal itself (PA8, D70): a change the system makes, such as a task a recurring
+ * project makes for an occurrence. Written as SYSTEM through the "system" channel with no user.
+ */
+export const systemActor = (firmId: string): ProjectsActor => ({
+  user: { id: GITHUB_ACTOR_USER_ID, firmId, userType: "FIRM", email: "" },
+  actorType: "SYSTEM",
+  channel: "system",
+});
+
 export type Tx = Prisma.TransactionClient;
 
 @Injectable()
@@ -83,10 +94,20 @@ export class ProjectsAccess {
   /** The starting issue types and statuses, for a firm that has none yet. Safe to call twice. */
   async ensureDefaults(firmId: string): Promise<void> {
     if (this.seeded.has(firmId)) return;
-    const [types, statuses] = await Promise.all([
+    const [types, statuses, categories] = await Promise.all([
       this.prisma.issueType.count({ where: { firmId } }),
       this.prisma.issueStatus.count({ where: { firmId } }),
+      this.prisma.projectCategory.count({ where: { firmId } }),
     ]);
+    if (categories === 0) {
+      // PA8: the starting project categories (a firm that existed at migration 46 has them already)
+      await this.prisma.projectCategory
+        .createMany({
+          data: DEFAULT_PROJECT_CATEGORIES.map((c) => ({ firmId, ...c })),
+          skipDuplicates: true,
+        })
+        .catch(() => undefined);
+    }
     if (types === 0) {
       await this.prisma.issueType.createMany({
         data: DEFAULT_ISSUE_TYPES.map((t) => ({ firmId, ...t })),
@@ -112,6 +133,11 @@ export class ProjectsAccess {
       firmId: user.firmId,
       OR: [{ clientId: null }, { clientId: { in: [...scope] } }],
     };
+  }
+
+  /** The clients the caller may see: "all" or the set of ids (Clients:ViewAll, or assigned). */
+  async visibleClients(user: AuthUser): Promise<"all" | Set<string>> {
+    return this.rbac.authorizedClients(user, []);
   }
 
   /** Can the caller see this client at all (Clients:ViewAll, or assigned)? */

@@ -15,6 +15,8 @@ import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { z } from "zod";
 import type {
+  ProjectCategorySchema,
+  UpdateProjectCategorySchema,
   IssueStatusSchema,
   IssueTypeSchema,
   LabelSchema,
@@ -86,7 +88,7 @@ export class ProjectsAdminService {
   async meta(actor: ProjectsActor) {
     await this.access.need(actor, P.read);
     const firmId = actor.user.firmId;
-    const [types, statuses, labels, users] = await Promise.all([
+    const [types, statuses, labels, users, categories] = await Promise.all([
       this.prisma.issueType.findMany({
         where: { firmId },
         orderBy: [{ order: "asc" }, { name: "asc" }],
@@ -101,12 +103,18 @@ export class ProjectsAdminService {
         select: { id: true, fullName: true, email: true },
         orderBy: { fullName: "asc" },
       }),
+      this.prisma.projectCategory.findMany({
+        where: { firmId },
+        orderBy: [{ order: "asc" }, { name: "asc" }],
+      }),
     ]);
     return {
       issueTypes: types.map(typeDto),
       issueStatuses: statuses.map(statusDto),
       labels: labels.map(labelDto),
       users,
+      // PA8 (D70): the project categories, for the project form and the portfolio filter
+      projectCategories: categories.map(typeDto),
     };
   }
 
@@ -195,6 +203,97 @@ export class ProjectsAdminService {
     if (used > 0) throw new ConflictException(MESSAGES.typeInUse(used));
     await this.prisma.issueType.delete({ where: { id: cur.id } });
     await this.trail(actor, "projects.issue-type.deleted", cur.id, { name: cur.name });
+    return { deleted: true as const, id: cur.id };
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Project categories (PA8, D70): the same pattern as issue types
+  // ---------------------------------------------------------------------------------------
+
+  async listCategories(actor: ProjectsActor) {
+    await this.access.need(actor, P.configure);
+    const rows = await this.prisma.projectCategory.findMany({
+      where: { firmId: actor.user.firmId },
+      orderBy: [{ order: "asc" }, { name: "asc" }],
+      include: { _count: { select: { projects: true } } },
+    });
+    return rows.map((c) => ({ ...typeDto(c), projectCount: c._count.projects }));
+  }
+
+  async createCategory(
+    actor: ProjectsActor,
+    input: z.infer<typeof ProjectCategorySchema>,
+  ) {
+    await this.access.need(actor, P.configure);
+    const name = input.name.trim();
+    if (!name) throw new BadRequestException(MESSAGES.nameRequired);
+    try {
+      const last = await this.prisma.projectCategory.aggregate({
+        where: { firmId: actor.user.firmId },
+        _max: { order: true },
+      });
+      const row = await this.prisma.projectCategory.create({
+        data: {
+          firmId: actor.user.firmId,
+          name,
+          colour: input.colour ?? "#57606a",
+          order: input.order ?? (last._max.order ?? -1) + 1,
+        },
+      });
+      await this.trail(actor, "projects.category.created", row.id, { name });
+      return typeDto(row);
+    } catch (err) {
+      if (isUnique(err)) throw new ConflictException(MESSAGES.nameUsed);
+      throw err;
+    }
+  }
+
+  private async categoryOf(actor: ProjectsActor, id: string) {
+    const row = /^[0-9a-f-]{36}$/i.test(id)
+      ? await this.prisma.projectCategory.findFirst({
+          where: { id, firmId: actor.user.firmId },
+        })
+      : null;
+    if (!row) throw new NotFoundException(MESSAGES.categoryNotFound);
+    return row;
+  }
+
+  async updateCategory(
+    actor: ProjectsActor,
+    id: string,
+    patch: z.infer<typeof UpdateProjectCategorySchema>,
+  ) {
+    await this.access.need(actor, P.configure);
+    const cur = await this.categoryOf(actor, id);
+    const name = patch.name?.trim();
+    if (patch.name !== undefined && !name)
+      throw new BadRequestException(MESSAGES.nameRequired);
+    try {
+      const row = await this.prisma.projectCategory.update({
+        where: { id: cur.id },
+        data: {
+          ...(name !== undefined ? { name } : {}),
+          ...(patch.colour !== undefined ? { colour: patch.colour } : {}),
+          ...(patch.order !== undefined ? { order: patch.order } : {}),
+        },
+      });
+      await this.trail(actor, "projects.category.updated", cur.id, {
+        fields: Object.keys(patch),
+      });
+      return typeDto(row);
+    } catch (err) {
+      if (isUnique(err)) throw new ConflictException(MESSAGES.nameUsed);
+      throw err;
+    }
+  }
+
+  async deleteCategory(actor: ProjectsActor, id: string) {
+    await this.access.need(actor, P.configure);
+    const cur = await this.categoryOf(actor, id);
+    const used = await this.prisma.project.count({ where: { categoryId: cur.id } });
+    if (used > 0) throw new ConflictException(MESSAGES.categoryInUse(used));
+    await this.prisma.projectCategory.delete({ where: { id: cur.id } });
+    await this.trail(actor, "projects.category.deleted", cur.id, { name: cur.name });
     return { deleted: true as const, id: cur.id };
   }
 
