@@ -21,6 +21,10 @@ import {
   fingerprint,
   summariseAudit,
   repoKit,
+  occurrenceDate,
+  occurrencesBetween,
+  nextOccurrences,
+  validateRecurrence,
 } from "@portal/projects-core";
 ```
 
@@ -220,6 +224,36 @@ with a letter); `tokenEnvVar` must be a variable NAME in capitals, digits and un
 `spk_abc` is refused); `serverUrl` must be an `https://` origin with no path, query, fragment or user name
 (`http://` only for localhost). A trailing slash is dropped.
 
+## Recurring projects: dates of a schedule
+
+A recurring project has a start date (required when it is on), an end date (optional, blank means endless) and a
+frequency. Each occurrence date becomes a task due that day. Dates are plain calendar dates `YYYY-MM-DD` (the
+Portal's days are Asia/Manila days); no time or time zone is used inside, and nothing is read from the clock.
+
+```ts
+type Frequency = "DAILY" | "WEEKLY" | "BI_WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUALLY";
+occurrenceDate(start: string, frequency: Frequency, n: number): string
+occurrencesBetween(start: string, frequency: Frequency, end: string | null, from: string, to: string): string[]
+nextOccurrences(start: string, frequency: Frequency, end: string | null, after: string, count: number): string[]
+validateRecurrence(input: { recurring?: boolean; start?: string | null; end?: string | null; frequency?: string | null }): string[]
+```
+
+- `occurrenceDate`: the n-th occurrence, n = 0 is the start. Daily adds n days, Weekly 7n, Bi-Weekly 14n, Monthly n
+  months, Quarterly 3n months (start 2026-08-15 gives 2026-11-15, 2027-02-15 ...), Annually n years.
+- **Months are counted from the start day, not from the previous result.** When the month has no such day, its last
+  day is used, and a later month that has the day gets it back: start Jan 31 gives Jan 31, Feb 28 (29 in 2028),
+  Mar 31, Apr 30, May 31. Start Feb 29 annually gives Feb 29 in leap years and Feb 28 in the others (2100 is not a
+  leap year).
+- `occurrencesBetween`: every occurrence in `[from, to]` that is on or after the start and on or before the end
+  (`null` = endless). Oldest first. Empty when `from` is after `to`. It finds a window far from the start without
+  walking from the start. At most `MAX_OCCURRENCES` (10,000) dates; a longer range throws with a sentence.
+- `nextOccurrences`: the next `count` occurrences strictly after `after` (the form's preview of the next 5). Fewer
+  come back when the schedule ends first; an `after` before the start gives the start first.
+- `validateRecurrence`: plain sentences, empty when the schedule can be saved. Start required and a real date, end
+  blank or a real date not before the start, frequency one of the six. With `recurring: false` nothing is checked.
+- Also exported: `FREQUENCIES`, `FREQUENCY_LABELS` (Daily, Weekly, Bi-Weekly ...), `isFrequency`,
+  `isCalendarDate`, `addDays`, `RecurrenceError` (thrown with a sentence for bad input; the dates stop at year 9999).
+
 ## Decisions that were not given
 
 1. **Key case.** Capitals only by default (the task says "capital letters"). Sentire Projects upper-cases the text
@@ -237,6 +271,10 @@ with a letter); `tokenEnvVar` must be a variable NAME in capitals, digits and un
 8. **Priority names** are upper case (`URGENT`, `HIGH`, `NORMAL`, `LOW`) as the task gave them; a lead is `NORMAL`.
 9. **Extras not asked for**: `parseFindings`, `mapFindings`, `coverageCounts`, `scanIssueKeys`, label colours
    (`SECURITY_LABEL_COLORS`, from Sentire Projects).
+
+PC5 (recurrence): the frequency values are `DAILY`, `WEEKLY`, `BI_WEEKLY`, `MONTHLY`, `QUARTERLY`, `ANNUALLY`, upper case like the
+Portal's other enums, with the owner's words in `FREQUENCY_LABELS`; an occurrence number or date that is not valid throws
+`RecurrenceError`, while a window with no dates (or `from` after `to`) is an empty list; the 10,000 limit is a guard.
 
 PC2 and PC4 (repo kit):
 
