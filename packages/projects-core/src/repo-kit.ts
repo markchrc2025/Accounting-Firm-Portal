@@ -160,18 +160,41 @@ function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+/** What the hook prints when the config file names another server. Also used by the tests. */
+export const HOOK_SERVER_MISMATCH =
+  "Portal Projects: the server in .portal-projects.json does not match this kit's server, so the session was not started. Regenerate the kit from the Portal if the address changed.";
+/** What the hook prints when its own server is not https (and not this computer). */
+export const HOOK_SERVER_NOT_HTTPS =
+  "Portal Projects: this kit's server does not use https, so the session was not started. Regenerate the kit from the Portal.";
+
 function hookScript(server: string, tokenEnvVar: string): string {
   return `// Portal Projects SessionStart hook for Claude Code (written by the Portal repo kit).
 // Starts a work session for this repository's project and prints the briefing, which Claude Code
 // adds to the context.
 // Needs: ${CONFIG_FILE} in the repository root and ${tokenEnvVar} in the environment.
 // Fails quietly: a tracking problem must never block a coding session.
+//
+// The token is sent ONLY to KIT_SERVER, the Portal address this kit was made for. The server named
+// in ${CONFIG_FILE} is a file anyone can change in a pull request, so it is only compared with
+// KIT_SERVER: if it names another address, nothing is sent anywhere.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const TOKEN_ENV_VAR = ${JSON.stringify(tokenEnvVar)};
-const DEFAULT_SERVER = ${JSON.stringify(server)};
+const KIT_SERVER = ${JSON.stringify(server)};
 const SESSION_START_PATH = ${JSON.stringify(SESSION_START_PATH)};
+const SERVER_MISMATCH = ${JSON.stringify(HOOK_SERVER_MISMATCH)};
+const SERVER_NOT_HTTPS = ${JSON.stringify(HOOK_SERVER_NOT_HTTPS)};
+
+/** scheme://host:port with the host in lower case and a default port dropped; null if not an address. */
+function originOf(value) {
+  try {
+    const url = new URL(String(value));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
 
 const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 let cfg;
@@ -180,13 +203,8 @@ try {
 } catch {
   process.exit(0);
 }
-const token = process.env[TOKEN_ENV_VAR];
-if (!token) {
-  console.log(
-    "Portal Projects: " + TOKEN_ENV_VAR + " is not set, so this session is not tracked. Call start_session if the MCP server is connected.",
-  );
-  process.exit(0);
-}
+if (!cfg || typeof cfg !== "object") process.exit(0);
+
 // Start one work session per Claude Code session (resume and compact fire SessionStart again).
 let input = "";
 try {
@@ -198,9 +216,32 @@ try {
 } catch {}
 if (source === "compact") process.exit(0);
 
-const server = String(cfg.server || DEFAULT_SERVER).replace(/\\/$/, "");
+const kitOrigin = originOf(KIT_SERVER);
+const kitHost = kitOrigin ? new URL(kitOrigin).hostname : "";
+const local = kitHost === "localhost" || kitHost === "127.0.0.1" || kitHost === "[::1]";
+if (!kitOrigin || !(kitOrigin.startsWith("https://") || (kitOrigin.startsWith("http://") && local))) {
+  console.log(SERVER_NOT_HTTPS);
+  process.exit(0);
+}
+// The config file's server is for people to read; it never chooses where the token goes.
+if (cfg.server !== undefined && cfg.server !== null && String(cfg.server).trim() !== "") {
+  if (originOf(String(cfg.server).trim()) !== kitOrigin) {
+    console.log(SERVER_MISMATCH);
+    process.exit(0);
+  }
+}
+
+const token = process.env[TOKEN_ENV_VAR];
+if (!token) {
+  console.log(
+    "Portal Projects: " + TOKEN_ENV_VAR + " is not set, so this session is not tracked. Call start_session if the MCP server is connected.",
+  );
+  process.exit(0);
+}
+
+let res;
 try {
-  const res = await fetch(server + SESSION_START_PATH + "?briefing=1", {
+  res = await fetch(kitOrigin + SESSION_START_PATH + "?briefing=1", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + token,
@@ -208,20 +249,31 @@ try {
       "x-portal-client": "claude-code",
     },
     body: JSON.stringify({ project_key: cfg.project }),
+    redirect: "error",
     signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) {
-    console.log("Portal Projects: could not start a session (" + res.status + ").");
-    process.exit(0);
-  }
-  const data = await res.json();
-  console.log(
-    "Portal Projects session_id: " + data.session.id + " (pass it to update_issue, add_comment and end_session)\\n",
-  );
-  console.log(data.briefing || "");
-} catch (e) {
-  console.log("Portal Projects: tracking unavailable (" + (e && e.message ? e.message : e) + ").");
+} catch {
+  console.log("Portal Projects: the server could not be reached, so the session was not started.");
+  process.exit(0);
 }
+if (!res.ok) {
+  console.log("Portal Projects: could not start a session (" + res.status + ").");
+  process.exit(0);
+}
+let data;
+try {
+  data = await res.json();
+} catch {
+  data = null;
+}
+if (!data || !data.session || typeof data.session.id !== "string") {
+  console.log("Portal Projects: the server's answer could not be read, so the session was not started.");
+  process.exit(0);
+}
+console.log(
+  "Portal Projects session_id: " + data.session.id + " (pass it to update_issue, add_comment and end_session)\\n",
+);
+console.log(typeof data.briefing === "string" ? data.briefing : "");
 `;
 }
 
