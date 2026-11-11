@@ -20,12 +20,19 @@ import {
   SuccessBanner,
 } from "../../components/projects/parts";
 import { SecurityChip } from "../../components/projects/SecurityChip";
+import {
+  CategoryChip,
+  ClientName,
+  FeeText,
+  RecurringBadge,
+} from "../../components/projects/FirmDetails";
 import { ProjectsNav } from "../../components/projects/ProjectsNav";
 import { useProjectsCan } from "../../components/projects/useProjectsCan";
 import {
   dayText,
   errorLines,
   fetchProjects,
+  fetchProjectsMeta,
   momentText,
   projectPath,
   type ProjectSummary,
@@ -37,11 +44,20 @@ export default function ProjectsPage() {
   const location = useLocation();
   const notice = (location.state as { notice?: string } | null)?.notice;
   const [archived, setArchived] = useState(false);
+  // PB7: filter by category ("" all, "none" those without one), as the API filters
+  const [categoryId, setCategoryId] = useState("");
   const q = useQuery({
-    queryKey: ["projects", "portfolio", archived],
-    queryFn: () => fetchProjects(archived),
+    queryKey: ["projects", "portfolio", archived, categoryId],
+    queryFn: () =>
+      categoryId ? fetchProjects(archived, categoryId) : fetchProjects(archived),
     enabled: can.read,
   });
+  const meta = useQuery({
+    queryKey: ["projects", "meta"],
+    queryFn: fetchProjectsMeta,
+    enabled: can.read,
+  });
+  const categories = meta.data?.projectCategories ?? [];
   if (!can.read) return <Navigate to="/" replace />;
 
   return (
@@ -52,6 +68,22 @@ export default function ProjectsPage() {
         description="Every project, its progress and what needs attention."
         actions={
           <>
+            <label className="flex items-center gap-2 text-[13px] text-content-secondary">
+              Category
+              <select
+                className="input h-9 py-1"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+              >
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="none">No category</option>
+              </select>
+            </label>
             <label className="flex items-center gap-2 text-[13px] text-content-secondary">
               <input
                 type="checkbox"
@@ -90,11 +122,13 @@ export default function ProjectsPage() {
       ) : q.data.length === 0 ? (
         <Card>
           <EmptyState
-            title="No projects yet"
+            title={categoryId ? "No project in this category" : "No projects yet"}
             description={
-              can.create
-                ? "Create the first project to start tracking issues and milestones."
-                : "No project has been shared with you yet."
+              categoryId
+                ? "Choose another category, or All categories."
+                : can.create
+                  ? "Create the first project to start tracking issues and milestones."
+                  : "No project has been shared with you yet."
             }
           >
             {can.create ? (
@@ -169,7 +203,14 @@ function ProjectRow({ p }: { p: ProjectSummary }) {
         </Link>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11.5px] text-content-secondary">
           <span className="font-mono">{p.key}</span>
-          {p.client ? <span data-client>Client: {p.client.businessName}</span> : null}
+          {p.client || p.clientName ? (
+            <span data-client>
+              Client: <ClientName p={p} />
+            </span>
+          ) : null}
+          <CategoryChip p={p} />
+          <FeeText p={p} />
+          <RecurringBadge p={p} />
           {p.archived ? <Chip variant="neutral">Archived</Chip> : null}
         </div>
       </td>
