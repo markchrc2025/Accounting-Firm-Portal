@@ -32,6 +32,7 @@ import {
   ChecklistImportSchema,
   ActivityQuerySchema,
   SessionsQuerySchema,
+  RecurrencePreviewQuerySchema,
   BoardQuerySchema,
   SearchQuerySchema,
   CommentSchema,
@@ -41,6 +42,8 @@ import {
   IssueListQuerySchema,
   IssueStatusSchema,
   IssueTypeSchema,
+  ProjectCategorySchema,
+  UpdateProjectCategorySchema,
   LabelSchema,
   PostStatusSchema,
   ProjectListQuerySchema,
@@ -193,6 +196,38 @@ export class ProjectsConfigController {
     return this.admin.deleteType(webActor(user), id);
   }
 
+  // ---- Project categories (PA8, D70) ------------------------------------------------------
+
+  @Get("admin/project-categories")
+  @RequirePermissions(P.configure)
+  listCategories(@CurrentUser() user: AuthUser) {
+    return this.admin.listCategories(webActor(user));
+  }
+  @Post("admin/project-categories")
+  @RequirePermissions(P.configure)
+  createCategory(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(ProjectCategorySchema))
+    b: Body<typeof ProjectCategorySchema>,
+  ) {
+    return this.admin.createCategory(webActor(user), b);
+  }
+  @Patch("admin/project-categories/:id")
+  @RequirePermissions(P.configure)
+  updateCategory(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(UpdateProjectCategorySchema))
+    b: Body<typeof UpdateProjectCategorySchema>,
+  ) {
+    return this.admin.updateCategory(webActor(user), id, b);
+  }
+  @Delete("admin/project-categories/:id")
+  @RequirePermissions(P.configure)
+  deleteCategory(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.admin.deleteCategory(webActor(user), id);
+  }
+
   @Get("admin/issue-statuses")
   @RequirePermissions(P.configure)
   listStatuses(@CurrentUser() user: AuthUser) {
@@ -277,7 +312,10 @@ export class ProjectsController {
     @Query(new ZodValidationPipe(ProjectListQuerySchema))
     q: Body<typeof ProjectListQuerySchema>,
   ) {
-    return this.projects.list(webActor(user), { includeArchived: q.includeArchived });
+    return this.projects.list(webActor(user), {
+      includeArchived: q.includeArchived,
+      categoryId: q.categoryId,
+    });
   }
 
   @Post()
@@ -287,6 +325,25 @@ export class ProjectsController {
     @Body(new ZodValidationPipe(CreateProjectSchema)) b: Body<typeof CreateProjectSchema>,
   ) {
     return this.projects.create(webActor(user), b);
+  }
+
+  /** PA8: the listed clients whose name equals this project's client name (for a Link button). */
+  @Get(":key/client-matches")
+  @RequirePermissions(P.read)
+  clientMatches(@CurrentUser() user: AuthUser, @Param("key") key: string) {
+    return this.projects.clientMatches(webActor(user), key);
+  }
+
+  /** PA8: the next dates of the recurring schedule (count 1 to 24, default 5); start, end and frequency preview an unsaved one. */
+  @Get(":key/recurrence-preview")
+  @RequirePermissions(P.read)
+  recurrencePreview(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(RecurrencePreviewQuerySchema))
+    q: Body<typeof RecurrencePreviewQuerySchema>,
+  ) {
+    return this.projects.recurrencePreview(webActor(user), key, q);
   }
 
   @Get(":key")
