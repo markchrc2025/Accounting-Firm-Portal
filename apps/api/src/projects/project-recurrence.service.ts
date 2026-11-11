@@ -14,12 +14,12 @@ import {
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from "@nestjs/common";
-import { isFrequency, type Frequency } from "@portal/projects-core";
+import { FREQUENCY_LABELS, isFrequency, type Frequency } from "@portal/projects-core";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { IssueWrites } from "./issue-writes";
 import { ProjectsAccess, systemActor } from "./projects.access";
-import { dayOf, dayToDate, FREQUENCY_WORDS, manilaToday } from "./projects.constants";
+import { dayOf, dayToDate, manilaToday } from "./projects.constants";
 import { RecurrenceGate, type GateResult, type GateStore } from "./recurrence-gate";
 import { datesToGenerate, occurrenceTitle } from "./recurrence-plan";
 
@@ -189,7 +189,7 @@ export class ProjectRecurrenceService implements OnApplicationBootstrap, OnModul
         if (claimed.count === 0) return;
         const issue = await this.writes.insert(tx, actor, p, {
           title: occurrenceTitle(p.name, frequency, date),
-          description: `Made automatically by the recurring project ${p.key} (${FREQUENCY_WORDS[frequency]}), due ${date}.`,
+          description: `Made automatically by the recurring project ${p.key} (${FREQUENCY_LABELS[frequency]}), due ${date}.`,
           type,
           status,
           priority: "NORMAL",

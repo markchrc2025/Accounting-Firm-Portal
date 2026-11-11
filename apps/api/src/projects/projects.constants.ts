@@ -51,16 +51,6 @@ export const DEFAULT_ISSUE_TYPES = [
   { name: "Feature", colour: "#1a7f37", order: 2 },
   { name: "Epic", colour: "#8250df", order: 3 },
 ] as const;
-/** PA8 (D70): the frequencies in words, for a task's description. */
-export const FREQUENCY_WORDS = {
-  DAILY: "Daily",
-  WEEKLY: "Weekly",
-  BI_WEEKLY: "Bi-Weekly",
-  MONTHLY: "Monthly",
-  QUARTERLY: "Quarterly",
-  ANNUALLY: "Annually",
-} as const;
-
 /** PA8 (D70): the starting project categories every firm gets. */
 export const DEFAULT_PROJECT_CATEGORIES = [
   { name: "Business Registration", colour: "#0969da", order: 0 },

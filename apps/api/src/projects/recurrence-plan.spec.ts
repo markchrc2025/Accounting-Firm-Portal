@@ -1,5 +1,8 @@
 // recurrence-plan.spec.ts — PA8 (D70): the pure rules of a recurring project: how far ahead each
 // frequency makes its task, what the task is called, and which occurrences are still to make.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { FREQUENCIES, isFrequency } from "@portal/projects-core";
 import {
   datesToGenerate,
   LEAD_DAYS,
@@ -7,6 +10,29 @@ import {
   occurrenceTitle,
   recurrenceProblems,
 } from "./recurrence-plan";
+
+describe("one source for the frequencies: projects-core", () => {
+  it("is DAILY, WEEKLY, BI_WEEKLY, MONTHLY, QUARTERLY and ANNUALLY; BIWEEKLY is not one", () => {
+    expect([...FREQUENCIES]).toEqual(["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"]);
+    expect(isFrequency("BIWEEKLY")).toBe(false);
+  });
+  it("the lead times cover exactly those frequencies", () => {
+    expect(Object.keys(LEAD_DAYS).sort()).toEqual([...FREQUENCIES].sort());
+  });
+  it("the database's check (migration 46) allows exactly those frequencies", () => {
+    const sql = readFileSync(
+      join(__dirname, "../../prisma/migrations/20261116090000_project_firm_details/migration.sql"),
+      "utf8",
+    );
+    const m = /"recurrenceFrequency" IN \(([^)]*)\)/.exec(sql);
+    expect(m).not.toBeNull();
+    const listed = m![1]!.split(",").map((x) => x.trim().replace(/'/g, ""));
+    expect(listed).toEqual([...FREQUENCIES]);
+  });
+  it("every frequency has a period label", () => {
+    for (const f of FREQUENCIES) expect(occurrenceLabel(f, "2026-11-12")).toBeTruthy();
+  });
+});
 
 describe("LEAD_DAYS", () => {
   it("1 day for Daily, 7 for Weekly, 14 for Bi-Weekly, 30 for the others", () => {
@@ -37,7 +63,7 @@ describe("occurrenceLabel and occurrenceTitle", () => {
   });
   it("the title is the project name, a colon and the label; no dashes of the long kind", () => {
     expect(occurrenceTitle("Encoding", "MONTHLY", "2026-11-12")).toBe("Encoding: November 2026");
-    for (const f of ["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"] as const) {
+    for (const f of FREQUENCIES) {
       expect(occurrenceTitle("X", f, "2026-11-12")).not.toMatch(/[–—]/);
     }
   });
@@ -47,7 +73,7 @@ describe("occurrenceLabel and occurrenceTitle", () => {
     expect(t.endsWith(": Week of 12 November 2026")).toBe(true);
   });
   it("two occurrences of one schedule never share a title", () => {
-    for (const f of ["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"] as const) {
+    for (const f of FREQUENCIES) {
       const dates = datesToGenerate({
         start: "2026-01-31",
         end: null,

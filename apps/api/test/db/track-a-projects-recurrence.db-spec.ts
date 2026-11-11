@@ -17,6 +17,7 @@ import net from "node:net";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import Redis from "ioredis";
+import { FREQUENCIES } from "@portal/projects-core";
 import request from "supertest";
 import { truncateOncePerFile } from "./helpers/truncate";
 import { AppModule } from "../../src/app.module";
@@ -230,12 +231,31 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       const e = await project(recurring("DAILY", "2026-12-01", { recurrenceEnd: "2026-11-30" }));
       expect(e.res.body.message).toBe("The end date cannot be before the start date.");
     });
-    it("the six frequencies are DAILY, WEEKLY, BI_WEEKLY, MONTHLY, QUARTERLY and ANNUALLY", async () => {
-      for (const f of ["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"]) {
+    it("the frequencies are projects-core's: DAILY, WEEKLY, BI_WEEKLY, MONTHLY, QUARTERLY, ANNUALLY", async () => {
+      expect([...FREQUENCIES]).toEqual(["DAILY", "WEEKLY", "BI_WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"]);
+      for (const f of FREQUENCIES) {
         const p = await project(recurring(f, "2030-01-01"));
         expect(p.res.status).toBe(201);
         expect(p.res.body.recurrenceFrequency).toBe(f);
       }
+    });
+    it("BIWEEKLY (without the underscore) is not a frequency, on create, on a patch and in the preview", async () => {
+      const c = await project(recurring("BIWEEKLY"));
+      expect(c.res.status).toBe(400);
+      expect(c.res.body.message).toBe(
+        '"BIWEEKLY" is not a frequency. Choose Daily, Weekly, Bi-Weekly, Monthly, Quarterly or Annually.',
+      );
+      const { key } = await project(recurring("WEEKLY", "2030-01-01"));
+      expect((await as("patch", `/projects/${key}`, "sa", { recurrenceFrequency: "BIWEEKLY" })).status).toBe(400);
+      expect((await as("get", `/projects/${key}/recurrence-preview?frequency=BIWEEKLY`, "sa")).status).toBe(400);
+      expect((await db.project.findFirstOrThrow({ where: { firmId, key } })).recurrenceFrequency).toBe("WEEKLY");
+    });
+    it("the database itself refuses a frequency that is not one of them", async () => {
+      const { key } = await project({});
+      const row = await db.project.findFirstOrThrow({ where: { firmId, key } });
+      await expect(
+        db.project.update({ where: { id: row.id }, data: { recurrenceFrequency: "BIWEEKLY" } }),
+      ).rejects.toThrow();
     });
     it("a project that is not recurring needs nothing, and a bad value is still refused", async () => {
       const p = await project({ isRecurring: false });
@@ -503,6 +523,13 @@ describe("PA8 · recurring projects (real app over HTTP, db, Redis)", () => {
       expect(await dueOf(key)).toEqual(
         ["2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15", "2026-11-16"],
       );
+    });
+    it("saving an archived project makes nothing either", async () => {
+      const { key } = await project(recurring("DAILY"));
+      await as("post", `/projects/${key}/archive`, "sa");
+      setToday("2026-11-15");
+      expect((await as("patch", `/projects/${key}`, "sa", { name: "Still archived" })).status).toBe(200);
+      expect(await dueOf(key)).toEqual([TODAY, "2026-11-12"]);
     });
     it("a start in the future waits for its lead time", async () => {
       const { key } = await project(recurring("MONTHLY", "2027-03-15"));
