@@ -5,3 +5,4 @@ export * from "./github";
 export * from "./audit-types";
 export * from "./audit";
 export * from "./repo-kit";
+export * from "./recurrence";
