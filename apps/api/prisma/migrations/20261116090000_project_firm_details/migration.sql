@@ -9,6 +9,7 @@ ADD COLUMN     "clientName" VARCHAR(200),
 ADD COLUMN     "isRecurring" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "professionalFee" DECIMAL(18,2),
 ADD COLUMN     "recurrenceEnd" DATE,
+ADD COLUMN     "recurrenceActiveFrom" DATE,
 ADD COLUMN     "recurrenceFrequency" TEXT,
 ADD COLUMN     "recurrenceStart" DATE;
 
@@ -68,7 +69,7 @@ ALTER TABLE "projects" ADD CONSTRAINT "projects_professionalFee_check"
   CHECK ("professionalFee" IS NULL OR "professionalFee" >= 0);
 ALTER TABLE "projects" ADD CONSTRAINT "projects_recurrenceFrequency_check"
   CHECK ("recurrenceFrequency" IS NULL
-         OR "recurrenceFrequency" IN ('DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY'));
+         OR "recurrenceFrequency" IN ('DAILY', 'WEEKLY', 'BI_WEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY'));
 ALTER TABLE "projects" ADD CONSTRAINT "projects_recurrence_check"
   CHECK (NOT "isRecurring"
          OR ("recurrenceStart" IS NOT NULL AND "recurrenceFrequency" IS NOT NULL

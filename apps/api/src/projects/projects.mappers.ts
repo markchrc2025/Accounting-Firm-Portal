@@ -79,6 +79,11 @@ export function projectDto(p: ProjectRow) {
     category: p.category
       ? { id: p.category.id, name: p.category.name, colour: p.category.colour }
       : null,
+    // PA8 (D70): the recurring schedule
+    isRecurring: p.isRecurring,
+    recurrenceStart: dayOf(p.recurrenceStart),
+    recurrenceEnd: dayOf(p.recurrenceEnd),
+    recurrenceFrequency: p.recurrenceFrequency,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };

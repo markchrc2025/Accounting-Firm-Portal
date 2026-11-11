@@ -33,6 +33,12 @@ export const CreateProjectSchema = z.object({
   /** PA8: checked by parseFee, so the refusal is one sentence whatever was sent. */
   professionalFee: z.unknown().optional(),
   categoryId: uuid.nullable().optional(),
+  /** PA8 (D70): recurrence. Checked with projects-core's sentences, so the schemas only take text. */
+  isRecurring: z.boolean().optional(),
+  recurrenceStart: z.string().nullable().optional(),
+  /** Blank, null or missing: the schedule never ends. */
+  recurrenceEnd: z.string().nullable().optional(),
+  recurrenceFrequency: z.string().nullable().optional(),
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 
@@ -50,6 +56,12 @@ export const UpdateProjectSchema = z
     clientName: z.string().trim().max(200).nullable().optional(),
     professionalFee: z.unknown().optional(),
     categoryId: uuid.nullable().optional(),
+    /** PA8 (D70): recurrence. Checked with projects-core's sentences, so the schemas only take text. */
+    isRecurring: z.boolean().optional(),
+    recurrenceStart: z.string().nullable().optional(),
+    /** Blank, null or missing: the schedule never ends. */
+    recurrenceEnd: z.string().nullable().optional(),
+    recurrenceFrequency: z.string().nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: "At least one field is required",
@@ -162,6 +174,14 @@ export const ActivityQuerySchema = z.object({
   actorType: z.enum(ACTOR_TYPES).optional(),
   page: intQuery(1, 100000, 1),
   pageSize: intQuery(1, 100, 25),
+});
+
+/** GET /projects/:key/recurrence-preview (PA8): how many dates, and an unsaved schedule to preview. */
+export const RecurrencePreviewQuerySchema = z.object({
+  count: z.string().optional(),
+  start: z.string().optional(),
+  end: z.string().optional(),
+  frequency: z.string().optional(),
 });
 
 /** GET /projects/:key/sessions (PA5) */

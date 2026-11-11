@@ -4,9 +4,11 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { addDays, isFrequency, nextOccurrences, type Frequency } from "@portal/projects-core";
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   CreateProjectInput,
@@ -18,8 +20,12 @@ import { ProjectsAccess, type ProjectsActor } from "./projects.access";
 import { ProjectsActivity } from "./projects-activity.service";
 import { cleanClientName, FeeError, feeText, parseFee } from "./project-details";
 import { normalizeName } from "../mcp/bir/client-ref";
+import { ProjectRecurrenceService } from "./project-recurrence.service";
+import { LEAD_DAYS, recurrenceProblems } from "./recurrence-plan";
 import { projectSessions } from "./work-sessions.service";
 import {
+  dayOf,
+  dayToDate,
   diffFields,
   manilaToday,
   MESSAGES,
@@ -58,11 +64,14 @@ const NO_COUNTS: ProjectCounts = {
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ProjectsAccess,
     private readonly activity: ProjectsActivity,
     private readonly security: SecurityQueries,
+    private readonly recurrence: ProjectRecurrenceService,
   ) {}
 
   // ---------------------------------------------------------------------------------------
@@ -371,6 +380,110 @@ export class ProjectsService {
     }
   }
 
+  /**
+   * The recurrence columns for a create or an update: what the request says, over what is stored.
+   * A recurring project needs its start and frequency (PC5's sentences); one that is off keeps its
+   * schedule, but a value it is given must still be a real one. Generation begins the day a project
+   * becomes recurring, so nothing earlier is ever made.
+   */
+  private recurrenceData(
+    cur: {
+      isRecurring: boolean;
+      recurrenceStart: Date | null;
+      recurrenceEnd: Date | null;
+      recurrenceFrequency: string | null;
+    } | null,
+    input: {
+      isRecurring?: boolean | undefined;
+      recurrenceStart?: string | null | undefined;
+      recurrenceEnd?: string | null | undefined;
+      recurrenceFrequency?: string | null | undefined;
+    },
+  ) {
+    const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? null : v.trim());
+    const touched =
+      input.isRecurring !== undefined ||
+      input.recurrenceStart !== undefined ||
+      input.recurrenceEnd !== undefined ||
+      input.recurrenceFrequency !== undefined;
+    if (!touched) return null;
+    const recurring = input.isRecurring ?? cur?.isRecurring ?? false;
+    const start =
+      input.recurrenceStart !== undefined ? blank(input.recurrenceStart) : dayOf(cur?.recurrenceStart);
+    const end =
+      input.recurrenceEnd !== undefined ? blank(input.recurrenceEnd) : dayOf(cur?.recurrenceEnd);
+    const frequency =
+      input.recurrenceFrequency !== undefined
+        ? blank(input.recurrenceFrequency)
+        : (cur?.recurrenceFrequency ?? null);
+    const problems = recurring
+      ? recurrenceProblems({ recurring: true, start, end, frequency })
+      : recurrenceProblems({
+          recurring: true,
+          start: start ?? "2000-01-01",
+          end,
+          frequency: frequency ?? "DAILY",
+        });
+    if (problems.length > 0) {
+      throw new BadRequestException({ statusCode: 400, message: problems[0], problems });
+    }
+    return {
+      isRecurring: recurring,
+      recurrenceStart: dayToDate(start),
+      recurrenceEnd: dayToDate(end),
+      recurrenceFrequency: frequency,
+      start,
+      end,
+      frequency,
+      becameRecurring: recurring && !(cur?.isRecurring ?? false),
+    };
+  }
+
+  /** Make the tasks that are due; a failure is logged and the daily run tries again. */
+  private async generate(projectId: string): Promise<void> {
+    try {
+      await this.recurrence.generateForProject(projectId);
+    } catch (e) {
+      this.logger.warn(`Recurrence for project ${projectId} failed: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * The next dates of a recurring project (today included), for the form: the saved schedule, or
+   * the one in the query (start, end, frequency), which is not saved.
+   */
+  async recurrencePreview(
+    actor: ProjectsActor,
+    key: string,
+    q: { count?: string | undefined; start?: string | undefined; end?: string | undefined; frequency?: string | undefined },
+  ) {
+    await this.access.need(actor, P.read);
+    const p = await this.access.project(actor.user, key);
+    const override = q.start !== undefined || q.end !== undefined || q.frequency !== undefined;
+    if (!override && !p.isRecurring) {
+      return { recurring: false, frequency: null, start: null, end: null, leadDays: null, dates: [] };
+    }
+    const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? null : v.trim());
+    const start = q.start !== undefined ? blank(q.start) : dayOf(p.recurrenceStart);
+    const end = q.end !== undefined ? blank(q.end) : dayOf(p.recurrenceEnd);
+    const frequency = q.frequency !== undefined ? blank(q.frequency) : p.recurrenceFrequency;
+    const problems = recurrenceProblems({ recurring: true, start, end, frequency });
+    if (problems.length > 0) {
+      throw new BadRequestException({ statusCode: 400, message: problems[0], problems });
+    }
+    const asked = q.count !== undefined && /^\d+$/.test(q.count) ? Number(q.count) : 5;
+    const count = Math.min(24, Math.max(1, asked));
+    const f = frequency as Frequency;
+    return {
+      recurring: true,
+      frequency: f,
+      start: start!,
+      end,
+      leadDays: LEAD_DAYS[f],
+      dates: nextOccurrences(start!, f, end, addDays(manilaToday(), -1), count),
+    };
+  }
+
   /** The parent project: a visible project of the firm that is not (below) this one. */
   private async parentProject(actor: ProjectsActor, key: string, self?: { id: string }) {
     const k = key.trim().toUpperCase();
@@ -460,6 +573,7 @@ export class ProjectsService {
     const category = input.categoryId
       ? await this.categoryOf(actor, input.categoryId)
       : null;
+    const rec = this.recurrenceData(null, input);
     // a listed client's name is copied; otherwise the typed text stands
     const clientName = client ? client.businessName : cleanClientName(input.clientName);
     try {
@@ -478,6 +592,15 @@ export class ProjectsService {
             clientName,
             professionalFee: fee ?? null,
             categoryId: category?.id ?? null,
+            ...(rec
+              ? {
+                  isRecurring: rec.isRecurring,
+                  recurrenceStart: rec.recurrenceStart,
+                  recurrenceEnd: rec.recurrenceEnd,
+                  recurrenceFrequency: rec.recurrenceFrequency,
+                  recurrenceActiveFrom: rec.isRecurring ? dayToDate(manilaToday()) : null,
+                }
+              : {}),
           },
         });
         await this.activity.log(tx, actor, {
@@ -492,10 +615,19 @@ export class ProjectsService {
               : []),
             ...(fee ? [{ field: "professionalFee", old: null, new: fee }] : []),
             ...(category ? [{ field: "category", old: null, new: category.name }] : []),
+            ...(rec?.isRecurring
+              ? [
+                  { field: "isRecurring", old: null, new: true },
+                  { field: "recurrenceFrequency", old: null, new: rec.frequency },
+                  { field: "recurrenceStart", old: null, new: rec.start },
+                  ...(rec.end ? [{ field: "recurrenceEnd", old: null, new: rec.end }] : []),
+                ]
+              : []),
           ],
         });
         return row.id;
       });
+      await this.generate(id);
       return projectDto(
         await this.prisma.project.findUniqueOrThrow({
           where: { id },
@@ -624,6 +756,31 @@ export class ProjectsService {
         });
       }
     }
+    const rec = this.recurrenceData(cur, patch);
+    if (rec) {
+      if (rec.isRecurring !== cur.isRecurring) {
+        data.isRecurring = rec.isRecurring;
+        changes.push({ field: "isRecurring", old: cur.isRecurring, new: rec.isRecurring });
+      }
+      if (rec.start !== dayOf(cur.recurrenceStart)) {
+        data.recurrenceStart = rec.recurrenceStart;
+        changes.push({ field: "recurrenceStart", old: dayOf(cur.recurrenceStart), new: rec.start });
+      }
+      if (rec.end !== dayOf(cur.recurrenceEnd)) {
+        data.recurrenceEnd = rec.recurrenceEnd;
+        changes.push({ field: "recurrenceEnd", old: dayOf(cur.recurrenceEnd), new: rec.end });
+      }
+      if (rec.frequency !== cur.recurrenceFrequency) {
+        data.recurrenceFrequency = rec.frequency;
+        changes.push({
+          field: "recurrenceFrequency",
+          old: cur.recurrenceFrequency,
+          new: rec.frequency,
+        });
+      }
+      // generation begins the day the project becomes recurring (and again after a stop)
+      if (rec.becameRecurring) data.recurrenceActiveFrom = dayToDate(manilaToday());
+    }
     if (changes.length > 0) {
       await this.prisma.$transaction(async (tx) => {
         await tx.project.update({ where: { id: cur.id }, data });
@@ -634,6 +791,7 @@ export class ProjectsService {
         });
       });
     }
+    await this.generate(cur.id);
     return projectDto(
       await this.prisma.project.findUniqueOrThrow({
         where: { id: cur.id },

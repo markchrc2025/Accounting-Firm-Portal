@@ -58,6 +58,16 @@ export const githubActor = (firmId: string): ProjectsActor => ({
   channel: "github",
 });
 
+/**
+ * An actor for the Portal itself (PA8, D70): a change the system makes, such as a task a recurring
+ * project makes for an occurrence. Written as SYSTEM through the "system" channel with no user.
+ */
+export const systemActor = (firmId: string): ProjectsActor => ({
+  user: { id: GITHUB_ACTOR_USER_ID, firmId, userType: "FIRM", email: "" },
+  actorType: "SYSTEM",
+  channel: "system",
+});
+
 export type Tx = Prisma.TransactionClient;
 
 @Injectable()

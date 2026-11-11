@@ -32,6 +32,7 @@ import {
   ChecklistImportSchema,
   ActivityQuerySchema,
   SessionsQuerySchema,
+  RecurrencePreviewQuerySchema,
   BoardQuerySchema,
   SearchQuerySchema,
   CommentSchema,
@@ -331,6 +332,18 @@ export class ProjectsController {
   @RequirePermissions(P.read)
   clientMatches(@CurrentUser() user: AuthUser, @Param("key") key: string) {
     return this.projects.clientMatches(webActor(user), key);
+  }
+
+  /** PA8: the next dates of the recurring schedule (count 1 to 24, default 5); start, end and frequency preview an unsaved one. */
+  @Get(":key/recurrence-preview")
+  @RequirePermissions(P.read)
+  recurrencePreview(
+    @CurrentUser() user: AuthUser,
+    @Param("key") key: string,
+    @Query(new ZodValidationPipe(RecurrencePreviewQuerySchema))
+    q: Body<typeof RecurrencePreviewQuerySchema>,
+  ) {
+    return this.projects.recurrencePreview(webActor(user), key, q);
   }
 
   @Get(":key")

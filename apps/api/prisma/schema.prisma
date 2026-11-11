@@ -1230,8 +1230,11 @@ model Project {
   recurrenceStart     DateTime? @db.Date
   /// Blank means endless.
   recurrenceEnd       DateTime? @db.Date
-  /// DAILY | WEEKLY | BIWEEKLY | MONTHLY | QUARTERLY | ANNUALLY
+  /// DAILY | WEEKLY | BI_WEEKLY | MONTHLY | QUARTERLY | ANNUALLY (projects-core FREQUENCIES)
   recurrenceFrequency String?
+  /// The Manila day generation began (the project was made recurring, or created so). Occurrences
+  /// before it are never made, so a start date in the past does not flood the project with tasks.
+  recurrenceActiveFrom DateTime? @db.Date
   archived        Boolean  @default(false)
   /// The last issue number given; only ever incremented, so numbers are never reused.
   issueCounter    Int      @default(0)
