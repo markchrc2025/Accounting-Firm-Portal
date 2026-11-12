@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { cn } from "../ui";
 import { BookBadge } from "./BookFigures";
 import { signedPeso, type Values } from "../../lib/withholding";
+import { PREFILL_HINT } from "../../lib/contactNumber";
 
 const INPUT = "input w-full";
 const LABEL = "mb-1.5 block text-[13px] font-semibold text-content";
@@ -165,11 +166,14 @@ export function PartyBlock({
   values,
   set,
   items,
+  prefilled,
 }: {
   values: Values;
   set: (k: string, v: string) => void;
   /** The printed item numbers: contact number, category, email address. */
   items: { contact: number; category: number; email: number };
+  /** W25: the boxes the client record filled (and the owner has not edited). */
+  prefilled?: { contact: boolean; email: boolean };
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -178,12 +182,14 @@ export function PartyBlock({
         type="tel"
         value={values.contact ?? ""}
         onChange={(v) => set("contact", v)}
+        hint={prefilled?.contact ? PREFILL_HINT : undefined}
       />
       <Text
         label={`Email address (Item ${items.email})`}
         type="email"
         value={values.email ?? ""}
         onChange={(v) => set("email", v)}
+        hint={prefilled?.email ? PREFILL_HINT : undefined}
       />
       <Choice
         label={`Category of withholding agent (Item ${items.category})`}

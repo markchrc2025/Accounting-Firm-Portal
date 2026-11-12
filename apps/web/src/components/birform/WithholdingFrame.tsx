@@ -25,7 +25,7 @@ import {
   BookQuestionDialog,
   BookSwitch,
 } from "./BookFigures";
-import { usePublishPreviewFeed } from "./previewFeed";
+import { usePublishPreviewFeed, usePublishSaveAction } from "./previewFeed";
 import type { WithholdingDraft } from "./useWithholdingDraft";
 
 export function WithholdingFrame({
@@ -47,6 +47,14 @@ export function WithholdingFrame({
 }) {
   // W23: what Save would send, for the Preview pane in the shared page.
   usePublishPreviewFeed(draft.saveData, draft.period);
+  // W25: the same Save button, offered on the Preview tab.
+  usePublishSaveAction({
+    label: draft.isNew ? "Save draft" : "Save changes",
+    disabled: !draft.clientId || draft.save.isPending || draft.setStatus.isPending,
+    pending: draft.save.isPending,
+    hidden: draft.isFiled,
+    run: () => draft.save.mutate(),
+  });
   const { form, existing, isNew, id, isFiled, books, tooManyRows } = draft;
   const title = FORM_TITLE[form];
 

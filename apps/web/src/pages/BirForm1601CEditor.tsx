@@ -96,6 +96,7 @@ export default function BirForm1601CEditor() {
             values={values}
             set={set}
             items={{ contact: 10, category: 11, email: 12 }}
+            prefilled={draft.prefilled}
           />
         </CardContent>
       </Card>

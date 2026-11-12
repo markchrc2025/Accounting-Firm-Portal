@@ -70,3 +70,32 @@ export function useEditorReady(
   }, [feed, saved, ready]);
   return ready;
 }
+
+// --- W25: the editor's Save button, offered again on the Preview tab -------------------------
+
+export interface SaveAction {
+  /** "Save draft" or "Save changes", as the editor's own button reads. */
+  label: string;
+  disabled: boolean;
+  pending: boolean;
+  /** A filed return has no Save button. */
+  hidden: boolean;
+  run: () => void;
+}
+type PublishSave = (action: SaveAction | null) => void;
+export const SaveActionContext = createContext<PublishSave | undefined>(undefined);
+
+/**
+ * For an editor: tell the shared page what its Save button does and how it reads, so the
+ * Preview tab can offer the same button. Call it once, before any early return.
+ */
+export function usePublishSaveAction(a: SaveAction): void {
+  const publish = useContext(SaveActionContext);
+  const run = useRef(a.run);
+  run.current = a.run;
+  const { label, disabled, pending, hidden } = a;
+  useEffect(() => {
+    publish?.({ label, disabled, pending, hidden, run: () => run.current() });
+  }, [publish, label, disabled, pending, hidden]);
+  useEffect(() => () => publish?.(null), [publish]);
+}

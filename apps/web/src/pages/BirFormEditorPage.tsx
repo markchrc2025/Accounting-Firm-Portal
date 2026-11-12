@@ -69,9 +69,11 @@ export default function BirFormEditorPage() {
         form={form}
         id={id}
         detail={existing.data}
+        below={
+          // W22: the filings taken back stay on the return (every form, draft or filed).
+          existing.data ? <FilingHistory detail={existing.data} /> : null
+        }
       />
-      {/* W22: the filings taken back stay on the return (every form, draft or filed). */}
-      {existing.data ? <FilingHistory detail={existing.data} /> : null}
     </>
   );
 }
