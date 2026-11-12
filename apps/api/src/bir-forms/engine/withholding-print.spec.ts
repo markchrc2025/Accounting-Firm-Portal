@@ -522,3 +522,39 @@ describe("1601-C", () => {
     expect(() => zeroC({ compensation: "0.00", taxesWithheld: "-0.00" })).not.toThrow();
   });
 });
+
+describe("U24 · the e-mail: the one typed in the draft, else the client's", () => {
+  const withEmail = { ...CORP, email: "books@client.example", phone: "09181111111" };
+  const cases: Array<[string, (d: FilingData, tp: Taxpayer) => Record<string, string>]> =
+    [
+      ["0619E", (d, tp) => e0619(d, tp)],
+      ["1601EQ", (d, tp) => eq(d, tp)],
+      ["1601C", (d, tp) => zeroC(d, tp)],
+    ];
+  it.each(cases)(
+    "%s: a blank e-mail prints the client's; a typed one wins",
+    (form, rows) => {
+      const key = `f${form}:email`;
+      expect(rows({}, withEmail)[key]).toBe("books@client.example");
+      expect(rows({ email: "" }, withEmail)[key]).toBe("books@client.example");
+      expect(rows({ email: "   " }, withEmail)[key]).toBe("books@client.example");
+      expect(rows({ email: "typed@other.example" }, withEmail)[key]).toBe(
+        "typed@other.example",
+      );
+    },
+  );
+  it.each(cases)(
+    "%s: no e-mail anywhere leaves the item empty, and nothing is refused",
+    (form, rows) => {
+      expect(rows({}, CORP)[`f${form}:email`]).toBeUndefined();
+    },
+  );
+  it.each(cases)(
+    "%s: the contact number is unchanged (typed, else the client's)",
+    (form, rows) => {
+      const key = `f${form}:contact`;
+      expect(rows({}, withEmail)[key]).toBe("09181111111");
+      expect(rows({ contact: "09170000000" }, withEmail)[key]).toBe("09170000000");
+    },
+  );
+});

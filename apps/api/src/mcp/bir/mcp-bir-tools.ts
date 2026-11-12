@@ -36,6 +36,7 @@ import { matchClients, nearMatches, optionText, type ClientRow } from "./client-
 import { chooseDefaultPeriod, type ChosenPeriod } from "./default-period";
 import { dueItems, formsFor, type ExistingReturns } from "./forms-due";
 import { BIR_KEY_LINE } from "./instructions";
+import { filedSnapshotOf, printsOf } from "./prints";
 import {
   alphalistNeeds,
   choiceNeeds,
@@ -501,6 +502,8 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
       warnings: open.warnings,
       notes: open.notes,
       needs: open.needs,
+      // U24: the contact number and e-mail this return prints
+      prints: printsOf(form, data, client, filedSnapshotOf(d.filedSnapshot)),
       filed:
         d.status === "filed"
           ? {
@@ -654,6 +657,7 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           warnings: open.warnings,
           notes: [...open.notes, ...inactiveNote(client)],
           needs: open.needs,
+          prints: printsOf(args.formCode, data, client, null),
         });
       } catch (err) {
         return fail(errMsg(err));
@@ -813,9 +817,9 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const found = await resolveClient(actor, { client: ref, clientId });
         if (!found.ok) return ok(found.answer);
         const client = found.client;
-        const rows = (await birForms.list(actor, client.id, status)) as Array<
-          Record<string, any>
-        >; // eslint-disable-line @typescript-eslint/no-explicit-any -- the list view
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the list view
+        type ListRow = Record<string, any>;
+        const rows = (await birForms.list(actor, client.id, status)) as ListRow[];
         const forms = rows
           .filter((r) => (formCode ? r.form === formCode : true))
           .filter((r) => (year ? String(r.period).startsWith(String(year)) : true))
