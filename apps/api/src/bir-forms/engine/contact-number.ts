@@ -75,6 +75,25 @@ export function contactNumberOf(
   return str(clientPhone);
 }
 
+/**
+ * U24: the e-mail a return prints. The three withholding returns carry an e-mail of their own
+ * typed in the draft (data.email, Item 13 of the 0619-E, Item 12 of the 1601-EQ and 1601-C); when
+ * that is blank (missing or only spaces) they use the client's (Client.email for a draft, the
+ * filing snapshot's once filed), the same way contactNumberOf reads the phone. A typed e-mail
+ * always wins. The other returns print the client's e-mail and read nothing from the draft.
+ */
+export function emailOf(
+  form: string,
+  data: FilingData | Record<string, unknown> | null | undefined,
+  clientEmail: string | null | undefined,
+): string {
+  if (form === "0619E" || form === "1601EQ" || form === "1601C") {
+    const typed = str((data as Record<string, unknown> | null | undefined)?.email);
+    if (typed !== "") return typed;
+  }
+  return str(clientEmail);
+}
+
 /** Spaces, dashes, dots and brackets are not part of the number. */
 const SPACING = /[\s\-.()]/g;
 
