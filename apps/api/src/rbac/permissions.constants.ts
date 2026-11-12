@@ -19,6 +19,9 @@ export function perm(resource: string, action: string): string {
  */
 export const CLIENTS_VIEW_ALL = "Clients:ViewAll";
 
+/** Delete a client permanently (U25, D72): Super Admin only by default. */
+export const CLIENTS_DELETE = "Clients:Delete";
+
 /** The firm role that holds every permission; MCP writes run as its holder (D15, D41). */
 export const SUPER_ADMIN_ROLE = "Super Admin";
 
@@ -136,7 +139,8 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
         "BIRFiling",
         "InputTaxAsset",
         "AuditLogs",
-      ]).filter((p) => p !== CLIENTS_VIEW_ALL),
+        // U25 (D72): deleting a client is the Super Admin's alone.
+      ]).filter((p) => p !== CLIENTS_VIEW_ALL && p !== CLIENTS_DELETE),
     ],
   },
   {
