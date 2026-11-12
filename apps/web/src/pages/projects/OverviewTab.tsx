@@ -16,6 +16,13 @@ import {
   SuccessBanner,
 } from "../../components/projects/parts";
 import { SecurityChip } from "../../components/projects/SecurityChip";
+import {
+  CategoryChip,
+  ClientName,
+  FeeText,
+  RecurringBadge,
+} from "../../components/projects/FirmDetails";
+import { LinkToClient } from "../../components/projects/LinkToClient";
 import { RecentSessionsCard } from "./SessionsTab";
 import { RepoKitPanel } from "./RepoKitPanel";
 import { useInvalidateProject } from "../../components/projects/useInvalidate";
@@ -213,7 +220,7 @@ export function OverviewTab({ ov, can }: { ov: ProjectOverview; can: ProjectsCan
             </div>
           </CardContent>
         </Card>
-        <DetailsCard ov={ov} />
+        <DetailsCard ov={ov} canLink={can.update} />
       </div>
     </div>
   );
@@ -321,23 +328,13 @@ function StatusCard({ ov, canWrite }: { ov: ProjectOverview; canWrite: boolean }
   );
 }
 
-function DetailsCard({ ov }: { ov: ProjectOverview }) {
+function DetailsCard({ ov, canLink }: { ov: ProjectOverview; canLink: boolean }) {
   const p = ov.project;
   const row = (label: string, value: React.ReactNode) => (
     <div className="grid grid-cols-[130px_1fr] gap-2 text-[13px]">
       <dt className="text-content-secondary">{label}</dt>
       <dd className="min-w-0 break-words text-content">{value}</dd>
     </div>
-  );
-  const link = (u: string) => (
-    <a
-      href={u}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-blue underline-offset-2 hover:underline"
-    >
-      {u}
-    </a>
   );
   return (
     <Card data-project-details>
@@ -354,7 +351,37 @@ function DetailsCard({ ov }: { ov: ProjectOverview }) {
           {row("Key", <span className="font-mono">{p.key}</span>)}
           {row(
             "Client",
-            p.client ? <span data-client>{p.client.businessName}</span> : "No client",
+            p.client || p.clientName ? (
+              <>
+                <span data-client>
+                  <ClientName p={p} />
+                </span>
+                {!p.client && p.clientName && canLink ? (
+                  <LinkToClient projectKey={p.key} />
+                ) : null}
+              </>
+            ) : (
+              "No client"
+            ),
+          )}
+          {row(
+            "Professional fee",
+            p.professionalFee != null ? <FeeText p={p} /> : "Not set",
+          )}
+          {row("Category", p.category ? <CategoryChip p={p} /> : "None")}
+          {row(
+            "Recurring",
+            p.isRecurring ? (
+              <span data-recurring-details className="flex flex-wrap items-center gap-2">
+                <RecurringBadge p={p} />
+                <span className="text-[12px] text-content-secondary">
+                  From {dayText(p.recurrenceStart)}
+                  {p.recurrenceEnd ? ` to ${dayText(p.recurrenceEnd)}` : ", no end date"}
+                </span>
+              </span>
+            ) : (
+              "No"
+            ),
           )}
           {row(
             "Parent project",
@@ -369,9 +396,6 @@ function DetailsCard({ ov }: { ov: ProjectOverview }) {
               "None"
             ),
           )}
-          {row("Repository", p.repoUrl ? link(p.repoUrl) : "Not set")}
-          {row("Live site", p.liveUrl ? link(p.liveUrl) : "Not set")}
-          {row("Deployment app", p.deployAppName || "Not set")}
           {row("Created", momentText(p.createdAt))}
           {row(
             "Last activity",

@@ -212,7 +212,11 @@ export function AppShell() {
                         ]
                       : []),
                     ...(hasPermission("BIRForms:Read")
-                      ? [{ to: "/bir-forms", label: "BIR Forms", end: true }]
+                      ? [
+                          { to: "/bir-forms", label: "BIR Forms", end: true },
+                          // PB7: the due dates of every client's returns
+                          { to: "/bir-deadlines", label: "BIR Deadlines", end: true },
+                        ]
                       : []),
                     ...(hasPermission("Users:Read") || hasPermission("Clients:Read")
                       ? [{ to: "/settings", label: "Settings", end: false }]

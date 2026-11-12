@@ -8,6 +8,7 @@ import SettingsPage from "./pages/SettingsPage";
 import SsoCallbackPage from "./pages/SsoCallbackPage";
 import BillingPage from "./pages/BillingPage";
 import BirFormsPage from "./pages/BirFormsPage";
+import BirDeadlinesPage from "./pages/BirDeadlinesPage";
 import BirFormEditorPage from "./pages/BirFormEditorPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import ChartOfAccountsPage from "./pages/ChartOfAccountsPage";
@@ -138,6 +139,7 @@ export default function App() {
         <Route path="/projects/:key/milestones" element={<Later><ProjectPage tab="milestones" /></Later>} />
         <Route path="/projects/:key/activity" element={<Later><ProjectPage tab="activity" /></Later>} />
         <Route path="/bir-forms" element={<BirFormsPage />} />
+        <Route path="/bir-deadlines" element={<BirDeadlinesPage />} />
         <Route path="/bir-forms/new" element={<BirFormEditorPage />} />
         <Route path="/bir-forms/:id" element={<BirFormEditorPage />} />
         <Route

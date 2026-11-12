@@ -1,4 +1,4 @@
-// ProjectsSettingsPage - issue types, statuses and labels (PB1), for those who hold
+// ProjectsSettingsPage - issue types, statuses, labels (PB1) and project categories (PB7), for those who hold
 // Projects:Configure. Names and colours; statuses also carry a category (To do, In progress,
 // Done) and which one is the default. When the API refuses (a status or type still in use, the
 // default one, a name already taken) its sentence shows exactly as sent.
@@ -48,7 +48,9 @@ interface Row {
   id: string;
   name: string;
   colour: string;
-  issueCount: number;
+  issueCount?: number;
+  /** PB7: a project category counts projects, not issues. */
+  projectCount?: number;
   order?: number;
   category?: Category;
   isDefault?: boolean;
@@ -92,6 +94,13 @@ export default function ProjectsSettingsPage() {
           withCategory
         />
         <Section kind="labels" title="Labels" noun="label" canWrite={can.configure} />
+        {/* PB7 (PA8): the firm's project categories, the same pattern as issue types */}
+        <Section
+          kind="project-categories"
+          title="Project categories"
+          noun="category"
+          canWrite={can.configure}
+        />
         {/* PB4: only a Super Admin sees how to connect GitHub (the role that holds IntegrationClient:Update). */}
         {superAdmin ? <GithubWebhookHelp /> : null}
       </div>
@@ -177,7 +186,9 @@ function Section({
                   </span>
                 ) : null}
                 <span className="text-[12px] text-content-secondary">
-                  Used by {r.issueCount} issue{r.issueCount === 1 ? "" : "s"}
+                  {r.projectCount !== undefined
+                    ? `Used by ${r.projectCount} project${r.projectCount === 1 ? "" : "s"}`
+                    : `Used by ${r.issueCount ?? 0} issue${r.issueCount === 1 ? "" : "s"}`}
                 </span>
                 <span className="ml-auto flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(r)}>

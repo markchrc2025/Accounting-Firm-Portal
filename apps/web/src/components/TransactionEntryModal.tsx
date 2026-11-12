@@ -18,12 +18,18 @@ import { AccountCombobox } from "./AccountCombobox";
 import { isExempt } from "../lib/regime";
 import {
   applyPrefill,
+  BRANCH_HINT,
+  branchConflictMessage,
   COMPANY_HINT,
   isNineDigits,
   payeeBoxesBlank,
   payeeFieldsOf,
   payeePayload,
   PREFILL_NOTE,
+  SPLIT_NOTE,
+  splitTin,
+  TIN_HINT,
+  TIN_PLACEHOLDER,
   tinDigits,
   type PayeeFields,
 } from "../lib/payeeDetails";
@@ -139,12 +145,53 @@ export default function TransactionEntryModal({
   // The latest boxes, for the prefill's answer to land on (the person may have typed meanwhile).
   const latest = useRef<PayeeFields>({ vendor: "", ...payee });
   latest.current = { vendor: party, ...payee };
+  // W24: a full TIN (12 or 14 digits) typed or pasted into the supplier TIN box is split into
+  // the 9-digit TIN and the Branch box. Only while the person types or pastes: a saved record
+  // is never changed on its own. A 12-digit TIN that is being typed may still grow to 14, so
+  // 12 digits are split on paste or when the box is left; 14 digits at once.
+  const [tinNote, setTinNote] = useState(false);
+  const tinEdited = useRef(false);
+  const pasting = useRef(false);
+  // The branch the split put in the Branch box: it does not count as typed for the prefill.
+  const splitBranch = useRef<string | null>(null);
+  function trySplit(value: string): boolean {
+    const r = splitTin(value, payee.branch);
+    if (r.kind !== "split") return false;
+    setPartyTin(r.tin);
+    setPayee((p) => ({ ...p, branch: r.branch }));
+    splitBranch.current = r.branch;
+    setTinNote(true);
+    return true;
+  }
+  function onTinChange(value: string) {
+    tinEdited.current = true;
+    const pasted = pasting.current;
+    pasting.current = false;
+    setTinNote(false);
+    const n = tinDigits(value).length;
+    if (!isIncome && (n === 14 || (n === 12 && pasted)) && trySplit(value)) return;
+    setPartyTin(value);
+  }
+  function onTinBlur() {
+    if (!isIncome && tinEdited.current) trySplit(partyTin);
+  }
+  const tinConflict = (() => {
+    if (isIncome) return null;
+    const r = splitTin(partyTin, payee.branch);
+    return r.kind === "conflict" ? branchConflictMessage(r.branch) : null;
+  })();
+
   // One ask per TIN, however often the field changes.
   const askedTins = useRef(new Set<string>());
   useEffect(() => {
     if (isIncome || !isNineDigits(partyTin)) return;
     const tin = tinDigits(partyTin);
-    if (askedTins.current.has(tin) || !payeeBoxesBlank(latest.current)) return;
+    // The prefill runs after a split too: the branch the split moved is not a typed box.
+    const boxes =
+      splitBranch.current !== null && latest.current.branch === splitBranch.current
+        ? { ...latest.current, branch: "" }
+        : latest.current;
+    if (askedTins.current.has(tin) || !payeeBoxesBlank(boxes)) return;
     askedTins.current.add(tin);
     fetchPayeeDetails(clientId, tin)
       .then((found) => {
@@ -494,34 +541,72 @@ export default function TransactionEntryModal({
                   className="input"
                 />
               </Field>
-              <Field
-                label={`${isIncome ? "Customer" : "Supplier"} TIN`}
-                className="md:col-span-2"
-              >
-                <input
-                  value={partyTin}
-                  onChange={(e) => setPartyTin(e.target.value)}
-                  placeholder="000-000-000-00000"
-                  className="input font-mono"
-                />
-              </Field>
+              {isIncome ? (
+                <Field label="Customer TIN" className="md:col-span-2">
+                  <input
+                    value={partyTin}
+                    onChange={(e) => setPartyTin(e.target.value)}
+                    placeholder="000-000-000-00000"
+                    className="input font-mono"
+                  />
+                </Field>
+              ) : (
+                <>
+                  <Field label="Supplier TIN" hint={TIN_HINT} hintId="tin-hint">
+                    <input
+                      value={partyTin}
+                      onChange={(e) => onTinChange(e.target.value)}
+                      onPaste={() => {
+                        pasting.current = true;
+                      }}
+                      onBlur={onTinBlur}
+                      placeholder={TIN_PLACEHOLDER}
+                      aria-describedby="tin-hint"
+                      className="input font-mono"
+                    />
+                  </Field>
+                  <Field label="Branch" hint={BRANCH_HINT} hintId="branch-hint">
+                    <input
+                      value={payee.branch}
+                      onChange={(e) =>
+                        setPayeeBox({
+                          branch: e.target.value.replace(/\D/g, "").slice(0, 5),
+                        })
+                      }
+                      inputMode="numeric"
+                      placeholder="00000"
+                      aria-describedby="branch-hint"
+                      className="input font-mono"
+                    />
+                  </Field>
+                  {tinNote || tinConflict ? (
+                    <div className="md:col-span-4">
+                      {tinNote ? (
+                        <p
+                          role="status"
+                          data-tin-split-note
+                          className="text-[12px] text-content-secondary"
+                        >
+                          {SPLIT_NOTE}
+                        </p>
+                      ) : null}
+                      {tinConflict ? (
+                        <p
+                          role="alert"
+                          data-tin-branch-conflict
+                          className="rounded-input border border-gold bg-warn-bg-2 px-3 py-2 text-[12.5px] text-content"
+                        >
+                          {tinConflict}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              )}
               {!isIncome ? (
                 <div className="md:col-span-4 space-y-3" data-payee-details>
                   <div className="grid gap-3 md:grid-cols-4">
-                    <Field label="Branch">
-                      <input
-                        value={payee.branch}
-                        onChange={(e) =>
-                          setPayeeBox({
-                            branch: e.target.value.replace(/\D/g, "").slice(0, 5),
-                          })
-                        }
-                        inputMode="numeric"
-                        placeholder="00000"
-                        className="input font-mono"
-                      />
-                    </Field>
-                    <div className="md:col-span-3">
+                    <div className="md:col-span-4">
                       <span className="text-[13px] font-semibold text-content">
                         Payee
                       </span>
@@ -838,19 +923,33 @@ export default function TransactionEntryModal({
 function Field({
   label,
   error,
+  hint,
+  hintId,
   className,
   children,
 }: {
   label: string;
   error?: string;
+  /** A short hint under the box, outside its label (so the label stays the box's name). */
+  hint?: string;
+  hintId?: string;
   className?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <label className={cn("block", className)}>
+  const body = (
+    <label className={cn("block", hint ? undefined : className)}>
       <span className="text-[13px] font-semibold text-content">{label}</span>
       <div className="mt-1.5">{children}</div>
       {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
     </label>
+  );
+  if (!hint) return body;
+  return (
+    <div className={className}>
+      {body}
+      <span id={hintId} className="mt-1 block text-[11.5px] text-content-secondary">
+        {hint}
+      </span>
+    </div>
   );
 }

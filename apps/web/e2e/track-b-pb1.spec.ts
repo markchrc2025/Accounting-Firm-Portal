@@ -494,7 +494,9 @@ async function mockApi(
         json(r, {
           today: "2026-11-10",
           dated: w.milestones.filter((m) => m.startDate || m.dueDate).map(milestoneDto),
-          undated: w.milestones.filter((m) => !m.startDate && !m.dueDate).map(milestoneDto),
+          undated: w.milestones
+            .filter((m) => !m.startDate && !m.dueDate)
+            .map(milestoneDto),
         }),
     ],
     [
@@ -670,6 +672,8 @@ async function mockApi(
           })),
         ),
     ],
+    // PB7: the settings page also lists the project categories
+    ["GET", /^\/api\/v1\/projects\/admin\/project-categories$/, (r) => json(r, [])],
     [
       "GET",
       /^\/api\/v1\/projects\/admin\/labels$/,
@@ -806,18 +810,22 @@ test.describe("PB1 the portfolio and creating a project (hermetic)", () => {
     await expect(page.locator("[data-key-hint]")).toHaveCount(0);
     await page.getByLabel("Name", { exact: true }).fill("Network upgrade");
     await page.getByLabel("Description").fill("Replace the **router**");
-    await page.getByLabel(/^Client/).selectOption(CLIENT.id);
+    // PB7: the client is typed and picked from the suggestions (it was a select)
+    await page.getByRole("combobox", { name: "Client" }).fill("thirty");
+    await page.getByRole("option", { name: CLIENT.businessName }).click();
     await page.getByRole("button", { name: "Create project" }).click();
     await expect.poll(() => posts(seen, /\/api\/v1\/projects$/).length).toBe(1);
+    // PB7: the repository, live address and deployment name are no longer sent
     expect(posts(seen, /\/api\/v1\/projects$/)[0]!.request.postDataJSON()).toEqual({
       key: "NET",
       name: "Network upgrade",
       description: "Replace the **router**",
-      repoUrl: "",
-      liveUrl: "",
-      deployAppName: "",
       parentKey: null,
       clientId: CLIENT.id,
+      clientName: CLIENT.businessName,
+      professionalFee: null,
+      categoryId: null,
+      isRecurring: false,
     });
     await expect(page).toHaveURL(/\/projects\/NET$/);
     await expect(page.locator("[data-projects-success]")).toHaveText(
@@ -860,7 +868,10 @@ test.describe("PB1 the portfolio and creating a project (hermetic)", () => {
     await expect(page.locator("[data-key-fixed]")).toContainText("PAY");
     await expect(page.getByLabel("Key")).toHaveCount(0);
     await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Payments");
-    await expect(page.getByLabel(/^Client/)).toHaveValue(CLIENT.id);
+    // PB7: the client box holds the client's name (it was a select holding the id)
+    await expect(page.getByRole("combobox", { name: "Client" })).toHaveValue(
+      CLIENT.businessName,
+    );
     clean(unmocked, dialogs);
   });
 });
