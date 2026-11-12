@@ -3,7 +3,8 @@
  * external class libraries — so it drops in without new dependencies. Components
  * reference the design tokens from tailwind.config.js (never raw hex).
  */
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import { useContext, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
+import { PageHeaderSlot } from "./pageHeaderSlot";
 import { isExempt, isVatRegistered, regimeLabel } from "../lib/regime";
 
 /** Tiny class combiner (join truthy classes). */
@@ -149,17 +150,22 @@ export function PageHeader({
   description?: ReactNode;
   actions?: ReactNode;
 }) {
+  // W25: what a surrounding page puts directly under the title (the BIR editor's tabs).
+  const below = useContext(PageHeaderSlot);
   return (
-    <div className="mb-6 flex items-end justify-between gap-5">
-      <div className="min-w-0">
-        {eyebrow ? <div className="eyebrow mb-1.5">{eyebrow}</div> : null}
-        <h1 className="font-serif text-[30px] font-medium text-navy">{title}</h1>
-        {description ? (
-          <div className="mt-1.5 text-[13.5px] text-content-secondary">{description}</div>
-        ) : null}
+    <>
+      <div className="mb-6 flex items-end justify-between gap-5">
+        <div className="min-w-0">
+          {eyebrow ? <div className="eyebrow mb-1.5">{eyebrow}</div> : null}
+          <h1 className="font-serif text-[30px] font-medium text-navy">{title}</h1>
+          {description ? (
+            <div className="mt-1.5 text-[13.5px] text-content-secondary">{description}</div>
+          ) : null}
+        </div>
+        {actions ? <div className="flex flex-none items-center gap-2">{actions}</div> : null}
       </div>
-      {actions ? <div className="flex flex-none items-center gap-2">{actions}</div> : null}
-    </div>
+      {below}
+    </>
   );
 }
 

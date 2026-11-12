@@ -25,7 +25,7 @@ import {
 import { tin14 } from "../components/birform/format";
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
-import { usePublishPreviewFeed } from "../components/birform/previewFeed";
+import { usePublishPreviewFeed, usePublishSaveAction } from "../components/birform/previewFeed";
 import { ClearCopyButton } from "../components/birform/ClearCopyButton";
 import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { payorPrintName, printParty } from "../lib/birFiling";
@@ -332,6 +332,15 @@ export default function BirForm2307Editor() {
   const payorName = payorPrintName(party, filed);
   const pdfName = certificateFileName("2307", period, party.tin);
 
+
+  // W25: the same Save button, offered on the Preview tab.
+  usePublishSaveAction({
+    label: isNew ? "Save draft" : "Save changes",
+    disabled: !clientId || save.isPending || setStatus.isPending,
+    pending: save.isPending,
+    hidden: existing.data?.status === "filed",
+    run: () => save.mutate(),
+  });
 
   if (!isNew && existing.isPending) {
     return (

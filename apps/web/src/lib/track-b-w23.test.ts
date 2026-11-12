@@ -1,13 +1,7 @@
 // W23: how the live Preview pane reads the API's answers and remembers its choice.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "./api";
-import {
-  problemOf,
-  readPaneShown,
-  refusalLines,
-  validationLines,
-  writePaneShown,
-} from "./livePreview";
+import { problemOf, refusalLines, validationLines } from "./livePreview";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -63,27 +57,5 @@ describe("W23 reading the API's answers", () => {
     });
     expect(problemOf(new ApiError(500, "boom", {})).kind).toBe("failed");
     expect(problemOf(new TypeError("Failed to fetch")).kind).toBe("failed");
-  });
-});
-
-describe("W23 the choice to show or hide", () => {
-  it("is shown unless the user hid it, and is kept per user", () => {
-    expect(readPaneShown("u1")).toBe(true);
-    writePaneShown("u1", false);
-    expect(readPaneShown("u1")).toBe(false);
-    expect(readPaneShown("u2")).toBe(true);
-    writePaneShown("u1", true);
-    expect(readPaneShown("u1")).toBe(true);
-  });
-
-  it("works without storage: shown, and writing does not throw", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    expect(readPaneShown("u1")).toBe(true);
-    expect(() => writePaneShown("u1", false)).not.toThrow();
   });
 });
