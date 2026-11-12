@@ -817,9 +817,9 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const found = await resolveClient(actor, { client: ref, clientId });
         if (!found.ok) return ok(found.answer);
         const client = found.client;
-        const rows = (await birForms.list(actor, client.id, status)) as Array<
-          Record<string, any>
-        >; // eslint-disable-line @typescript-eslint/no-explicit-any -- the list view
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the list view
+        type ListRow = Record<string, any>;
+        const rows = (await birForms.list(actor, client.id, status)) as ListRow[];
         const forms = rows
           .filter((r) => (formCode ? r.form === formCode : true))
           .filter((r) => (year ? String(r.period).startsWith(String(year)) : true))
