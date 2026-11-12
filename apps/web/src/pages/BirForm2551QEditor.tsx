@@ -26,7 +26,7 @@ import { PreviewPdfButton } from "../components/birform/PreviewPdfButton";
 import { hasUnsavedChanges } from "../lib/birPreview";
 import { downloadFromUrl } from "../lib/download";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
-import { usePublishPreviewFeed } from "../components/birform/previewFeed";
+import { usePublishPreviewFeed, usePublishSaveAction } from "../components/birform/previewFeed";
 import { MarkAsFiledButton } from "../components/birform/BirConfirmation";
 import { ExportListItem } from "../components/birform/ClearCopyButton";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
@@ -212,6 +212,15 @@ export default function BirForm2551QEditor() {
   function updateRow(i: number, patch: Partial<Row>): void {
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
+
+  // W25: the same Save button, offered on the Preview tab.
+  usePublishSaveAction({
+    label: isNew ? "Save draft" : "Save changes",
+    disabled: !clientId || save.isPending || setStatus.isPending,
+    pending: save.isPending,
+    hidden: existing.data?.status === "filed",
+    run: () => save.mutate(),
+  });
 
   if (!isNew && existing.isPending) {
     return (

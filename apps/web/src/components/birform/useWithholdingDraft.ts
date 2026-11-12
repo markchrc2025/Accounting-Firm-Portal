@@ -6,7 +6,7 @@
 // are written from it. The browser computes no tax and no date: Item 2's default due
 // date and every total are the server's.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +14,7 @@ import {
   computeBirForm,
   createBirForm,
   fetchBirForm,
+  fetchClient,
   fetchClients,
   updateBirForm,
   type BirForm0619EComputed,
@@ -21,6 +22,7 @@ import {
   type BirForm1601EQComputed,
 } from "../../lib/api";
 import { hasUnsavedChanges } from "../../lib/birPreview";
+import { partyPrefill, type PartyPrefill } from "../../lib/contactNumber";
 import { EQ_1601_SPEC, SCHEDULE_1_SPEC } from "../../lib/bookFigures";
 import {
   BOOK_KEYS,
@@ -74,11 +76,14 @@ export function useWithholdingDraft(form: WithholdingForm) {
   );
   const [schedule, setSchedule] = useState<ScheduleRow[]>(emptySchedule);
   const [error, setError] = useState<string | null>(null);
+  // W25: the saved form these boxes were last filled from (the prefill waits for it).
+  const [hydratedFrom, setHydratedFrom] = useState<unknown>(null);
 
   // Hydrate from an existing form.
   useEffect(() => {
     const d = existing.data?.data;
     if (!d) return;
+    setHydratedFrom(existing.data);
     setClientId(existing.data!.clientId);
     const p = splitPeriod(form, existing.data!.period || "");
     if (p) {
@@ -95,8 +100,40 @@ export function useWithholdingDraft(form: WithholdingForm) {
     setSchedule(h.schedule);
   }, [existing.data, form]);
 
+  // W25: the contact number and email, filled from the client record when blank. Read with
+  // the client page's own read (GET /clients/:id, cached per client). A filed return is
+  // sealed and is never filled.
+  const isFiledNow = existing.data?.status === "filed";
+  const clientQ = useQuery({
+    queryKey: ["client", clientId],
+    queryFn: () => fetchClient(clientId),
+    enabled: !!clientId && !isFiledNow,
+  });
+  const [prefill, setPrefill] = useState<PartyPrefill | null>(null);
+  const prefillRef = useRef<PartyPrefill | null>(null);
+  prefillRef.current = prefill;
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+  useEffect(() => {
+    const c = clientQ.data;
+    if (!c || c.id !== clientId || isFiledNow) return;
+    // A saved draft is filled only once its own data is in the boxes.
+    if (!isNew && hydratedFrom !== existing.data) return;
+    const v = valuesRef.current;
+    const { patch, prefill: next } = partyPrefill(
+      { contact: v.contact ?? "", email: v.email ?? "" },
+      c,
+      prefillRef.current,
+    );
+    if (Object.keys(patch).length > 0) setValues((prev) => ({ ...prev, ...patch }));
+    setPrefill(next);
+  }, [clientQ.data, clientId, isFiledNow, isNew, hydratedFrom, existing.data]);
+
   const set = useCallback((k: string, v: string) => {
     setValues((prev) => ({ ...prev, [k]: v }));
+    // An edited box is the owner's: it is no longer the client record's.
+    if (k === "contact" || k === "email")
+      setPrefill((p) => (p && p[k] !== undefined ? { ...p, [k]: undefined } : p));
   }, []);
   /** The month or quarter. A 4th-quarter 1601-EQ cannot carry an over-remittance over. */
   const setSub = useCallback((v: string) => {
@@ -260,6 +297,12 @@ export function useWithholdingDraft(form: WithholdingForm) {
     tooManyRows,
     rowCount,
     dirty: hasUnsavedChanges(existing.data, period, saveData),
+    /** W25: which of the contact and email boxes hold the client record's value. */
+    prefilled: {
+      contact:
+        !!prefill && prefill.contact !== undefined && values.contact === prefill.contact,
+      email: !!prefill && prefill.email !== undefined && values.email === prefill.email,
+    },
     /** Item 2's value: what was typed, else the server's default for the month. */
     dueDate: values.dueDate || defaultDueDate,
   };

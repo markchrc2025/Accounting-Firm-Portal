@@ -1,13 +1,15 @@
-// useLivePreview — the live Preview pane's requests (W23, Track A U23).
+// useLivePreview - the Preview tab's requests (W23, rewritten for W25; Track A U23).
 //
-// A draft: after the editor's data changes, wait 1000 ms after the last change, then POST
-// the WHOLE current data. One request at a time per editor: a newer one cancels the one in
-// flight (AbortController), and only the newest answer is ever shown. The previous PDF stays
-// until the new one arrives. A 409 shows the API's refusals, a 400 its messages, a 429 its
-// sentence and one more try 5 seconds later; any other failure is "Could not load the
-// preview." with a Retry. A filed return never calls the live route: it shows its clear copy
-// through the existing Download clear copy requests. The 2316 has no preview yet: its
-// sentence is asked for once and not again in the same page view.
+// Nothing is asked while the Form details tab is shown, and nothing per keystroke. Opening the
+// Preview tab of a saved draft makes ONE request with the editor's WHOLE current data (unsaved
+// values included). Coming back to the Preview tab with no change since the last request reuses
+// the last answer; after a change it makes one new request. One request at a time: a newer one
+// cancels the one in flight (AbortController), and only the newest answer is ever shown; the
+// previous PDF stays until the new one arrives. A 409 shows the API's refusals, a 400 its
+// messages, a 429 its sentence and one more try 5 seconds later; any other failure is "Could
+// not load the preview." with a Retry. A filed return never calls the live route: it shows its
+// clear copy through the existing Download clear copy requests, fetched once. The 2316 has no
+// preview yet: its sentence is asked for once and not again in the same page view.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -19,15 +21,14 @@ import {
 } from "../../lib/api";
 import { stable } from "../../lib/birPreview";
 import {
-  PREVIEW_DEBOUNCE_MS,
   PREVIEW_RETRY_429_MS,
   problemOf,
   type PreviewProblem,
 } from "../../lib/livePreview";
 
 export interface LivePreviewArgs {
-  /** The pane is shown (hidden means no requests at all). */
-  shown: boolean;
+  /** The Preview tab is open (closed means no requests at all). */
+  active: boolean;
   form: string | undefined;
   /** The saved form's id; undefined for a draft never saved. */
   id: string | undefined;
@@ -37,8 +38,6 @@ export interface LivePreviewArgs {
   ready: boolean;
   /** The editor's WHOLE data object, exactly what PATCH sends. */
   data: Record<string, unknown> | null;
-  /** The saved form's updatedAt: it changes after Save, which refreshes the preview once. */
-  updatedAt: string | undefined;
   /** The saved form's exports (a filed return's clear copy is among them). */
   exports: BirFormExportRef[] | undefined;
 }
@@ -51,7 +50,7 @@ export interface LivePreview {
 }
 
 export function useLivePreview(a: LivePreviewArgs): LivePreview {
-  const { shown, form, id, status, ready, data, updatedAt } = a;
+  const { active, form, id, status, ready, data } = a;
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [problem, setProblem] = useState<PreviewProblem | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -62,8 +61,8 @@ export function useLivePreview(a: LivePreviewArgs): LivePreview {
   const seq = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The data the last request was made with (a reopen with the same data asks nothing). */
   const lastKey = useRef<string | null>(null);
-  const lastUpdated = useRef<string | undefined>(undefined);
   const dataRef = useRef(data);
   dataRef.current = data;
   const clearCopy = useRef<{ key: string; id: Promise<string> } | null>(null);
@@ -116,45 +115,41 @@ export function useLivePreview(a: LivePreviewArgs): LivePreview {
     [id, form, show],
   );
 
-  // A draft: live.
-  const live = shown && !!id && status === "draft" && ready && !!data && !noPreview;
+  // A draft: one request when the Preview tab opens, and again only for changed data.
+  const live = active && !!id && status === "draft" && ready && !!data && !noPreview;
   const key = live ? stable(data) : null;
   useEffect(() => {
-    if (!live) return;
-    if (key === lastKey.current && updatedAt === lastUpdated.current) return;
-    // The first time (page opened, pane shown) and after Save: at once. An edit: debounced.
-    const immediate = lastKey.current === null || updatedAt !== lastUpdated.current;
-    const t = setTimeout(
-      () => {
-        lastKey.current = key;
-        lastUpdated.current = updatedAt;
-        void run(false);
-      },
-      immediate ? 0 : PREVIEW_DEBOUNCE_MS,
-    );
-    return () => clearTimeout(t);
-  }, [live, key, updatedAt, run]);
+    if (!live || key === lastKey.current) return;
+    lastKey.current = key;
+    void run(false);
+  }, [live, key, run]);
 
-  // Hidden, or no longer a live draft: nothing in flight, and the next show starts afresh.
+  // No longer a draft (filed, or gone): nothing in flight, and the next request starts afresh.
+  const draftForm = !!id && status === "draft";
   useEffect(() => {
-    if (live) return;
+    if (draftForm) return;
     lastKey.current = null;
-    lastUpdated.current = undefined;
-    if (!(shown && status === "filed")) {
+    if (status !== "filed") {
       cancel();
       setUpdating(false);
     }
-  }, [live, shown, status, cancel]);
+  }, [draftForm, status, cancel]);
 
   // A filed return: its clear copy, through the existing requests, never the live route.
-  const filedMode = shown && !!id && status === "filed";
+  const filedMode = active && !!id && status === "filed";
+  // The clear copy is fetched once per filing (and again on Retry), not on every opening.
+  const clearCopyShown = useRef<string | null>(null);
   useEffect(() => {
     if (!filedMode || !id) return;
+    const fetchKey = `${id}:${reload}`;
+    if (clearCopyShown.current === fetchKey) return;
+    clearCopyShown.current = fetchKey;
     const ac = new AbortController();
     const my = ++seq.current;
     abort.current?.abort();
     abort.current = ac;
     setUpdating(true);
+    let done = false;
     (async () => {
       try {
         // A clear copy already made is reused; otherwise make one, as the button does.
@@ -181,10 +176,18 @@ export function useLivePreview(a: LivePreviewArgs): LivePreview {
         show(null);
         setProblem(problemOf(e));
       } finally {
+        done = true;
         if (!ac.signal.aborted && my === seq.current) setUpdating(false);
       }
     })();
-    return () => ac.abort();
+    return () => {
+      ac.abort();
+      // Closed before the copy arrived: the next opening asks again.
+      if (!done) {
+        clearCopyShown.current = null;
+        setUpdating(false);
+      }
+    };
   }, [filedMode, id, reload, show]);
 
   // Gone from the page: nothing in flight, nothing leaked.

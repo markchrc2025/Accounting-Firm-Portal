@@ -25,7 +25,7 @@ import {
 } from "../components/ui";
 import { DeleteDraftButton } from "../components/birform/DeleteDraftButton";
 import { FiledBanner, FiledFormAction } from "../components/birform/FiledFormPanel";
-import { usePublishPreviewFeed } from "../components/birform/previewFeed";
+import { usePublishPreviewFeed, usePublishSaveAction } from "../components/birform/previewFeed";
 import { useAmendmentHeading } from "../components/birform/useAmendmentHeading";
 import { printParty } from "../lib/birFiling";
 
@@ -205,6 +205,15 @@ export default function BirForm2316Editor() {
   }
 
   const set = (k: string, v: string) => setFields((prev) => ({ ...prev, [k]: v }));
+
+  // W25: the same Save button, offered on the Preview tab.
+  usePublishSaveAction({
+    label: isNew ? "Save draft" : "Save changes",
+    disabled: !clientId || save.isPending || setStatus.isPending,
+    pending: save.isPending,
+    hidden: existing.data?.status === "filed",
+    run: () => save.mutate(),
+  });
 
   if (!isNew && existing.isPending) {
     return (

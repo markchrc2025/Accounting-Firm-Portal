@@ -1,6 +1,6 @@
-// track-b-w23-live.test.tsx — W23: the live Preview pane's requests and what it shows, with
-// the API module mocked and the clock faked. The API's sentences are shown as sent. All data
-// is invented.
+// track-b-w23-live.test.tsx - W23, rewritten for W25: the Preview tab's requests and what it
+// shows, and the Form details | Preview tabs of the shared editor page, with the API module
+// mocked and the clock faked. The API's sentences are shown as sent. All data is invented.
 
 import {
   act,
@@ -24,9 +24,9 @@ vi.mock("../../lib/api", async (orig) => ({
 }));
 
 import { ApiError, type BirFormDetail } from "../../lib/api";
-import { PREVIEW_DEBOUNCE_MS } from "../../lib/livePreview";
 import { EditorWithPreview } from "./PreviewPane";
-import { usePublishPreviewFeed } from "./previewFeed";
+import { usePublishPreviewFeed, usePublishSaveAction } from "./previewFeed";
+import { PageHeader } from "../ui";
 import { useLivePreview, type LivePreviewArgs } from "./useLivePreview";
 
 const ID = "f2300000-0000-4000-8000-0000000000aa";
@@ -55,16 +55,16 @@ afterEach(() => {
 });
 
 const base = (over: Partial<LivePreviewArgs> = {}): LivePreviewArgs => ({
-  shown: true,
+  active: true,
   form: "2551Q",
   id: ID,
   status: "draft",
   ready: true,
   data: { year: "2026", sales: "100" },
-  updatedAt: "2026-10-01T00:00:00.000Z",
   exports: [],
   ...over,
 });
+const LONG = 5000; // far longer than any wait the old pane had
 const flush = async (ms = 0) => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
@@ -73,30 +73,21 @@ const flush = async (ms = 0) => {
 const hook = (over: Partial<LivePreviewArgs> = {}) =>
   renderHook((p: LivePreviewArgs) => useLivePreview(p), { initialProps: base(over) });
 
-describe("W23 when it asks", () => {
-  it("asks once when the page opens, at once", async () => {
-    hook();
-    await flush(0);
-    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+describe("W25 when it asks", () => {
+  it("asks nothing while Form details is shown", async () => {
+    hook({ active: false });
+    await flush(LONG);
+    expect(api.previewBirFormLive).not.toHaveBeenCalled();
   });
 
-  it("rapid edits make ONE call, a second after the last change", async () => {
-    const h = hook();
+  it("opening Preview asks ONCE, at once", async () => {
+    const h = hook({ active: false });
+    await flush(LONG);
+    h.rerender(base({ active: true }));
     await flush(0);
-    api.previewBirFormLive.mockClear();
-    h.rerender(base({ data: { year: "2026", sales: "1" } }));
-    await flush(300);
-    h.rerender(base({ data: { year: "2026", sales: "12" } }));
-    await flush(300);
-    h.rerender(base({ data: { year: "2026", sales: "123" } }));
-    await flush(PREVIEW_DEBOUNCE_MS - 1);
-    expect(api.previewBirFormLive).not.toHaveBeenCalled();
-    await flush(1);
     expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
-    expect(api.previewBirFormLive.mock.calls[0]![1]).toEqual({
-      year: "2026",
-      sales: "123",
-    });
+    await flush(LONG);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
   });
 
   it("sends the WHOLE current data object, and a way to cancel it", async () => {
@@ -114,29 +105,58 @@ describe("W23 when it asks", () => {
     expect(signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("asks again once after Save (updatedAt changes), at once, with the same data", async () => {
-    const h = hook();
+  it("edits while Form details is shown ask nothing, keystroke by keystroke or after", async () => {
+    const h = hook({ active: false });
+    for (const sales of ["1", "12", "123"]) {
+      h.rerender(base({ active: false, data: { year: "2026", sales } }));
+      await flush(300);
+    }
+    await flush(LONG);
+    expect(api.previewBirFormLive).not.toHaveBeenCalled();
+    h.rerender(base({ active: true, data: { year: "2026", sales: "123" } }));
     await flush(0);
-    h.rerender(base({ updatedAt: "2026-10-01T00:05:00.000Z" }));
-    await flush(0);
-    expect(api.previewBirFormLive).toHaveBeenCalledTimes(2);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+    expect(api.previewBirFormLive.mock.calls[0]![1]).toEqual({
+      year: "2026",
+      sales: "123",
+    });
   });
 
-  it("does not ask for the same data again", async () => {
+  it("reopening Preview with no change asks nothing and keeps the last PDF", async () => {
     const h = hook();
     await flush(0);
-    h.rerender(base({ data: { sales: "100", year: "2026" } })); // same content, new object
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
+    const first = h.result.current.pdfUrl;
+    h.rerender(base({ active: false }));
+    await flush(LONG);
+    h.rerender(base({ active: true, data: { sales: "100", year: "2026" } })); // same content
+    await flush(LONG);
     expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+    expect(h.result.current.pdfUrl).toBe(first);
     // The request function being remade does not ask again for data already asked for.
     h.rerender(base({ form: "2550Q" }));
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
+    await flush(LONG);
     expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+  });
+
+  it("reopening Preview after a change asks once more, with the new data", async () => {
+    const h = hook();
+    await flush(0);
+    h.rerender(base({ active: false }));
+    h.rerender(base({ active: false, data: { year: "2026", sales: "7" } }));
+    await flush(LONG);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+    h.rerender(base({ active: true, data: { year: "2026", sales: "7" } }));
+    await flush(0);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(2);
+    expect(api.previewBirFormLive.mock.calls[1]![1]).toEqual({
+      year: "2026",
+      sales: "7",
+    });
   });
 
   it("never asks before the editor's data is ready", async () => {
     const h = hook({ ready: false });
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
+    await flush(LONG);
     expect(api.previewBirFormLive).not.toHaveBeenCalled();
     h.rerender(base({ ready: true }));
     await flush(0);
@@ -145,27 +165,27 @@ describe("W23 when it asks", () => {
 
   it("never asks for a draft that has never been saved", async () => {
     hook({ id: undefined });
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
+    await flush(LONG);
     expect(api.previewBirFormLive).not.toHaveBeenCalled();
   });
 
-  it("never asks while the pane is hidden, and cancels what is in flight", async () => {
-    let signal: AbortSignal | undefined;
-    api.previewBirFormLive.mockImplementation((_i, _d, s) => {
-      signal = s;
-      return new Promise(() => undefined);
-    });
+  it("closing Preview while it works lets the answer land; the next opening asks nothing new", async () => {
+    let release!: (b: Blob) => void;
+    api.previewBirFormLive.mockImplementation(
+      () => new Promise<Blob>((r) => (release = r)),
+    );
     const h = hook();
     await flush(0);
-    h.rerender(base({ shown: false }));
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
-    expect(signal?.aborted).toBe(true);
+    h.rerender(base({ active: false }));
+    await act(async () => release(blob("landed")));
+    expect(h.result.current.pdfUrl).not.toBeNull();
+    h.rerender(base({ active: true }));
+    await flush(LONG);
     expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
-    expect(h.result.current.updating).toBe(false);
   });
 });
 
-describe("W23 one at a time, newest wins", () => {
+describe("W25 one at a time, newest wins", () => {
   it("a newer request cancels the one in flight, and a late stale answer is ignored", async () => {
     const pending: Array<{
       resolve: (b: Blob) => void;
@@ -179,7 +199,7 @@ describe("W23 one at a time, newest wins", () => {
     await flush(0);
     expect(pending).toHaveLength(1);
     h.rerender(base({ data: { year: "2026", sales: "999" } }));
-    await flush(PREVIEW_DEBOUNCE_MS);
+    await flush(0);
     expect(pending).toHaveLength(2);
     expect(pending[0]!.signal.aborted).toBe(true);
     expect(pending[1]!.signal.aborted).toBe(false);
@@ -202,7 +222,7 @@ describe("W23 one at a time, newest wins", () => {
       () => new Promise<Blob>((r) => (release = r)),
     );
     h.rerender(base({ data: { year: "2026", sales: "5" } }));
-    await flush(PREVIEW_DEBOUNCE_MS);
+    await flush(0);
     expect(h.result.current.updating).toBe(true);
     expect(h.result.current.pdfUrl).toBe(first);
     await act(async () => release(blob("second-one")));
@@ -212,7 +232,7 @@ describe("W23 one at a time, newest wins", () => {
   });
 });
 
-describe("W23 what the API answers", () => {
+describe("W25 what the API answers", () => {
   it("409: the refusals, in order, word for word", async () => {
     const R = ["7 ATCs; the form has six rows.", "INVENTED second refusal."];
     api.previewBirFormLive.mockRejectedValue(
@@ -294,15 +314,16 @@ describe("W23 what the API answers", () => {
     await flush(0);
     expect(h.result.current.problem).toEqual({ kind: "refused", lines: [S] });
     h.rerender(base({ form: "2316", data: { year: "2026", wages: "9" } }));
-    await flush(PREVIEW_DEBOUNCE_MS * 3);
-    h.rerender(base({ form: "2316", updatedAt: "2026-10-02T00:00:00.000Z" }));
-    await flush(PREVIEW_DEBOUNCE_MS * 3);
+    await flush(LONG);
+    h.rerender(base({ form: "2316", active: false }));
+    h.rerender(base({ form: "2316", active: true, data: { year: "2026", wages: "10" } }));
+    await flush(LONG);
     expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
     expect(h.result.current.problem).toEqual({ kind: "refused", lines: [S] });
   });
 });
 
-describe("W23 a filed return", () => {
+describe("W25 a filed return", () => {
   const filed = (over: Partial<LivePreviewArgs> = {}) =>
     base({ status: "filed", ...over });
 
@@ -319,11 +340,22 @@ describe("W23 a filed return", () => {
     expect(api.fetchBirFormExportUrl).toHaveBeenCalledWith(ID, "e1");
     expect(api.fetchSignedPdf.mock.calls[0]![0]).toBe("https://files.example.test/x.pdf");
     expect(h.result.current.pdfUrl).not.toBeNull();
-    // Editing (a sealed form cannot) or saving never calls the live route.
-    h.rerender(filed({ data: { other: "1" }, updatedAt: "2026-10-09T00:00:00.000Z" }));
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
+    // Editing (a sealed form cannot) never calls the live route; closing and opening Preview
+    // again shows the same clear copy without asking again.
+    h.rerender(filed({ data: { other: "1" } }));
+    h.rerender(filed({ active: false }));
+    h.rerender(filed({ active: true }));
+    await flush(LONG);
     expect(api.previewBirFormLive).not.toHaveBeenCalled();
     expect(api.createClearCopy).toHaveBeenCalledTimes(1);
+    expect(api.fetchSignedPdf).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for nothing while Form details is shown", async () => {
+    hook(filed({ active: false }));
+    await flush(LONG);
+    expect(api.createClearCopy).not.toHaveBeenCalled();
+    expect(api.fetchSignedPdf).not.toHaveBeenCalled();
   });
 
   it("reuses a clear copy already made instead of making another", async () => {
@@ -354,17 +386,38 @@ describe("W23 a filed return", () => {
   });
 });
 
-// --- the pane -----------------------------------------------------------------------
+// --- the tabs ------------------------------------------------------------------------
 
+const save = vi.fn();
+/** An editor as the twelve are built: its own PageHeader, then its form. */
 function Fake({
   data,
   period = "2026",
+  isNew = false,
+  filed = false,
 }: {
   data: Record<string, unknown>;
   period?: string;
+  isNew?: boolean;
+  filed?: boolean;
 }) {
   usePublishPreviewFeed(data, period);
-  return <div data-fake-editor />;
+  usePublishSaveAction({
+    label: isNew ? "Save draft" : "Save changes",
+    disabled: false,
+    pending: false,
+    hidden: filed,
+    run: save,
+  });
+  return (
+    <div className="animate-fade-rise">
+      <PageHeader title="2551Q" eyebrow="BIR Forms · Quarterly Percentage Tax" />
+      <div data-fake-editor>
+        <input aria-label="Sales" defaultValue="" />
+        <button type="button">Save changes</button>
+      </div>
+    </div>
+  );
 }
 const detail = (over: Partial<BirFormDetail> = {}): BirFormDetail =>
   ({
@@ -376,45 +429,177 @@ const detail = (over: Partial<BirFormDetail> = {}): BirFormDetail =>
     exports: [],
     ...over,
   }) as BirFormDetail;
-const pane = (
+const page = (
   data: Record<string, unknown>,
   d: BirFormDetail | undefined = detail(),
-  id: string | undefined = ID,
+  id: string | null = ID,
+  below?: React.ReactNode,
 ) =>
   render(
-    <EditorWithPreview editor={<Fake data={data} />} form="2551Q" id={id} detail={d} />,
+    <EditorWithPreview
+      editor={<Fake data={data} isNew={!id} filed={d?.status === "filed"} />}
+      form="2551Q"
+      id={id ?? undefined}
+      detail={d}
+      below={below}
+    />,
   );
+const tab = (name: string) => screen.getByRole("tab", { name });
+const editorShown = () => {
+  const el = document.querySelector("[data-fake-editor]") as HTMLElement;
+  return getComputedStyle(el).display !== "none";
+};
 
-describe("W23 the pane", () => {
-  it("a draft never saved: no call, and it says to save", async () => {
-    render(
-      <EditorWithPreview
-        editor={<Fake data={{ year: "2026" }} />}
-        form="2551Q"
-        id={undefined}
-        detail={undefined}
-      />,
-    );
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
-    expect(screen.getByText("Save the draft to see the preview.")).toBeTruthy();
+describe("W25 the Form details | Preview tabs", () => {
+  beforeEach(() => save.mockReset());
+
+  it("sit directly under the page title; Form details is chosen and nothing is asked", async () => {
+    page({ year: "2026", sales: "100" });
+    await flush(LONG);
+    const h1 = screen.getByRole("heading", { level: 1, name: "2551Q" });
+    const list = screen.getByRole("tablist", { name: "Form" });
+    // the title, then the tabs, then the form
+    expect(
+      h1.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const form = document.querySelector("[data-fake-editor]")!;
+    expect(
+      list.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Form details",
+      "Preview",
+    ]);
+    expect(tab("Form details").getAttribute("aria-selected")).toBe("true");
+    expect(tab("Preview").getAttribute("aria-selected")).toBe("false");
+    expect(editorShown()).toBe(true);
+    expect(document.querySelector("[data-preview-pane]")).toBeNull();
     expect(api.previewBirFormLive).not.toHaveBeenCalled();
   });
 
-  it("shows the PDF inline with Open in new tab, and Updating… while it works", async () => {
-    pane({ year: "2026", sales: "100" });
+  it("Preview: one request, the PDF inline and tall, Open in new tab; the form is hidden, not gone", async () => {
+    page({ year: "2026", sales: "100" });
+    fireEvent.change(screen.getByLabelText("Sales"), { target: { value: "typed" } });
+    fireEvent.click(tab("Preview"));
     await flush(0);
-    const frame = document.querySelector("[data-preview-frame]") as HTMLIFrameElement;
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+    const panel = screen.getByRole("tabpanel");
+    expect(panel.getAttribute("aria-labelledby")).toBe(tab("Preview").id);
+    const frame = panel.querySelector("[data-preview-frame]") as HTMLIFrameElement;
     expect(frame.getAttribute("src")).toMatch(/^blob:test\//);
-    const open = document.querySelector("[data-preview-open]") as HTMLAnchorElement;
+    const open = panel.querySelector("[data-preview-open]") as HTMLAnchorElement;
     expect(open.getAttribute("href")).toBe(frame.getAttribute("src"));
     expect(open.textContent).toBe("Open in new tab");
-    expect(document.querySelector("[data-preview-updating]")).toBeNull();
+    const pane = panel.querySelector("[data-preview-pane]") as HTMLElement;
+    expect(pane.style.minHeight).toBe("600px");
+    expect(parseInt(pane.style.height, 10)).toBeGreaterThanOrEqual(600);
+    // a short window: the PDF area stays 600 px tall
+    const tall = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { value: 400, configurable: true });
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(pane.style.height).toBe("600px");
+    Object.defineProperty(window, "innerHeight", { value: tall, configurable: true });
+    // the form is still there, only hidden; what was typed is kept
+    expect(editorShown()).toBe(false);
+    fireEvent.click(tab("Form details"));
+    expect(editorShown()).toBe(true);
+    expect((screen.getByLabelText("Sales") as HTMLInputElement).value).toBe("typed");
+    expect(document.querySelector("[data-preview-pane]")).toBeNull();
+  });
+
+  it("back to Form details and Preview again: no new request without a change, one after a change", async () => {
+    const { rerender } = page({ year: "2026", sales: "100" });
+    fireEvent.click(tab("Preview"));
+    await flush(0);
+    fireEvent.click(tab("Form details"));
+    fireEvent.click(tab("Preview"));
+    await flush(LONG);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
+    fireEvent.click(tab("Form details"));
+    rerender(
+      <EditorWithPreview
+        editor={<Fake data={{ year: "2026", sales: "250" }} />}
+        form="2551Q"
+        id={ID}
+        detail={detail()}
+      />,
+    );
+    await flush(LONG);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1); // nothing while typing
+    fireEvent.click(tab("Preview"));
+    await flush(0);
+    expect(api.previewBirFormLive).toHaveBeenCalledTimes(2);
+    expect(api.previewBirFormLive.mock.calls[1]![1]).toEqual({
+      year: "2026",
+      sales: "250",
+    });
+  });
+
+  it("the arrow keys, Home and End move between the tabs", async () => {
+    page({ year: "2026", sales: "100" });
+    tab("Form details").focus();
+    fireEvent.keyDown(tab("Form details"), { key: "ArrowRight" });
+    expect(tab("Preview").getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tab("Preview"));
+    fireEvent.keyDown(tab("Preview"), { key: "ArrowRight" }); // wraps
+    expect(tab("Form details").getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab("Form details"), { key: "ArrowLeft" });
+    expect(tab("Preview").getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab("Preview"), { key: "Home" });
+    expect(tab("Form details").getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab("Form details"), { key: "End" });
+    expect(tab("Preview").getAttribute("aria-selected")).toBe("true");
+    expect(tab("Preview").tabIndex).toBe(0);
+    expect(tab("Form details").tabIndex).toBe(-1);
+  });
+
+  it("the Preview tab offers the editor's own Save button, and it saves", async () => {
+    page({ year: "2026", sales: "100" });
+    fireEvent.click(tab("Preview"));
+    await flush(0);
+    const btn = screen
+      .getByRole("tabpanel")
+      .querySelector("[data-preview-save]") as HTMLButtonElement;
+    expect(btn.textContent).toBe("Save changes");
+    fireEvent.click(btn);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("a draft never saved: no call; it says to save, and offers Save draft", async () => {
+    page({ year: "2026" }, undefined, null);
+    fireEvent.click(tab("Preview"));
+    await flush(LONG);
+    expect(screen.getByText("Save the draft to see the preview.")).toBeTruthy();
+    expect(api.previewBirFormLive).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole("tabpanel").querySelector("[data-preview-save]") as HTMLElement)
+        .textContent,
+    ).toBe("Save draft");
+  });
+
+  it("a filed return: its clear copy, and no Save button", async () => {
+    api.createClearCopy.mockResolvedValue({ id: "e1", kind: "pdf", filename: "x.pdf" });
+    api.fetchBirFormExportUrl.mockResolvedValue({
+      url: "https://files.example.test/x.pdf",
+    });
+    api.fetchSignedPdf.mockResolvedValue(blob("clear"));
+    page({ year: "2026", sales: "100" }, detail({ status: "filed" }));
+    await flush(LONG);
+    expect(api.fetchSignedPdf).not.toHaveBeenCalled(); // not until Preview opens
+    fireEvent.click(tab("Preview"));
+    await flush(0);
+    expect(api.previewBirFormLive).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-preview-frame]")).not.toBeNull();
+    expect(document.querySelector("[data-preview-save]")).toBeNull();
   });
 
   it("asks with the HYDRATED data, never the editor's empty first state", async () => {
     // An editor starts with empty boxes, then hydrates from the saved form.
-    const { rerender } = pane({ year: "", sales: "" });
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
+    const { rerender } = page({ year: "", sales: "" });
+    fireEvent.click(tab("Preview"));
+    await flush(LONG);
     expect(api.previewBirFormLive).not.toHaveBeenCalled();
     rerender(
       <EditorWithPreview
@@ -435,16 +620,18 @@ describe("W23 the pane", () => {
   it("a refusal shows as a list in place of the PDF, word for word", async () => {
     const R = ["INVENTED refusal one.", "INVENTED refusal two."];
     api.previewBirFormLive.mockRejectedValue(new ApiError(409, R[0]!, { refusals: R }));
-    pane({ year: "2026", sales: "100" });
+    page({ year: "2026", sales: "100" });
+    fireEvent.click(tab("Preview"));
     await flush(0);
     const list = document.querySelector("[data-preview-problem='refused']")!;
     expect([...list.querySelectorAll("li")].map((li) => li.textContent)).toEqual(R);
     expect(document.querySelector("[data-preview-frame]")).toBeNull();
   });
 
-  it("a 429 shows its sentence; a network error shows Could not load the preview. and Retry", async () => {
+  it("a network error shows Could not load the preview. and Retry asks again", async () => {
     api.previewBirFormLive.mockRejectedValueOnce(new TypeError("offline"));
-    pane({ year: "2026", sales: "100" });
+    page({ year: "2026", sales: "100" });
+    fireEvent.click(tab("Preview"));
     await flush(0);
     expect(screen.getByText("Could not load the preview.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -452,42 +639,20 @@ describe("W23 the pane", () => {
     expect(document.querySelector("[data-preview-frame]")).not.toBeNull();
   });
 
-  it("Hide preview is remembered for this user, and Show preview brings it back", async () => {
-    const first = pane({ year: "2026", sales: "100" });
-    await flush(0);
-    fireEvent.click(screen.getByRole("button", { name: "Hide preview" }));
-    expect(document.querySelector("[data-preview-pane]")).toBeNull();
-    expect(screen.getByRole("button", { name: "Show preview" })).toBeTruthy();
-    const callsWhileHidden = api.previewBirFormLive.mock.calls.length;
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
-    expect(api.previewBirFormLive).toHaveBeenCalledTimes(callsWhileHidden);
-    // A new visit: still hidden, and nothing is asked.
-    first.unmount();
-    api.previewBirFormLive.mockClear();
-    pane({ year: "2026", sales: "100" });
-    await flush(PREVIEW_DEBOUNCE_MS * 2);
-    expect(document.querySelector("[data-preview-pane]")).toBeNull();
-    expect(api.previewBirFormLive).not.toHaveBeenCalled();
-    // Show it again: it asks, and the choice is remembered too.
-    fireEvent.click(screen.getByRole("button", { name: "Show preview" }));
-    await flush(0);
-    expect(api.previewBirFormLive).toHaveBeenCalledTimes(1);
-    expect(document.querySelector("[data-preview-pane]")).not.toBeNull();
+  it("what follows the form (the filings taken back) is on Form details only", async () => {
+    page({ year: "2026", sales: "100" }, detail(), ID, <div data-below>History</div>);
+    const below = document.querySelector("[data-below]")!.parentElement as HTMLElement;
+    expect(below.hidden).toBe(false);
+    fireEvent.click(tab("Preview"));
+    expect(below.hidden).toBe(true);
   });
 
-  it("works when localStorage throws: shown, and the toggle still works for this visit", async () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    pane({ year: "2026", sales: "100" });
+  it("the old side pane is gone: no Show or Hide preview, nothing remembered", async () => {
+    page({ year: "2026", sales: "100" });
     await flush(0);
-    expect(document.querySelector("[data-preview-frame]")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Hide preview" }));
-    expect(document.querySelector("[data-preview-pane]")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show preview" }));
-    expect(document.querySelector("[data-preview-pane]")).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Hide preview|Show preview/ }),
+    ).toBeNull();
+    expect(window.localStorage.length).toBe(0);
   });
 });
