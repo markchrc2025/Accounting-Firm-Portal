@@ -2,7 +2,7 @@
 // client record (GET /clients/:id, the client page's read) while those boxes are blank, with the
 // hint, and never over a typed or saved value; a filed return is left as stored. Invented data.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -85,8 +85,9 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
+let qc: QueryClient;
 function open(editor: React.ReactElement, path = "/bir-forms/f1") {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[path]}>
@@ -133,6 +134,31 @@ describe("W25 a saved draft fills its blank contact and email from the client", 
     fireEvent.change(contact(), { target: { value: "09170000000" } });
     expect(contact().value).toBe("09170000000");
     expect(screen.getAllByText("Filled from the client record.")).toHaveLength(1);
+    // typing the same number back is still the owner's edit: the hint does not return
+    fireEvent.change(contact(), { target: { value: "09178005122" } });
+    expect(screen.getAllByText("Filled from the client record.")).toHaveLength(1);
+  });
+
+  it("a fresh read of the saved draft never lets the client's phone overwrite its saved number", async () => {
+    api.fetchBirForm.mockResolvedValue(
+      draft({}, { contact: "0999 000 1111", email: "" }),
+    );
+    open(<BirForm0619EEditor />);
+    await waitFor(() => expect(email().value).toBe("owner@alpha.example"));
+    // the owner clears the box, then the saved draft is read again (as after a save)
+    fireEvent.change(contact(), { target: { value: "" } });
+    api.fetchBirForm.mockResolvedValue(
+      draft(
+        { updatedAt: "2026-10-02T00:00:00.000Z" },
+        { contact: "0999 000 1111", email: "" },
+      ),
+    );
+    await act(async () => {
+      await qc.refetchQueries({ queryKey: ["bir-form", "f1"] });
+    });
+    await waitFor(() => expect(contact().value).toBe("0999 000 1111"));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(contact().value).toBe("0999 000 1111");
   });
 
   it("the prefilled values are unsaved changes: Save sends them", async () => {

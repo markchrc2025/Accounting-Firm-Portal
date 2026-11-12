@@ -493,6 +493,14 @@ describe("W25 the Form details | Preview tabs", () => {
     const pane = panel.querySelector("[data-preview-pane]") as HTMLElement;
     expect(pane.style.minHeight).toBe("600px");
     expect(parseInt(pane.style.height, 10)).toBeGreaterThanOrEqual(600);
+    // a short window: the PDF area stays 600 px tall
+    const tall = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { value: 400, configurable: true });
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(pane.style.height).toBe("600px");
+    Object.defineProperty(window, "innerHeight", { value: tall, configurable: true });
     // the form is still there, only hidden; what was typed is kept
     expect(editorShown()).toBe(false);
     fireEvent.click(tab("Form details"));
