@@ -10,3 +10,4 @@ export * from "./import";
 export * from "./integration";
 export * from "./receipt-scan";
 export * from "./bir-form-source";
+export * from "./client-delete";

@@ -23,6 +23,8 @@ import { RequireScopes } from "../common/decorators/require-scopes.decorator";
 import { ZodValidationPipe } from "../common/validation/zod-validation.pipe";
 import { COR_ALLOWED_TYPES, COR_MAX_BYTES, StorageService } from "../storage/storage.service";
 import { ClientsService } from "./clients.service";
+import { CLIENTS_DELETE } from "../rbac/permissions.constants";
+import { ClientDeleteService } from "./client-delete.service";
 import {
   CreateClientInput,
   CreateClientSchema,
@@ -71,6 +73,7 @@ export class ClientsController {
   constructor(
     private readonly clients: ClientsService,
     private readonly storage: StorageService,
+    private readonly deletion: ClientDeleteService,
   ) {}
 
   @Post()
@@ -116,6 +119,29 @@ export class ClientsController {
     @Body(new ZodValidationPipe(UpdateClientSchema)) body: UpdateClientInput,
   ) {
     return this.clients.update(user, clientId, body);
+  }
+
+  // --- Delete a client (U25, D72) -------------------------------------------
+  // Firm-user only. The param is ":id", not ":clientId", so the guard asks for Clients:Delete
+  // held firm-wide and the service answers 404 for a client outside the firm.
+
+  /** What a delete would remove, and what refuses it: { canDelete, nameToType, blockers,
+   *  willDelete, willUnlink }. */
+  @Get(":id/delete-check")
+  @RequirePermissions(CLIENTS_DELETE)
+  deleteCheck(@CurrentUser() user: AuthUser, @Param("id") clientId: string) {
+    return this.deletion.check(user, clientId);
+  }
+
+  /** Delete the client permanently. Body { confirmName }: the client's registered name. */
+  @Delete(":id")
+  @RequirePermissions(CLIENTS_DELETE)
+  remove(
+    @CurrentUser() user: AuthUser,
+    @Param("id") clientId: string,
+    @Body() body: { confirmName?: unknown } | undefined,
+  ) {
+    return this.deletion.delete(user, clientId, body?.confirmName);
   }
 
   // --- COR file storage ------------------------------------------------------

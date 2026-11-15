@@ -7,6 +7,7 @@ import {
   CONTACT_ITEM,
   CONTACT_NUMBER_REQUIRED,
   contactNumberOf,
+  emailOf,
   contactRefusal,
   normalisedContact,
   printRowsWithContact,
@@ -215,5 +216,33 @@ describe("U21 · the connector's need", () => {
   it("the certificates have none", () => {
     expect(need("2307", { ...FULL, phone: null })).toBeUndefined();
     expect(need("2316", { ...FULL, phone: null })).toBeUndefined();
+  });
+});
+
+describe("U24 · the e-mail a return prints", () => {
+  it("the withholding returns: the e-mail typed in the draft, else the client's", () => {
+    for (const form of ["0619E", "1601EQ", "1601C"]) {
+      expect(
+        emailOf(form, { email: " typed@example.test " }, "client@example.test"),
+      ).toBe("typed@example.test");
+      expect(emailOf(form, { email: "" }, "client@example.test")).toBe(
+        "client@example.test",
+      );
+      expect(emailOf(form, { email: "   " }, " client@example.test ")).toBe(
+        "client@example.test",
+      );
+      expect(emailOf(form, {}, "client@example.test")).toBe("client@example.test");
+      expect(emailOf(form, null, "client@example.test")).toBe("client@example.test");
+      expect(emailOf(form, { email: "" }, null)).toBe("");
+      expect(emailOf(form, { email: 42 }, "client@example.test")).toBe(
+        "client@example.test",
+      );
+    }
+  });
+  it("the other returns print the client's e-mail; nothing typed in the draft is read", () => {
+    expect(emailOf("2551Q", { email: "typed@example.test" }, "client@example.test")).toBe(
+      "client@example.test",
+    );
+    expect(emailOf("1702RT", {}, undefined)).toBe("");
   });
 });

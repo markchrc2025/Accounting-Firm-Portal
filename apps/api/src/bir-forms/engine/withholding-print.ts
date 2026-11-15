@@ -36,6 +36,7 @@ import { compute0619E } from "./compute0619E";
 import { compute1601C } from "./compute1601C";
 import { compute1601EQ, ROWS_ON_THE_FORM } from "./compute1601EQ";
 import { tin14, titleTinLine } from "./certificate2307";
+import { contactNumberOf, emailOf } from "./contact-number";
 import { dec } from "./exact";
 import { ExportRefusal } from "./export-refusal";
 import type { FilingData, Taxpayer } from "./types";
@@ -136,7 +137,7 @@ function writer(ns: string) {
 type W = ReturnType<typeof writer>;
 
 /** Items every one of the three returns shares, from the taxpayer block and the draft's own data. */
-function common(w: W, d: FilingData, tp: Taxpayer): void {
+function common(w: W, form: WithholdingPrintForm, d: FilingData, tp: Taxpayer): void {
   const t = tinParts(tp);
   w.put("tin1", t.t1);
   w.put("tin2", t.t2);
@@ -146,9 +147,9 @@ function common(w: W, d: FilingData, tp: Taxpayer): void {
   w.put("name", fullName(tp));
   w.put("address", [tp.address, tp.city].filter(Boolean).join(", "));
   w.put("zip", tp.zip);
-  // U21: the number typed in the draft, else the client's own.
-  w.put("contact", str(d.contact) || tp.phone);
-  w.put("email", d.email);
+  // U21: the number typed in the draft, else the client's own; U24: the e-mail the same way.
+  w.put("contact", contactNumberOf(form, d, tp.phone));
+  w.put("email", emailOf(form, d, tp.email));
   const cat = str(d.category).toLowerCase();
   if (cat === "private") w.put("catPrivate", "true");
   if (cat === "government") w.put("catGovernment", "true");
@@ -232,7 +233,7 @@ export function build0619EPrintRows(d: FilingData, tp: Taxpayer, period: string)
   w.put("dueDate", slashDate(d.dueDate) || slashDate(c.defaultDueDate));
   yesNo(w, "amended", d.amended, true);
   yesNo(w, "any", d.anyWithheld, false);
-  common(w, d, tp);
+  common(w, "0619E", d, tp);
   w.typed("i14", d.remittance);
   w.typed("i15", d.previouslyRemitted);
   w.computed("i16", c.i16);
@@ -299,7 +300,7 @@ export function build1601EQPrintRows(d: FilingData, tp: Taxpayer, period: string
   yesNo(w, "amended", d.amended, true);
   yesNo(w, "any", d.anyWithheld, false);
   w.put("sheets", digitsOf(d.sheetsAttached));
-  common(w, d, tp);
+  common(w, "1601EQ", d, tp);
   const p2 = tin14(tp.tin, tp.branch);
   w.put("p2Tin", p2);
   w.put("p2Name", fullName(tp));
@@ -389,7 +390,7 @@ export function build1601CPrintRows(d: FilingData, tp: Taxpayer, period: string)
   yesNo(w, "amended", d.amended, true);
   yesNo(w, "any", d.anyWithheld, false);
   w.put("sheets", digitsOf(d.sheetsAttached));
-  common(w, d, tp);
+  common(w, "1601C", d, tp);
   yesNo(w, "relief", d.reliefYesNo, false);
   w.put("reliefSpecify", d.reliefSpecify);
   w.put("p2Tin", tin14(tp.tin, tp.branch));
