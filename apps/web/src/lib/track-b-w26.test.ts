@@ -40,6 +40,32 @@ describe("W26 the words", () => {
       [...CLIENT_UNLINK_KINDS].sort(),
     );
   });
+  it("uses these plain words per kind, one and many", () => {
+    expect(DELETE_KIND_LABELS).toEqual({
+      incomeTransactions: ["income record", "income records"],
+      purchaseTransactions: ["purchase record", "purchase records"],
+      categories: ["category", "categories"],
+      birFormDrafts: ["draft BIR return", "draft BIR returns"],
+      birFormDraftFiles: [
+        "stored file of a draft BIR return",
+        "stored files of draft BIR returns",
+      ],
+      birFilingsNotFiled: ["BIR filing record not filed", "BIR filing records not filed"],
+      receiptScans: ["receipt scan", "receipt scans"],
+      receiptScanFiles: ["stored receipt photo", "stored receipt photos"],
+      inputTaxAssets: ["input tax asset", "input tax assets"],
+      taxRules: ["tax rule", "tax rules"],
+      draftInvoices: ["draft invoice", "draft invoices"],
+      corFiles: ["COR file", "COR files"],
+      clientUserProfiles: ["client portal user profile", "client portal user profiles"],
+      invitations: ["invitation", "invitations"],
+      clientRoleGrants: ["client role grant", "client role grants"],
+      staffAssignments: ["staff assignment", "staff assignments"],
+    });
+    expect(UNLINK_KIND_LABELS).toEqual({
+      fsReports: ["financial statement report", "financial statement reports"],
+    });
+  });
   it("reads counts in plain words", () => {
     expect(deleteLine("purchaseTransactions", 124)).toBe("124 purchase records");
     expect(deleteLine("birFormDrafts", 2)).toBe("2 draft BIR returns");
