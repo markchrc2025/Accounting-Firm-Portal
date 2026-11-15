@@ -77,7 +77,7 @@ export const PREVIEW_FIXTURES: PreviewFixture[] = [
     },
     edit: set("i31a", "600000"),
     bad: set("i19label", "X".repeat(400)),
-    badMessage: /does not fit|characters/i,
+    badMessage: /^Item 19 specify is too long for the 2550Q paper\.$/, // U26: plain sentence
   },
   {
     form: "1701",

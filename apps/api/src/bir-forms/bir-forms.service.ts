@@ -25,6 +25,13 @@ import { PrismaService } from "../prisma/prisma.service";
 import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import { CONFIRMATION_FORMS, MESSAGES, MIN_REASON_LENGTH } from "../bir-confirmation/confirmation-forms";
+import { roundWholePesos } from "./whole-peso/round-draft";
+import {
+  centavoItems,
+  draftCentavosSentence,
+  filedCentavosSentence,
+  plainPrintRefusal,
+} from "./print-refusal";
 import type { ConfirmationResult } from "../bir-confirmation/confirmation-checks";
 import { ConfirmationService, uploadedFileName } from "../bir-confirmation/confirmation.service";
 import { BIR_FORM_CATALOG } from "./bir-forms.constants";
@@ -384,6 +391,8 @@ export class BirFormsService {
     this.assertWithholdingPeriod(input.form, input.period);
     assertValidDraftSource(input.data);
     await this.clients.assertInFirm(user.firmId, input.clientId);
+    // U26 (D73): whole pesos where the paper has no centavo boxes, rounded by D54's rule.
+    const whole = roundWholePesos(input.form, (input.data ?? {}) as Record<string, unknown>);
     const created = await this.prisma.birForm.create({
       data: {
         firmId: user.firmId,
@@ -391,7 +400,7 @@ export class BirFormsService {
         form: input.form,
         period: input.period,
         status: "draft",
-        dataJson: input.data as Prisma.InputJsonValue,
+        dataJson: (input.data === undefined ? input.data : whole.data) as Prisma.InputJsonValue,
       },
     });
     await this.audit.record({
@@ -401,7 +410,8 @@ export class BirFormsService {
       entityId: created.id,
       metadata: { form: input.form, clientId: input.clientId, period: input.period },
     });
-    return this.detail(await this.loadOwned(user.firmId, created.id));
+    // U26, additive: one sentence per figure rounded to whole pesos; [] when none.
+    return { ...this.detail(await this.loadOwned(user.firmId, created.id)), notes: whole.notes };
   }
 
   /** One form with its raw data, computed figures, and export list. */
@@ -530,6 +540,13 @@ export class BirFormsService {
     // U3 (D11): a filed form is never modified — figures, status or filedAt. There
     // is no reopen; the database trigger bir_forms_seal enforces the same below us.
     if (f.status === "filed") throw new ConflictException(sealedMessage(f.form));
+    // U26 (D73): a saved draft keeps whole pesos where the paper has no centavo boxes.
+    let notes: string[] = [];
+    if (input.data !== undefined && input.data !== null) {
+      const whole = roundWholePesos(f.form, input.data as Record<string, unknown>);
+      input = { ...input, data: whole.data as typeof input.data };
+      notes = whole.notes;
+    }
     // U18 (D58): the nine returns are marked filed with the BIR's confirmation, through
     // POST :id/mark-filed. The 1601-C, the 2307 and the 2316 are marked filed here, as before.
     if (input.status === "filed" && CONFIRMATION_FORMS.has(f.form)) {
@@ -597,7 +614,8 @@ export class BirFormsService {
         ...(snapshot ? { snapshot: "taken at filing" } : {}),
       },
     });
-    return this.detail(await this.loadOwned(user.firmId, id));
+    // U26, additive: one sentence per figure rounded to whole pesos; [] when none.
+    return { ...this.detail(await this.loadOwned(user.firmId, id)), notes };
   }
 
   /**
@@ -702,6 +720,28 @@ export class BirFormsService {
     };
   }
 
+  /** U26 (D73): the 409 sentence when the rows put centavos in whole-peso boxes, or null. */
+  private centavoRefusal(
+    f: { form: string; status: string },
+    rows: readonly (readonly [string, string])[],
+  ): string | null {
+    const items = centavoItems(loadPrintMap(f.form, CLEAR_COPY_VERSION[f.form]!).fields, rows);
+    if (items.length === 0) return null;
+    return f.status === "filed"
+      ? filedCentavosSentence(f.form, items)
+      : draftCentavosSentence(f.form, items);
+  }
+
+  /** U26 (D73): a print refusal as one plain sentence; the engine's own text is logged. */
+  private plainRefusal(f: { id: string; form: string }, err: unknown): string {
+    birLog.warn(`print of form ${f.id} refused: ${(err as Error).message}`);
+    return plainPrintRefusal(
+      f.form,
+      err as BirPdfError,
+      loadPrintMap(f.form, CLEAR_COPY_VERSION[f.form]!).fields,
+    );
+  }
+
   /**
    * U13 R1 (D50): the client's clear copy of a filed return — the same eBIRForms
    * export exportForm writes (same builder, the D12 filing snapshot, the same
@@ -719,13 +759,17 @@ export class BirFormsService {
     const { rows, baseName, snapshotAudit } = await this.printSource(user, f, {
       store: true,
     });
+    // U26 (D73): sealed centavos where the paper has none: every item, in one sentence.
+    const centavos = this.centavoRefusal(f, rows);
+    if (centavos) throw new ConflictException(centavos);
     let pdf: Uint8Array;
     try {
       pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, rows);
     } catch (err) {
-      // The engine names the field of the return it cannot print; nothing is
-      // stored. A fault of the Portal's own is a 500, not the user's to fix.
-      if (!isEngineFault(err)) throw new ConflictException((err as Error).message);
+      // The engine names the field of the return it cannot print; nothing is stored. The
+      // owner reads one plain sentence (U26); the engine's text is logged. A fault of the
+      // Portal's own is a 500, not the user's to fix.
+      if (!isEngineFault(err)) throw new ConflictException(this.plainRefusal(f, err));
       birLog.error(`clear copy of form ${f.id} failed: ${(err as Error).message}`);
       throw new InternalServerErrorException(
         `The clear copy of this ${f.form} could not be printed. The error is logged.`,
@@ -772,6 +816,8 @@ export class BirFormsService {
     if (!clearCopyMapped(f.form)) throw new ConflictException(previewNotAvailable(f.form));
     if (f.status !== "draft") throw new ConflictException(PREVIEW_FILED);
     const { rows, baseName } = await this.printSource(user, f, { store: false });
+    const centavos = this.centavoRefusal(f, rows);
+    if (centavos) throw new ConflictException(centavos);
     let pdf: Uint8Array;
     try {
       pdf = await renderReturn(f.form, CLEAR_COPY_VERSION[f.form]!, rows, {
@@ -780,8 +826,8 @@ export class BirFormsService {
       });
     } catch (err) {
       // As the clear copy: a field of the return the engine cannot print is the
-      // user's to fix (409, its own words); a fault of the Portal's own is a 500.
-      if (!isEngineFault(err)) throw new ConflictException((err as Error).message);
+      // user's to fix (409, one plain sentence, U26); a fault of the Portal's own is a 500.
+      if (!isEngineFault(err)) throw new ConflictException(this.plainRefusal(f, err));
       birLog.error(`preview of form ${f.id} failed: ${(err as Error).message}`);
       throw new InternalServerErrorException(
         `The preview of this ${f.form} could not be printed. The error is logged.`,
@@ -822,7 +868,9 @@ export class BirFormsService {
     if (saved.status === "draft") {
       const { data } = new ZodValidationPipe(PreviewBirFormSchema).transform(body);
       assertValidDraftSource(data);
-      f = { ...saved, dataJson: data as Prisma.JsonObject };
+      // U26 (D73): the preview shows what a save would store: whole pesos where due.
+      const whole = roundWholePesos(saved.form, data as Record<string, unknown>);
+      f = { ...saved, dataJson: whole.data as Prisma.JsonObject };
     }
     const tooMany = sixRowsRefusal(f.form, f.dataJson);
     if (tooMany) throw refused([tooMany]);
@@ -855,7 +903,7 @@ export class BirFormsService {
         printedAt: new Date(),
       });
     } catch (err) {
-      if (!isEngineFault(err)) throw refused([...refusals, (err as Error).message]);
+      if (!isEngineFault(err)) throw refused([...refusals, this.plainRefusal(f, err)]);
       birLog.error(`live preview of form ${f.id} failed: ${(err as Error).message}`);
       throw new InternalServerErrorException(
         `The preview of this ${f.form} could not be printed. The error is logged.`,
