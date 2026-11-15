@@ -7,6 +7,7 @@ import TransactionEntryModal, {
   type Regime,
 } from "../components/TransactionEntryModal";
 import { useAuth } from "../auth/AuthContext";
+import { DeleteClientButton } from "../components/DeleteClientButton";
 import { useConfirmAction } from "../components/useConfirmAction";
 import { permittedFor } from "../lib/permissions";
 import { isVatRegistered } from "../lib/regime";
@@ -249,14 +250,20 @@ export default function ClientDetailPage() {
             )}
           </div>
         </div>
-        {hasPermission("Clients:Update") && (
-          <Link
-            to={`/clients/${clientId}/edit`}
-            className="inline-flex flex-none items-center rounded-btn border border-line-input bg-card px-4 py-[7px] text-[13px] font-semibold text-navy transition-colors hover:border-navy"
-          >
-            Edit client
-          </Link>
-        )}
+        <div className="flex flex-none items-center gap-2">
+          {/* W26: the destructive action sits beside Edit, in the Danger style of Delete draft */}
+          {client.data ? (
+            <DeleteClientButton clientId={clientId} clientName={client.data.businessName} />
+          ) : null}
+          {hasPermission("Clients:Update") && (
+            <Link
+              to={`/clients/${clientId}/edit`}
+              className="inline-flex flex-none items-center rounded-btn border border-line-input bg-card px-4 py-[7px] text-[13px] font-semibold text-navy transition-colors hover:border-navy"
+            >
+              Edit client
+            </Link>
+          )}
+        </div>
       </div>
 
       {client.data?.hasBranches && (client.data.branchesJson?.length ?? 0) > 0 && (

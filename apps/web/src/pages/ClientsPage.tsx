@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { DeleteClientButton } from "../components/DeleteClientButton";
 import { useAuth } from "../auth/AuthContext";
 import { fetchClients } from "../lib/api";
 import {
@@ -37,6 +38,20 @@ function initials(name: string): string {
 export default function ClientsPage() {
   const { hasPermission } = useAuth();
   const canCreate = hasPermission("Clients:Create");
+  // W26: "Client deleted." after a client is deleted (also from this very list), kept here,
+  // then cleared from the history entry so a reload does not repeat it.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<string | null>(
+    () => (location.state as { notice?: string } | null)?.notice ?? null,
+  );
+  useEffect(() => {
+    const next = (location.state as { notice?: string } | null)?.notice;
+    if (next) {
+      setNotice(next);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("");
   const [province, setProvince] = useState("");
@@ -99,6 +114,15 @@ export default function ClientsPage() {
         description="Every business you manage for the firm."
         actions={addAction}
       />
+      {notice ? (
+        <p
+          role="status"
+          data-clients-notice
+          className="mb-4 rounded-input border border-success/40 bg-success-bg px-4 py-2.5 text-[13px] text-content"
+        >
+          {notice}
+        </p>
+      ) : null}
 
       {!isPending && !isError && (data?.length ?? 0) > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -259,6 +283,11 @@ export default function ClientsPage() {
                             Edit
                           </Link>
                         )}
+                        <DeleteClientButton
+                          clientId={c.id}
+                          clientName={c.businessName}
+                          variant="link"
+                        />
                       </div>
                     </td>
                   </tr>
