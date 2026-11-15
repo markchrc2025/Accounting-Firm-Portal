@@ -768,8 +768,9 @@ describe("C9 T1 · the 0619-E, 1601-EQ and 1601-C print on the BIR's blanks (rea
     });
     const res = await preview(id);
     expect(res.status).toBe(409);
-    expect(messageOf(res)).toMatch(
-      /12345\.675.*3 decimals but the paper has 2 centavo boxes/,
+    // U26 (D73): the owner reads one plain sentence; the engine's text is in the log.
+    expect(messageOf(res)).toBe(
+      "Item 14 (12345.675) has more than two decimals; the 0619E paper takes pesos and centavos only.",
     );
     await file(id);
     const copy = await as(http().post(`${API}/bir-forms/${id}/clear-copy`));
