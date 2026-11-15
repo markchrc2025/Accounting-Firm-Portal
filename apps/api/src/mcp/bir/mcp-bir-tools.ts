@@ -137,6 +137,16 @@ function computedItems(form: string, computed: unknown) {
 }
 
 /** The data every draft of a form starts with: the period's year (and month or quarter) as the web writes them. */
+/** U26 (D73): the save's rounding notes first, then the view's own notes. */
+function withRounded<T extends { notes?: string[] }>(
+  v: T,
+  rounded: string[] | undefined,
+): T {
+  return rounded && rounded.length > 0
+    ? { ...v, notes: [...rounded, ...(v.notes ?? [])] }
+    : v;
+}
+
 function startingData(form: string, period: string): Record<string, unknown> {
   const data: Record<string, unknown> = { year: period.slice(0, 4) };
   if (form === "1601EQ")
@@ -726,14 +736,19 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
           form: args.formCode,
           period: p.period,
           data,
-        })) as unknown as { id: string };
+        })) as unknown as { id: string; notes?: string[] };
         await recordMcpWrite(actor, "portal_create_bir_form_draft", created.id, {
           clientId: client.id,
           form: args.formCode,
           period: p.period,
           matchedBy: found.matchedBy,
         });
-        return ok(await view(actor, created.id, { existing: false, ...echo }));
+        return ok(
+          withRounded(
+            await view(actor, created.id, { existing: false, ...echo }),
+            created.notes,
+          ),
+        );
       } catch (err) {
         return fail(errMsg(err));
       }
@@ -765,11 +780,13 @@ export function registerBirTools(server: McpServer, deps: McpBirDeps): void {
         const current = (await birForms.getOne(actor, id)) as unknown as {
           data: Record<string, unknown>;
         };
-        await birForms.update(actor, id, { data: mergeData(current.data ?? {}, data) });
+        const saved = (await birForms.update(actor, id, {
+          data: mergeData(current.data ?? {}, data),
+        })) as unknown as { notes?: string[] };
         await recordMcpWrite(actor, "portal_update_bir_form_draft", id, {
           fields: Object.keys(data),
         });
-        return ok(await view(actor, id));
+        return ok(withRounded(await view(actor, id), saved.notes));
       } catch (err) {
         return fail(errMsg(err));
       }

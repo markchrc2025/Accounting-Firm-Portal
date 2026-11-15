@@ -17,7 +17,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "migrate:with-backup": "ts-node src/backup/pre-migrate.ts",
     "prisma:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "gen:whole-peso": "ts-node -T scripts/gen-whole-peso.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

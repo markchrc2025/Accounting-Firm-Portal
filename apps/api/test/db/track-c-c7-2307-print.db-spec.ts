@@ -435,8 +435,9 @@ describe("C7 T1 · BIR Form 2307 prints on the BIR's blank (real app over HTTP, 
     });
     const refused = await preview(absurd);
     expect(refused.status).toBe(409);
-    expect(JSON.parse((refused.body as Buffer).toString("utf8")).message).toMatch(
-      /c2307:payeeName.*3 Payee's Name/,
+    // U26 (D73): the owner reads one plain sentence; the engine's text is in the log.
+    expect(JSON.parse((refused.body as Buffer).toString("utf8")).message).toBe(
+      "Item 3 Payee's Name is too long for the 2307 paper.",
     );
   });
 
