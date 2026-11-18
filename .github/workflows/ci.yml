@@ -14,7 +14,7 @@ jobs:
   # Hermetic job: no database or Redis required.
   verify:
     name: Typecheck · Lint · Test · Build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sentire]
     steps:
       - uses: actions/checkout@v4
 
@@ -51,7 +51,7 @@ jobs:
   # the database-backed tests.
   database:
     name: Prisma migrations
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sentire]
     services:
       postgres:
         image: postgres:16-alpine
@@ -90,6 +90,19 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      # The backup tests run the real pg_dump / pg_restore / psql, which must not be older than
+      # the Postgres 16 service. The self-hosted runner image ships no Postgres client, so install
+      # version 16 from the PostgreSQL apt repository (works on any Ubuntu release).
+      - name: Install Postgres 16 client
+        run: |
+          if ! pg_dump --version 2>/dev/null | grep -q ' 16\.'; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends postgresql-common ca-certificates
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+            sudo apt-get install -y --no-install-recommends postgresql-client-16
+          fi
+          pg_dump --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
