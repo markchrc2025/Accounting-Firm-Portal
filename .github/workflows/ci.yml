@@ -14,7 +14,7 @@ jobs:
   # Hermetic job: no database or Redis required.
   verify:
     name: Typecheck · Lint · Test · Build
-    runs-on: [self-hosted, sentire]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -51,7 +51,7 @@ jobs:
   # the database-backed tests.
   database:
     name: Prisma migrations
-    runs-on: [self-hosted, sentire]
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
