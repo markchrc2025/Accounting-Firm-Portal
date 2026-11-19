@@ -102,7 +102,10 @@ jobs:
             sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
             sudo apt-get install -y --no-install-recommends postgresql-client-16
           fi
-          pg_dump --version
+          # Use the 16 tools, matching the postgres:16 service: a newer pg_dump on PATH (17+ on
+          # GitHub-hosted runners) writes "SET transaction_timeout", which a 16 server rejects.
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+          /usr/lib/postgresql/16/bin/pg_dump --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
