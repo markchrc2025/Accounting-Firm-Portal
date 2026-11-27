@@ -26,7 +26,7 @@ import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import { CONFIRMATION_FORMS, MESSAGES, MIN_REASON_LENGTH } from "../bir-confirmation/confirmation-forms";
 import { roundWholePesos } from "./whole-peso/round-draft";
-import { missingAtcs, unknownAtcs } from "@portal/shared";
+import { centavosBeforeFiling, missingAtcs, unknownAtcs } from "@portal/shared";
 import {
   centavoItems,
   draftCentavosSentence,
@@ -1230,6 +1230,9 @@ export class BirFormsService {
     this.assertContact(f.form, f.dataJson, client.phone);
     // U27 (D74): neither path files without the ATC; the override bypasses the e-mail only.
     this.assertAtcs(f.form, f.dataJson);
+    // U28 (D75): nor with centavos saved in a whole-peso figure (a draft saved before U26, or
+    // undone from such a filing): filing seals the data as saved and never rounds it.
+    this.assertSavedInWholePesos(f.form, f.dataJson);
     const basis = await this.confirmationBasis(user, f, client, input);
     const filedAt = basis.kind === "bir_email" ? basis.receivedAt : new Date();
     const snapshot = takeFiledSnapshot(withPlainPhone(client), filedAt);
@@ -1515,6 +1518,12 @@ export class BirFormsService {
   private assertAtcs(form: string, data: unknown): void {
     const missing = missingAtcs(form, data as Record<string, unknown> | null);
     if (missing.length > 0) throw new ConflictException(missing.join(" "));
+  }
+
+  /** U28 (D75): 409 while the saved draft holds centavos where the paper has none. */
+  private assertSavedInWholePesos(form: string, data: unknown): void {
+    const sentences = centavosBeforeFiling(form, data as Record<string, unknown> | null);
+    if (sentences.length > 0) throw new ConflictException(sentences.join(" "));
   }
 
   /** U27 (D74): 400 when a draft holds an ATC its form does not list, naming the field. */
