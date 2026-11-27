@@ -14,6 +14,7 @@
 //
 // Pure, apart from the refusal chosenAtc throws for an ATC the form does not print.
 
+import { ATC_CHOICES, ATC_ITEM } from "@portal/shared";
 import { ExportRefusal } from "./export-refusal";
 
 export type CivilBox = "single" | "married" | "separated" | "widow";
@@ -69,27 +70,18 @@ export type IncomeTaxForm = "1701" | "1701A" | "1701Q" | "1702Q" | "1702RT";
 
 /**
  * The ATC choices the committed template prints for the ATC item of each return, in the
- * order the template prints them (1701: II012, II014, II013, II011, II015, II017, II016;
- * 1701A: II012, II014, II015, II017; 1701Q: II012, II014, II013, II015, II017, II016).
- * The 1702Q and 1702RT print one choice, "IC 055 Minimum Corporate Income Tax (MCIT)",
- * and a blank write-in line; the write-in line's codes are the owner's to list.
+ * order the template prints them, and the item each form prints the ATC as: @portal/shared
+ * owns them (U27, D74); these are its codes.
  */
-export const INCOME_TAX_ATC: Record<IncomeTaxForm, readonly string[]> = {
-  "1701": ["II012", "II014", "II013", "II011", "II015", "II017", "II016"],
-  "1701A": ["II012", "II014", "II015", "II017"],
-  "1701Q": ["II012", "II014", "II013", "II015", "II017", "II016"],
-  "1702Q": ["IC055"],
-  "1702RT": ["IC055"],
-};
+export const INCOME_TAX_ATC: Record<IncomeTaxForm, readonly string[]> =
+  Object.fromEntries(
+    Object.entries(ATC_CHOICES).map(([form, choices]) => [
+      form,
+      choices.map((c) => c.code),
+    ]),
+  ) as unknown as Record<IncomeTaxForm, readonly string[]>;
 
-/** The form's own item number for the ATC (the 1701Q prints it as Item 8, the 1702s as Item 5). */
-export const ATC_ITEM: Record<IncomeTaxForm, string> = {
-  "1701": "7",
-  "1701A": "7",
-  "1701Q": "8",
-  "1702Q": "5",
-  "1702RT": "5",
-};
+export { ATC_ITEM };
 
 /**
  * The ATC the preparer chose, or null when none was chosen. An ATC the template does

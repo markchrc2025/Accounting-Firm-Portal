@@ -18,6 +18,7 @@ import {
   type BirFormDetail,
   type ConfirmationCheckResult,
 } from "../../lib/api";
+import { missingAtcs } from "@portal/shared";
 import { useOptionalAuth } from "../../auth/AuthContext";
 import {
   ALPHALIST_PROBLEMS,
@@ -140,6 +141,11 @@ export function ConfirmationDialog({
   }, [check.isPending, submit.isPending, onClose]);
 
   const pending = check.isPending || submit.isPending;
+  // U27 (D74): neither path files without the ATC; the override bypasses the e-mail only.
+  const atcGate =
+    mode === "mark"
+      ? missingAtcs(detail.form, detail.data as Record<string, unknown> | undefined)
+      : [];
   const alphalistOk =
     !withAlphalist ||
     mayFile(alphalist.data, alphalist.isError, alphalist.isPending, understood);
@@ -248,6 +254,16 @@ export function ConfirmationDialog({
           </div>
         )}
 
+        {atcGate.length > 0 ? (
+          <p
+            role="alert"
+            data-atc-gate
+            className="mx-6 mt-1 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
+          >
+            {atcGate.join(" ")}
+          </p>
+        ) : null}
+
         {error ? (
           <p
             role="alert"
@@ -281,7 +297,10 @@ export function ConfirmationDialog({
             <Button
               size="sm"
               disabled={
-                pending || !alphalistOk || (override ? reason.trim() === "" : !ready)
+                pending ||
+                atcGate.length > 0 ||
+                !alphalistOk ||
+                (override ? reason.trim() === "" : !ready)
               }
               onClick={runSubmit}
             >
@@ -429,9 +448,12 @@ export function MarkAsFiledButton({
   disabled,
   pending,
   onPlain,
+  blockedBy = [],
 }: {
   detail: BirFormDetail;
   disabled: boolean;
+  /** U27 (D74): the sentences that keep the return in the Portal (a required ATC is empty). */
+  blockedBy?: readonly string[];
   /** The plain PATCH's request is on its way. */
   pending: boolean;
   /** The old route: PATCH status filed (1601-C, 2307, 2316). */
@@ -439,16 +461,18 @@ export function MarkAsFiledButton({
 }) {
   const [open, setOpen] = useState(false);
   const done = useConfirmationDone();
+  // The editor shows the sentence once, under Export eBIRForms XML.
+  const held = disabled || blockedBy.length > 0;
   if (!detail.confirmationRequired) {
     return (
-      <Button variant="outline" disabled={disabled} onClick={onPlain}>
+      <Button variant="outline" disabled={held} onClick={onPlain}>
         {pending ? "Marking…" : "Mark as filed"}
       </Button>
     );
   }
   return (
     <>
-      <Button variant="outline" disabled={disabled} onClick={() => setOpen(true)}>
+      <Button variant="outline" disabled={held} onClick={() => setOpen(true)}>
         Mark as filed
       </Button>
       {open ? (
@@ -545,6 +569,8 @@ export function ConfirmationCard({ detail }: { detail: BirFormDetail }) {
             <Button variant="outline" size="sm" onClick={() => setDialog("attach")}>
               Attach confirmation
             </Button>
+            {/* U27: a return filed before the confirmation rule can be taken back too. */}
+            <UndoFilingControl detail={detail} superAdmin={superAdmin} />
           </>
         ) : c.kind === "override" ? (
           <>

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { PERCENTAGE_TAX_ATCS, missingAtcs } from "@portal/shared";
+import { AtcGateHint } from "../components/birform/AtcGateHint";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -41,8 +43,8 @@ import {
 } from "../components/birform/BookFigures";
 import { useBookFigures } from "../components/birform/useBookFigures";
 
-/** Schedule-1 ATC codes the eBIRForms 2551Q supports (index order). */
-const ATC_CODES = ["PT010", "PT040", "PT041", "PT060", "PT070", "PT090", "PT120", "PT130"];
+/** Schedule-1 ATC codes the eBIRForms 2551Q supports (index order): @portal/shared's. */
+const ATC_CODES = PERCENTAGE_TAX_ATCS;
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
 /** The draft data keys the books can fill (W16). */
 const BOOK_KEYS = ["rows", "i15", "i20", "i21", "i22"] as const;
@@ -52,7 +54,8 @@ interface Row {
   taxable: string;
   rate: string;
 }
-const emptyRow = (): Row => ({ atc: "PT010", taxable: "", rate: "3" });
+// U27 (D74): an ATC is always chosen by a person; a new row starts with none.
+const emptyRow = (): Row => ({ atc: "", taxable: "", rate: "3" });
 
 /** 2551Q (Quarterly Percentage Tax) authoring — create or edit, then export XML. */
 export default function BirForm2551QEditor() {
@@ -93,7 +96,7 @@ export default function BirForm2551QEditor() {
       setQuarter(m[2]!);
     }
     const dr = (d.rows as Row[] | undefined) ?? [];
-    setRows(dr.length ? dr.map((r) => ({ atc: r.atc || "PT010", taxable: r.taxable || "", rate: r.rate || "" })) : [emptyRow()]);
+    setRows(dr.length ? dr.map((r) => ({ atc: r.atc || "", taxable: r.taxable || "", rate: r.rate || "" })) : [emptyRow()]);
     setI15(String(d.i15 ?? ""));
     setI20(String(d.i20 ?? ""));
     setI21(String(d.i21 ?? ""));
@@ -137,7 +140,7 @@ export default function BirForm2551QEditor() {
       if (Array.isArray(next.rows) && next.rows.length > 0) {
         setRows(
           (next.rows as Row[]).map((r) => ({
-            atc: r.atc || "PT010",
+            atc: r.atc || "",
             taxable: r.taxable || "",
             rate: r.rate || "",
           })),
@@ -175,6 +178,8 @@ export default function BirForm2551QEditor() {
 
   // W23: what Save would send, for the Preview pane in the shared page.
   usePublishPreviewFeed(saveData, period);
+  // U27 (D74): nothing leaves the Portal while a required ATC is empty (Preview stays open).
+  const atcGate = missingAtcs("2551Q", saveData);
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) return createBirForm({ clientId, form: "2551Q", period, data: saveData });
@@ -357,8 +362,10 @@ export default function BirForm2551QEditor() {
                           <select
                             className="input w-full"
                             value={r.atc}
+                            data-testid="row-atc"
                             onChange={(e) => updateRow(i, { atc: e.target.value })}
                           >
+                            <option value="">Not chosen</option>
                             {ATC_CODES.map((a) => (
                               <option key={a} value={a}>
                                 {a}
@@ -496,13 +503,16 @@ export default function BirForm2551QEditor() {
               </p>
             ) : null}
             {!isNew ? (
-              <Button
-                variant="outline"
-                disabled={exportXml.isPending || needsAmendedSave}
-                onClick={() => exportXml.mutate()}
-              >
-                {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  disabled={exportXml.isPending || needsAmendedSave || atcGate.length > 0}
+                  onClick={() => exportXml.mutate()}
+                >
+                  {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
+                </Button>
+                <AtcGateHint sentences={atcGate} />
+              </>
             ) : (
               <p className="text-center text-[11.5px] text-content-muted">
                 Save the draft to enable XML export.
@@ -521,6 +531,7 @@ export default function BirForm2551QEditor() {
                 <FiledFormAction detail={existing.data} />
               ) : (
                 <MarkAsFiledButton
+                  blockedBy={atcGate}
                   detail={existing.data!}
                   disabled={
                     setStatus.isPending ||

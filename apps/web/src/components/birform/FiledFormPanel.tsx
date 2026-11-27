@@ -7,6 +7,7 @@
 //     certificate for the same client, pre-filled from this one, with no link
 //     to it; this one stays issued.
 
+import { missingAtcs } from "@portal/shared";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -69,7 +70,13 @@ export function FiledFormAction({ detail }: { detail: BirFormDetail }) {
 
   // W14 R1: a clear copy, wherever the server says the form has a print map.
   const clearCopy = detail.clearCopyAvailable ? (
-    <ClearCopyButton formId={detail.id} />
+    <ClearCopyButton
+      formId={detail.id}
+      blockedBy={missingAtcs(
+        detail.form,
+        detail.data as Record<string, unknown> | undefined,
+      )}
+    />
   ) : null;
 
   if (isCertificate(detail.form)) {

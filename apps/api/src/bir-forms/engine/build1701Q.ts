@@ -13,6 +13,7 @@ import type { Comp1701Q } from "./compute1701Q";
 import { amt, enc, rb, tinParts, type XmlRow } from "./xmlkit";
 import { parsePeriod } from "./period";
 import { chosenAtc, taxpayerTypeOf } from "./taxpayer-background";
+import { spouseOnReturn } from "./spouse-on-return";
 
 const NS = "frm1701q:";
 
@@ -45,9 +46,10 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   // chose (d.atc), never derived.
   const type = taxpayerTypeOf(tp?.classification);
   const atc = chosenAtc(d.atc, "1701Q");
-  // A spouse is on the return only if the draft says so (the editor carries rateB and
-  // methodB only then): the spouse's answers print only for a spouse who is there.
-  const hasSpouse = !!(d.rateB || d.methodB || d.spouseName || d.spouseTin);
+  // U27 addendum (D74): the spouse is on the return only when the draft holds something of
+  // the spouse's own (a column-B figure or a typed answer), never from the rate and method
+  // selectors the editor defaulted; with none, Part II stays blank.
+  const hasSpouse = spouseOnReturn(d);
 
   const rows: XmlRow[] = [];
   /** namespaced field, value emitted verbatim (pre-formatted). */
@@ -98,8 +100,9 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   // Tax rate (item 16): graduated vs 8%.
   const rate = (d.rateA as string) || "graduated";
   P("optTaxRate_1", rb(rate !== "eight"));
-  P("optMethodOfDeduction:_1", rb(d.methodA === "itemized"));
-  P("optMethodOfDeduction:_2", rb(d.methodA === "osd"));
+  // Item 16A belongs to the Graduated choice only: under 8% the method boxes stay empty.
+  P("optMethodOfDeduction:_1", rb(rate !== "eight" && d.methodA === "itemized"));
+  P("optMethodOfDeduction:_2", rb(rate !== "eight" && d.methodA === "osd"));
   P("optTaxRate_2", rb(rate === "eight"));
 
   // ---- Spouse background (Part II, items 17-25) ----
@@ -110,11 +113,11 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   P("txtSpouseBranchCode", stin ? "000" : "");
   P("txtSpouseRDOCode", (d.spouseRdo as string) || "000");
   // Item 19 — Spouse Type: single / prof / compensation earner.
-  P("optSpouseType_1", rb(d.spouseType === "single"));
-  P("optSpouseType_2", rb(d.spouseType === "prof"));
-  P("optSpouseType_3", rb(d.spouseType === "comp"));
+  P("optSpouseType_1", rb(hasSpouse && d.spouseType === "single"));
+  P("optSpouseType_2", rb(hasSpouse && d.spouseType === "prof"));
+  P("optSpouseType_3", rb(hasSpouse && d.spouseType === "comp"));
   // Item 20 — Spouse ATC: II012, II014, II013, II011, II015, II017, II016.
-  const satc = d.spouseAtc as string | undefined;
+  const satc = hasSpouse ? (d.spouseAtc as string | undefined) : undefined;
   P("optSpouseATC_1", rb(satc === "II012"));
   P("optSpouseATC_2", rb(satc === "II014"));
   P("optSpouseATC_3", rb(satc === "II013"));
@@ -131,8 +134,9 @@ export function build1701Q(filing: Filing, tp: Taxpayer | null, comp: Comp1701Q)
   // Item 25 / 25A — Spouse Tax Rate + Method of Deduction.
   const srate = (d.rateB as string) || "graduated";
   P("optSpouseTaxRate_1", rb(hasSpouse && srate !== "eight"));
-  P("optSpouseMethod:_1", rb(d.methodB === "itemized"));
-  P("optSpouseMethod:_2", rb(d.methodB === "osd"));
+  // Item 25A belongs to the spouse's Graduated choice only.
+  P("optSpouseMethod:_1", rb(hasSpouse && srate !== "eight" && d.methodB === "itemized"));
+  P("optSpouseMethod:_2", rb(hasSpouse && srate !== "eight" && d.methodB === "osd"));
   P("optSpouseTaxRate_2", rb(hasSpouse && srate === "eight"));
 
   // ---- Part III: Total Tax Payable (items 26-31), A = filer, B = spouse ----

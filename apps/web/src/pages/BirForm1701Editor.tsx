@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { missingAtcs } from "@portal/shared";
+import { AtcGateHint } from "../components/birform/AtcGateHint";
+import { SpouseAtcCard } from "../components/birform/SpouseAtcCard";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -85,6 +88,8 @@ export default function BirForm1701Editor() {
   // C5 (D55): asked only of a married taxpayer; an unanswered one stays blank.
   // C6: Item 7 (ATC) is the preparer's choice, saved as d.atc; empty until chosen.
   const [atc, setAtc] = useState("");
+  // U27 (D74): the spouse's ATC, chosen by the preparer; empty until chosen.
+  const [spouseAtc, setSpouseAtc] = useState("");
   const [spouseIncome, setSpouseIncome] = useState("");
   const [filing, setFiling] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +101,7 @@ export default function BirForm1701Editor() {
     setClientId(existing.data!.clientId);
     setYear((existing.data!.period || String(d.year ?? "")).slice(0, 4));
     setAtc(typeof d.atc === "string" ? d.atc : "");
+    setSpouseAtc(typeof d.spouseAtc === "string" ? d.spouseAtc : "");
     setSpouseIncome(d.spouseIncome === "yes" || d.spouseIncome === "no" ? String(d.spouseIncome) : "");
     setFiling(d.filing === "joint" || d.filing === "separate" ? String(d.filing) : "");
     setFields((prev) => {
@@ -127,7 +133,8 @@ export default function BirForm1701Editor() {
     if (married && spouseIncome) base.spouseIncome = spouseIncome;
     if (married && filing) base.filing = filing;
     for (const k of ALL_KEYS) {
-      if (!withSpouse && k.endsWith("B") && k !== "rateB" && k !== "methodB") continue;
+      // U27 addendum (D74): with the spouse column off, nothing of the spouse is sent.
+      if (!withSpouse && k.endsWith("B")) continue;
       if (fields[k]) base[k] = fields[k]!;
     }
     // Always carry the rate/method selectors so compute picks the right schedule.
@@ -136,9 +143,10 @@ export default function BirForm1701Editor() {
     if (withSpouse) {
       base.rateB = fields.rateB || "graduated";
       base.methodB = fields.methodB || "osd";
+      if (spouseAtc) base.spouseAtc = spouseAtc;
     }
     return base;
-  }, [year, fields, withSpouse, amendedFlag, atc, married, spouseIncome, filing]);
+  }, [year, fields, withSpouse, amendedFlag, atc, married, spouseIncome, filing, spouseAtc]);
 
   // Live authoritative totals (server compute — the browser never computes tax).
   // An existing form is computed only once it is hydrated: its first, empty
@@ -159,6 +167,8 @@ export default function BirForm1701Editor() {
 
   // W23: what Save would send, for the Preview pane in the shared page.
   usePublishPreviewFeed(data, year);
+  // U27 (D74): nothing leaves the Portal while a required ATC is empty (Preview stays open).
+  const atcGate = missingAtcs("1701", data);
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) return createBirForm({ clientId, form: "1701", period: year, data });
@@ -325,14 +335,17 @@ export default function BirForm1701Editor() {
             showRecon={showRecon}
           />
           {withSpouse ? (
-            <Column
-              suffix="B"
-              label="Spouse"
-              fields={fields}
-              set={set}
-              side={c?.B}
-              showRecon={showRecon}
-            />
+            <>
+              <Column
+                suffix="B"
+                label="Spouse"
+                fields={fields}
+                set={set}
+                side={c?.B}
+                showRecon={showRecon}
+              />
+              <SpouseAtcCard form="1701" atc={spouseAtc} onAtc={setSpouseAtc} />
+            </>
           ) : null}
         </fieldset>
 
@@ -371,13 +384,16 @@ export default function BirForm1701Editor() {
               </p>
             ) : null}
             {!isNew ? (
-              <Button
-                variant="outline"
-                disabled={exportXml.isPending || needsAmendedSave}
-                onClick={() => exportXml.mutate()}
-              >
-                {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  disabled={exportXml.isPending || needsAmendedSave || atcGate.length > 0}
+                  onClick={() => exportXml.mutate()}
+                >
+                  {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
+                </Button>
+                <AtcGateHint sentences={atcGate} />
+              </>
             ) : (
               <p className="text-center text-[11.5px] text-content-muted">
                 Save the draft to enable XML export.
@@ -396,6 +412,7 @@ export default function BirForm1701Editor() {
                 <FiledFormAction detail={existing.data} />
               ) : (
                 <MarkAsFiledButton
+                  blockedBy={atcGate}
                   detail={existing.data!}
                   disabled={
                     setStatus.isPending ||

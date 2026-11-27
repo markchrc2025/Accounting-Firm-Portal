@@ -26,6 +26,7 @@ import { RbacService } from "../rbac/rbac.service";
 import { StorageService } from "../storage/storage.service";
 import { CONFIRMATION_FORMS, MESSAGES, MIN_REASON_LENGTH } from "../bir-confirmation/confirmation-forms";
 import { roundWholePesos } from "./whole-peso/round-draft";
+import { missingAtcs, unknownAtcs } from "@portal/shared";
 import {
   centavoItems,
   draftCentavosSentence,
@@ -393,6 +394,7 @@ export class BirFormsService {
     await this.clients.assertInFirm(user.firmId, input.clientId);
     // U26 (D73): whole pesos where the paper has no centavo boxes, rounded by D54's rule.
     const whole = roundWholePesos(input.form, (input.data ?? {}) as Record<string, unknown>);
+    this.assertKnownAtcs(input.form, whole.data);
     const created = await this.prisma.birForm.create({
       data: {
         firmId: user.firmId,
@@ -546,6 +548,7 @@ export class BirFormsService {
       const whole = roundWholePesos(f.form, input.data as Record<string, unknown>);
       input = { ...input, data: whole.data as typeof input.data };
       notes = whole.notes;
+      this.assertKnownAtcs(f.form, whole.data);
     }
     // U18 (D58): the nine returns are marked filed with the BIR's confirmation, through
     // POST :id/mark-filed. The 1601-C, the 2307 and the 2316 are marked filed here, as before.
@@ -573,8 +576,10 @@ export class BirFormsService {
       ? await this.clients.assertInFirm(user.firmId, f.clientId)
       : null;
     // U21: the 1601-C is marked filed here; like the other returns it needs a contact number.
-    if (filingClient)
+    if (filingClient) {
       this.assertContact(f.form, input.data ?? f.dataJson, filingClient.phone);
+      this.assertAtcs(f.form, input.data ?? f.dataJson);
+    }
     const snapshot =
       filedAt && filingClient
         ? takeFiledSnapshot(withPlainPhone(filingClient), filedAt)
@@ -1054,6 +1059,9 @@ export class BirFormsService {
       if (!opts.skipContact) this.assertContact(f.form, f.dataJson, taxpayer.phone);
       taxpayer.phone = opts.skipContact ? "" : normalisedContact(taxpayer.phone);
     }
+    // U27 (D74): an export or a clear copy never leaves without a required ATC (a filed
+    // return too); the Preview, which stores nothing, stays open.
+    if (opts.store) this.assertAtcs(f.form, f.dataJson);
     const snapshotAudit = snapshot
       ? { snapshot: "used", snapshotTakenAt: snapshot.takenAt }
       : { snapshot: f.status === "filed" ? "none (pre-U3)" : "none (draft)" };
@@ -1220,6 +1228,8 @@ export class BirFormsService {
     // U21: the contact number is checked before the confirmation is (the snapshot below is
     // taken from this client, and a return without one cannot be submitted).
     this.assertContact(f.form, f.dataJson, client.phone);
+    // U27 (D74): neither path files without the ATC; the override bypasses the e-mail only.
+    this.assertAtcs(f.form, f.dataJson);
     const basis = await this.confirmationBasis(user, f, client, input);
     const filedAt = basis.kind === "bir_email" ? basis.receivedAt : new Date();
     const snapshot = takeFiledSnapshot(withPlainPhone(client), filedAt);
@@ -1284,7 +1294,14 @@ export class BirFormsService {
     const everEmailed = await this.prisma.birFormConfirmation.count({
       where: { birFormId: f.id, kind: "bir_email" },
     });
-    if (f.status !== "filed" || !live || live.kind !== "override" || everEmailed > 0) {
+    // U27: a return of the nine filed before the confirmation rule (U18) has no confirmation
+    // at all; its filing is taken back like an override's.
+    const unconfirmed =
+      !live &&
+      CONFIRMATION_FORMS.has(f.form) &&
+      (await this.prisma.birFormConfirmation.count({ where: { birFormId: f.id } })) === 0;
+    const overridden = !!live && live.kind === "override";
+    if (f.status !== "filed" || !(overridden || unconfirmed) || everEmailed > 0) {
       throw new ConflictException(MESSAGES.undoNotAllowed);
     }
     const amendments = await this.prisma.birForm.count({ where: { amendsId: f.id } });
@@ -1309,8 +1326,8 @@ export class BirFormsService {
         form: f.form,
         period: f.period,
         filedAt: f.filedAt ? f.filedAt.toISOString() : null,
-        confirmationId: live.id,
-        overrideReason: live.overrideReason ?? null,
+        confirmationId: live?.id ?? null,
+        overrideReason: live?.overrideReason ?? null,
       },
     });
     return this.detail(await this.loadOwned(user.firmId, id));
@@ -1494,6 +1511,18 @@ export class BirFormsService {
 
   /** U17 R2: the withholding returns take a calendar month or quarter, and only theirs. */
   /** U21: refuse a return with no contact number (or one the paper cannot carry), in words. */
+  /** U27 (D74): 409 while a required ATC is empty, in the gate's own sentences. */
+  private assertAtcs(form: string, data: unknown): void {
+    const missing = missingAtcs(form, data as Record<string, unknown> | null);
+    if (missing.length > 0) throw new ConflictException(missing.join(" "));
+  }
+
+  /** U27 (D74): 400 when a draft holds an ATC its form does not list, naming the field. */
+  private assertKnownAtcs(form: string, data: unknown): void {
+    const unknown = unknownAtcs(form, data as Record<string, unknown> | null);
+    if (unknown.length > 0) throw new BadRequestException(unknown.join(" "));
+  }
+
   private assertContact(
     form: string,
     data: unknown,

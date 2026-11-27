@@ -79,47 +79,13 @@ export const ITEM_NUMBERS: Record<AtcForm, { type: string; atc: string }> = {
   "1702RT": { type: "", atc: "5" },
 };
 
-export interface AtcChoice {
-  code: string;
-  /** The template's printed words for the choice, spacing and dashes as printed. */
-  label: string;
-}
-
 /**
  * The ATC choices the committed template prints, in the order it prints them, each with
- * its printed description (the spacing and the hyphen or en dash differ form to form,
- * as the BIR set them). packages/bir-pdf's C6 test reads the blank forms and checks
- * these words against them.
+ * its printed description: @portal/shared owns them (U27, D74), for the API and the web
+ * alike. packages/bir-pdf's C6 test reads the blank forms and checks these words.
  */
-export const ATC_CHOICES: Record<AtcForm, readonly AtcChoice[]> = {
-  "1701": [
-    { code: "II012", label: "II012 Business Income-Graduated IT Rates" },
-    { code: "II014", label: "II014 Income from Profession–Graduated IT Rates" },
-    { code: "II013", label: "II013 Mixed Income–Graduated IT Rates" },
-    { code: "II011", label: "II011 Compensation Income" },
-    { code: "II015", label: "II015 Business Income - 8% IT Rate" },
-    { code: "II017", label: "II017 Income from Profession – 8% IT Rate" },
-    { code: "II016", label: "II016 Mixed Income – 8% IT Rate" },
-  ],
-  "1701A": [
-    { code: "II012", label: "II012 Business Income - Graduated IT Rates" },
-    { code: "II014", label: "II014 Income from Profession – Graduated IT Rates" },
-    { code: "II015", label: "II015 Business Income - 8% IT Rate" },
-    { code: "II017", label: "II017 Income from Profession – 8% IT Rate" },
-  ],
-  "1701Q": [
-    { code: "II012", label: "II012 Business Income-Graduated IT Rates" },
-    { code: "II014", label: "II014 Income from Profession–Graduated IT Rates" },
-    { code: "II013", label: "II013 Mixed Income–Graduated IT Rates" },
-    { code: "II015", label: "II015 Business Income - 8% IT Rate" },
-    { code: "II017", label: "II017 Income from Profession – 8% IT Rate" },
-    { code: "II016", label: "II016 Mixed Income – 8% IT Rate" },
-  ],
-  // The 1702Q and 1702RT print one choice, "IC 055" with "Minimum Corporate Income Tax
-  // (MCIT)", and a blank write-in line; any other ATC is the owner's to list.
-  "1702Q": [{ code: "IC055", label: "IC 055 Minimum Corporate Income Tax (MCIT)" }],
-  "1702RT": [{ code: "IC055", label: "IC 055 Minimum Corporate Income Tax (MCIT)" }],
-};
+export { ATC_CHOICES, SPOUSE_ATC_CHOICES, SPOUSE_ATC_ITEM } from "@portal/shared";
+export type { AtcChoice } from "@portal/shared";
 
 /** What the editor says while no ATC is chosen. */
 export const CHOOSE_ATC = (form: AtcForm) =>

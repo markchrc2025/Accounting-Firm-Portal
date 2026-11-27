@@ -253,8 +253,8 @@ test.describe("W25 the Form details | Preview tabs (hermetic)", () => {
         i20: "",
         i21: "",
         i22: "",
-        // The editor's own default row for a saved draft with none.
-        rows: [{ atc: "PT010", rate: "3", taxable: "" }],
+        // The editor's own default row for a saved draft with none: no ATC (W27, D74).
+        rows: [{ atc: "", rate: "3", taxable: "" }],
       },
     });
     const firstSrc = await frame(page).getAttribute("src");
