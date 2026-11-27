@@ -8,8 +8,7 @@ import { McrcMark } from "./McrcMark";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { cn } from "./ui";
-
-const ACTIVE_CLIENT_KEY = "mcrc.activeClientId";
+import { ACTIVE_CLIENT_KEY } from "../lib/clientDelete";
 
 /**
  * Authenticated app shell (design handoff — sidebar variant A light + top bar).
