@@ -11,6 +11,7 @@ import type { Filing, Taxpayer } from "./types";
 import type { Comp1701A } from "./compute1701A";
 import { amt, dob, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
 import { chosenAtc, civilStatusOf, taxpayerTypeOf } from "./taxpayer-background";
+import { spouseOnReturn } from "./spouse-on-return";
 
 const NS = "frm1701A:";
 
@@ -136,24 +137,26 @@ export function build1701A(filing: Filing, tp: Taxpayer | null, comp: Comp1701A)
   P("txtSpouseTIN3", stin.slice(6, 9));
   P("txtSpouseBranchCode", "");
   P("txtSpouseRDOCode", (d.spouseRdo as string) || "000");
-  P("optSpouseTaxType_1", rb(d.spouseType === "single"));
-  P("optSpouseTaxType_2", rb(d.spouseType === "prof"));
+  // U27 addendum (D74): the spouse's background prints only for a spouse on the return.
+  const hasSpouse = spouseOnReturn(d);
+  P("optSpouseTaxType_1", rb(hasSpouse && d.spouseType === "single"));
+  P("optSpouseTaxType_2", rb(hasSpouse && d.spouseType === "prof"));
   // 69 Alphanumeric Tax Code (ATC)
-  P("optSpouseATC_1", rb(d.spouseAtc === "II012"));
-  P("optSpouseATC_2", rb(d.spouseAtc === "II014"));
-  P("optSpouseATC_3", rb(d.spouseAtc === "II015"));
-  P("optSpouseATC_4", rb(d.spouseAtc === "II017"));
+  P("optSpouseATC_1", rb(hasSpouse && d.spouseAtc === "II012"));
+  P("optSpouseATC_2", rb(hasSpouse && d.spouseAtc === "II014"));
+  P("optSpouseATC_3", rb(hasSpouse && d.spouseAtc === "II015"));
+  P("optSpouseATC_4", rb(hasSpouse && d.spouseAtc === "II017"));
   P("txtSpouseName", enc(d.spouseName));
   // 71 Contact Number | 72 Citizenship
   P("txtSpouseTelNum", enc(d.spouseContact));
   P("txtSpouseCitizenship", enc(d.spouseCitizenship));
   // 73 Claiming Foreign Tax Credits? | 74 Foreign Tax Number
-  P("optSpouseFTC_1", rb(d.spouseForeignCredit === "yes"));
-  P("optSpouseFTC_2", rb(d.spouseForeignCredit === "no"));
+  P("optSpouseFTC_1", rb(hasSpouse && d.spouseForeignCredit === "yes"));
+  P("optSpouseFTC_2", rb(hasSpouse && d.spouseForeignCredit === "no"));
   P("txtSpouseFTN", enc(d.spouseForeignTaxNo));
   // 75 Tax Rate
-  P("optSpouseTaxRate_1", rb(d.spouseTaxRate === "graduated"));
-  P("optSpouseTaxRate_2", rb(d.spouseTaxRate === "eight"));
+  P("optSpouseTaxRate_1", rb(hasSpouse && d.spouseTaxRate === "graduated"));
+  P("optSpouseTaxRate_2", rb(hasSpouse && d.spouseTaxRate === "eight"));
 
   // ---- meta / package fields ----
   P("txtCurrentPage", "1");

@@ -21,19 +21,22 @@ export const hasAmendmentIn = (list: BirFormSummary[] | undefined, id: string): 
 
 /**
  * Whether the card offers "Undo filing": a Super Admin, on a filed return whose live
- * confirmation is an override (filed without the BIR email), with no amendment.
+ * confirmation is an override (filed without the BIR email), or (U27) a return of the
+ * nine filed before the confirmation rule, with no confirmation at all; with no amendment.
  * `amended` is undefined while that is not known yet; the API refuses in words if the
- * list could not say.
+ * list could not say (and if a BIR email was ever attached).
  */
 export function offersUndo(
-  detail: Pick<BirFormDetail, "status" | "confirmation">,
+  detail: Pick<BirFormDetail, "status" | "confirmation" | "confirmationRequired">,
   superAdmin: boolean,
   amended: boolean | undefined,
 ): boolean {
+  const overridden = detail.confirmation?.kind === "override";
+  const unconfirmed = detail.confirmationRequired === true && !detail.confirmation;
   return (
     superAdmin &&
     detail.status === "filed" &&
-    detail.confirmation?.kind === "override" &&
+    (overridden || unconfirmed) &&
     amended !== true
   );
 }

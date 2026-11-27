@@ -10,10 +10,16 @@
 // alphalist) become a need as they are, with `question` set to the sentence.
 import { compute1601EQ } from "../../bir-forms/engine/compute1601EQ";
 import {
+  ATC_CHOICES,
   ATC_ITEM,
-  INCOME_TAX_ATC,
-  type IncomeTaxForm,
-} from "../../bir-forms/engine/taxpayer-background";
+  PERCENTAGE_TAX_ATCS,
+  SPOUSE_ATC_CHOICES,
+  SPOUSE_ATC_ITEM,
+  atcCode,
+  spouseAtcRequired,
+  type AtcForm,
+  type SpouseAtcForm,
+} from "@portal/shared";
 import { OVER_REMITTANCE_CHOICE_MISSING } from "../../bir-forms/engine/withholding-print";
 import type { FilingData } from "../../bir-forms/engine/types";
 import {
@@ -38,6 +44,8 @@ export interface Need {
   kind: NeedKind;
   /** For a choice: the Portal's own values. */
   options?: string[];
+  /** For an ATC: the words the BIR printed beside each option, in the same order (U27). */
+  optionLabels?: string[];
   /** The ids a write needs (expenses of a payee). */
   refs?: { expenseIds?: string[]; clientIds?: string[] };
 }
@@ -296,18 +304,53 @@ export function choiceNeeds(form: string, data: FilingData, period: string): Nee
       });
     }
   }
-  if (form in INCOME_TAX_ATC) {
-    const f = form as IncomeTaxForm;
-    if (String(d.atc ?? "").trim() === "") {
+  // U27 (D74): every ATC the return needs before it can leave, with the words the BIR
+  // printed beside each choice. The connector asks; it never picks one.
+  if (form in ATC_CHOICES) {
+    const f = form as AtcForm;
+    if (atcCode(d.atc) === "") {
+      const choices = ATC_CHOICES[f];
       out.push({
         key: "data.atc",
-        question: `Which ATC applies to Item ${ATC_ITEM[f]} of the ${form}? (${INCOME_TAX_ATC[f].join(", ")})`,
-        why: `Item ${ATC_ITEM[f]} of the ${form} is chosen by the preparer; the Portal never picks it.`,
+        question: `Which ATC applies to Item ${ATC_ITEM[f]} of the ${form}? (${choices.map((c) => c.label).join("; ")})`,
+        why: `Item ${ATC_ITEM[f]} of the ${form} is chosen by the preparer; the Portal never picks it, and the return cannot be exported, filed or printed without it.`,
         setWith: updateDraft("atc"),
         kind: "atc",
-        options: [...INCOME_TAX_ATC[f]],
+        options: choices.map((c) => c.code),
+        optionLabels: choices.map((c) => c.label),
       });
     }
+  }
+  if (
+    form in SPOUSE_ATC_CHOICES &&
+    spouseAtcRequired(form, d) &&
+    atcCode(d.spouseAtc) === ""
+  ) {
+    const f = form as SpouseAtcForm;
+    const choices = SPOUSE_ATC_CHOICES[f];
+    out.push({
+      key: "data.spouseAtc",
+      question: `Which ATC applies to the spouse's Item ${SPOUSE_ATC_ITEM[f]} of the ${form}? (${choices.map((c) => c.label).join("; ")})`,
+      why: `The spouse has sales or receipts; Item ${SPOUSE_ATC_ITEM[f]} is chosen by the preparer and the return cannot leave the Portal without it.`,
+      setWith: updateDraft("spouseAtc"),
+      kind: "atc",
+      options: choices.map((c) => c.code),
+      optionLabels: choices.map((c) => c.label),
+    });
+  }
+  if (form === "2551Q" && Array.isArray(d.rows)) {
+    (d.rows as { atc?: unknown; taxable?: unknown }[]).forEach((r, i) => {
+      const taxable = Number(String(r?.taxable ?? "").replace(/[,\s]/g, ""));
+      if (atcCode(r?.atc) !== "" || !Number.isFinite(taxable) || taxable === 0) return;
+      out.push({
+        key: `data.rows.${i + 1}.atc`,
+        question: `Schedule 1, row ${i + 1} has a taxable amount but no ATC. Which ATC applies to it? (${PERCENTAGE_TAX_ATCS.join(", ")})`,
+        why: "Each Schedule 1 row with an amount needs its ATC before the 2551Q can be exported, filed or printed.",
+        setWith: `${updateDraft("rows")} (row ${i + 1}, key atc)`,
+        kind: "atc",
+        options: [...PERCENTAGE_TAX_ATCS],
+      });
+    });
   }
   return out;
 }

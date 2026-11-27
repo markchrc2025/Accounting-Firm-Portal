@@ -29,6 +29,8 @@ const API = "/api/v1";
 const ACCEPT = "application/json, text/event-stream";
 const SECRET = `${TAG}-connector-secret-0123456789abcdef`;
 const D1701Q = {
+  // U27 (D74): a return is filed only with its Item 8 ATC chosen.
+  atc: "II012",
   year: "2026",
   amended: "no",
   rateA: "graduated",

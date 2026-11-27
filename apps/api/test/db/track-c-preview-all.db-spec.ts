@@ -147,6 +147,8 @@ const FORMS: FormCase[] = [
       nonOpDescA: "INTEREST INCOME",
       cwtA: "4000",
       salesB: "300000",
+      // U27 (D74): a spouse with sales carries the spouse's Item 20 ATC.
+      spouseAtc: "II015",
       cwtB: "1500",
       p32bank: "SAMPLE BANK",
       p32num: "000123",

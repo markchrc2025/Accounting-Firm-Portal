@@ -47,6 +47,15 @@ const NO_FILE_KEPT = "This return has no BIR confirmation file.";
 const NONE_FOR = (form: string) =>
   `The BIR sends no confirmation email for the ${form}, so there is nothing to upload.`;
 
+/** The ATC a person chose on each return that carries one (U27). */
+const CHOSEN_ATC: Record<string, string> = {
+  "1701": "II012",
+  "1701A": "II012",
+  "1701Q": "II012",
+  "1702Q": "IC055",
+  "1702RT": "IC055",
+};
+
 describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
   let app: INestApplication;
   let db: PrismaService;
@@ -91,7 +100,8 @@ describe("U18 · BIR filing confirmation (real app over HTTP, db)", () => {
       clientId: ids[key],
       form,
       period,
-      data: {},
+      // U27 (D74): a return leaves the Portal only with its ATC chosen.
+      data: form in CHOSEN_ATC ? { atc: CHOSEN_ATC[form] } : {},
     });
     expect([key, form, period, res.status]).toEqual([key, form, period, 201]);
     return res.body as { id: string };

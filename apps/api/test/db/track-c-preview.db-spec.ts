@@ -286,8 +286,11 @@ describe("C3 T1 · Preview PDF: a draft return on the BIR's form, stamped DRAFT 
     const bad = await draftForm("2551Q", "2026-Q4", {
       year: "2026",
       quarter: "4th",
-      rows: [{ atc: "PT150", taxable: "1000", rate: "18" }],
+      rows: [{ atc: "PT040", taxable: "1000", rate: "18" }],
     });
+    // U27 (D74): an unknown code is refused where a draft is written; this one was stored
+    // before that rule.
+    await writer.$executeRaw`UPDATE "bir_forms" SET "dataJson" = jsonb_set("dataJson", '{rows,0,atc}', '"PT150"') WHERE "id" = ${bad}::uuid`;
     const exportRefusal = await as(http().post(`${API}/bir-forms/${bad}/export`));
     expect(exportRefusal.status).toBe(409);
     const c = await preview(bad);

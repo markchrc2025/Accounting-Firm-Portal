@@ -65,10 +65,9 @@ function assertScheduleEncodable(rows: Row2551Q[]): void {
     if (!code && num(r.taxable) === 0) return;
     const row = i + 1;
     const fix = "Change the row's ATC or remove the row, then export again.";
-    if (!code)
-      throw new ExportRefusal(
-        `Schedule 1, row ${row} has an amount but no ATC. Choose its ATC or remove the row, then export again.`,
-      );
+    // U27 (D74): a row with an amount and no ATC is the gate's (@portal/shared missingAtcs),
+    // before the export; a draft's Preview prints the row without it.
+    if (!code) return;
     if (!(code in ATC_INDEX))
       throw new ExportRefusal(
         `Schedule 1, row ${row}: the ATC ${code} cannot be written into the eBIRForms export yet. ${fix}`,

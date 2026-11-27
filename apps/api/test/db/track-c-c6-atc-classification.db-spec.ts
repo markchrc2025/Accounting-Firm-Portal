@@ -562,19 +562,27 @@ describe("C6 T1 · Item 6 is the Classification, Item 7 is chosen (real app over
             ].filter((x): x is string => !!x),
           );
 
-          // The XML export.
+          // The XML export. U27 (D74): with no ATC chosen it is refused, in the gate's
+          // sentence; the Preview below still prints (a draft stays previewable).
           const xmlRes = await as(http().post(`${API}/bir-forms/${id}/export`));
-          expect(xmlRes.status).toBe(201);
-          const xml = Buffer.from(
-            [...storage.objects.entries()].find(
-              ([key]) =>
-                key.includes(`/${id}/`) && key.endsWith(`/${xmlRes.body.filename}`),
-            )![1].body,
-          ).toString("utf8");
-          const inXml = all.filter((key) => exported(xml, c.ns + key) === "true");
-          expect(inXml.sort()).toEqual([...want].sort());
           const text = c.atcText ? c.atcText.holds(k.atc) : null;
-          if (c.atcText) expect(exported(xml, c.ns + c.atcText.key)).toBe(text);
+          if (!k.atc) {
+            expect([xmlRes.status, xmlRes.body.message]).toEqual([
+              409,
+              `Choose the Item ${c.atcItem} ATC before this return leaves the Portal.`,
+            ]);
+          } else {
+            expect(xmlRes.status).toBe(201);
+            const xml = Buffer.from(
+              [...storage.objects.entries()].find(
+                ([key]) =>
+                  key.includes(`/${id}/`) && key.endsWith(`/${xmlRes.body.filename}`),
+              )![1].body,
+            ).toString("utf8");
+            const inXml = all.filter((key) => exported(xml, c.ns + key) === "true");
+            expect(inXml.sort()).toEqual([...want].sort());
+            if (c.atcText) expect(exported(xml, c.ns + c.atcText.key)).toBe(text);
+          }
 
           // The Preview PDF: an X in each wanted box and in no other of these boxes.
           const res = await as(http().post(`${API}/bir-forms/${id}/preview-pdf`))
@@ -629,14 +637,21 @@ describe("C6 T1 · Item 6 is the Classification, Item 7 is chosen (real app over
         ? ["II099", "IC010"]
         : ["II099", ...["II011", "II013", "II016"].filter((a) => !(a in c.atc))];
       for (const code of outside) {
-        it(`${c.form}: d.atc ${code} is refused at export and at Preview, naming the ATC and the form`, async () => {
-          const id = await draft(
-            c,
-            c.company
-              ? company("Domestic Corporation")
-              : person("Single", "Single Proprietorship"),
-            { ...c.base, atc: code },
-          );
+        it(`${c.form}: d.atc ${code} is refused where it is written (U27), and a row stored before is refused at export and at Preview, naming the ATC and the form`, async () => {
+          const who = c.company
+            ? company("Domestic Corporation")
+            : person("Single", "Single Proprietorship");
+          // U27 (D74): the write path refuses it, naming the item.
+          const id = await draft(c, who, { ...c.base });
+          const written = await as(http().patch(`${API}/bir-forms/${id}`)).send({
+            data: { year: "2026", ...c.base, atc: code },
+          });
+          expect([written.status, written.body.message]).toEqual([
+            400,
+            `Item ${c.atcItem}: the ATC ${code} is not one of the ATC choices printed on BIR Form ${c.form}. Choose Item ${c.atcItem} again.`,
+          ]);
+          // A draft stored before U27 with that code: the export and the Preview refuse it.
+          await writer.$executeRaw`UPDATE "bir_forms" SET "dataJson" = jsonb_set("dataJson", '{atc}', to_jsonb(${code}::text)) WHERE "id" = ${id}::uuid`;
           const message = `Item ${c.atcItem}: the ATC ${code} is not one of the ATC choices printed on BIR Form ${c.form}. Choose Item ${c.atcItem} again, or clear it, then try again.`;
           const xmlRes = await as(http().post(`${API}/bir-forms/${id}/export`));
           expect(xmlRes.status).toBe(409);

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { missingAtcs } from "@portal/shared";
+import { AtcGateHint } from "../components/birform/AtcGateHint";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -148,6 +150,8 @@ export default function BirForm1702QEditor() {
 
   // W23: what Save would send, for the Preview pane in the shared page.
   usePublishPreviewFeed(data, period);
+  // U27 (D74): nothing leaves the Portal while a required ATC is empty (Preview stays open).
+  const atcGate = missingAtcs("1702Q", data);
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) return createBirForm({ clientId, form: "1702Q", period, data });
@@ -486,13 +490,16 @@ export default function BirForm1702QEditor() {
               </p>
             ) : null}
             {!isNew ? (
-              <Button
-                variant="outline"
-                disabled={exportXml.isPending || needsAmendedSave}
-                onClick={() => exportXml.mutate()}
-              >
-                {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  disabled={exportXml.isPending || needsAmendedSave || atcGate.length > 0}
+                  onClick={() => exportXml.mutate()}
+                >
+                  {exportXml.isPending ? "Exporting…" : "Export eBIRForms XML"}
+                </Button>
+                <AtcGateHint sentences={atcGate} />
+              </>
             ) : (
               <p className="text-center text-[11.5px] text-content-muted">
                 Save the draft to enable XML export.
@@ -511,6 +518,7 @@ export default function BirForm1702QEditor() {
                 <FiledFormAction detail={existing.data} />
               ) : (
                 <MarkAsFiledButton
+                  blockedBy={atcGate}
                   detail={existing.data!}
                   disabled={
                     setStatus.isPending ||

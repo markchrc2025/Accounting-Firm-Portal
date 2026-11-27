@@ -324,10 +324,13 @@ describe("U13 · clear copies: a filed return on the BIR's own form (real app ov
         pt("3rd", {
           rows: [
             { atc: "PT010", taxable: "100000", rate: "3" },
-            { atc: "PT150", taxable: "1000", rate: "3" },
+            { atc: "PT040", taxable: "1000", rate: "3" },
           ],
         }),
       );
+      // U27 (D74): an unknown code is refused where a draft is written; this one was
+      // stored before that rule.
+      await writer.$executeRaw`UPDATE "bir_forms" SET "dataJson" = jsonb_set("dataJson", '{rows,1,atc}', '"PT150"') WHERE "id" = ${id}::uuid`;
       await markFiled(id);
       const objects = storage.objects.size;
       const message =

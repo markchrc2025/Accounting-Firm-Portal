@@ -882,6 +882,9 @@ for (const code of ["2551Q", "2550Q"] as const) {
       const { unmocked, dialogs } = await mockApi(page, cfg, w);
       await page.goto(cfg.newUrl);
       await page.getByLabel(/^Quarter/).selectOption("Q3");
+      // W27 (D74): a 2551Q row starts with no ATC; a person chooses it.
+      if (code === "2551Q")
+        await page.getByTestId("row-atc").first().selectOption("PT010");
       await cfg.input(page, cfg.first).fill("5");
       await page.getByLabel("Client").selectOption(CLIENT.id);
       const dialog = dialogOf(page);

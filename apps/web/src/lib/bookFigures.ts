@@ -238,10 +238,11 @@ export function patchData(
         rows[at] = next;
       } else {
         // A row the draft lacks: it takes the place of an empty row the editor started
-        // with (every column blank), else it is added after the draft's own rows, if
-        // the form has room.
+        // with (no ATC and no amount: U27, a new row starts with no ATC and only the
+        // editor's default rate), else it is added after the draft's own rows, if the
+        // form has room.
         const blank = rows.findIndex(
-          (r) => isRecord(r) && Object.values(r).every((v) => text(v) === ""),
+          (r) => isRecord(r) && text(r.atc) === "" && text(r[spec.amount]) === "",
         );
         if (blank >= 0) rows[blank] = { ...f.row };
         else if (rows.length < spec.max) rows.push({ ...f.row });

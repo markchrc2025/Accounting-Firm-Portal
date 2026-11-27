@@ -25,6 +25,7 @@ import type { Comp1701 } from "./compute1701";
 import { amt, dob, enc, parseYear, rb, tinParts, type XmlRow } from "./xmlkit";
 import { num } from "./format";
 import { chosenAtc, civilStatusOf, taxpayerTypeOf } from "./taxpayer-background";
+import { spouseOnReturn } from "./spouse-on-return";
 
 const NS = "frm1701:";
 
@@ -196,10 +197,12 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg2I1TIN3", stin.slice(6, 9));
   E("txtPg2I1BranchCode");
   P("txtPg2I2SpouseRDOCode", (d.spouseRdo as string) || "000");
-  P("rdoPg2I3SpouseTypeS", rb(d.spouseType === "single"));
-  P("rdoPg2I3SpouseTypeP", rb(d.spouseType === "prof" || d.spouseType === "biz"));
-  P("rdoPg2I3SpouseTypeC", rb(d.spouseType === "comp")); // Compensation Earner
-  const satc = (d.spouseAtc as string) || "";
+  // U27 addendum (D74): the spouse's background prints only for a spouse on the return.
+  const hasSpouse = spouseOnReturn(d);
+  P("rdoPg2I3SpouseTypeS", rb(hasSpouse && d.spouseType === "single"));
+  P("rdoPg2I3SpouseTypeP", rb(hasSpouse && (d.spouseType === "prof" || d.spouseType === "biz")));
+  P("rdoPg2I3SpouseTypeC", rb(hasSpouse && d.spouseType === "comp")); // Compensation Earner
+  const satc = hasSpouse ? (d.spouseAtc as string) || "" : "";
   P("rdoPg2I4ATC_II012", rb(satc === "II012"));
   P("rdoPg2I4ATC_II014", rb(satc === "II014"));
   P("rdoPg2I4ATC_II013", rb(satc === "II013"));
@@ -210,8 +213,8 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("txtPg2I5SpouseName", enc(d.spouseName));
   P("txtPg2I6TelNum", enc(d.spouseContact));
   P("txtPg2I7Citizenship", enc(d.spouseCitizenship));
-  P("rdoPg2I8ForeignTaxCreditsYes", rb(d.spouseForeignCredit === "yes"));
-  P("rdoPg2I8ForeignTaxCreditsNo", rb(d.spouseForeignCredit === "no"));
+  P("rdoPg2I8ForeignTaxCreditsYes", rb(hasSpouse && d.spouseForeignCredit === "yes"));
+  P("rdoPg2I8ForeignTaxCreditsNo", rb(hasSpouse && d.spouseForeignCredit === "no"));
   P("txtPg2I9ForeignTaxNumber", enc(d.spouseForeignTaxNo));
   P("rdoPg2I10IncomeExemptYes", rb(d.spouseIncomeExempt === "yes"));
   P("rdoPg2I10IncomeExemptNo", rb(d.spouseIncomeExempt === "no"));
@@ -219,7 +222,7 @@ export function build1701(filing: Filing, tp: Taxpayer | null, comp: Comp1701): 
   P("rdoPg2I11IncomeSpecialNo", rb(d.spouseIncomeSpecial === "no"));
   // The spouse's rate and method are the editor's rateB/methodB (carried only when a
   // spouse is included); spouseRate/spouseMethod remain for drafts that set them.
-  const srate = (d.spouseRate as string) || (d.rateB as string) || "";
+  const srate = hasSpouse ? (d.spouseRate as string) || (d.rateB as string) || "" : "";
   const smethod = (d.spouseMethod as string) || (d.methodB as string) || "osd";
   P("rdoPg2I12TaxRateG", rb(srate === "graduated"));
   P("rdoPg2I12AMethodDeductionI", rb(srate !== "eight" && srate !== "" && smethod === "itemized"));

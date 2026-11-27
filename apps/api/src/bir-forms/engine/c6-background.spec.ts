@@ -360,37 +360,39 @@ describe("build1701Q: Items 7 and 8, and a spouse's answers only for a spouse on
     expect(k.filter((x) => /^optSpouse(TaxRate|ForeignTaxCred)/.test(x))).toEqual([]);
   });
 
-  it("a spouse on the return (the editor carries rateB): the spouse's answers print", () => {
+  // U27 addendum (D74): a spouse is on the return when the draft holds a figure of the
+  // spouse's column (the defaulted rateB/methodB alone are not a spouse), and Item 25A belongs
+  // to the spouse's Graduated choice only.
+  it("a spouse on the return (a column-B figure): the spouse's answers print; no 25A under 8%", () => {
     const k = run(person(), {
       rateA: "graduated",
       methodA: "osd",
       rateB: "eight",
       methodB: "osd",
+      salesB: "1000",
     });
     expect(k).toEqual(
-      expect.arrayContaining([
-        "optSpouseTaxRate_2",
-        "optSpouseForeignTaxCred_2",
-        "optSpouseMethod:_2",
-      ]),
+      expect.arrayContaining(["optSpouseTaxRate_2", "optSpouseForeignTaxCred_2"]),
     );
     expect(k).not.toContain("optSpouseTaxRate_1");
+    expect(k).not.toContain("optSpouseMethod:_2");
+    const only = run(person(), {
+      rateA: "graduated",
+      rateB: "graduated",
+      methodB: "osd",
+    });
+    expect(only.filter((x) => x.startsWith("optSpouse"))).toEqual([]);
   });
 });
 
 describe("build1701: the spouse's tax rate on page 2 follows the editor's rateB/methodB", () => {
   it("rateB eight → Item 12 8%; rateB graduated with itemized → Itemized", () => {
-    const eight = build1701(
-      filing("1701", { year: "2026", rateB: "eight", methodB: "osd" }, "2026"),
-      person(),
-      compute1701({ year: "2026", rateB: "eight", methodB: "osd" }),
-    );
+    // U27 addendum (D74): the spouse is on the return through a column-B figure (salesB).
+    const e = { year: "2026", rateB: "eight", methodB: "osd", salesB: "1000" };
+    const eight = build1701(filing("1701", e, "2026"), person(), compute1701(e));
     expect(ticked(eight, "frm1701:")).toContain("rdoPg2I12TaxRateP");
-    const grad = build1701(
-      filing("1701", { year: "2026", rateB: "graduated", methodB: "itemized" }, "2026"),
-      person(),
-      compute1701({ year: "2026", rateB: "graduated", methodB: "itemized" }),
-    );
+    const g = { year: "2026", rateB: "graduated", methodB: "itemized", salesB: "1000" };
+    const grad = build1701(filing("1701", g, "2026"), person(), compute1701(g));
     expect(ticked(grad, "frm1701:")).toEqual(
       expect.arrayContaining(["rdoPg2I12TaxRateG", "rdoPg2I12AMethodDeductionI"]),
     );

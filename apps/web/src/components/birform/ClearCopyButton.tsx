@@ -22,11 +22,15 @@ export function ClearCopyButton({
   formId,
   size = "md",
   disabled = false,
+  blockedBy = [],
 }: {
   formId: string;
   size?: "sm" | "md";
   /** The page holds the button back (W17: a 1601-EQ of more than six ATCs). */
   disabled?: boolean;
+  /** U27 (D74): the sentences that keep the return in the Portal (a required ATC is empty);
+   *  the editor shows them once, under Export eBIRForms XML. */
+  blockedBy?: readonly string[];
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export function ClearCopyButton({
       <Button
         variant="outline"
         size={size}
-        disabled={run.isPending || disabled}
+        disabled={run.isPending || disabled || blockedBy.length > 0}
         onClick={onClick}
       >
         {run.isPending ? "Preparing…" : "Download clear copy"}

@@ -7,8 +7,9 @@ import { build2550Q, fileName2550Q } from "./build2550Q";
 import { build2551Q } from "./build2551Q";
 import { compute2550Q } from "./compute2550Q";
 import { compute2551Q } from "./compute2551Q";
-import { ExportRefusal, manilaDate } from "./export-refusal";
+import { manilaDate } from "./export-refusal";
 import { BirPdfError, parseEbirExport, renderReturn } from "@portal/bir-pdf";
+import { missingAtcs } from "@portal/shared";
 import { isEngineFault } from "../bir-forms.service";
 
 const tp: Taxpayer = {
@@ -58,12 +59,15 @@ describe("U13 F1 · Schedule 1 rows the export cannot carry refuse it", () => {
     return () => build2551Q(f, tp, compute2551Q(f.data));
   };
 
-  it("an amount with no ATC refuses, naming the row", () => {
-    expect(build([{ atc: "PT010", taxable: "100" }, { taxable: "50" }])).toThrow(
-      new ExportRefusal(
-        "Schedule 1, row 2 has an amount but no ATC. Choose its ATC or remove the row, then export again.",
-      ),
-    );
+  it("an amount with no ATC: the builder prints the row (a draft's Preview), and the ATC gate refuses it from leaving (U27, D74)", () => {
+    const rows: Record<string, string>[] = [
+      { atc: "PT010", taxable: "100" },
+      { taxable: "50" },
+    ];
+    expect(build(rows)).not.toThrow();
+    expect(missingAtcs("2551Q", { rows })).toEqual([
+      "Schedule 1, row 2 has a taxable amount but no ATC. Choose its ATC before this return leaves the Portal.",
+    ]);
   });
 
   it("a seventh counted row refuses: the form has six", () => {
