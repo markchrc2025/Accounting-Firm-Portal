@@ -216,21 +216,20 @@ describe("U26 · whole pesos where the paper has no centavo boxes (real app over
   describe("W3 and W4 · a sealed return with centavos, then undo and save", () => {
     it("clear copy is 409 with every item; undo keeps the figures; the first save rounds them", async () => {
       const clientId = await newClient();
-      // A draft saved before U26: its centavos are in the row as typed.
+      // A return sealed before U26 and U28 with its centavos as typed. U28 (D75) refuses Mark
+      // as filed on such a draft, so the sealed row is written as it stands in production
+      // (Rossan Aesthetic's 1701Q, filed 15 Nov 2026 by override, before U28).
       const d = await db.birForm.create({
         data: {
           firmId,
           clientId,
           form: "1701Q",
           period: "2026-Q3",
+          status: "filed",
+          filedAt: new Date("2026-11-15T03:32:49.000Z"),
           dataJson: { ...D1701Q, salesA: "130507.95" },
         },
       });
-      const filed = await as(http().post(`${API}/bir-forms/${d.id}/mark-filed`)).field(
-        "overrideReason",
-        "eBIRForms submitted it; the BIR e-mail did not arrive yet",
-      );
-      expect(filed.status).toBe(200);
       const before = await row(d.id);
       expect(before.status).toBe("filed");
 

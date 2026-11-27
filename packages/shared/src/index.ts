@@ -13,3 +13,4 @@ export * from "./bir-form-source";
 export * from "./client-delete";
 export * from "./whole-peso";
 export * from "./atc";
+export * from "./whole-peso-filing";

@@ -18,7 +18,7 @@ import {
   type BirFormDetail,
   type ConfirmationCheckResult,
 } from "../../lib/api";
-import { missingAtcs } from "@portal/shared";
+import { centavosBeforeFiling, missingAtcs } from "@portal/shared";
 import { useOptionalAuth } from "../../auth/AuthContext";
 import {
   ALPHALIST_PROBLEMS,
@@ -146,6 +146,14 @@ export function ConfirmationDialog({
     mode === "mark"
       ? missingAtcs(detail.form, detail.data as Record<string, unknown> | undefined)
       : [];
+  // U28 (D75): nor while the saved draft holds centavos where the paper has none.
+  const centavoGate =
+    mode === "mark"
+      ? centavosBeforeFiling(
+          detail.form,
+          detail.data as Record<string, unknown> | undefined,
+        )
+      : [];
   const alphalistOk =
     !withAlphalist ||
     mayFile(alphalist.data, alphalist.isError, alphalist.isPending, understood);
@@ -261,6 +269,16 @@ export function ConfirmationDialog({
             className="mx-6 mt-1 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
           >
             {atcGate.join(" ")}
+          </p>
+        ) : null}
+
+        {centavoGate.length > 0 ? (
+          <p
+            role="alert"
+            data-centavo-gate
+            className="mx-6 mt-1 rounded-input border border-danger/40 bg-danger-bg px-3.5 py-2.5 text-[12.5px] text-danger-ink"
+          >
+            {centavoGate.join(" ")}
           </p>
         ) : null}
 
@@ -461,13 +479,32 @@ export function MarkAsFiledButton({
 }) {
   const [open, setOpen] = useState(false);
   const done = useConfirmationDone();
-  // The editor shows the sentence once, under Export eBIRForms XML.
-  const held = disabled || blockedBy.length > 0;
+  // The editor shows the ATC sentence once, under Export eBIRForms XML.
+  // U28 (D75): the SAVED return (detail, not the editor's figures) with centavos in a
+  // whole-peso figure waits for a save; that sentence shows here, under the button.
+  const centavoGate = centavosBeforeFiling(
+    detail.form,
+    detail.data as Record<string, unknown> | undefined,
+  );
+  const held = disabled || blockedBy.length > 0 || centavoGate.length > 0;
+  const centavoHint =
+    centavoGate.length > 0 ? (
+      <p
+        data-centavo-gate
+        role="note"
+        className="text-center text-[11.5px] text-content-muted"
+      >
+        {centavoGate.join(" ")}
+      </p>
+    ) : null;
   if (!detail.confirmationRequired) {
     return (
-      <Button variant="outline" disabled={held} onClick={onPlain}>
-        {pending ? "Marking…" : "Mark as filed"}
-      </Button>
+      <>
+        <Button variant="outline" disabled={held} onClick={onPlain}>
+          {pending ? "Marking…" : "Mark as filed"}
+        </Button>
+        {centavoHint}
+      </>
     );
   }
   return (
@@ -475,6 +512,7 @@ export function MarkAsFiledButton({
       <Button variant="outline" disabled={held} onClick={() => setOpen(true)}>
         Mark as filed
       </Button>
+      {centavoHint}
       {open ? (
         <ConfirmationDialog
           detail={detail}
